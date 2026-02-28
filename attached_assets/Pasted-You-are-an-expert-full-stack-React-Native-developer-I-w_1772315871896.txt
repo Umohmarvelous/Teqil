@@ -1,0 +1,146 @@
+You are an expert full‑stack React Native developer. I want you to build a complete mobile application called **Teqil** using **React Native with Expo, TypeScript, WatermelonDB, and Supabase**. The app must be **offline‑first** and serve three user types: commercial drivers, passengers, and park owners.
+
+## App Concept
+Teqil helps Nigerian commercial drivers earn fuel coins by staying on live trips. Coins come from in‑app ads that run automatically (no forced ad watching). Passengers join a trip using a unique **Trip Code**, track the journey, share live location with family, and receive arrival notifications. Park owners monitor drivers, receive emergency alerts, and see anonymised statistics.
+
+## Core Requirements
+- **User types**: Driver, Passenger, Park Owner.
+- **Authentication**: Signup with phone + email + age + password. Name optional (auto‑generate `Teqil_user1234` if blank).
+- **Driver profile completion** (mandatory before starting trips): full name, photo, vehicle details, country, age, park location, park name.
+- After profile completion, driver gets a **permanent Driver ID** (e.g., `DRV-7X9P2K`) shown on dashboard.
+- **Trip creation**: Driver taps "START TRIP", enters origin/destination/departure time/capacity, and a unique **Trip Code** (6‑char alphanumeric) is generated. This code is for that specific journey only.
+- **Passenger join**: Passenger enters Trip Code to find and join an active trip. They may optionally enter their own destination and emergency contacts.
+- **Live trip view**: Full‑screen Google Map with route, live earnings counter (drivers only), passenger stop markers, AI assistant button, bottom banner ad.
+- **Multiple passenger destinations**: System notifies driver when approaching a passenger's stop; marks that passenger complete upon stop.
+- **Emergency contacts**: During join, passenger selects contacts. When trip starts, contacts receive SMS with live tracking link; when passenger arrives, "arrived safely" SMS; SOS triggers urgent alert.
+- **AI Journey Assistant**: Floating button on live view opens modal with quick buttons and voice‑enabled Q&A. AI uses n8n backend + Google Maps data.
+- **History**: Both users see past trips with details; drivers see earnings.
+- **Ratings**: After trip, driver and passenger rate each other (stars + tags).
+- **Park Owner Dashboard**: Special login (same app) + web dashboard. Capabilities: view active park trips, anonymised completion rates/earnings, emergency alerts, verify drivers, park stats, broadcast messages (feature added now, used later).
+- **Ads**: Google AdMob + Meta Audience Network. Placements: bottom banner on live view, between history items, splash screen, post‑trip interstitial. 70% of revenue converted to coins for drivers.
+- **Offline‑first**: All core features work without internet (start trip, join, track, earn, complete). Sync when online (WatermelonDB + Supabase sync engine).
+- **Multi‑language**: English + Nigerian Pidgin (i18next).
+- **Trip sharing**: Passenger can share live trip link (driver info, live location, ETA) via WhatsApp/SMS. Link expires after trip.
+
+## Technical Stack
+- **Frontend**: React Native with Expo, TypeScript.
+- **Navigation**: React Navigation v6 (stack + bottom tabs).
+- **State**: Zustand.
+- **Local DB**: WatermelonDB (SQLite‑based).
+- **Backend**: Supabase (PostgreSQL, Auth, Realtime).
+- **Maps**: react‑native‑maps + Google Maps API (Places, Directions, Geocoding).
+- **Location**: expo‑location.
+- **Ads**: react‑native‑google‑mobile‑ads with Meta Audience Network mediation.
+- **Notifications**: expo‑notifications + Firebase Cloud Messaging.
+- **AI**: n8n self‑hosted (or cloud) exposing webhooks; app calls these for AI responses.
+- **Forms**: React Hook Form + Zod.
+- **i18n**: i18next.
+
+## Database Schema (Supabase)
+Create the following tables. Use Row Level Security with appropriate policies.
+
+### `users` (extends auth.users)
+- `id` uuid (pk)
+- `full_name` text (nullable; auto‑generate if empty)
+- `phone` text unique not null
+- `email` text unique not null
+- `age` int not null check (age >= 18)
+- `role` text not null check (role in ('driver','passenger','park_owner'))
+- `driver_id` text unique (generated for drivers)
+- `profile_photo` text (url)
+- `vehicle_details` text (drivers)
+- `park_location` text (drivers)
+- `park_name` text (drivers)
+- `points_balance` int default 0
+- `avg_rating` float
+- `created_at` timestamptz default now()
+
+### `trips`
+- `id` uuid pk
+- `driver_id` uuid references users(id)
+- `trip_code` text unique not null
+- `origin` text not null
+- `destination` text not null
+- `start_time` timestamptz not null
+- `end_time` timestamptz
+- `distance` float
+- `status` text not null check (status in ('active','completed'))
+- `created_at` timestamptz default now()
+
+### `passengers`
+- `id` uuid pk
+- `trip_id` uuid references trips(id)
+- `user_id` uuid references users(id)
+- `destination` text (defaults to trip.destination)
+- `dropoff_time` timestamptz
+- `status` text not null check (status in ('active','completed'))
+- `emergency_contacts` jsonb (array of {name, phone})
+- `created_at` timestamptz default now()
+
+### `ratings`
+- `id` uuid pk
+- `trip_id` uuid references trips(id)
+- `rater_id` uuid references users(id)
+- `rated_id` uuid references users(id)
+- `stars` int not null check (stars between 1 and 5)
+- `tags` text[]
+- `review` text
+- `created_at` timestamptz default now()
+
+### `parks`
+- `id` uuid pk
+- `name` text not null
+- `location` text not null
+- `owner_id` uuid references users(id)
+- `access_code` text (for park owner verification)
+- `created_at` timestamptz default now()
+
+## Instructions for the AI
+
+Build this app step‑by‑step. After each major feature, pause and wait for my confirmation before proceeding. Use the following order:
+
+1. **Project setup**: Initialize Expo + TypeScript + WatermelonDB + Supabase client + navigation structure. Configure environment variables (Supabase URL, anon key, Google Maps API key, AdMob IDs). Set up folder structure: `/src/screens`, `/src/components`, `/src/services`, `/src/models`, `/src/utils`, `/src/i18n`.
+2. **Authentication**: Signup/login screens with phone/email/password/age. Auto‑generate name if empty. Store user in Supabase and local WatermelonDB. Role selection (driver/passenger/park owner) at signup.
+3. **Driver profile completion**: After signup as driver, redirect to profile completion screen. Block access to "START TRIP" until profile complete. Generate permanent Driver ID and display on dashboard.
+4. **Passenger dashboard**: Simple dashboard with "FIND TRIP" and coin balance.
+5. **Trip creation (driver)**: Form for origin/destination/time/capacity. On submit, create trip record in Supabase and local DB, generate unique Trip Code, and navigate to live trip view.
+6. **Join trip (passenger)**: Input Trip Code, validate, show trip details. Passenger enters optional destination and emergency contacts. On join, create passenger record and navigate to live trip view.
+7. **Live trip view**:
+   - Full‑screen map (react‑native‑maps) with route and live location.
+   - Top bar with live earnings (driver) / destination info; collapsible.
+   - Bottom banner ad (AdMob).
+   - Passenger list (driver only) with names and destinations.
+   - Emergency SOS button.
+   - "Complete Trip" button (driver) ends trip for all.
+   - GPS monitoring for passenger stop detection (500m radius + stop duration >30s). When stop detected, mark passenger complete, send notification.
+   - When final destination reached, mark trip complete, calculate earnings, send notifications.
+8. **AI Assistant**: Floating button opens modal with quick buttons. Integrate with n8n webhook (POST request with query, user role, location, destination). Handle voice input/output (expo‑speech + expo‑audio for recording). Display response.
+9. **Emergency contacts & SMS**:
+   - When trip starts, for each emergency contact, send SMS via a service (Twilio or similar) – use a cloud function or external API. For now, simulate with console.log.
+   - On arrival, send arrival SMS.
+   - SOS: send urgent SMS with live location.
+10. **History screen**: Fetch trips from local DB (synced) and display list with details.
+11. **Rating**: After trip completion, show rating modal for both parties. Save to Supabase.
+12. **Park owner dashboard**:
+    - Special login with access code.
+    - Show active trips from drivers belonging to that park (join trips with users via park_name/location).
+    - Display anonymised stats (completion rate, total earnings).
+    - Emergency alerts (real‑time via Supabase Realtime).
+    - Broadcast message input (store in a new table `broadcasts`; display to drivers in a "Messages" tab).
+13. **Multi‑language**: Set up i18next with English and Pidgin translations for all UI strings.
+14. **Offline sync**:
+    - Configure WatermelonDB with models matching Supabase tables.
+    - Implement sync: push local changes when online, pull updates.
+    - Conflict resolution: last write wins (use `updated_at` timestamps).
+15. **Trip sharing**: Passenger can share a deep link (use Linking API) that contains trip ID. Recipient opens link → if app installed, open live tracking view (with read‑only access); if not, show web view (host a simple page).
+
+## Important Notes
+- Use **plain language** (8th‑grade level) throughout the UI.
+- All buttons and touch targets must be large and easy to tap.
+- Use Nigerian Naira symbol (₦) for coin values.
+- Color scheme: green + white, friendly and trustworthy.
+- Never force users to watch ads; ads play automatically in designated spots.
+- Ensure the app works completely offline for all core features (starting/joining trips, tracking, earning, completing). Only sync and AI require internet.
+- After completing each step, pause and wait for my instruction (e.g., "Proceed to next feature").
+
+Now begin with **Step 1: Project setup**. Initialize the Expo project with TypeScript, install required dependencies, configure WatermelonDB and Supabase client, and set up the folder structure. After that, wait for my confirmation before moving to authentication.
