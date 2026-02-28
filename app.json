@@ -1,30 +1,44 @@
 {
   "expo": {
-    "name": "My App",
-    "slug": "my-app",
+    "name": "Teqil",
+    "slug": "teqil",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
-    "userInterfaceStyle": "automatic",
+    "scheme": "teqil",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#00A651"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.myapp"
+      "bundleIdentifier": "com.teqil.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Teqil needs your location to track trips and show your position on the map.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Teqil needs your location to track trips in the background.",
+        "NSCameraUsageDescription": "Teqil needs camera access to take your profile photo.",
+        "NSPhotoLibraryUsageDescription": "Teqil needs photo library access to select your profile photo."
+      }
     },
     "android": {
-      "package": "com.myapp",
+      "package": "com.teqil.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#00A651",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      }
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
@@ -37,7 +51,9 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-location",
+      "expo-image-picker"
     ],
     "experiments": {
       "typedRoutes": true,
