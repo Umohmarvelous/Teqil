@@ -53,7 +53,8 @@
       "expo-font",
       "expo-web-browser",
       "expo-location",
-      "expo-image-picker"
+      "expo-image-picker",
+      "expo-maps"
     ],
     "experiments": {
       "typedRoutes": true,
