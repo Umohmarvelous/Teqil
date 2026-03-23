@@ -126,6 +126,16 @@ const RESPONSES: Record<string, (ctx: AIContext) => AIResponse> = {
       "Warm and dry today, around 32°C. Visibility is good.",
       "Overcast skies but no rain forecast. Road conditions are normal.",
     ]),
+   }),
+  
+  weathers: () => ({
+    icon: "partly-sunny-outline",
+    text: randomFrom([
+      "Weather is clear and sunny. Great day for travel — no rain expected.",
+      "Partly cloudy with a chance of light rain in the afternoon. Drive carefully if it starts.",
+      "Warm and dry today, around 32°C. Visibility is good.",
+      "Overcast skies but no rain forecast. Road conditions are normal.",
+    ]),
   }),
 
   earnings: (ctx) => {

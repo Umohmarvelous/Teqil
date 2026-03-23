@@ -1625,7 +1625,7 @@ function AIAssistantModal({ visible, onClose, ctx }: AIModalProps) {
   useEffect(() => {
     if (visible) {
       op.value = withTiming(1, { duration: 220 });
-      tY.value = withSpring(0, { damping: 22, stiffness: 200 });
+      tY.value = withSpring(0, { damping: 70, stiffness: 900 });
       // welcome message on first open
       if (messages.length === 0) {
         const welcome: ChatMessage = {
@@ -1646,6 +1646,8 @@ function AIAssistantModal({ visible, onClose, ctx }: AIModalProps) {
     }
   }, [visible]);
 
+  
+
   const overlayStyle = useAnimatedStyle(() => ({ opacity: op.value }));
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: tY.value }] }));
 
@@ -1655,10 +1657,12 @@ function AIAssistantModal({ visible, onClose, ctx }: AIModalProps) {
     Speech.speak(text, {
       language: "en-NG",
       rate: 0.92,
+      pitch: 1.1,
       onDone: () => setSpeakingId(null),
       onError: () => setSpeakingId(null),
     });
   }, []);
+
 
   const stopSpeaking = useCallback(() => {
     Speech.stop();
@@ -1768,6 +1772,7 @@ function AIAssistantModal({ visible, onClose, ctx }: AIModalProps) {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
             contentContainerStyle={aiStyles.quickRow}
             style={aiStyles.quickScroll}
           >
@@ -1778,7 +1783,7 @@ function AIAssistantModal({ visible, onClose, ctx }: AIModalProps) {
                 onPress={() => sendMessage(qa.question)}
                 disabled={loading}
               >
-                <Ionicons name={qa.icon as any} size={14} color={Colors.primary} />
+                <Ionicons name={qa.icon as any} size={18} color={Colors.primary} />
                 <Text style={aiStyles.quickChipText}>{qa.label}</Text>
               </Pressable>
             ))}
@@ -2134,7 +2139,7 @@ export default function LiveTripScreen() {
 const aiStyles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.65)",
+    backgroundColor: "rgba(0 0 0 / 0.76)",
   },
   overlayTap: {
     flex: 1,
@@ -2151,7 +2156,7 @@ const aiStyles = StyleSheet.create({
     paddingHorizontal: 0,
     borderTopWidth: 1,
     borderTopColor: "rgba(255,255,255,0.06)",
-    maxHeight: "78%",
+    maxHeight: "90%",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -8 },
     shadowOpacity: 0.5,
@@ -2162,19 +2167,19 @@ const aiStyles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    backgroundColor: "rgba(255 255 255 / 0.58)7)7)5)",
     alignSelf: "center",
     marginBottom: 14,
   },
   header: {
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
     marginBottom: 12,
   },
   headerLeft: {
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
     gap: 12,
   },
@@ -2191,7 +2196,8 @@ const aiStyles = StyleSheet.create({
   headerTitle: {
     fontFamily: "Poppins_700Bold",
     fontSize: 16,
-    color: "#fff",
+     color: "#fff",
+    textAlign: 'center'
   },
   headerSub: {
     fontFamily: "Poppins_400Regular",
@@ -2201,8 +2207,10 @@ const aiStyles = StyleSheet.create({
   },
   headerRight: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
+    // alignItems: "center",
+     gap: 6,
+     justifyContent: 'flex-end',
+    alignSelf: 'flex-end'
   },
   muteBtn: {
     width: 36,
@@ -2222,17 +2230,23 @@ const aiStyles = StyleSheet.create({
   },
   // Quick actions
   quickScroll: {
-    flexGrow: 0,
+    // flexGrow: 0,
     marginBottom: 10,
+    flexDirection: "column",
+    height: "auto",
+    minHeight: 'auto',
   },
-  quickRow: {
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 2,
-  },
-  quickChip: {
+    quickRow: {
+      gap: 8,
+      paddingHorizontal: 20,
+      paddingVertical: 2,
+      flexWrap: 'wrap',
+      justifyContent: "space-evenly",
+    },
+    quickChip: {
+     width: 'auto',
     flexDirection: "row",
-    alignItems: "center",
+     alignItems: "center",
     gap: 6,
     backgroundColor: "rgba(0,166,81,0.1)",
     borderRadius: 20,
@@ -2243,7 +2257,7 @@ const aiStyles = StyleSheet.create({
   },
   quickChipText: {
     fontFamily: "Poppins_500Medium",
-    fontSize: 12,
+     fontSize: 12,
     color: "rgba(255,255,255,0.8)",
   },
   // Chat area
@@ -2311,7 +2325,8 @@ const aiStyles = StyleSheet.create({
   bubbleTime: {
     fontFamily: "Poppins_400Regular",
     fontSize: 10,
-    color: "rgba(255,255,255,0.3)",
+    color: "rgb(255 0 0)",
+    fontWeight: "heavy",
     marginTop: 4,
     alignSelf: "flex-end",
   },
