@@ -11,7 +11,7 @@ export default function IndexScreen() {
     if (isLoading) return;
 
     if (!isAuthenticated) {
-      router.replace("/(auth)/welcome");
+      router.replace("/(park-owner)/alerts");
       return;
     }
 

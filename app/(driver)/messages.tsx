@@ -38,10 +38,17 @@ export default function MessagesScreen() {
 
   const load = async () => {
     const data = await BroadcastsStorage.getAll();
-    setMessages(data);
+    // Sort newest first
+    const sorted = [...data].sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    setMessages(sorted);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -64,20 +71,37 @@ export default function MessagesScreen() {
         renderItem={({ item }) => <MessageCard broadcast={item} />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        scrollEnabled={!!messages.length}
+        scrollEnabled={messages.length > 0}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+          />
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons name="notifications-outline" size={48} color={Colors.border} />
+            <View style={styles.emptyIconBg}>
+              <Ionicons
+                name="notifications-outline"
+                size={40}
+                color={Colors.primary}
+              />
+            </View>
             <Text style={styles.emptyTitle}>No messages yet</Text>
             <Text style={styles.emptySubtitle}>
-              Your park owner will send announcements here
+              Your park owner will send announcements here. Pull down to
+              refresh.
             </Text>
           </View>
         }
-        ListFooterComponent={<View style={{ height: 100 + (Platform.OS === "web" ? 34 : 0) }} />}
+        ListFooterComponent={
+          <View
+            style={{
+              height: 100 + (Platform.OS === "web" ? 34 : 0),
+            }}
+          />
+        }
       />
     </View>
   );
@@ -85,6 +109,8 @@ export default function MessagesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+
+  // Header
   header: {
     paddingHorizontal: 24,
     paddingBottom: 16,
@@ -103,7 +129,11 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 2,
   },
+
+  // List
   listContent: { padding: 20, gap: 12 },
+
+  // Message card
   messageCard: {
     flexDirection: "row",
     backgroundColor: Colors.surface,
@@ -124,6 +154,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryLight,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
   messageContent: { flex: 1, gap: 4 },
   messageTitle: {
@@ -143,11 +174,22 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
     marginTop: 4,
   },
+
+  // Empty state
   emptyState: {
     alignItems: "center",
-    paddingTop: 80,
-    gap: 12,
+    paddingTop: 60,
     paddingHorizontal: 40,
+    gap: 14,
+  },
+  emptyIconBg: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    backgroundColor: Colors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
   },
   emptyTitle: {
     fontFamily: "Poppins_600SemiBold",

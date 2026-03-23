@@ -1,87 +1,561 @@
-import React, { useState } from "react";
+// import React, { useState } from "react";
+// import {
+//   View,
+//   Text,
+//   StyleSheet,
+//   Pressable,
+//   TextInput,
+//   ScrollView,
+//   Platform,
+//   Alert,
+// } from "react-native";
+// import { router } from "expo-router";
+// import { useSafeAreaInsets } from "react-native-safe-area-context";
+// import { Ionicons } from "@expo/vector-icons";
+// import * as Haptics from "expo-haptics";
+// import { useAuthStore } from "@/src/store/useStore";
+// import { Colors } from "@/constants/colors";
+// import { signIn } from "@/src/services/supabase";
+// import { useTranslation } from "react-i18next";
+// import type { User } from "@/src/models/types";
+
+// export default function LoginScreen() {
+//   const insets = useSafeAreaInsets();
+//   const { setUser, setIsAuthenticated, selectedRole } = useAuthStore();
+//   const { t } = useTranslation();
+
+//   const [email, setEmail] = useState("");
+//   const [password, setPassword] = useState("");
+//   const [showPassword, setShowPassword] = useState(false);
+//   const [isLoading, setIsLoading] = useState(false);
+//   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+
+//   const validate = () => {
+//     const newErrors: typeof errors = {};
+//     if (!email || !email.includes("@")) newErrors.email = "Enter a valid email";
+//     if (!password || password.length < 6) newErrors.password = "Password is required";
+//     setErrors(newErrors);
+//     return Object.keys(newErrors).length === 0;
+//   };
+
+//   const handleLogin = async () => {
+//     if (!validate()) return;
+//     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+//     setIsLoading(true);
+
+//     try {
+//       const data = await signIn(email.trim().toLowerCase(), password);
+//       const supaUser = data.user;
+
+//       if (supaUser) {
+//         const meta = supaUser.user_metadata;
+//         const user: User = {
+//           id: supaUser.id,
+//           full_name: meta.full_name || null,
+//           phone: meta.phone || "",
+//           email: supaUser.email || "",
+//           age: meta.age || 18,
+//           role: meta.role || selectedRole || "passenger",
+//           driver_id: meta.driver_id,
+//           profile_photo: meta.profile_photo,
+//           vehicle_details: meta.vehicle_details,
+//           park_location: meta.park_location,
+//           park_name: meta.park_name,
+//           points_balance: meta.points_balance || 0,
+//           avg_rating: meta.avg_rating,
+//           profile_complete: meta.profile_complete || false,
+//           created_at: supaUser.created_at,
+//         };
+//         setUser(user);
+//         setIsAuthenticated(true);
+
+//         if (user.role === "driver" && !user.profile_complete) {
+//           router.replace("/(auth)/driver-profile");
+//         } else if (user.role === "driver") {
+//           router.replace("/(driver)");
+//         } else if (user.role === "passenger") {
+//           router.replace("/(passenger)");
+//         } else {
+//           router.replace("/(park-owner)");
+//         }
+//       }
+//     } catch (err: unknown) {
+//       const msg = err instanceof Error ? err.message : "Login failed";
+//       Alert.alert("Sign In Failed", msg);
+//     } finally {
+//       setIsLoading(false);
+//     }
+//   };
+
+//   const topPadding = Platform.OS === "web" ? 67 : insets.top;
+
+//   return (
+//     <View style={styles.container}>
+//       <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
+//         <Pressable style={styles.backBtn} onPress={() => router.back()}>
+//           <Ionicons name="arrow-back" size={24} color={Colors.text} />
+//         </Pressable>
+//         <Text style={styles.headerTitle}>{t("auth.login")}</Text>
+//         <View style={{ width: 40 }} />
+//       </View>
+
+//       <ScrollView
+//         style={styles.scroll}
+//         contentContainerStyle={styles.scrollContent}
+//         keyboardShouldPersistTaps="handled"
+//         showsVerticalScrollIndicator={false}
+//       >
+//         <Text style={styles.title}>Welcome back</Text>
+//         <Text style={styles.subtitle}>Sign in to continue your journey</Text>
+
+//         <View style={styles.form}>
+//           <View style={styles.fieldGroup}>
+//             <Text style={styles.label}>{t("auth.email")}</Text>
+//             <View style={[styles.inputRow, errors.email && styles.inputError]}>
+//               <Ionicons name="mail-outline" size={20} color={Colors.textSecondary} />
+//               <TextInput
+//                 style={styles.input}
+//                 placeholder={t("auth.emailPlaceholder")}
+//                 placeholderTextColor={Colors.textTertiary}
+//                 keyboardType="email-address"
+//                 autoCapitalize="none"
+//                 autoCorrect={false}
+//                 value={email}
+//                 onChangeText={(v) => { setEmail(v); setErrors((e) => ({ ...e, email: undefined })); }}
+//               />
+//             </View>
+//             {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+//           </View>
+
+//           <View style={styles.fieldGroup}>
+//             <Text style={styles.label}>{t("auth.password")}</Text>
+//             <View style={[styles.inputRow, errors.password && styles.inputError]}>
+//               <Ionicons name="lock-closed-outline" size={20} color={Colors.textSecondary} />
+//               <TextInput
+//                 style={styles.input}
+//                 placeholder={t("auth.passwordPlaceholder")}
+//                 placeholderTextColor={Colors.textTertiary}
+//                 secureTextEntry={!showPassword}
+//                 value={password}
+//                 onChangeText={(v) => { setPassword(v); setErrors((e) => ({ ...e, password: undefined })); }}
+//               />
+//               <Pressable onPress={() => setShowPassword((s) => !s)}>
+//                 <Ionicons
+//                   name={showPassword ? "eye-off-outline" : "eye-outline"}
+//                   size={20}
+//                   color={Colors.textSecondary}
+//                 />
+//               </Pressable>
+//             </View>
+//             {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+//           </View>
+
+//           <Pressable style={styles.forgotBtn}>
+//             <Text style={styles.forgotText}>{t("auth.forgotPassword")}</Text>
+//           </Pressable>
+
+//           <Pressable
+//             style={({ pressed }) => [styles.submitBtn, pressed && styles.submitBtnPressed, isLoading && styles.submitBtnLoading]}
+//             onPress={handleLogin}
+//             disabled={isLoading}
+//           >
+//             <Text style={styles.submitBtnText}>
+//               {isLoading ? t("auth.loggingIn") : t("auth.login")}
+//             </Text>
+//           </Pressable>
+
+//           <Pressable style={styles.switchBtn} onPress={() => router.replace("/(auth)/register")}>
+//             <Text style={styles.switchText}>
+//               {t("auth.noAccount")}{" "}
+//               <Text style={styles.switchLink}>{t("auth.signUp")}</Text>
+//             </Text>
+//           </Pressable>
+//         </View>
+//       </ScrollView>
+//     </View>
+//   );
+// }
+
+// const styles = StyleSheet.create({
+//   container: { flex: 1, backgroundColor: Colors.surface },
+//   header: {
+//     flexDirection: "row",
+//     alignItems: "center",
+//     justifyContent: "space-between",
+//     paddingHorizontal: 20,
+//     paddingBottom: 16,
+//   },
+//   backBtn: {
+//     width: 40,
+//     height: 40,
+//     borderRadius: 12,
+//     backgroundColor: Colors.surfaceSecondary,
+//     alignItems: "center",
+//     justifyContent: "center",
+//   },
+//   headerTitle: {
+//     fontFamily: "Poppins_600SemiBold",
+//     fontSize: 16,
+//     color: Colors.text,
+//   },
+//   scroll: { flex: 1 },
+//   scrollContent: { padding: 24, paddingTop: 8 },
+//   title: {
+//     fontFamily: "Poppins_700Bold",
+//     fontSize: 28,
+//     color: Colors.text,
+//     marginBottom: 6,
+//   },
+//   subtitle: {
+//     fontFamily: "Poppins_400Regular",
+//     fontSize: 15,
+//     color: Colors.textSecondary,
+//     marginBottom: 32,
+//   },
+//   form: { gap: 4 },
+//   fieldGroup: { gap: 6, marginBottom: 16 },
+//   label: {
+//     fontFamily: "Poppins_500Medium",
+//     fontSize: 13,
+//     color: Colors.text,
+//   },
+//   inputRow: {
+//     flexDirection: "row",
+//     alignItems: "center",
+//     gap: 12,
+//     backgroundColor: Colors.surfaceSecondary,
+//     borderRadius: 14,
+//     paddingHorizontal: 16,
+//     paddingVertical: 14,
+//     borderWidth: 1.5,
+//     borderColor: "transparent",
+//   },
+//   inputError: { borderColor: Colors.error },
+//   input: {
+//     flex: 1,
+//     fontFamily: "Poppins_400Regular",
+//     fontSize: 15,
+//     color: Colors.text,
+//   },
+//   errorText: {
+//     fontFamily: "Poppins_400Regular",
+//     fontSize: 12,
+//     color: Colors.error,
+//     marginTop: 2,
+//   },
+//   forgotBtn: { alignSelf: "flex-end", marginBottom: 8 },
+//   forgotText: {
+//     fontFamily: "Poppins_500Medium",
+//     fontSize: 13,
+//     color: Colors.primary,
+//   },
+//   submitBtn: {
+//     backgroundColor: Colors.primary,
+//     borderRadius: 16,
+//     height: 56,
+//     alignItems: "center",
+//     justifyContent: "center",
+//     marginTop: 8,
+//     shadowColor: Colors.primary,
+//     shadowOffset: { width: 0, height: 6 },
+//     shadowOpacity: 0.35,
+//     shadowRadius: 12,
+//     elevation: 8,
+//   },
+//   submitBtnPressed: { opacity: 0.9 },
+//   submitBtnLoading: { opacity: 0.7 },
+//   submitBtnText: {
+//     fontFamily: "Poppins_600SemiBold",
+//     fontSize: 16,
+//     color: Colors.surface,
+//   },
+//   switchBtn: { alignItems: "center", marginTop: 20 },
+//   switchText: {
+//     fontFamily: "Poppins_400Regular",
+//     fontSize: 14,
+//     color: Colors.textSecondary,
+//   },
+//   switchLink: {
+//     fontFamily: "Poppins_600SemiBold",
+//     color: Colors.primary,
+//   },
+// });
+
+
+
+import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   TextInput,
-  ScrollView,
-  Platform,
   Alert,
+  Platform,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { useForm, Controller } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withDelay,
+  Easing,
+} from "react-native-reanimated";
+
 import { useAuthStore } from "@/src/store/useStore";
 import { Colors } from "@/constants/colors";
-import { signIn } from "@/src/services/supabase";
+import { signInOfflineAware } from "@/src/services/auth";
 import { useTranslation } from "react-i18next";
-import type { User } from "@/src/models/types";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+
+// ─── Validation schema ────────────────────────────────────────────────────────
+
+const loginSchema = z.object({
+  email: z
+    .string()
+    .min(1, "Email is required")
+    .email("Enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
+
+// ─── AnimatedPressable helper ─────────────────────────────────────────────────
+
+interface AnimatedPressableProps {
+  onPress: () => void;
+  disabled?: boolean;
+  style: object | object[];
+  children: React.ReactNode;
+}
+
+function AnimatedPressable({
+  onPress,
+  disabled,
+  style,
+  children,
+}: AnimatedPressableProps) {
+  const scale = useSharedValue(1);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View style={animStyle}>
+      <Pressable
+        onPress={onPress}
+        disabled={disabled}
+        onPressIn={() => {
+          if (!disabled) scale.value = withSpring(0.95, { damping: 20 });
+        }}
+        onPressOut={() => {
+          scale.value = withSpring(1, { damping: 15 });
+        }}
+        style={style}
+      >
+        {children}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+// ─── FormField ────────────────────────────────────────────────────────────────
+
+interface FormFieldProps {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  placeholder: string;
+  value: string;
+  onChangeText: (v: string) => void;
+  onBlur: () => void;
+  error?: string;
+  secureTextEntry?: boolean;
+  keyboardType?: "email-address" | "default";
+  autoCapitalize?: "none" | "sentences";
+  rightElement?: React.ReactNode;
+  inputRef?: React.RefObject<TextInput | null>;
+  returnKeyType?: "next" | "done" | "go";
+  onSubmitEditing?: () => void;
+}
+
+function FormField({
+  label,
+  icon,
+  placeholder,
+  value,
+  onChangeText,
+  onBlur,
+  error,
+  secureTextEntry,
+  keyboardType = "default",
+  autoCapitalize = "none",
+  rightElement,
+  inputRef,
+  returnKeyType,
+  onSubmitEditing,
+}: FormFieldProps) {
+  return (
+    <View style={fieldStyles.wrap}>
+      <Text style={fieldStyles.label}>{label}</Text>
+      <View
+        style={[fieldStyles.inputRow, error ? fieldStyles.inputRowError : null]}
+      >
+        <Ionicons
+          name={icon}
+          size={20}
+          color={error ? Colors.error : Colors.textSecondary}
+          style={fieldStyles.icon}
+        />
+        <TextInput
+          ref={inputRef}
+          style={fieldStyles.input}
+          placeholder={placeholder}
+          placeholderTextColor={Colors.textTertiary}
+          value={value}
+          onChangeText={onChangeText}
+          onBlur={onBlur}
+          secureTextEntry={secureTextEntry}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={false}
+          returnKeyType={returnKeyType}
+          onSubmitEditing={onSubmitEditing}
+          blurOnSubmit={returnKeyType === "done"}
+        />
+        {rightElement}
+      </View>
+      {error ? <Text style={fieldStyles.errorText}>{error}</Text> : null}
+    </View>
+  );
+}
+
+const fieldStyles = StyleSheet.create({
+  wrap: { marginBottom: 16 },
+  label: {
+    fontFamily: "Poppins_500Medium",
+    fontSize: 13,
+    color: Colors.text,
+    marginBottom: 6,
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1.5,
+    borderColor: "transparent",
+  },
+  inputRowError: {
+    borderColor: Colors.error,
+    backgroundColor: "#FFF5F5",
+  },
+  icon: { marginRight: 12 },
+  input: {
+    flex: 1,
+    fontFamily: "Poppins_400Regular",
+    fontSize: 15,
+    color: Colors.text,
+  },
+  errorText: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    color: Colors.error,
+    marginTop: 4,
+  },
+});
+
+// ─── Login Screen ─────────────────────────────────────────────────────────────
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const { setUser, setIsAuthenticated, selectedRole } = useAuthStore();
   const { t } = useTranslation();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
 
-  const validate = () => {
-    const newErrors: typeof errors = {};
-    if (!email || !email.includes("@")) newErrors.email = "Enter a valid email";
-    if (!password || password.length < 6) newErrors.password = "Password is required";
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  const passwordRef = useRef<TextInput>(null);
 
-  const handleLogin = async () => {
-    if (!validate()) return;
+  // ── Entrance animation ────────────────────────────────────────────────────
+  const formOpacity = useSharedValue(0);
+  const formY = useSharedValue(20);
+
+  useEffect(() => {
+    formOpacity.value = withDelay(
+      150,
+      withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) })
+    );
+    formY.value = withDelay(
+      150,
+      withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) })
+    );
+  }, []);
+
+  const formAnimStyle = useAnimatedStyle(() => ({
+    opacity: formOpacity.value,
+    transform: [{ translateY: formY.value }],
+  }));
+
+  // ── Form ──────────────────────────────────────────────────────────────────
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "" },
+    mode: "onBlur",
+  });
+
+  // ── Submit ────────────────────────────────────────────────────────────────
+  const onSubmit = async (data: LoginFormData) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsLoading(true);
 
     try {
-      const data = await signIn(email.trim().toLowerCase(), password);
-      const supaUser = data.user;
+      const { user, offlineMode } = await signInOfflineAware(
+        data.email,
+        data.password
+      );
 
-      if (supaUser) {
-        const meta = supaUser.user_metadata;
-        const user: User = {
-          id: supaUser.id,
-          full_name: meta.full_name || null,
-          phone: meta.phone || "",
-          email: supaUser.email || "",
-          age: meta.age || 18,
-          role: meta.role || selectedRole || "passenger",
-          driver_id: meta.driver_id,
-          profile_photo: meta.profile_photo,
-          vehicle_details: meta.vehicle_details,
-          park_location: meta.park_location,
-          park_name: meta.park_name,
-          points_balance: meta.points_balance || 0,
-          avg_rating: meta.avg_rating,
-          profile_complete: meta.profile_complete || false,
-          created_at: supaUser.created_at,
-        };
-        setUser(user);
-        setIsAuthenticated(true);
+      setUser(user);
+      setIsAuthenticated(true);
 
-        if (user.role === "driver" && !user.profile_complete) {
-          router.replace("/(auth)/driver-profile");
-        } else if (user.role === "driver") {
-          router.replace("/(driver)");
-        } else if (user.role === "passenger") {
-          router.replace("/(passenger)");
-        } else {
-          router.replace("/(park-owner)");
-        }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      if (offlineMode) {
+        Alert.alert(
+          "Offline Mode",
+          "You're signed in from cache. Some features may be unavailable until you reconnect.",
+          [{ text: "OK" }]
+        );
+      }
+
+      // Navigate based on role + profile completion
+      if (user.role === "driver" && !user.profile_complete) {
+        router.replace("/(auth)/driver-profile");
+      } else if (user.role === "driver") {
+        router.replace("/(driver)");
+      } else if (user.role === "passenger") {
+        router.replace("/(passenger)");
+      } else {
+        router.replace("/(park-owner)");
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Login failed";
-      Alert.alert("Sign In Failed", msg);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      const msg =
+        err instanceof Error ? err.message : t("common.error");
+      Alert.alert(t("auth.login") + " Failed", msg);
     } finally {
       setIsLoading(false);
     }
@@ -91,99 +565,151 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
+      {/* ── Header ── */}
+      <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={Colors.text} />
+          <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>{t("auth.login")}</Text>
-        <View style={{ width: 40 }} />
+        {/* Spacer to centre the title */}
+        <View style={styles.backBtn} />
       </View>
 
-      <ScrollView
+      {/* ── Scrollable form ── */}
+      <KeyboardAwareScrollViewCompat
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingBottom:
+              Math.max(insets.bottom, 24) + (Platform.OS === "web" ? 34 : 0),
+          },
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Welcome back</Text>
-        <Text style={styles.subtitle}>Sign in to continue your journey</Text>
+        {/* Page title */}
+        <Text style={styles.pageTitle}>Welcome back</Text>
+        <Text style={styles.pageSubtitle}>
+          Sign in to continue your journey
+        </Text>
 
-        <View style={styles.form}>
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>{t("auth.email")}</Text>
-            <View style={[styles.inputRow, errors.email && styles.inputError]}>
-              <Ionicons name="mail-outline" size={20} color={Colors.textSecondary} />
-              <TextInput
-                style={styles.input}
+        {/* Animated form */}
+        <Animated.View style={formAnimStyle}>
+          {/* Email */}
+          <Controller
+            control={control}
+            name="email"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormField
+                label={t("auth.email")}
+                icon="mail-outline"
                 placeholder={t("auth.emailPlaceholder")}
-                placeholderTextColor={Colors.textTertiary}
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.email?.message}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                autoCorrect={false}
-                value={email}
-                onChangeText={(v) => { setEmail(v); setErrors((e) => ({ ...e, email: undefined })); }}
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
               />
-            </View>
-            {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-          </View>
+            )}
+          />
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>{t("auth.password")}</Text>
-            <View style={[styles.inputRow, errors.password && styles.inputError]}>
-              <Ionicons name="lock-closed-outline" size={20} color={Colors.textSecondary} />
-              <TextInput
-                style={styles.input}
+          {/* Password */}
+          <Controller
+            control={control}
+            name="password"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormField
+                label={t("auth.password")}
+                icon="lock-closed-outline"
                 placeholder={t("auth.passwordPlaceholder")}
-                placeholderTextColor={Colors.textTertiary}
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.password?.message}
                 secureTextEntry={!showPassword}
-                value={password}
-                onChangeText={(v) => { setPassword(v); setErrors((e) => ({ ...e, password: undefined })); }}
+                inputRef={passwordRef}
+                returnKeyType="done"
+                onSubmitEditing={handleSubmit(onSubmit)}
+                rightElement={
+                  <Pressable
+                    onPress={() => setShowPassword((s) => !s)}
+                    hitSlop={8}
+                  >
+                    <Ionicons
+                      name={showPassword ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color={Colors.textSecondary}
+                    />
+                  </Pressable>
+                }
               />
-              <Pressable onPress={() => setShowPassword((s) => !s)}>
-                <Ionicons
-                  name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={20}
-                  color={Colors.textSecondary}
-                />
-              </Pressable>
-            </View>
-            {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
-          </View>
+            )}
+          />
 
-          <Pressable style={styles.forgotBtn}>
+          {/* Forgot password */}
+          <Pressable
+            style={styles.forgotBtn}
+            onPress={() =>
+              Alert.alert(
+                "Reset Password",
+                "Password reset is coming soon. Please contact support for now."
+              )
+            }
+            hitSlop={8}
+          >
             <Text style={styles.forgotText}>{t("auth.forgotPassword")}</Text>
           </Pressable>
 
-          <Pressable
-            style={({ pressed }) => [styles.submitBtn, pressed && styles.submitBtnPressed, isLoading && styles.submitBtnLoading]}
-            onPress={handleLogin}
+          {/* Submit */}
+          <AnimatedPressable
+            onPress={handleSubmit(onSubmit)}
             disabled={isLoading}
+            style={[styles.submitBtn, isLoading && styles.submitBtnLoading]}
           >
             <Text style={styles.submitBtnText}>
               {isLoading ? t("auth.loggingIn") : t("auth.login")}
             </Text>
-          </Pressable>
+            {!isLoading && (
+              <Ionicons name="arrow-forward" size={18} color={Colors.surface} />
+            )}
+          </AnimatedPressable>
 
-          <Pressable style={styles.switchBtn} onPress={() => router.replace("/(auth)/register")}>
+          {/* Switch to register */}
+          <Pressable
+            style={styles.switchBtn}
+            onPress={() => router.replace("/(auth)/register")}
+          >
             <Text style={styles.switchText}>
               {t("auth.noAccount")}{" "}
               <Text style={styles.switchLink}>{t("auth.signUp")}</Text>
             </Text>
           </Pressable>
-        </View>
-      </ScrollView>
+        </Animated.View>
+      </KeyboardAwareScrollViewCompat>
     </View>
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.surface },
+  container: {
+    flex: 1,
+    backgroundColor: Colors.surface,
+  },
+
+  // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
   },
   backBtn: {
     width: 40,
@@ -198,78 +724,70 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.text,
   },
+
+  // Scroll
   scroll: { flex: 1 },
-  scrollContent: { padding: 24, paddingTop: 8 },
-  title: {
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 28,
+  },
+
+  // Page heading
+  pageTitle: {
     fontFamily: "Poppins_700Bold",
     fontSize: 28,
     color: Colors.text,
     marginBottom: 6,
   },
-  subtitle: {
+  pageSubtitle: {
     fontFamily: "Poppins_400Regular",
     fontSize: 15,
     color: Colors.textSecondary,
     marginBottom: 32,
   },
-  form: { gap: 4 },
-  fieldGroup: { gap: 6, marginBottom: 16 },
-  label: {
-    fontFamily: "Poppins_500Medium",
-    fontSize: 13,
-    color: Colors.text,
+
+  // Forgot
+  forgotBtn: {
+    alignSelf: "flex-end",
+    marginBottom: 24,
+    marginTop: -8,
   },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: Colors.surfaceSecondary,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderWidth: 1.5,
-    borderColor: "transparent",
-  },
-  inputError: { borderColor: Colors.error },
-  input: {
-    flex: 1,
-    fontFamily: "Poppins_400Regular",
-    fontSize: 15,
-    color: Colors.text,
-  },
-  errorText: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12,
-    color: Colors.error,
-    marginTop: 2,
-  },
-  forgotBtn: { alignSelf: "flex-end", marginBottom: 8 },
   forgotText: {
     fontFamily: "Poppins_500Medium",
     fontSize: 13,
     color: Colors.primary,
   },
+
+  // Submit button
   submitBtn: {
     backgroundColor: Colors.primary,
     borderRadius: 16,
     height: 56,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 8,
+    gap: 8,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
     shadowRadius: 12,
     elevation: 8,
   },
-  submitBtnPressed: { opacity: 0.9 },
-  submitBtnLoading: { opacity: 0.7 },
+  submitBtnLoading: {
+    opacity: 0.7,
+  },
   submitBtnText: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 16,
     color: Colors.surface,
   },
-  switchBtn: { alignItems: "center", marginTop: 20 },
+
+  // Switch
+  switchBtn: {
+    alignItems: "center",
+    marginTop: 24,
+    paddingVertical: 8,
+  },
   switchText: {
     fontFamily: "Poppins_400Regular",
     fontSize: 14,

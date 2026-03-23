@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,9 @@ import {
   ScrollView,
   Platform,
   Alert,
+  Animated,
+  Easing,
+  KeyboardAvoidingView,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,12 +18,131 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAuthStore } from "@/src/store/useStore";
 import { useTripStore } from "@/src/store/useStore";
-import { Colors } from "@/constants/colors";
 import { TripsStorage, PassengersStorage } from "@/src/services/storage";
 import { generateId } from "@/src/utils/helpers";
 import type { Trip, Passenger, EmergencyContact } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
 
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const C = {
+  bg: "#0A0A0A",
+  surface: "#111111",
+  card: "#161616",
+  border: "#252525",
+  borderLight: "#2A2A2A",
+  primary: "#00A651",
+  primaryDark: "#007A3D",
+  primaryGlow: "rgba(0,166,81,0.18)",
+  gold: "#F5A623",
+  error: "#EF4444",
+  text: "#F0F0F0",
+  textSub: "#888888",
+  textMuted: "#555555",
+  white: "#FFFFFF",
+  chip: "#1E1E1E",
+  chipBorder: "#2E2E2E",
+};
+
+// ─── Small helpers ─────────────────────────────────────────────────────────────
+function useEntrance(delay = 0) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(18)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 480,
+        delay,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 480,
+        delay,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+  return { opacity, transform: [{ translateY }] };
+}
+
+// ─── Join button with press animation ─────────────────────────────────────────
+function JoinButton({
+  onPress,
+  label,
+  loading,
+}: {
+  onPress: () => void;
+  label: string;
+  loading: boolean;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scale, {
+      toValue: 0.95,
+      useNativeDriver: true,
+      speed: 50,
+    }).start();
+  };
+  const handlePressOut = () => {
+    Animated.spring(scale, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 30,
+    }).start();
+  };
+
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={loading}
+        style={[styles.joinBtn, loading && styles.joinBtnDisabled]}
+      >
+        <View style={styles.joinBtnGlow} />
+        <Ionicons name="car" size={20} color={C.white} />
+        <Text style={styles.joinBtnText}>{label}</Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+// ─── Contact chip ──────────────────────────────────────────────────────────────
+function ContactChip({
+  contact,
+  onRemove,
+}: {
+  contact: EmergencyContact;
+  onRemove: () => void;
+}) {
+  return (
+    <View style={styles.chip}>
+      <View style={styles.chipAvatar}>
+        <Text style={styles.chipAvatarText}>
+          {contact.name.charAt(0).toUpperCase()}
+        </Text>
+      </View>
+      <View style={styles.chipInfo}>
+        <Text style={styles.chipName} numberOfLines={1}>
+          {contact.name}
+        </Text>
+        <Text style={styles.chipPhone} numberOfLines={1}>
+          {contact.phone}
+        </Text>
+      </View>
+      <Pressable onPress={onRemove} hitSlop={8} style={styles.chipRemove}>
+        <Ionicons name="close" size={14} color={C.textMuted} />
+      </Pressable>
+    </View>
+  );
+}
+
+// ─── Main screen ───────────────────────────────────────────────────────────────
 export default function FindTripScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
@@ -37,6 +159,9 @@ export default function FindTripScreen() {
   const [isJoining, setIsJoining] = useState(false);
   const [step, setStep] = useState<"search" | "details">("search");
 
+  const searchAnim = useEntrance(80);
+  const detailsAnim = useEntrance(0);
+
   const handleSearch = async () => {
     if (!code.trim() || code.trim().length !== 6) {
       Alert.alert("Invalid Code", "Please enter a valid 6-character trip code.");
@@ -44,7 +169,6 @@ export default function FindTripScreen() {
     }
     setIsSearching(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
     try {
       const trip = await TripsStorage.getByCode(code.trim().toUpperCase());
       if (!trip) {
@@ -67,20 +191,24 @@ export default function FindTripScreen() {
 
   const addContact = () => {
     if (!contactName.trim() || !contactPhone.trim()) return;
-    setContacts((prev) => [...prev, { name: contactName.trim(), phone: contactPhone.trim() }]);
+    setContacts((prev) => [
+      ...prev,
+      { name: contactName.trim(), phone: contactPhone.trim() },
+    ]);
     setContactName("");
     setContactPhone("");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const removeContact = (idx: number) => {
     setContacts((prev) => prev.filter((_, i) => i !== idx));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleJoin = async () => {
     if (!foundTrip || !user) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setIsJoining(true);
-
     const passenger: Passenger = {
       id: generateId(),
       trip_id: foundTrip.id,
@@ -90,7 +218,6 @@ export default function FindTripScreen() {
       emergency_contacts: contacts,
       created_at: new Date().toISOString(),
     };
-
     try {
       await PassengersStorage.save(passenger);
       setActiveTrip(foundTrip);
@@ -106,441 +233,677 @@ export default function FindTripScreen() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
+    <View style={styles.root}>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
         {step === "details" ? (
-          <Pressable style={styles.backBtn} onPress={() => { setStep("search"); setFoundTrip(null); }}>
-            <Ionicons name="arrow-back" size={24} color={Colors.text} />
+          <Pressable
+            style={styles.backBtn}
+            onPress={() => {
+              setStep("search");
+              setFoundTrip(null);
+            }}
+          >
+            <Ionicons name="arrow-back" size={20} color={C.text} />
           </Pressable>
-        ) : <View style={{ width: 40 }} />}
+        ) : (
+          <View style={{ width: 40 }} />
+        )}
         <Text style={styles.headerTitle}>
           {step === "search" ? t("passenger.enterCode") : "Join Trip"}
         </Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        {step === "search" && (
-          <>
-            <View style={styles.searchIllustration}>
-              <View style={styles.searchIcon}>
-                <Ionicons name="search" size={40} color={Colors.primary} />
-              </View>
-              <Text style={styles.searchTitle}>Find Your Trip</Text>
-              <Text style={styles.searchSubtitle}>
-                Ask your driver for the 6-character trip code
-              </Text>
-            </View>
-
-            <View style={styles.codeInputContainer}>
-              <TextInput
-                style={styles.codeInput}
-                placeholder="e.g. ABC123"
-                placeholderTextColor={Colors.textTertiary}
-                value={code}
-                onChangeText={(v) => setCode(v.toUpperCase())}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                maxLength={6}
-                textAlign="center"
-              />
-              <Text style={styles.codeHint}>6 characters, uppercase letters and numbers</Text>
-            </View>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.searchBtn,
-                pressed && styles.searchBtnPressed,
-                isSearching && styles.searchBtnLoading,
-              ]}
-              onPress={handleSearch}
-              disabled={isSearching}
-            >
-              <Ionicons name="search" size={20} color={Colors.surface} />
-              <Text style={styles.searchBtnText}>
-                {isSearching ? "Searching..." : t("trip.startTrip")}
-              </Text>
-            </Pressable>
-          </>
-        )}
-
-        {step === "details" && foundTrip && (
-          <>
-            <View style={styles.tripFoundCard}>
-              <View style={styles.tripFoundHeader}>
-                <View style={styles.tripCodeBadge}>
-                  <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
-                  <Text style={styles.tripCodeText}>{foundTrip.trip_code}</Text>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: Math.max(insets.bottom, 24) + 80 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ── STEP 1: Search ── */}
+          {step === "search" && (
+            <Animated.View style={searchAnim}>
+              {/* Icon + headline */}
+              <View style={styles.heroRow}>
+                <View style={styles.heroIcon}>
+                  <Ionicons name="search" size={28} color={C.primary} />
                 </View>
-                <Text style={styles.tripFoundLabel}>Trip Found!</Text>
-              </View>
-
-              <View style={styles.tripRouteDisplay}>
-                <View style={styles.routeItem}>
-                  <View style={styles.routeDotGreen} />
-                  <View>
-                    <Text style={styles.routeLabel}>From</Text>
-                    <Text style={styles.routeValue}>{foundTrip.origin}</Text>
-                  </View>
-                </View>
-                <View style={styles.routeItemLine} />
-                <View style={styles.routeItem}>
-                  <View style={styles.routeDotRed} />
-                  <View>
-                    <Text style={styles.routeLabel}>To</Text>
-                    <Text style={styles.routeValue}>{foundTrip.destination}</Text>
-                  </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.heroTitle}>Find Your Trip</Text>
+                  <Text style={styles.heroSub}>
+                    Ask your driver for the 6-character code
+                  </Text>
                 </View>
               </View>
 
-              <View style={styles.tripMeta}>
-                <View style={styles.metaItem}>
-                  <Ionicons name="people-outline" size={16} color={Colors.textSecondary} />
-                  <Text style={styles.metaText}>{foundTrip.capacity} max seats</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.detailsForm}>
-              <Text style={styles.sectionTitle}>{t("passenger.yourDestination")}</Text>
-              <View style={styles.inputRow}>
-                <Ionicons name="location-outline" size={20} color={Colors.textSecondary} />
+              {/* Code input card */}
+              <View style={styles.codeCard}>
+                <Text style={styles.codeLabel}>TRIP CODE</Text>
                 <TextInput
-                  style={styles.input}
-                  placeholder={t("passenger.yourDestinationPlaceholder")}
-                  placeholderTextColor={Colors.textTertiary}
-                  value={destination}
-                  onChangeText={setDestination}
+                  style={styles.codeInput}
+                  placeholder="A B C 1 2 3"
+                  placeholderTextColor={C.textMuted}
+                  value={code}
+                  onChangeText={(v) => setCode(v.toUpperCase())}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  maxLength={6}
+                  textAlign="center"
                 />
+                <View style={styles.codeDots}>
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <View
+                      key={i}
+                      style={[
+                        styles.codeDot,
+                        i < code.length && styles.codeDotFilled,
+                      ]}
+                    />
+                  ))}
+                </View>
               </View>
 
-              <Text style={[styles.sectionTitle, { marginTop: 20 }]}>{t("passenger.emergencyContacts")}</Text>
-              <Text style={styles.contactsHint}>
-                They'll be notified when your trip starts and when you arrive safely.
-              </Text>
+              {/* Search button */}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.searchBtn,
+                  pressed && { opacity: 0.85 },
+                  isSearching && styles.searchBtnDisabled,
+                ]}
+                onPress={handleSearch}
+                disabled={isSearching}
+              >
+                {isSearching ? (
+                  <Text style={styles.searchBtnText}>Searching...</Text>
+                ) : (
+                  <>
+                    <Ionicons name="search" size={18} color={C.white} />
+                    <Text style={styles.searchBtnText}>Find Trip</Text>
+                  </>
+                )}
+              </Pressable>
 
-              {contacts.map((c, idx) => (
-                <View key={idx} style={styles.contactChip}>
-                  <Ionicons name="person" size={14} color={Colors.primary} />
-                  <Text style={styles.contactChipText}>{c.name} — {c.phone}</Text>
-                  <Pressable onPress={() => removeContact(idx)}>
-                    <Ionicons name="close-circle" size={18} color={Colors.textTertiary} />
+              {/* Hint */}
+              <Text style={styles.hint}>
+                Codes are 6 characters — letters & numbers
+              </Text>
+            </Animated.View>
+          )}
+
+          {/* ── STEP 2: Details ── */}
+          {step === "details" && foundTrip && (
+            <Animated.View style={detailsAnim}>
+              {/* Trip found card */}
+              <View style={styles.tripCard}>
+                {/* Header row */}
+                <View style={styles.tripCardTop}>
+                  <View style={styles.codePill}>
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={14}
+                      color={C.primary}
+                    />
+                    <Text style={styles.codePillText}>{foundTrip.trip_code}</Text>
+                  </View>
+                  <View style={styles.livePill}>
+                    <View style={styles.liveDot} />
+                    <Text style={styles.livePillText}>LIVE</Text>
+                  </View>
+                </View>
+
+                {/* Route */}
+                <View style={styles.routeContainer}>
+                  <View style={styles.routeLine}>
+                    <View style={styles.routeDotGreen} />
+                    <View style={styles.routeConnector} />
+                    <View style={styles.routeDotRed} />
+                  </View>
+                  <View style={styles.routeLabels}>
+                    <View style={styles.routeStop}>
+                      <Text style={styles.routeStopLabel}>FROM</Text>
+                      <Text style={styles.routeStopValue} numberOfLines={1}>
+                        {foundTrip.origin}
+                      </Text>
+                    </View>
+                    <View style={[styles.routeStop, { marginTop: 16 }]}>
+                      <Text style={styles.routeStopLabel}>TO</Text>
+                      <Text style={styles.routeStopValue} numberOfLines={1}>
+                        {foundTrip.destination}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Meta row */}
+                <View style={styles.tripMeta}>
+                  <View style={styles.tripMetaItem}>
+                    <Ionicons
+                      name="people-outline"
+                      size={14}
+                      color={C.textSub}
+                    />
+                    <Text style={styles.tripMetaText}>
+                      {foundTrip.capacity} seats
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Your destination */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  {t("passenger.yourDestination")}
+                </Text>
+                <View style={styles.inputRow}>
+                  <Ionicons
+                    name="location-outline"
+                    size={18}
+                    color={C.textSub}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder={t("passenger.yourDestinationPlaceholder")}
+                    placeholderTextColor={C.textMuted}
+                    value={destination}
+                    onChangeText={setDestination}
+                  />
+                </View>
+              </View>
+
+              {/* Emergency contacts */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  {t("passenger.emergencyContacts")}
+                </Text>
+                <Text style={styles.sectionSub}>
+                  {`They'll be notified when your trip starts and ends`}
+                </Text>
+
+                {/* Chips */}
+                {contacts.length > 0 && (
+                  <View style={styles.chipList}>
+                    {contacts.map((c, idx) => (
+                      <ContactChip
+                        key={idx}
+                        contact={c}
+                        onRemove={() => removeContact(idx)}
+                      />
+                    ))}
+                  </View>
+                )}
+
+                {/* Add contact row */}
+                <View style={styles.addContactCard}>
+                  <TextInput
+                    style={styles.addInput}
+                    placeholder={t("passenger.contactName")}
+                    placeholderTextColor={C.textMuted}
+                    value={contactName}
+                    onChangeText={setContactName}
+                  />
+                  <View style={styles.addDivider} />
+                  <TextInput
+                    style={[styles.addInput, { flex: 1.4 }]}
+                    placeholder="+234 ..."
+                    placeholderTextColor={C.textMuted}
+                    keyboardType="phone-pad"
+                    value={contactPhone}
+                    onChangeText={setContactPhone}
+                  />
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.addBtn,
+                      pressed && { opacity: 0.75 },
+                    ]}
+                    onPress={addContact}
+                  >
+                    <Ionicons name="add" size={20} color={C.white} />
                   </Pressable>
                 </View>
-              ))}
-
-              <View style={styles.addContactRow}>
-                <TextInput
-                  style={[styles.contactInput, { flex: 1 }]}
-                  placeholder="Name"
-                  placeholderTextColor={Colors.textTertiary}
-                  value={contactName}
-                  onChangeText={setContactName}
-                />
-                <TextInput
-                  style={[styles.contactInput, { flex: 1.4 }]}
-                  placeholder="+234 ..."
-                  placeholderTextColor={Colors.textTertiary}
-                  keyboardType="phone-pad"
-                  value={contactPhone}
-                  onChangeText={setContactPhone}
-                />
-                <Pressable style={styles.addContactBtn} onPress={addContact}>
-                  <Ionicons name="add" size={22} color={Colors.surface} />
-                </Pressable>
               </View>
-            </View>
 
-            <Pressable
-              style={({ pressed }) => [
-                styles.joinBtn,
-                pressed && styles.joinBtnPressed,
-                isJoining && styles.joinBtnLoading,
-              ]}
-              onPress={handleJoin}
-              disabled={isJoining}
-            >
-              <Ionicons name="car" size={22} color={Colors.surface} />
-              <Text style={styles.joinBtnText}>
-                {isJoining ? t("passenger.joining") : t("passenger.joinTrip")}
-              </Text>
-            </Pressable>
-          </>
-        )}
-
-        <View style={{ height: 100 + (Platform.OS === "web" ? 34 : 0) }} />
-      </ScrollView>
+              {/* Join button */}
+              <View style={styles.joinSection}>
+                <JoinButton
+                  onPress={handleJoin}
+                  label={isJoining ? t("passenger.joining") : t("passenger.joinTrip")}
+                  loading={isJoining}
+                />
+              </View>
+            </Animated.View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
+// ─── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  root: {
+    flex: 1,
+    backgroundColor: C.bg,
+  },
+
+  // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingBottom: 16,
-    backgroundColor: Colors.surface,
+    paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: C.border,
   },
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 16,
-    color: Colors.text,
+    color: C.text,
+    letterSpacing: 0.2,
   },
+
   scroll: { flex: 1 },
-  scrollContent: { padding: 24 },
-  searchIllustration: { alignItems: "center", paddingVertical: 32, gap: 12 },
-  searchIcon: {
-    width: 90,
-    height: 90,
-    borderRadius: 28,
-    backgroundColor: Colors.primaryLight,
+  scrollContent: { padding: 20, gap: 0 },
+
+  // ── Search step ──────────────────
+  heroRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 28,
+  },
+  heroIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: C.primaryGlow,
+    borderWidth: 1,
+    borderColor: "rgba(0,166,81,0.25)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
   },
-  searchTitle: {
+  heroTitle: {
     fontFamily: "Poppins_700Bold",
-    fontSize: 26,
-    color: Colors.text,
+    fontSize: 22,
+    color: C.text,
   },
-  searchSubtitle: {
+  heroSub: {
     fontFamily: "Poppins_400Regular",
-    fontSize: 15,
-    color: Colors.textSecondary,
-    textAlign: "center",
-    lineHeight: 24,
+    fontSize: 13,
+    color: C.textSub,
+    marginTop: 2,
+    lineHeight: 20,
   },
-  codeInputContainer: { gap: 10, marginBottom: 24 },
+
+  codeCard: {
+    backgroundColor: C.card,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: 28,
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  codeLabel: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 10,
+    color: C.textMuted,
+    letterSpacing: 3,
+    marginBottom: 16,
+  },
   codeInput: {
-    backgroundColor: Colors.surface,
-    borderRadius: 18,
-    height: 70,
     fontFamily: "Poppins_700Bold",
-    fontSize: 28,
-    color: Colors.text,
+    fontSize: 36,
+    color: C.primary,
+    letterSpacing: 16,
     textAlign: "center",
-    letterSpacing: 8,
-    borderWidth: 2,
-    borderColor: Colors.border,
+    paddingHorizontal: 8,
+    minWidth: 200,
   },
-  codeHint: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12,
-    color: Colors.textTertiary,
-    textAlign: "center",
+  codeDots: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 16,
   },
+  codeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: C.border,
+  },
+  codeDotFilled: {
+    backgroundColor: C.primary,
+  },
+
   searchBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 16,
-    height: 56,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    shadowColor: Colors.primary,
+    backgroundColor: C.primary,
+    borderRadius: 16,
+    height: 56,
+    marginBottom: 14,
+    shadowColor: C.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
-    shadowRadius: 12,
+    shadowRadius: 14,
     elevation: 8,
   },
-  searchBtnPressed: { opacity: 0.9 },
-  searchBtnLoading: { opacity: 0.7 },
+  searchBtnDisabled: { opacity: 0.6 },
   searchBtnText: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 16,
-    color: Colors.surface,
+    color: C.white,
   },
-  tripFoundCard: {
-    backgroundColor: Colors.surface,
+
+  hint: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    color: C.textMuted,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+
+  // ── Details step ──────────────────
+  tripCard: {
+    backgroundColor: C.card,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: C.border,
     padding: 20,
-    gap: 16,
-    marginBottom: 20,
-    borderWidth: 2,
-    borderColor: Colors.primaryLight,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    marginBottom: 16,
+    overflow: "hidden",
   },
-  tripFoundHeader: {
+  tripCardTop: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
   },
-  tripCodeBadge: {
+  codePill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: "rgba(0,166,81,0.1)",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "rgba(0,166,81,0.2)",
   },
-  tripCodeText: {
+  codePillText: {
     fontFamily: "Poppins_700Bold",
-    fontSize: 15,
-    color: Colors.primaryDark,
+    fontSize: 14,
+    color: C.primary,
     letterSpacing: 2,
   },
-  tripFoundLabel: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 14,
-    color: Colors.primary,
+  livePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: C.surface,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: C.border,
   },
-  tripRouteDisplay: { gap: 8 },
-  routeItem: { flexDirection: "row", alignItems: "center", gap: 12 },
-  routeItemLine: {
-    width: 2,
-    height: 14,
-    backgroundColor: Colors.border,
-    marginLeft: 5,
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: C.error,
+  },
+  livePillText: {
+    fontFamily: "Poppins_700Bold",
+    fontSize: 10,
+    color: C.error,
+    letterSpacing: 1.5,
+  },
+
+  routeContainer: {
+    flexDirection: "row",
+    gap: 14,
+    marginBottom: 18,
+  },
+  routeLine: {
+    alignItems: "center",
+    paddingTop: 20,
+    gap: 0,
   },
   routeDotGreen: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: Colors.primary,
+    backgroundColor: C.primary,
+    borderWidth: 2,
+    borderColor: "rgba(0,166,81,0.3)",
+  },
+  routeConnector: {
+    width: 2,
+    height: 32,
+    backgroundColor: C.border,
+    marginVertical: 3,
   },
   routeDotRed: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: Colors.error,
+    backgroundColor: C.error,
+    borderWidth: 2,
+    borderColor: "rgba(239,68,68,0.3)",
   },
-  routeLabel: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 11,
-    color: Colors.textSecondary,
+  routeLabels: {
+    flex: 1,
   },
-  routeValue: {
+  routeStop: {},
+  routeStopLabel: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 9,
+    color: C.textMuted,
+    letterSpacing: 2,
+    marginBottom: 2,
+  },
+  routeStopValue: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 15,
-    color: Colors.text,
+    color: C.text,
+    lineHeight: 22,
   },
+
   tripMeta: {
     flexDirection: "row",
-    gap: 16,
-    paddingTop: 12,
+    gap: 20,
+    paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: C.borderLight,
   },
-  metaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  metaText: {
+  tripMetaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  tripMetaText: {
     fontFamily: "Poppins_400Regular",
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: C.textSub,
   },
-  detailsForm: { gap: 8 },
+
+  // Sections
+  section: {
+    marginBottom: 20,
+  },
   sectionTitle: {
     fontFamily: "Poppins_600SemiBold",
-    fontSize: 15,
-    color: Colors.text,
-    marginBottom: 6,
+    fontSize: 14,
+    color: C.text,
+    marginBottom: 4,
+    letterSpacing: 0.2,
   },
-  contactsHint: {
+  sectionSub: {
     fontFamily: "Poppins_400Regular",
-    fontSize: 13,
-    color: Colors.textSecondary,
-    lineHeight: 20,
+    fontSize: 12,
+    color: C.textMuted,
+    lineHeight: 18,
     marginBottom: 12,
   },
+
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: Colors.surface,
+    backgroundColor: C.card,
     borderRadius: 14,
+    borderWidth: 1,
+    borderColor: C.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
   },
   input: {
     flex: 1,
     fontFamily: "Poppins_400Regular",
-    fontSize: 15,
-    color: Colors.text,
-  },
-  contactChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: Colors.primaryLight,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 8,
-  },
-  contactChipText: {
-    flex: 1,
-    fontFamily: "Poppins_400Regular",
-    fontSize: 13,
-    color: Colors.primaryDark,
-  },
-  addContactRow: {
-    flexDirection: "row",
-    gap: 8,
-    alignItems: "center",
-  },
-  contactInput: {
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontFamily: "Poppins_400Regular",
     fontSize: 14,
-    color: Colors.text,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
+    color: C.text,
   },
-  addContactBtn: {
-    width: 46,
-    height: 46,
+
+  // Chips
+  chipList: {
+    gap: 8,
+    marginBottom: 12,
+  },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: C.chip,
     borderRadius: 12,
-    backgroundColor: Colors.primary,
+    borderWidth: 1,
+    borderColor: C.chipBorder,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  chipAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(0,166,81,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(0,166,81,0.25)",
     alignItems: "center",
     justifyContent: "center",
   },
+  chipAvatarText: {
+    fontFamily: "Poppins_700Bold",
+    fontSize: 13,
+    color: C.primary,
+  },
+  chipInfo: {
+    flex: 1,
+  },
+  chipName: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 13,
+    color: C.text,
+  },
+  chipPhone: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 11,
+    color: C.textSub,
+    marginTop: 1,
+  },
+  chipRemove: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: C.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // Add contact
+  addContactCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: C.border,
+    overflow: "hidden",
+    paddingLeft: 14,
+  },
+  addInput: {
+    flex: 1,
+    fontFamily: "Poppins_400Regular",
+    fontSize: 13,
+    color: C.text,
+    paddingVertical: 13,
+    minWidth: 0,
+  },
+  addDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: C.border,
+    marginHorizontal: 10,
+  },
+  addBtn: {
+    width: 46,
+    height: 46,
+    backgroundColor: C.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    margin: 4,
+    borderRadius: 10,
+  },
+
+  // Join button
+  joinSection: {
+    marginTop: 8,
+  },
   joinBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 16,
-    height: 56,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    marginTop: 24,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
+    backgroundColor: C.primary,
+    borderRadius: 18,
+    height: 60,
+    overflow: "hidden",
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 10,
   },
-  joinBtnPressed: { opacity: 0.9 },
-  joinBtnLoading: { opacity: 0.7 },
+  joinBtnDisabled: {
+    opacity: 0.55,
+  },
+  joinBtnGlow: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
   joinBtnText: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 16,
-    color: Colors.surface,
+    fontFamily: "Poppins_700Bold",
+    fontSize: 17,
+    color: C.white,
+    letterSpacing: 0.5,
   },
 });
