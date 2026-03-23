@@ -11,7 +11,7 @@ export default function IndexScreen() {
     if (isLoading) return;
 
     if (!isAuthenticated) {
-      router.replace("/(park-owner)/alerts");
+      router.replace("/_sitemap");
       return;
     }
 

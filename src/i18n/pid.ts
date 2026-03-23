@@ -180,6 +180,9 @@ export const pid = {
     tagClean: "Clean vehicle",
     tagProfessional: "Professional",
     tagComfortable: "Comfortable",
+    tagPolite: "Polite",
+    tagRespectful: "Respectful",
+    tagQuiet: "Quiet",
   },
   history: {
     title: "Trip History",

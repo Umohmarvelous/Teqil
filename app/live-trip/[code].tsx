@@ -33,6 +33,8 @@ import { TripsStorage, PassengersStorage } from "@/src/services/storage";
 import { formatCoins, formatDuration } from "@/src/utils/helpers";
 import type { Trip, Passenger } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
+import RatingModal from "@/components/RatingModal";
+
 
 const { width, height } = Dimensions.get("window");
 
@@ -140,10 +142,10 @@ function SOSModal({
   useEffect(() => {
     if (visible) {
       opacity.value = withTiming(1, { duration: 200 });
-      translateY.value = withSpring(0, { damping: 20 });
+      translateY.value = withSpring(0, { damping: 25 });
     } else {
       opacity.value = withTiming(0, { duration: 150 });
-      translateY.value = withTiming(300, { duration: 200 });
+      translateY.value = withTiming(150, { duration: 200 });
     }
   }, [visible]);
 
@@ -156,7 +158,7 @@ function SOSModal({
 
   return (
     <Modal transparent visible={visible} animationType="none">
-      <Animated.View style={[styles.modalOverlay, overlayStyle]}>
+        <Animated.View style={[styles.modalOverlay, overlayStyle, { paddingBottom: 250 }]}>
         <Animated.View style={[styles.sosSheet, sheetStyle]}>
           <View style={styles.sosIconRing}>
             <Ionicons name="warning" size={36} color={Colors.error} />
@@ -237,7 +239,7 @@ function AIAssistantSheet({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <Animated.View style={[styles.modalOverlay, overlayStyle]}>
-          <Pressable style={{ flex: 1 }} onPress={onClose} />
+          <Pressable style={{  }} onPress={onClose} />
           <Animated.View
             style={[
               styles.aiSheet,
@@ -253,7 +255,7 @@ function AIAssistantSheet({
                   <Ionicons name="sparkles" size={18} color={Colors.gold} />
                 </View>
                 <View>
-                  <Text style={styles.aiTitle}>Teqil AI Assistant</Text>
+                  <Text style={styles.aiTitle}>Teqil AI</Text>
                   <Text style={styles.aiSubtitle}>Coming soon — ask me anything</Text>
                 </View>
               </View>
@@ -302,7 +304,7 @@ function AIAssistantSheet({
                 <View
                   style={[
                     styles.aiSendInner,
-                    { backgroundColor: input.trim() ? Colors.primary : Colors.border },
+                    { backgroundColor: input.trim() ? Colors.primary : Colors.textSecondary },
                   ]}
                 >
                   <Ionicons name="send" size={16} color="#fff" />
@@ -354,6 +356,11 @@ export default function LiveTripScreen() {
   const [isEnding, setIsEnding] = useState(false);
   const [sosVisible, setSosVisible] = useState(false);
   const [aiVisible, setAiVisible] = useState(false);
+  const [ratingContext, setRatingContext] = useState<null | {
+    tripId: string;
+    ratedUserId: string;
+    raterRole: "driver" | "passenger";
+  }>(null);
   const [topBarCollapsed, setTopBarCollapsed] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -432,6 +439,8 @@ export default function LiveTripScreen() {
           style: "destructive",
           onPress: async () => {
             setIsEnding(true);
+            // Capture values before `resetTripState()` clears `activeTrip`.
+            const currentTrip = displayTrip;
             if (trip) {
               await TripsStorage.update(trip.id, {
                 status: "completed",
@@ -440,8 +449,16 @@ export default function LiveTripScreen() {
             }
             if (timerRef.current) clearInterval(timerRef.current);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            if (!isDriver && currentTrip?.id && currentTrip?.driver_id) {
+              setRatingContext({
+                tripId: currentTrip.id,
+                ratedUserId: currentTrip.driver_id,
+                raterRole: "passenger",
+              });
+            }
             resetTripState();
-            router.replace(isDriver ? "/(driver)" : "/(passenger)");
+            if (isDriver) router.replace("/(driver)");
           },
         },
       ]
@@ -457,7 +474,7 @@ export default function LiveTripScreen() {
   const handleSOSConfirm = () => {
     setSosVisible(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    Alert.alert("SOS Sent", "Emergency contacts and park owner have been notified.");
+    Alert.alert("SOS Sent Successful", "Emergency contacts and park owner have been notified.");
   };
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -729,6 +746,25 @@ export default function LiveTripScreen() {
         visible={aiVisible}
         onClose={() => setAiVisible(false)}
       />
+
+
+      {/* ── Rating Modal ── */}
+      {ratingContext && (
+        <RatingModal
+          visible={true}
+          onClose={() => {
+            setRatingContext(null);
+            router.replace("/(passenger)");
+          }}
+          tripId={ratingContext.tripId}
+          ratedUserId={ratingContext.ratedUserId}
+          raterRole={ratingContext.raterRole}
+          onSubmit={() => {
+            setRatingContext(null);
+            router.replace("/(passenger)");
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -1088,14 +1124,15 @@ const styles = StyleSheet.create({
     width: 72,
     height: 54,
   },
-  sosBtnInner: {
+
+    sosBtnInner: {
     flex: 1,
     borderRadius: 16,
-    backgroundColor: "rgba(239,68,68,0.12)",
+    backgroundColor: "rgba(239, 68, 68, 0.12)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: Colors.error,
+    // borderWidth: 1.5,
+    // borderColor: Colors.error,
   },
   sosBtnText: {
     fontFamily: "Poppins_700Bold",
@@ -1155,13 +1192,14 @@ const styles = StyleSheet.create({
   // ── SOS Modal ────────────────────────────────────────────────────────────────
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.72)",
+    backgroundColor: "rgba(0, 0, 0, 0.72)",
     justifyContent: "flex-end",
   },
+  // #111A14
   sosSheet: {
-    backgroundColor: "#111A14",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    backgroundColor: "rgba(59, 59, 59, 0.85)",
+    borderRadius: 28,
+    marginHorizontal: 12,
     padding: 28,
     paddingBottom: 40,
     alignItems: "center",
@@ -1315,9 +1353,9 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: "rgba(245,166,35,0.08)",
     borderRadius: 12,
-    padding: 12,
-    marginTop: 14,
-    marginBottom: 14,
+    padding: 42,
+    marginBottom: 25,
+    marginTop: 10,
     borderWidth: 1,
     borderColor: "rgba(245,166,35,0.15)",
   },
@@ -1351,6 +1389,7 @@ const styles = StyleSheet.create({
   aiSendBtn: {
     width: 44,
     height: 44,
+    
   },
   aiSendInner: {
     flex: 1,
