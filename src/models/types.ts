@@ -18,7 +18,16 @@ export interface User {
   created_at: string;
 }
 
-export interface Trip {
+// ─── Syncable base ────────────────────────────────────────────────────────────
+// Every entity that participates in cloud sync carries these two extra fields.
+// `synced`     – false until the record has been confirmed written to Supabase.
+// `updated_at` – ISO timestamp updated on every local write; used for last-write-wins.
+export interface Syncable {
+  synced: boolean;
+  updated_at: string;
+}
+
+export interface Trip extends Syncable {
   id: string;
   driver_id: string;
   trip_code: string;
@@ -33,7 +42,7 @@ export interface Trip {
   driver?: User;
 }
 
-export interface Passenger {
+export interface Passenger extends Syncable {
   id: string;
   trip_id: string;
   user_id: string;
@@ -45,12 +54,7 @@ export interface Passenger {
   user?: User;
 }
 
-export interface EmergencyContact {
-  name: string;
-  phone: string;
-}
-
-export interface Rating {
+export interface Rating extends Syncable {
   id: string;
   trip_id: string;
   rater_id: string;
@@ -61,19 +65,24 @@ export interface Rating {
   created_at: string;
 }
 
+export interface Broadcast extends Syncable {
+  id: string;
+  park_id: string;
+  message: string;
+  created_at: string;
+}
+
+export interface EmergencyContact {
+  name: string;
+  phone: string;
+}
+
 export interface Park {
   id: string;
   name: string;
   location: string;
   owner_id: string;
   access_code?: string;
-  created_at: string;
-}
-
-export interface Broadcast {
-  id: string;
-  park_id: string;
-  message: string;
   created_at: string;
 }
 

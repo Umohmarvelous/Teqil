@@ -21,8 +21,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { useAuthStore } from "@/src/store/useStore";
-import { useTripStore } from "@/src/store/useStore";
+import { useAuthStore, useTripStore } from "@/src/store/useStore";
 import { Colors } from "@/constants/colors";
 import { TripsStorage } from "@/src/services/storage";
 import { generateTripCode, generateId } from "@/src/utils/helpers";

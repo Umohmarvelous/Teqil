@@ -14,6 +14,11 @@
       "backgroundColor": "#00A651"
     },
     "ios": {
+      "config": {
+        "googleMaps": {
+          "apiKey": "your_actual_key_here"
+        }
+      },
       "supportsTablet": false,
       "bundleIdentifier": "com.teqil.app",
       "infoPlist": {
@@ -24,6 +29,11 @@
       }
     },
     "android": {
+      "config": {
+        "googleMaps": {
+          "apiKey": "your_actual_key_here"
+        }
+      },
       "package": "com.teqil.app",
       "adaptiveIcon": {
         "backgroundColor": "#00A651",
