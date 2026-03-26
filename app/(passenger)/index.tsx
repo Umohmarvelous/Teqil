@@ -20,6 +20,7 @@ import { PassengersStorage, TripsStorage } from "@/src/services/storage";
 import { formatCoins, formatDate } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
+import { Icon } from "expo-router/unstable-native-tabs";
 
 // ---------------------------------------------------------------------------
 // FloatingNavBar
@@ -40,29 +41,29 @@ function FloatingNavBar({ activeTab }: { activeTab: "home" | "find" | "history" 
   const scaleFind = useRef(new Animated.Value(1)).current;
   const scaleHistory = useRef(new Animated.Value(1)).current;
 
-  const navItems: NavItem[] = [
-    {
-      icon: "home-outline",
-      iconActive: "home",
-      label: t("driver.dashboard"),
-      route: "/(passenger)",
-      isActive: activeTab === "home",
-    },
-    {
-      icon: "search-outline",
-      iconActive: "search",
-      label: t("passenger.findTrip").replace("FIND ", "Find "),
-      route: "/(passenger)/find-trip",
-      isActive: activeTab === "find",
-    },
-    {
-      icon: "time-outline",
-      iconActive: "time",
-      label: t("history.title"),
-      route: "/(passenger)/history",
-      isActive: activeTab === "history",
-    },
-  ];
+  // const navItems: NavItem[] = [
+  //   {
+  //     icon: "home-outline",
+  //     iconActive: "home",
+  //     label: t("driver.dashboard"),
+  //     route: "/(passenger)",
+  //     isActive: activeTab === "home",
+  //   },
+  //   {
+  //     icon: "search-outline",
+  //     iconActive: "search",
+  //     label: t("passenger.findTrip").replace("FIND ", "Find "),
+  //     route: "/(passenger)/find-trip",
+  //     isActive: activeTab === "find",
+  //   },
+  //   {
+  //     icon: "time-outline",
+  //     iconActive: "time",
+  //     label: t("history.title"),
+  //     route: "/(passenger)/history",
+  //     isActive: activeTab === "history",
+  //   },
+  // ];
 
   const scales = [scaleHome, scaleFind, scaleHistory];
 
@@ -76,29 +77,30 @@ function FloatingNavBar({ activeTab }: { activeTab: "home" | "find" | "history" 
   };
 
   return (
-    <View style={[navStyles.wrapper, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-      <View style={navStyles.bar}>
-        {navItems.map((item, idx) => (
-          <Animated.View key={item.route} style={{ transform: [{ scale: scales[idx] }], flex: 1 }}>
-            <Pressable
-              style={navStyles.navItem}
-              onPress={() => handlePress(item, idx)}
-            >
-              <View style={[navStyles.iconWrap, item.isActive && navStyles.iconWrapActive]}>
-                <Ionicons
-                  name={item.isActive ? item.iconActive : item.icon}
-                  size={22}
-                  color={item.isActive ? Colors.surface : Colors.textSecondary}
-                />
-              </View>
-              <Text style={[navStyles.navLabel, item.isActive && navStyles.navLabelActive]}>
-                {item.label}
-              </Text>
-            </Pressable>
-          </Animated.View>
-        ))}
-      </View>
-    </View>
+    // <View style={[navStyles.wrapper, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+    //   <View style={navStyles.bar}>
+    //     {navItems.map((item, idx) => (
+    //       <Animated.View key={item.route} style={{ transform: [{ scale: scales[idx] }], flex: 1 }}>
+    //         <Pressable
+    //           style={navStyles.navItem}
+    //           onPress={() => handlePress(item, idx)}
+    //         >
+    //           <View style={[navStyles.iconWrap, item.isActive && navStyles.iconWrapActive]}>
+    //             <Ionicons
+    //               name={item.isActive ? item.iconActive : item.icon}
+    //               size={22}
+    //               color={item.isActive ? Colors.surface : Colors.textSecondary}
+    //             />
+    //           </View>
+    //           <Text style={[navStyles.navLabel, item.isActive && navStyles.navLabelActive]}>
+    //             {item.label}
+    //           </Text>
+    //         </Pressable>
+    //       </Animated.View>
+    //     ))}
+    //   </View>
+    // </View>
+    <></>
   );
 }
 
@@ -305,9 +307,10 @@ export default function PassengerDashboard() {
               </View>
               <Pressable style={styles.avatarBtn} onPress={handleLogout}>
                 <View style={styles.avatarCircle}>
-                  <Text style={styles.avatarInitial}>
+                  {/* <Text style={styles.avatarInitial}>
                     {displayName.charAt(0).toUpperCase()}
-                  </Text>
+                  </Text> */}
+                  <Ionicons name="person" size={25} color= "rgba(46 156 99 / 0.5)" />
                 </View>
               </Pressable>
             </View>
@@ -426,7 +429,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    gap: 0,
+    gap: 30,
   },
 
   // ── Hero ──
@@ -434,6 +437,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 28,
     overflow: "hidden",
+    marginHorizontal: 10,
+    marginTop: 10,
+    borderRadius: 30,
   },
   decCircle1: {
     position: "absolute",
@@ -479,7 +485,7 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     backgroundColor: "rgba(0,166,81,0.25)",
-    borderWidth: 1.5,
+    borderWidth: .5,
     borderColor: "rgba(0,166,81,0.5)",
     alignItems: "center",
     justifyContent: "center",

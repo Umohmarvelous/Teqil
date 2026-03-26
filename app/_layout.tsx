@@ -17,7 +17,7 @@ import { useAuthStore } from "@/src/store/useStore";
 import { supabase } from "@/src/services/supabase";
 import { syncAll, startConnectivityListener } from "@/src/services/sync";
 import type { SyncUser } from "@/src/services/sync";
-import "@/src/i18n";
+// import "@/src/i18n";
 import i18n from "@/src/i18n";
 import { StatusBar } from "expo-status-bar";
 
@@ -133,7 +133,7 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
           <KeyboardProvider>
-            <StatusBar style="light" />
+            <StatusBar style="inverted" backgroundColor="transparent" animated/>
             <RootLayoutNav />
           </KeyboardProvider>
         </GestureHandlerRootView>

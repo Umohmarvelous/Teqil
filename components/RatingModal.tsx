@@ -15,10 +15,9 @@ import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/src/store/useStore";
 import { RatingsStorage } from "@/src/services/storage";
+import { syncAll } from "@/src/services/sync";
 import { generateId } from "@/src/utils/helpers";
 import { Colors } from "@/constants/colors";
-
-// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface RatingModalProps {
   visible: boolean;
@@ -29,40 +28,16 @@ interface RatingModalProps {
   onSubmit: () => void;
 }
 
-// ─── Tag config per role ─────────────────────────────────────────────────────
+const DRIVER_TAGS = ["tagSafe", "tagClean", "tagOnTime", "tagFriendly", "tagProfessional"] as const;
+const PASSENGER_TAGS = ["tagPolite", "tagOnTime", "tagRespectful", "tagQuiet"] as const;
 
-const DRIVER_TAGS = [
-  "tagSafe",
-  "tagClean",
-  "tagOnTime",
-  "tagFriendly",
-  "tagProfessional",
-] as const;
-
-const PASSENGER_TAGS = [
-  "tagPolite",
-  "tagOnTime",
-  "tagRespectful",
-  "tagQuiet",
-] as const;
-
-// ─── Star Rating sub-component ───────────────────────────────────────────────
-
-interface StarRowProps {
-  value: number;
-  onChange: (star: number) => void;
-}
-
-function StarRow({ value, onChange }: StarRowProps) {
+function StarRow({ value, onChange }: { value: number; onChange: (s: number) => void }) {
   return (
     <View style={styles.starRow}>
       {[1, 2, 3, 4, 5].map((star) => (
         <Pressable
           key={star}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onChange(star);
-          }}
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onChange(star); }}
           hitSlop={8}
           style={styles.starBtn}
         >
@@ -77,36 +52,16 @@ function StarRow({ value, onChange }: StarRowProps) {
   );
 }
 
-// ─── Tag Chip sub-component ──────────────────────────────────────────────────
-
-interface TagChipProps {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}
-
-function TagChip({ label, selected, onPress }: TagChipProps) {
+function TagChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.chip, selected && styles.chipSelected]}
-    >
-      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-        {label}
-      </Text>
+    <Pressable onPress={onPress} style={[styles.chip, selected && styles.chipSelected]}>
+      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
     </Pressable>
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-
 export default function RatingModal({
-  visible,
-  onClose,
-  tripId,
-  ratedUserId,
-  raterRole,
-  onSubmit,
+  visible, onClose, tripId, ratedUserId, raterRole, onSubmit,
 }: RatingModalProps) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
@@ -116,17 +71,13 @@ export default function RatingModal({
   const [review, setReview] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Determine tag keys for this role
-  const tagKeys =
-    raterRole === "driver"
-      ? (DRIVER_TAGS as unknown as string[])
-      : (PASSENGER_TAGS as unknown as string[]);
+  const tagKeys = raterRole === "driver"
+    ? (DRIVER_TAGS as unknown as string[])
+    : (PASSENGER_TAGS as unknown as string[]);
 
   const toggleTag = useCallback((key: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedTags((prev) =>
-      prev.includes(key) ? prev.filter((t) => t !== key) : [...prev, key]
-    );
+    setSelectedTags((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]);
   }, []);
 
   const resetState = useCallback(() => {
@@ -136,17 +87,13 @@ export default function RatingModal({
     setIsSubmitting(false);
   }, []);
 
-  const handleClose = useCallback(() => {
-    resetState();
-    onClose();
-  }, [onClose, resetState]);
+  const handleClose = useCallback(() => { resetState(); onClose(); }, [onClose, resetState]);
 
   const handleSubmit = useCallback(async () => {
     if (stars === 0) {
       Alert.alert(t("ratings.rateYourTrip"), t("ratings.howWasIt"));
       return;
     }
-
     if (!user?.id) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -162,7 +109,16 @@ export default function RatingModal({
         tags: selectedTags.length > 0 ? selectedTags : undefined,
         review: review.trim() || undefined,
         created_at: new Date().toISOString(),
+        // Syncable defaults – storage.save() will overwrite these, but
+        // TypeScript requires them on the Rating type.
+        synced: false,
+        updated_at: new Date().toISOString(),
       });
+
+      // Push the rating to Supabase immediately if online.
+      syncAll({ id: user.id, role: user.role, park_name: user.park_name }).catch(
+        () => {/* offline – connectivity listener will retry */}
+      );
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       resetState();
@@ -171,41 +127,13 @@ export default function RatingModal({
       Alert.alert(t("common.error"), t("common.retry"));
       setIsSubmitting(false);
     }
-  }, [
-    stars,
-    user?.id,
-    tripId,
-    ratedUserId,
-    selectedTags,
-    review,
-    t,
-    resetState,
-    onSubmit,
-  ]);
+  }, [stars, user, tripId, ratedUserId, selectedTags, review, t, resetState, onSubmit]);
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={handleClose}
-      statusBarTranslucent
-    >
-      {/* Overlay (tap outside the sheet to close) */}
-      <Pressable
-        style={styles.overlay}
-        onPress={handleClose}
-        pointerEvents="auto"
-      />
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose} statusBarTranslucent>
+      <Pressable style={styles.overlay} onPress={handleClose} pointerEvents="auto" />
 
-      {/* Sheet */}
-      <View
-        style={[
-          styles.sheet,
-          Platform.OS === "android" && styles.sheetAndroid,
-        ]}
-      >
-        {/* Handle */}
+      <View style={[styles.sheet, Platform.OS === "android" && styles.sheetAndroid]}>
         <View style={styles.handle} />
 
         <ScrollView
@@ -213,14 +141,11 @@ export default function RatingModal({
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.scrollContent}
         >
-          {/* Title */}
           <Text style={styles.title}>{t("ratings.rateYourTrip")}</Text>
           <Text style={styles.subtitle}>{t("ratings.howWasIt")}</Text>
 
-          {/* Stars */}
           <StarRow value={stars} onChange={setStars} />
 
-          {/* Tags */}
           <Text style={styles.sectionLabel}>{t("ratings.tags")}</Text>
           <View style={styles.chipRow}>
             {tagKeys.map((key) => (
@@ -233,7 +158,6 @@ export default function RatingModal({
             ))}
           </View>
 
-          {/* Review */}
           <Text style={styles.sectionLabel}>{t("ratings.review")}</Text>
           <TextInput
             style={styles.reviewInput}
@@ -248,37 +172,28 @@ export default function RatingModal({
           />
           <Text style={styles.charCount}>{review.length}/300</Text>
 
-          {/* Actions */}
           <View style={styles.actions}>
             <Pressable
-              style={({ pressed }) => [
-                styles.cancelBtn,
-                pressed && styles.pressed,
-              ]}
+              style={({ pressed }) => [styles.cancelBtn, pressed && styles.pressed]}
               onPress={handleClose}
             >
               <Text style={styles.cancelBtnText}>{t("common.cancel")}</Text>
             </Pressable>
-
             <Pressable
               style={({ pressed }) => [
                 styles.submitBtn,
-                stars === 0 && styles.submitBtnDisabled,
-                isSubmitting && styles.submitBtnDisabled,
+                (stars === 0 || isSubmitting) && styles.submitBtnDisabled,
                 pressed && styles.pressed,
               ]}
               onPress={handleSubmit}
               disabled={stars === 0 || isSubmitting}
             >
               <Text style={styles.submitBtnText}>
-                {isSubmitting
-                  ? t("ratings.submitting")
-                  : t("ratings.submit")}
+                {isSubmitting ? t("ratings.submitting") : t("ratings.submit")}
               </Text>
             </Pressable>
           </View>
 
-          {/* Skip */}
           <Pressable
             style={({ pressed }) => [styles.skipBtn, pressed && styles.pressed]}
             onPress={handleClose}
@@ -291,199 +206,173 @@ export default function RatingModal({
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  // Overlay
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.65)",
-    zIndex: 1,
-    elevation: 1,
+    zIndex: 1, elevation: 1
   },
-
-  // Bottom sheet
-  sheet: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 2,
+  sheet: { 
+    position: "absolute", 
+    bottom: 0, 
+    left: 0, 
+    right: 0, 
+    zIndex: 2, 
     backgroundColor: "#1A1A1A",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingTop: 12,
-    paddingHorizontal: 24,
-    paddingBottom: Platform.OS === "ios" ? 40 : 24,
-    maxHeight: "88%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 24,
+    borderTopLeftRadius: 28, 
+    borderTopRightRadius: 28, 
+    paddingTop: 12, 
+    paddingHorizontal: 24, 
+    paddingBottom: Platform.OS === "ios" ? 40 : 24, 
+    maxHeight: "88%", 
+    shadowColor: "#000", 
+    shadowOffset: { width: 0, height: -6 }, 
+    shadowOpacity: 0.5, 
+    shadowRadius: 20, 
+    elevation: 24 
   },
-  sheetAndroid: {
-    paddingBottom: 32,
+  sheetAndroid: { 
+    paddingBottom: 32 
   },
-
-  // Drag handle
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.25)",
-    alignSelf: "center",
-    marginBottom: 20,
+  handle: { 
+    width: 40, 
+    height: 4, 
+    borderRadius: 2, 
+    backgroundColor: "rgba(255,255,255,0.25)", 
+    alignSelf: "center", 
+    marginBottom: 20 
   },
-
-  scrollContent: {
-    paddingBottom: 8,
+  scrollContent: { 
+    paddingBottom: 8 
   },
-
-  // Heading
-  title: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 22,
-    color: "#FFFFFF",
-    textAlign: "center",
-    marginBottom: 6,
+  title: { 
+    fontFamily: "Poppins_700Bold", 
+    fontSize: 22, 
+    color: "#FFFFFF", 
+    textAlign: "center", 
+    marginBottom: 6 
   },
-  subtitle: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    color: "rgba(255,255,255,0.55)",
-    textAlign: "center",
-    marginBottom: 24,
+  subtitle: { 
+    fontFamily: "Poppins_400Regular", 
+    fontSize: 14, 
+    color: "rgba(255,255,255,0.55)", 
+    textAlign: "center", 
+    marginBottom: 24 
   },
-
-  // Stars
-  starRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 10,
-    marginBottom: 28,
+  starRow: { 
+    flexDirection: "row", 
+    justifyContent: "center", 
+    gap: 10, 
+    marginBottom: 28 
   },
-  starBtn: {
-    padding: 4,
+  starBtn: { 
+    padding: 4 
   },
-
-  // Section label
-  sectionLabel: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 13,
-    color: "rgba(255,255,255,0.7)",
-    marginBottom: 10,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
+  sectionLabel: { 
+    fontFamily: "Poppins_600SemiBold", 
+    fontSize: 13, 
+    color: "rgba(255,255,255,0.7)", 
+    marginBottom: 10, 
+    textTransform: "uppercase", 
+    letterSpacing: 0.6 
   },
-
-  // Tag chips
-  chipRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 24,
+  chipRow: { 
+    flexDirection: "row", 
+    flexWrap: "wrap", gap: 8, 
+    marginBottom: 24 
   },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.2)",
-    backgroundColor: "transparent",
+  chip: { 
+    paddingHorizontal: 14, 
+    paddingVertical: 8, 
+    borderRadius: 20, 
+    borderWidth: 1.5, 
+    borderColor: "rgba(255,255,255,0.2)", 
+    backgroundColor: "transparent" 
   },
-  chipSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+  chipSelected: { 
+    backgroundColor: Colors.primary, 
+    borderColor: Colors.primary 
   },
-  chipText: {
-    fontFamily: "Poppins_500Medium",
-    fontSize: 13,
-    color: "rgba(255,255,255,0.65)",
+  chipText: { 
+    fontFamily: "Poppins_500Medium", 
+    fontSize: 13, 
+    color: "rgba(255,255,255,0.65)" 
   },
-  chipTextSelected: {
-    color: "#FFFFFF",
+  chipTextSelected: { 
+    color: "#FFFFFF" 
   },
-
-  // Review input
-  reviewInput: {
-    backgroundColor: "#2A2A2A",
-    borderRadius: 14,
-    padding: 14,
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    color: "#FFFFFF",
-    minHeight: 100,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    marginBottom: 4,
+  reviewInput: { 
+    backgroundColor: "#2A2A2A", 
+    borderRadius: 14, 
+    padding: 14, 
+    fontFamily: "Poppins_400Regular", 
+    fontSize: 14, 
+    color: "#FFFFFF", 
+    minHeight: 100, 
+    borderWidth: 1, 
+    borderColor: "rgba(255,255,255,0.1)", 
+    marginBottom: 4 
   },
-  charCount: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12,
-    color: "rgba(255,255,255,0.3)",
-    textAlign: "right",
-    marginBottom: 28,
+  charCount: { 
+    fontFamily: "Poppins_400Regular", 
+    fontSize: 12, 
+    color: "rgba(255,255,255,0.3)", 
+    textAlign: "right", 
+    marginBottom: 28 
   },
-
-  // Action row
-  actions: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 12,
+  actions: { 
+    flexDirection: "row", 
+    gap: 12, 
+    marginBottom: 12 
   },
-  cancelBtn: {
-    flex: 1,
-    height: 52,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#2A2A2A",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+  cancelBtn: { 
+    flex: 1, 
+    height: 52, 
+    borderRadius: 14, 
+    alignItems: "center", 
+    justifyContent: "center", 
+    backgroundColor: "#2A2A2A", 
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" 
   },
-  cancelBtnText: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 15,
-    color: "rgba(255,255,255,0.7)",
+  cancelBtnText: { 
+    fontFamily: "Poppins_600SemiBold", 
+    fontSize: 15, 
+    color: "rgba(255,255,255,0.7)" 
   },
-  submitBtn: {
-    flex: 2,
-    height: 52,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Colors.primary,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 6,
+  submitBtn: { 
+    flex: 2, 
+    height: 52, 
+    borderRadius: 14, 
+    alignItems: "center", 
+    justifyContent: "center", 
+    backgroundColor: Colors.primary, 
+    shadowColor: Colors.primary, 
+    shadowOffset: { width: 0, height: 4 }, 
+    shadowOpacity: 0.4, 
+    shadowRadius: 10, 
+    elevation: 6 
   },
-  submitBtnDisabled: {
-    backgroundColor: "#333",
-    shadowOpacity: 0,
-    elevation: 0,
+  submitBtnDisabled: { 
+    backgroundColor: "#333", 
+    shadowOpacity: 0, 
+    elevation: 0 
   },
-  submitBtnText: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 15,
-    color: "#FFFFFF",
+  submitBtnText: { 
+    fontFamily: "Poppins_600SemiBold", 
+    fontSize: 15, 
+    color: "#FFFFFF" 
   },
-
-  // Skip
-  skipBtn: {
-    alignItems: "center",
-    paddingVertical: 10,
+  skipBtn: { 
+    alignItems: "center", 
+    paddingVertical: 10 
   },
-  skipBtnText: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 13,
-    color: "rgba(255,255,255,0.35)",
-    textDecorationLine: "underline",
+  skipBtnText: { 
+    fontFamily: "Poppins_400Regular", 
+    fontSize: 13, 
+    color: "rgba(255,255,255,0.35)", 
+    textDecorationLine: "underline" 
   },
-
-  pressed: {
-    opacity: 0.72,
+  pressed: { 
+    opacity: 0.72 
   },
 });

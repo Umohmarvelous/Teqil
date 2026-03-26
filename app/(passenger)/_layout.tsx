@@ -1,30 +1,30 @@
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Tabs } from "expo-router";
-import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
+// import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
 import { BlurView } from "expo-blur";
 import { Platform, StyleSheet, View } from "react-native";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/colors";
 
-function NativePassengerTabs() {
-  return (
-    <NativeTabs>
-      <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "house", selected: "house.fill" }} />
-        <Label>Home</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="find-trip">
-        <Icon sf={{ default: "magnifyingglass", selected: "magnifyingglass" }} role="search" />
-        <Label>Find Trip</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="history">
-        <Icon sf={{ default: "clock", selected: "clock.fill" }} />
-        <Label>History</Label>
-      </NativeTabs.Trigger>
-    </NativeTabs>
-  );
-}
+// function NativePassengerTabs() {
+//   return (
+//     <NativeTabs>
+//       <NativeTabs.Trigger name="index">
+//         <Icon sf={{ default: "house", selected: "house.fill" }} />
+//         <Label>Home</Label>
+//       </NativeTabs.Trigger>
+//       <NativeTabs.Trigger name="find-trip">
+//         <Icon sf={{ default: "magnifyingglass", selected: "magnifyingglass" }} role="search" />
+//         <Label>Find Trip</Label>
+//       </NativeTabs.Trigger>
+//       <NativeTabs.Trigger name="history">
+//         <Icon sf={{ default: "clock", selected: "clock.fill" }} />
+//         <Label>History</Label>
+//       </NativeTabs.Trigger>
+//     </NativeTabs>
+//   );
+// }
 
 function ClassicPassengerTabs() {
   const isIOS = Platform.OS === "ios";
@@ -40,17 +40,38 @@ function ClassicPassengerTabs() {
           fontFamily: "Poppins_500Medium",
           fontSize: 11,
         },
+        
+        
+        tabBarPosition: "bottom",
         tabBarStyle: {
           position: "absolute",
+          // bottom: 20,
+          left: 0,
+          right: 0,
+          maxWidth: 'auto',
+          alignSelf: 'center',
+          // marginHorizontal: 60,
+          paddingTop: 12,
+          height: 90,
           backgroundColor: isIOS ? "transparent" : Colors.surface,
-          borderTopWidth: isWeb ? 1 : 0,
-          borderTopColor: Colors.border,
-          elevation: 0,
+          // borderRadius: 35,
+          overflow: "hidden",
+          // borderWidth: 1,
+          borderColor: "transparent",
+          // elevation: 16,
+          // shadowColor: "#000",
+          // shadowOpacity: 0.12,
+          // shadowRadius: 12,
+          // shadowOffset: { width: 0, height: 8 },
           ...(isWeb ? { height: 84 } : {}),
         },
         tabBarBackground: () =>
           isIOS ? (
-            <BlurView intensity={100} tint="light" style={StyleSheet.absoluteFill} />
+            <BlurView
+              intensity={80}
+              tint="dark"
+              style={[StyleSheet.absoluteFill, {  }]}
+            />
           ) : isWeb ? (
             <View style={[StyleSheet.absoluteFill, { backgroundColor: Colors.surface }]} />
           ) : null,
@@ -89,7 +110,7 @@ function ClassicPassengerTabs() {
 
 export default function PassengerTabLayout() {
   if (isLiquidGlassAvailable()) {
-    return <NativePassengerTabs />;
+    // return <NativePassengerTabs />;
   }
   return <ClassicPassengerTabs />;
 }

@@ -36,7 +36,7 @@ export const Colors = {
 
   tabBar: "#FFFFFF",
   tabBarActive: PRIMARY,
-  tabBarInactive: "#9CA3AF",
+  tabBarInactive: "#C6CEDC",
 };
 
 export default {
