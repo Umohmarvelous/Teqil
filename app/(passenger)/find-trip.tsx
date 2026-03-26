@@ -166,13 +166,16 @@ export default function FindTripScreen() {
   return (
     <View style={styles.root}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
+      <View style={[styles.header, { paddingTop: topPadding + 32 }]}>
         {step === "details" ? (
           <Pressable style={styles.backBtn} onPress={() => { setStep("search"); setFoundTrip(null); }}>
-            <Ionicons name="arrow-back" size={20} color={C.text} />
+            <Ionicons name="arrow-back" size={20} color={C.primary} />
           </Pressable>
         ) : (
-          <View style={{ width: 40 }} />
+            <View style={{ width: 40 }} />
+          // <Pressable style={styles.backBtn} onPress={() => { setStep("search"); setFoundTrip(null); }}>
+          //   <Ionicons name="arrow-back" size={20} color={C.primary} />
+          // </Pressable>
         )}
         <Text style={styles.headerTitle}>
           {step === "search" ? t("passenger.enterCode") : "Join Trip"}
@@ -191,9 +194,9 @@ export default function FindTripScreen() {
           {step === "search" && (
             <Animated.View style={searchAnim}>
               <View style={styles.heroRow}>
-                <View style={styles.heroIcon}>
+                {/* <View style={styles.heroIcon}>
                   <Ionicons name="search" size={28} color={C.primary} />
-                </View>
+                </View> */}
                 <View style={{ flex: 1 }}>
                   <Text style={styles.heroTitle}>Find Your Trip</Text>
                   <Text style={styles.heroSub}>Ask your driver for the 6-character code</Text>
@@ -352,19 +355,19 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: C.border },
   backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
   headerTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 16, color: C.text, letterSpacing: 0.2 },
-  scroll: { flex: 1 },
-  scrollContent: { padding: 20, gap: 0 },
+  scroll: { flex: 1, },
+  scrollContent: { padding: 20, gap: 0, flex:1, alignItems: 'center', justifyContent: 'center' },
   heroRow: { flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 28 },
   heroIcon: { width: 56, height: 56, borderRadius: 16, backgroundColor: C.primaryGlow, borderWidth: 1, borderColor: "rgba(0,166,81,0.25)", alignItems: "center", justifyContent: "center" },
-  heroTitle: { fontFamily: "Poppins_700Bold", fontSize: 22, color: C.text },
-  heroSub: { fontFamily: "Poppins_400Regular", fontSize: 13, color: C.textSub, marginTop: 2, lineHeight: 20 },
+  heroTitle: { fontFamily: "Poppins_700Bold", fontSize: 22, color: C.text, textAlign: 'center' },
+  heroSub: { fontFamily: "Poppins_400Regular", fontSize: 13, color: C.textSub, marginTop: 2, lineHeight: 20, textAlign: 'center' },
   codeCard: { backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.border, padding: 28, alignItems: "center", marginBottom: 16 },
   codeLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 10, color: C.textMuted, letterSpacing: 3, marginBottom: 16 },
   codeInput: { fontFamily: "Poppins_700Bold", fontSize: 36, color: C.primary, letterSpacing: 16, textAlign: "center", paddingHorizontal: 8, minWidth: 200 },
   codeDots: { flexDirection: "row", gap: 8, marginTop: 16 },
   codeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.border },
   codeDotFilled: { backgroundColor: C.primary },
-  searchBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: C.primary, borderRadius: 16, height: 56, marginBottom: 14, shadowColor: C.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 14, elevation: 8 },
+  searchBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: C.primary, borderRadius: 16, height: 56, marginBottom: 14, },
   searchBtnDisabled: { opacity: 0.6 },
   searchBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 16, color: C.white },
   hint: { fontFamily: "Poppins_400Regular", fontSize: 12, color: C.textMuted, textAlign: "center", lineHeight: 18 },

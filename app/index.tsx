@@ -11,7 +11,7 @@ export default function IndexScreen() {
     if (isLoading) return;
 
     if (!isAuthenticated) {
-      router.replace("/(passenger)/find-trip");
+      router.replace("/_sitemap");
 
       return;
     }

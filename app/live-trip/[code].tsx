@@ -683,40 +683,87 @@ export default function LiveTripScreen() {
   }, []);
   const aiBtnStyle = useAnimatedStyle(() => ({ transform: [{ scale: aiBtnScale.value }] }));
 
-  // ── End trip ────────────────────────────────────────────────────────────────
+  // ── End trip (driver) ────────────────────────────────────────────────────────
   const handleEndTrip = () => {
-    Alert.alert(t("trip.endTrip"), "This will complete the trip for all passengers.", [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("trip.endTrip"),
-        style: "destructive",
-        onPress: async () => {
-          setIsEnding(true);
-          const currentTrip = displayTrip;
-          if (trip) {
-            await TripsStorage.update(trip.id, { status: "completed", end_time: new Date().toISOString() });
-          }
-          // Sync the completed trip immediately if online
-          if (user) {
-            syncAll({ id: user.id, role: user.role, park_name: user.park_name }).catch(
-              () => {/* offline – will retry when back online */}
-            );
-          }
-          if (timerRef.current) clearInterval(timerRef.current);
-          locationWatcher.current?.remove();
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          if (!isDriver && currentTrip?.id && currentTrip?.driver_id) {
-            setRatingContext({
-              tripId: currentTrip.id,
-              ratedUserId: currentTrip.driver_id,
-              raterRole: "passenger",
-            });
-          }
-          resetTripState();
-          if (isDriver) router.replace("/(driver)");
+    Alert.alert(
+      t("trip.endTrip"),
+      "This will complete the trip for all passengers.",
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("trip.endTrip"),
+          style: "destructive",
+          onPress: async () => {
+            setIsEnding(true);
+            if (trip) {
+              await TripsStorage.update(trip.id, {
+                status: "completed",
+                end_time: new Date().toISOString(),
+              });
+            }
+            if (user) {
+              syncAll({ id: user.id, role: user.role, park_name: user.park_name }).catch(() => {});
+            }
+            if (timerRef.current) clearInterval(timerRef.current);
+            locationWatcher.current?.remove();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            resetTripState();
+            router.replace("/(driver)");
+          },
         },
-      },
-    ]);
+      ]
+    );
+  };
+
+  // ── Leave trip (passenger) ────────────────────────────────────────────────
+  // Marks the passenger's own record as completed, triggers sync, shows the
+  // rating modal, then navigates back to the passenger dashboard.
+  const handleLeaveTrip = () => {
+    Alert.alert(
+      "Leave Trip",
+      "Are you sure you want to leave this trip? Your emergency contacts will be notified that you have arrived.",
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: "Leave Trip",
+          style: "destructive",
+          onPress: async () => {
+            setIsEnding(true);
+            const currentTrip = displayTrip;
+
+            // 1. Mark this passenger's record as completed with a dropoff timestamp
+            if (myPassenger) {
+              await PassengersStorage.update(myPassenger.id, {
+                status: "completed",
+                dropoff_time: new Date().toISOString(),
+              });
+            }
+
+            // 2. Sync immediately if online so the driver sees the updated count
+            if (user) {
+              syncAll({ id: user.id, role: user.role, park_name: user.park_name }).catch(() => {});
+            }
+
+            // 3. Stop location watcher and clear trip state
+            locationWatcher.current?.remove();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            resetTripState();
+
+            // 4. Show rating modal before navigating; onClose/onSubmit handles navigation
+            if (currentTrip?.id && currentTrip?.driver_id) {
+              setRatingContext({
+                tripId: currentTrip.id,
+                ratedUserId: currentTrip.driver_id,
+                raterRole: "passenger",
+              });
+            } else {
+              // No trip context to rate — go straight to dashboard
+              router.replace("/(passenger)");
+            }
+          },
+        },
+      ]
+    );
   };
 
   // ── SOS ─────────────────────────────────────────────────────────────────────
@@ -965,14 +1012,16 @@ export default function LiveTripScreen() {
               </LinearGradient>
             </AnimatedPressable>
           ) : (
-            <AnimatedPressable onPress={handleEndTrip} style={styles.endTripBtn} scaleValue={0.96}>
+            <AnimatedPressable onPress={handleLeaveTrip} style={styles.endTripBtn} scaleValue={0.96}>
               <LinearGradient
                 colors={["#3B82F6", "#1D4ED8"]}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                 style={styles.endTripGradient}
               >
                 <Ionicons name="exit-outline" size={18} color="#fff" />
-                <Text style={styles.endTripText}>Leave Trip</Text>
+                <Text style={styles.endTripText}>
+                  {isEnding ? "Leaving..." : "Leave Trip"}
+                </Text>
               </LinearGradient>
             </AnimatedPressable>
           )}
@@ -1248,7 +1297,6 @@ const styles = StyleSheet.create({
   },
   sosConfirmText: { fontFamily: "Poppins_600SemiBold", fontSize: 15, color: "#fff" },
 });
-
 
 // ─── AI Modal Styles ───────────────────────────────────────────────────────────
 const aiStyles = StyleSheet.create({
