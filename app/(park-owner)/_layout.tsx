@@ -1,30 +1,11 @@
-import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Tabs } from "expo-router";
-import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
 import { BlurView } from "expo-blur";
 import { Platform, StyleSheet, View } from "react-native";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/colors";
 
-function NativeParkOwnerTabs() {
-  return (
-    <NativeTabs>
-      <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "chart.bar", selected: "chart.bar.fill" }} />
-        <Label>Dashboard</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="drivers">
-        <Icon sf={{ default: "person.2", selected: "person.2.fill" }} />
-        <Label>Drivers</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="alerts">
-        <Icon sf={{ default: "exclamationmark.triangle", selected: "exclamationmark.triangle.fill" }} />
-        <Label>Alerts</Label>
-      </NativeTabs.Trigger>
-    </NativeTabs>
-  );
-}
+
 
 function ClassicParkOwnerTabs() {
   const isIOS = Platform.OS === "ios";
@@ -88,8 +69,5 @@ function ClassicParkOwnerTabs() {
 }
 
 export default function ParkOwnerTabLayout() {
-  if (isLiquidGlassAvailable()) {
-    return <NativeParkOwnerTabs />;
-  }
-  return <ClassicParkOwnerTabs />;
+  return <ClassicParkOwnerTabs />
 }

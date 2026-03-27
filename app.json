@@ -64,7 +64,8 @@
       "expo-web-browser",
       "expo-location",
       "expo-image-picker",
-      "expo-maps"
+      "expo-maps",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

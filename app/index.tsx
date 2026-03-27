@@ -11,7 +11,7 @@ export default function IndexScreen() {
     if (isLoading) return;
 
     if (!isAuthenticated) {
-      router.replace("/_sitemap");
+      router.replace("/(auth)/welcome");
 
       return;
     }

@@ -8,7 +8,7 @@
  */
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { signIn as supabaseSignIn } from "./supabase";
+import { signUp as supabaseSignUp, signIn as supabaseSignIn } from "./supabase";
 import type { User } from "../models/types";
 
 const CACHED_USER_KEY = "teqil_cached_user";
@@ -166,5 +166,66 @@ export async function signInOfflineAware(
       "You appear to be offline and no cached credentials were found. " +
         "Please connect to the internet and try again."
     );
+  }
+}
+
+
+// Add this export
+export async function signUpOfflineAware(
+  email: string,
+  password: string,
+  metadata: Record<string, unknown>
+): Promise<{ user: User; offlineMode: boolean }> {
+  // Sign‑up always requires internet (can't create account offline)
+  try {
+    const data = await supabaseSignUp(email, password, metadata);
+    const supaUser = data.user;
+
+    if (!supaUser) {
+      throw new Error("No user returned from Supabase.");
+    }
+
+    // Build user object from metadata and Supabase response
+    const user: User = {
+      id: supaUser.id,
+      full_name: (metadata.full_name as string) ?? null,
+      phone: (metadata.phone as string) ?? "",
+      email: supaUser.email ?? email,
+      age: (metadata.age as number) ?? 18,
+      role: (metadata.role as any) ?? "passenger",
+      driver_id: metadata.driver_id as string | undefined,
+      profile_photo: metadata.profile_photo as string | undefined,
+      vehicle_details: metadata.vehicle_details as string | undefined,
+      park_location: metadata.park_location as string | undefined,
+      park_name: metadata.park_name as string | undefined,
+      points_balance: (metadata.points_balance as number) ?? 0,
+      avg_rating: metadata.avg_rating as number | undefined,
+      profile_complete: (metadata.profile_complete as boolean) ?? false,
+      created_at: supaUser.created_at,
+    };
+
+    // Cache credentials for offline login later
+    await cacheCredentials(user, email, password);
+
+    return { user, offlineMode: false };
+  } catch (error) {
+    // If network error, re‑throw with a user‑friendly message
+    const message =
+      error instanceof Error ? error.message.toLowerCase() : "";
+    const isNetworkError =
+      message.includes("network") ||
+      message.includes("fetch") ||
+      message.includes("connect") ||
+      message.includes("offline") ||
+      message.includes("timeout") ||
+      message.includes("unable to resolve");
+
+    if (isNetworkError) {
+      throw new Error(
+        "No internet connection. Please connect to the internet and try again."
+      );
+    }
+    // Otherwise, re‑throw the original error (e.g., duplicate email, etc.)
+    throw error;
   }
 }

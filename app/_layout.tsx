@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Stack, router } from "expo-router";
+import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useCallback, useRef } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -15,8 +15,7 @@ import {
 import { useFonts } from "expo-font";
 import { useAuthStore } from "@/src/store/useStore";
 import { supabase } from "@/src/services/supabase";
-import { syncAll, startConnectivityListener } from "@/src/services/sync";
-import type { SyncUser } from "@/src/services/sync";
+import { syncAll, startConnectivityListener, SyncUser } from "@/src/services/sync";
 // import "@/src/i18n";
 import i18n from "@/src/i18n";
 import { StatusBar } from "expo-status-bar";

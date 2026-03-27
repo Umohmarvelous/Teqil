@@ -20,7 +20,6 @@ import { PassengersStorage, TripsStorage } from "@/src/services/storage";
 import { formatCoins, formatDate } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
-import { Icon } from "expo-router/unstable-native-tabs";
 
 // ---------------------------------------------------------------------------
 // FloatingNavBar
@@ -34,8 +33,8 @@ interface NavItem {
 }
 
 function FloatingNavBar({ activeTab }: { activeTab: "home" | "find" | "history" }) {
-  const insets = useSafeAreaInsets();
-  const { t } = useTranslation();
+  // const insets = useSafeAreaInsets();
+  // const { t } = useTranslation();
 
   const scaleHome = useRef(new Animated.Value(1)).current;
   const scaleFind = useRef(new Animated.Value(1)).current;
