@@ -7,6 +7,7 @@ import {
   TextInput,
   Alert,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -134,7 +135,7 @@ function FormField({
           ref={inputRef}
           style={fieldStyles.input}
           placeholder={placeholder}
-          placeholderTextColor={Colors.textTertiary}
+          placeholderTextColor={Colors.overlayLight}
           value={value}
           onChangeText={onChangeText}
           onBlur={onBlur}
@@ -159,13 +160,15 @@ const fieldStyles = StyleSheet.create({
     fontFamily: "Poppins_500Medium",
     fontSize: 13,
     color: Colors.text,
-    marginBottom: 6,
+    marginTop: 6,
+    marginBottom: 9,
+    paddingLeft: 5
   },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.surfaceSecondary,
-    borderRadius: 14,
+    borderRadius: 26,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderWidth: 1.5,
@@ -173,7 +176,7 @@ const fieldStyles = StyleSheet.create({
   },
   inputRowError: {
     borderColor: Colors.error,
-    backgroundColor: "#FFF5F5",
+    backgroundColor: "#9E080800",
   },
   icon: { marginRight: 12 },
   input: {
@@ -287,8 +290,9 @@ export default function LoginScreen() {
       <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
+          <Text>Back</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>{t("auth.login")}</Text>
+        {/* <Text style={styles.headerTitle}>{t("auth.login")}</Text> */}
         {/* Spacer to centre the title */}
         <View style={styles.backBtn} />
       </View>
@@ -306,10 +310,12 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Page title */}
-        <Text style={styles.pageTitle}>Welcome back</Text>
-        <Text style={styles.pageSubtitle}>
-          Sign in to continue your journey
-        </Text>
+        <View style={styles.pageHeaderContainer}>
+          <Text style={styles.pageTitle}>Welcome back</Text>
+          <Text style={styles.pageSubtitle}>
+            Sign in to continue your journey
+          </Text>
+        </View>
 
         {/* Animated form */}
         <Animated.View style={formAnimStyle}>
@@ -388,10 +394,17 @@ export default function LoginScreen() {
             style={[styles.submitBtn, isLoading && styles.submitBtnLoading]}
           >
             <Text style={styles.submitBtnText}>
-              {isLoading ? t("auth.loggingIn") : t("auth.login")}
+
+              {isLoading ? (
+                
+                <ActivityIndicator size="small" color={Colors.borderLight} />
+                // t("auth.loggingIn")
+                
+              ) : t("auth.login")}
             </Text>
             {!isLoading && (
               <Ionicons name="arrow-forward" size={18} color={Colors.surface} />
+              
             )}
           </AnimatedPressable>
 
@@ -433,9 +446,10 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: Colors.surfaceSecondary,
     alignItems: "center",
     justifyContent: "center",
+    flexDirection: 'row',
+    gap: 5,
   },
   headerTitle: {
     fontFamily: "Poppins_600SemiBold",
@@ -446,11 +460,16 @@ const styles = StyleSheet.create({
   // Scroll
   scroll: { flex: 1 },
   scrollContent: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 44,
     paddingTop: 28,
   },
 
   // Page heading
+  pageHeaderContainer: {
+    flex: 1,
+    alignItems: 'center',
+    marginBottom: 40
+  },
   pageTitle: {
     fontFamily: "Poppins_700Bold",
     fontSize: 28,
@@ -479,7 +498,7 @@ const styles = StyleSheet.create({
   // Submit button
   submitBtn: {
     backgroundColor: Colors.primary,
-    borderRadius: 16,
+    borderRadius: 26,
     height: 56,
     flexDirection: "row",
     alignItems: "center",

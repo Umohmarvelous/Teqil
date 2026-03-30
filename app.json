@@ -4,9 +4,9 @@
     "slug": "teqil",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/Black_logo_with_black_background_linkedIn00000024.png",
     "scheme": "teqil",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash-icon.png",

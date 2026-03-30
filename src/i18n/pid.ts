@@ -35,7 +35,7 @@ export const pid = {
     phone: "Phone number",
     password: "Password",
     confirmPassword: "Confirm password",
-    fullName: "Full name (optional)",
+    fullName: "Full name",
     age: "Age",
     forgotPassword: "Forget password?",
     noAccount: "You no get account?",

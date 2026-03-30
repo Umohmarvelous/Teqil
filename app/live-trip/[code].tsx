@@ -42,7 +42,7 @@ const cacheGet = async <T>(key: string): Promise<T | null> => {
   } catch { return null; }
 };
 const cacheSet = async (key: string, val: unknown) => {
-  try { await AsyncStorage.setItem(key, JSON.stringify(val)); } catch { /* ignore */ }
+  try { await AsyncStorage.setItem(key, JSON.stringify(val)); } catch { }
 };
 
 // ─── Geocode address → LatLng ─────────────────────────────────────────────────
@@ -61,11 +61,11 @@ async function geocodeAddress(address: string): Promise<LatLng | null> {
       await cacheSet(cacheKey, pt);
       return pt;
     }
-  } catch { /* network error */ }
+  } catch { }
   return null;
 }
 
-// ─── Decode + fetch route polyline ───────────────────────────────────────────
+// ─── Route polyline ───────────────────────────────────────────────────────────
 function decodePolyline(encoded: string): LatLng[] {
   const pts: LatLng[] = [];
   let idx = 0, lat = 0, lng = 0;
@@ -95,7 +95,7 @@ async function fetchRoute(origin: string, dest: string, tripCode: string): Promi
       await cacheSet(cacheKey, pts);
       return pts;
     }
-  } catch { /* network error */ }
+  } catch { }
   return null;
 }
 
@@ -281,17 +281,13 @@ function AIAssistantModal({ visible, onClose, ctx }: {
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
 
-  // ── Entrance / exit animation ─────────────────────────────────────────────
   useEffect(() => {
     if (visible) {
       op.value = withTiming(1, { duration: 220 });
       tY.value = withSpring(0, { damping: 22, stiffness: 200 });
       if (messages.length === 0) {
         const welcome: ChatMessage = {
-          id: "welcome",
-          role: "ai",
-          icon: "sparkles",
-          timestamp: new Date(),
+          id: "welcome", role: "ai", icon: "sparkles", timestamp: new Date(),
           text: ctx.role === "driver"
             ? `Hi boss 👋 I'm your Teqil AI co-pilot. Ask me about traffic, fuel stations, earnings or anything about your trip from ${ctx.origin ?? "origin"} to ${ctx.destination ?? "destination"}.`
             : `Hi there 👋 I'm your Teqil AI assistant. Ask me about your ETA, the route, weather or anything about your journey to ${ctx.passengerDestination ?? ctx.destination ?? "your destination"}.`,
@@ -308,62 +304,35 @@ function AIAssistantModal({ visible, onClose, ctx }: {
   const overlayStyle = useAnimatedStyle(() => ({ opacity: op.value }));
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: tY.value }] }));
 
-  // ── Speech helpers ────────────────────────────────────────────────────────
   const speakText = useCallback((id: string, text: string) => {
     Speech.stop();
     setSpeakingId(id);
-    Speech.speak(text, {
-      language: "en-NG",
-      rate: 1.05,
-      pitch: 1.1,
-      volume: 1.0,
-      onDone: () => setSpeakingId(null),
-      onError: () => setSpeakingId(null),
-    });
+    Speech.speak(text, { language: "en-NG", rate: 1.05, pitch: 1.1, volume: 1.0, onDone: () => setSpeakingId(null), onError: () => setSpeakingId(null) });
   }, []);
 
-  const stopSpeaking = useCallback(() => {
-    Speech.stop();
-    setSpeakingId(null);
-  }, []);
+  const stopSpeaking = useCallback(() => { Speech.stop(); setSpeakingId(null); }, []);
 
-  const toggleMute = () => {
-    if (!muted) stopSpeaking();
-    setMuted((m) => !m);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
+  const toggleMute = () => { if (!muted) stopSpeaking(); setMuted((m) => !m); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); };
 
-  // ── Send message ──────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (question: string) => {
     const q = question.trim();
     if (!q || loading) return;
-
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setInput("");
     stopSpeaking();
-
     const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: "user", text: q, timestamp: new Date() };
     setMessages((prev) => [...prev, userMsg]);
     setLoading(true);
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
-
     try {
       const resp: AIResponse = await askAI(q, ctx);
-      const aiMsg: ChatMessage = {
-        id: `ai-${Date.now()}`, role: "ai", text: resp.text, icon: resp.icon, timestamp: new Date(),
-      };
+      const aiMsg: ChatMessage = { id: `ai-${Date.now()}`, role: "ai", text: resp.text, icon: resp.icon, timestamp: new Date() };
       setMessages((prev) => [...prev, aiMsg]);
       if (!muted) speakText(aiMsg.id, aiMsg.text);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
     } catch {
-      setMessages((prev) => [...prev, {
-        id: `err-${Date.now()}`, role: "ai",
-        text: "Sorry, I couldn't get a response. Please try again.",
-        icon: "alert-circle-outline", timestamp: new Date(),
-      }]);
-    } finally {
-      setLoading(false);
-    }
+      setMessages((prev) => [...prev, { id: `err-${Date.now()}`, role: "ai", text: "Sorry, I couldn't get a response. Please try again.", icon: "alert-circle-outline", timestamp: new Date() }]);
+    } finally { setLoading(false); }
   }, [loading, muted, ctx, speakText, stopSpeaking]);
 
   const handleClose = () => { stopSpeaking(); onClose(); };
@@ -372,80 +341,39 @@ function AIAssistantModal({ visible, onClose, ctx }: {
   return (
     <Modal transparent visible={visible} animationType="none" onRequestClose={handleClose}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        {/* Dimmed backdrop */}
         <Animated.View style={[aiStyles.overlay, overlayStyle]}>
           <Pressable style={aiStyles.overlayTap} onPress={handleClose} />
         </Animated.View>
-
-        {/* Bottom sheet */}
         <Animated.View style={[aiStyles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }, sheetStyle]}>
           <View style={aiStyles.sheetHandle} />
-
-          {/* Header */}
           <View style={aiStyles.header}>
             <View style={aiStyles.headerLeft}>
-              <View style={aiStyles.headerIcon}>
-                <Ionicons name="sparkles" size={18} color={Colors.gold} />
-              </View>
+              <View style={aiStyles.headerIcon}><Ionicons name="sparkles" size={18} color={Colors.gold} /></View>
               <View>
                 <Text style={aiStyles.headerTitle}>Teqil AI</Text>
-                <Text style={aiStyles.headerSub}>
-                  {ctx.role === "driver" ? "Driver co-pilot" : "Journey assistant"}
-                </Text>
+                <Text style={aiStyles.headerSub}>{ctx.role === "driver" ? "Driver co-pilot" : "Journey assistant"}</Text>
               </View>
             </View>
             <View style={aiStyles.headerRight}>
               <Pressable onPress={toggleMute} style={aiStyles.muteBtn} hitSlop={8}>
-                <Ionicons
-                  name={muted ? "volume-mute" : "volume-high-outline"}
-                  size={20}
-                  color={muted ? Colors.error : "rgba(255,255,255,0.6)"}
-                />
+                <Ionicons name={muted ? "volume-mute" : "volume-high-outline"} size={20} color={muted ? Colors.error : "rgba(255,255,255,0.6)"} />
               </Pressable>
               <Pressable onPress={handleClose} style={aiStyles.closeBtn} hitSlop={8}>
                 <Ionicons name="close" size={20} color="rgba(255,255,255,0.6)" />
               </Pressable>
             </View>
           </View>
-
-          {/* Quick action chips – horizontal scroll */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={aiStyles.quickRow}
-            style={aiStyles.quickScroll}
-          >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={aiStyles.quickRow} style={aiStyles.quickScroll}>
             {QUICK_ACTIONS.map((qa) => (
-              <Pressable
-                key={qa.label}
-                style={({ pressed }) => [aiStyles.quickChip, pressed && { opacity: 0.7 }]}
-                onPress={() => sendMessage(qa.question)}
-                disabled={loading}
-              >
+              <Pressable key={qa.label} style={({ pressed }) => [aiStyles.quickChip, pressed && { opacity: 0.7 }]} onPress={() => sendMessage(qa.question)} disabled={loading}>
                 <Ionicons name={qa.icon as any} size={14} color={Colors.primary} />
                 <Text style={aiStyles.quickChipText}>{qa.label}</Text>
               </Pressable>
             ))}
           </ScrollView>
-
-          {/* Chat history */}
-          <ScrollView
-            ref={scrollRef}
-            style={aiStyles.chatScroll}
-            contentContainerStyle={aiStyles.chatContent}
-            showsVerticalScrollIndicator={false}
-            onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
-          >
+          <ScrollView ref={scrollRef} style={aiStyles.chatScroll} contentContainerStyle={aiStyles.chatContent} showsVerticalScrollIndicator={false} onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
             {messages.map((msg) => (
-              <ChatBubble
-                key={msg.id}
-                msg={msg}
-                isSpeaking={speakingId === msg.id}
-                onSpeak={(text) => {
-                  speakingId === msg.id ? stopSpeaking() : speakText(msg.id, text);
-                }}
-              />
+              <ChatBubble key={msg.id} msg={msg} isSpeaking={speakingId === msg.id} onSpeak={(text) => { speakingId === msg.id ? stopSpeaking() : speakText(msg.id, text); }} />
             ))}
             {loading && (
               <View style={aiStyles.typingRow}>
@@ -456,27 +384,9 @@ function AIAssistantModal({ visible, onClose, ctx }: {
               </View>
             )}
           </ScrollView>
-
-          {/* Input row */}
           <View style={aiStyles.inputRow}>
-            <TextInput
-              ref={inputRef}
-              style={aiStyles.input}
-              placeholder="Ask me anything about your trip…"
-              placeholderTextColor="rgba(255,255,255,0.3)"
-              value={input}
-              onChangeText={setInput}
-              multiline
-              maxLength={200}
-              returnKeyType="send"
-              onSubmitEditing={() => sendMessage(input)}
-              editable={!loading}
-            />
-            <Pressable
-              style={[aiStyles.sendBtn, (!input.trim() || loading) && aiStyles.sendBtnDisabled]}
-              onPress={() => sendMessage(input)}
-              disabled={!input.trim() || loading}
-            >
+            <TextInput ref={inputRef} style={aiStyles.input} placeholder="Ask me anything about your trip…" placeholderTextColor="rgba(255,255,255,0.3)" value={input} onChangeText={setInput} multiline maxLength={200} returnKeyType="send" onSubmitEditing={() => sendMessage(input)} editable={!loading} />
+            <Pressable style={[aiStyles.sendBtn, (!input.trim() || loading) && aiStyles.sendBtnDisabled]} onPress={() => sendMessage(input)} disabled={!input.trim() || loading}>
               <Ionicons name="send" size={16} color="#fff" />
             </Pressable>
           </View>
@@ -505,9 +415,13 @@ export default function LiveTripScreen() {
   const [sosVisible, setSosVisible] = useState(false);
   const [aiVisible, setAiVisible] = useState(false);
   const [topBarCollapsed, setTopBarCollapsed] = useState(false);
-  const [ratingContext, setRatingContext] = useState<null | {
-    tripId: string; ratedUserId: string; raterRole: "driver" | "passenger";
-  }>(null);
+
+  // ── Rating state (passengers only) ─────────────────────────────────────────
+  // showRating is set to true only when a PASSENGER leaves a trip.
+  // Drivers never see the rating modal.
+  const [showRating, setShowRating] = useState(false);
+  const [ratingDriverId, setRatingDriverId] = useState<string>("");
+  const [ratingTripId, setRatingTripId] = useState<string>("");
 
   // ── Map state ───────────────────────────────────────────────────────────────
   const [routePoints, setRoutePoints] = useState<LatLng[]>([]);
@@ -528,7 +442,6 @@ export default function LiveTripScreen() {
   const displayTrip = trip || activeTrip;
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
-  // ── AI context (memoised) ───────────────────────────────────────────────────
   const aiCtx: AIContext = useMemo(() => ({
     role: isDriver ? "driver" : "passenger",
     origin: displayTrip?.origin,
@@ -572,20 +485,13 @@ export default function LiveTripScreen() {
       ]);
       if (oCoord) setOriginCoord(oCoord);
       if (dCoord) setDestCoord(dCoord);
-
       const pts = await fetchRoute(displayTrip.origin, displayTrip.destination, displayTrip.trip_code);
-      if (pts && pts.length > 0) {
-        setRoutePoints(pts);
-        setRouteError(null);
-      } else if (!GMAPS_KEY) {
-        setRouteError("Add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY to enable route drawing.");
-      } else {
-        setRouteError("Could not load route. Showing map without directions.");
-      }
+      if (pts && pts.length > 0) { setRoutePoints(pts); setRouteError(null); }
+      else if (!GMAPS_KEY) { setRouteError("Add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY to enable route drawing."); }
+      else { setRouteError("Could not load route. Showing map without directions."); }
     })();
   }, [displayTrip?.id]);
 
-  // ── Geocode passenger drop-off markers ─────────────────────────────────────
   useEffect(() => {
     if (!passengers.length) return;
     (async () => {
@@ -602,48 +508,38 @@ export default function LiveTripScreen() {
     })();
   }, [passengers]);
 
-  // ── Driver live location watcher ────────────────────────────────────────────
   useEffect(() => {
     if (!isDriver || !locationPermission) return;
     (async () => {
       locationWatcher.current = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.High, timeInterval: 2000, distanceInterval: 5 },
-        (loc) => {
-          setDriverLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-        }
+        (loc) => { setDriverLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude }); }
       );
     })();
     return () => { locationWatcher.current?.remove(); };
   }, [isDriver, locationPermission]);
 
-  // ── Passenger: get driver's single known position ──────────────────────────
   useEffect(() => {
     if (isDriver || !locationPermission) return;
     (async () => {
       try {
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         setDriverLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-      } catch { /* ignore */ }
+      } catch { }
     })();
   }, [isDriver, locationPermission]);
 
-  // ── Center map after data is ready ─────────────────────────────────────────
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
-    const center = driverLocation
-      ?? (originCoord && destCoord ? midpoint(originCoord, destCoord) : originCoord ?? destCoord);
+    const center = driverLocation ?? (originCoord && destCoord ? midpoint(originCoord, destCoord) : originCoord ?? destCoord);
     if (!center) return;
     if (routePoints.length > 1) {
-      mapRef.current.fitToCoordinates(routePoints, {
-        edgePadding: { top: 120, right: 40, bottom: 260, left: 40 },
-        animated: true,
-      });
+      mapRef.current.fitToCoordinates(routePoints, { edgePadding: { top: 120, right: 40, bottom: 260, left: 40 }, animated: true });
     } else {
       mapRef.current.animateToRegion({ ...center, latitudeDelta: 0.04, longitudeDelta: 0.04 }, 800);
     }
   }, [mapReady, routePoints.length, driverLocation]);
 
-  // ── Re-center button ────────────────────────────────────────────────────────
   const handleRecenter = useCallback(() => {
     const target = driverLocation ?? originCoord;
     if (!target || !mapRef.current) return;
@@ -651,7 +547,6 @@ export default function LiveTripScreen() {
     mapRef.current.animateToRegion({ ...target, latitudeDelta: 0.02, longitudeDelta: 0.02 }, 600);
   }, [driverLocation, originCoord]);
 
-  // ── Driver earnings timer ───────────────────────────────────────────────────
   useEffect(() => {
     if (!isDriver) return;
     timerRef.current = setInterval(() => {
@@ -661,7 +556,6 @@ export default function LiveTripScreen() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [elapsedSeconds, isDriver]);
 
-  // ── Top bar collapse ────────────────────────────────────────────────────────
   const toggleTopBar = () => {
     const next = !topBarCollapsed;
     setTopBarCollapsed(next);
@@ -673,7 +567,6 @@ export default function LiveTripScreen() {
     overflow: "hidden",
   }));
 
-  // ── AI FAB pulse animation ──────────────────────────────────────────────────
   const aiBtnScale = useSharedValue(1);
   useEffect(() => {
     aiBtnScale.value = withRepeat(
@@ -683,7 +576,8 @@ export default function LiveTripScreen() {
   }, []);
   const aiBtnStyle = useAnimatedStyle(() => ({ transform: [{ scale: aiBtnScale.value }] }));
 
-  // ── End trip (driver) ────────────────────────────────────────────────────────
+  // ── End trip (DRIVER only) ────────────────────────────────────────────────
+  // Drivers just complete the trip and go home. No rating for them.
   const handleEndTrip = () => {
     Alert.alert(
       t("trip.endTrip"),
@@ -708,6 +602,7 @@ export default function LiveTripScreen() {
             locationWatcher.current?.remove();
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             resetTripState();
+            // Driver goes straight back to the dashboard — no rating modal
             router.replace("/(driver)");
           },
         },
@@ -715,9 +610,9 @@ export default function LiveTripScreen() {
     );
   };
 
-  // ── Leave trip (passenger) ────────────────────────────────────────────────
-  // Marks the passenger's own record as completed, triggers sync, shows the
-  // rating modal, then navigates back to the passenger dashboard.
+  // ── Leave trip (PASSENGER only) ───────────────────────────────────────────
+  // After the passenger marks themselves as arrived, show the rating modal
+  // so they can rate the driver before navigating away.
   const handleLeaveTrip = () => {
     Alert.alert(
       "Leave Trip",
@@ -731,7 +626,7 @@ export default function LiveTripScreen() {
             setIsEnding(true);
             const currentTrip = displayTrip;
 
-            // 1. Mark this passenger's record as completed with a dropoff timestamp
+            // 1. Mark the passenger record as completed
             if (myPassenger) {
               await PassengersStorage.update(myPassenger.id, {
                 status: "completed",
@@ -739,25 +634,22 @@ export default function LiveTripScreen() {
               });
             }
 
-            // 2. Sync immediately if online so the driver sees the updated count
+            // 2. Sync immediately if online
             if (user) {
               syncAll({ id: user.id, role: user.role, park_name: user.park_name }).catch(() => {});
             }
 
-            // 3. Stop location watcher and clear trip state
             locationWatcher.current?.remove();
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             resetTripState();
 
-            // 4. Show rating modal before navigating; onClose/onSubmit handles navigation
+            // 3. Show rating modal for the driver
             if (currentTrip?.id && currentTrip?.driver_id) {
-              setRatingContext({
-                tripId: currentTrip.id,
-                ratedUserId: currentTrip.driver_id,
-                raterRole: "passenger",
-              });
+              setRatingTripId(currentTrip.id);
+              setRatingDriverId(currentTrip.driver_id);
+              setShowRating(true);
             } else {
-              // No trip context to rate — go straight to dashboard
+              // No driver info available — navigate directly
               router.replace("/(passenger)");
             }
           },
@@ -777,17 +669,15 @@ export default function LiveTripScreen() {
     Alert.alert("SOS Sent", "Emergency contacts and park owner have been notified.");
   };
 
-  // ── Initial map region (Lagos fallback) ─────────────────────────────────────
   const initialRegion: Region = useMemo(() => {
     const center = driverLocation ?? originCoord ?? { latitude: 6.5244, longitude: 3.3792 };
     return { ...center, latitudeDelta: 0.04, longitudeDelta: 0.04 };
   }, []);
 
-  // ────────────────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
 
-      {/* ── Full-screen Google Map ── */}
+      {/* ── Map ── */}
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFillObject}
@@ -798,42 +688,24 @@ export default function LiveTripScreen() {
         showsMyLocationButton={false}
         showsCompass={false}
         onMapReady={() => setMapReady(true)}
-        zoomEnabled
-        scrollEnabled
-        rotateEnabled
-        pitchEnabled={false}
+        zoomEnabled scrollEnabled rotateEnabled pitchEnabled={false}
       >
-        {/* Route polyline */}
         {routePoints.length > 1 && (
-          <Polyline
-            coordinates={routePoints}
-            strokeColor={Colors.primary}
-            strokeWidth={4}
-          />
+          <Polyline coordinates={routePoints} strokeColor={Colors.primary} strokeWidth={4} />
         )}
-
-        {/* Origin marker */}
         {originCoord && (
           <Marker coordinate={originCoord} title="Origin" description={displayTrip?.origin} anchor={{ x: 0.5, y: 0.5 }}>
-            <View style={mapStyles.originMarker}>
-              <View style={mapStyles.originDot} />
-            </View>
+            <View style={mapStyles.originMarker}><View style={mapStyles.originDot} /></View>
           </Marker>
         )}
-
-        {/* Destination marker */}
         {destCoord && (
           <Marker coordinate={destCoord} title="Destination" description={displayTrip?.destination} anchor={{ x: 0.5, y: 1 }}>
             <View style={mapStyles.destMarkerWrap}>
-              <View style={mapStyles.destMarker}>
-                <Ionicons name="flag" size={16} color="#fff" />
-              </View>
+              <View style={mapStyles.destMarker}><Ionicons name="flag" size={16} color="#fff" /></View>
               <View style={mapStyles.destMarkerTail} />
             </View>
           </Marker>
         )}
-
-        {/* Driver marker (moving) */}
         {driverLocation && (
           <Marker coordinate={driverLocation} title={isDriver ? "You" : "Driver"} anchor={{ x: 0.5, y: 0.5 }}>
             <View style={mapStyles.driverMarker}>
@@ -844,27 +716,17 @@ export default function LiveTripScreen() {
             </View>
           </Marker>
         )}
-
-        {/* Passenger drop-off markers */}
         {passengerMarkers.map(({ passenger, coord }, i) => (
-          <Marker
-            key={passenger.id}
-            coordinate={coord}
-            title={`Passenger ${i + 1}`}
-            description={passenger.destination ?? ""}
-            anchor={{ x: 0.5, y: 1 }}
-          >
+          <Marker key={passenger.id} coordinate={coord} title={`Passenger ${i + 1}`} description={passenger.destination ?? ""} anchor={{ x: 0.5, y: 1 }}>
             <View style={mapStyles.passengerMarkerWrap}>
-              <View style={mapStyles.passengerMarker}>
-                <Text style={mapStyles.passengerMarkerText}>{i + 1}</Text>
-              </View>
+              <View style={mapStyles.passengerMarker}><Text style={mapStyles.passengerMarkerText}>{i + 1}</Text></View>
               <View style={mapStyles.passengerMarkerTail} />
             </View>
           </Marker>
         ))}
       </MapView>
 
-      {/* ── Route error toast ── */}
+      {/* ── Route error ── */}
       {routeError && (
         <View style={styles.routeErrorBanner}>
           <Ionicons name="warning-outline" size={14} color="rgba(245,166,35,0.9)" />
@@ -872,12 +734,8 @@ export default function LiveTripScreen() {
         </View>
       )}
 
-      {/* ── Re-center button ── */}
-      <TouchableOpacity
-        style={[styles.recenterBtn, { top: topPadding + (topBarCollapsed ? 64 : 120) }]}
-        onPress={handleRecenter}
-        activeOpacity={0.8}
-      >
+      {/* ── Re-center ── */}
+      <TouchableOpacity style={[styles.recenterBtn, { top: topPadding + (topBarCollapsed ? 64 : 120) }]} onPress={handleRecenter} activeOpacity={0.8}>
         <Ionicons name="locate" size={20} color="#fff" />
       </TouchableOpacity>
 
@@ -885,23 +743,15 @@ export default function LiveTripScreen() {
       <View style={[styles.topBarWrapper, { paddingTop: topPadding + 8 }]}>
         <View style={styles.topBarRow}>
           <AnimatedPressable onPress={() => router.back()} style={styles.topBarIconBtn} scaleValue={0.9}>
-            <View style={styles.topBarIconInner}>
-              <Ionicons name="arrow-back" size={20} color="#fff" />
-            </View>
+            <View style={styles.topBarIconInner}><Ionicons name="arrow-back" size={20} color="#fff" /></View>
           </AnimatedPressable>
-
           <Pressable onPress={toggleTopBar} style={styles.topBarCenter}>
             <View style={styles.topBarCenterContent}>
               <LiveBadge />
               <Text style={styles.topBarCodeText}>{code}</Text>
-              <Ionicons
-                name={topBarCollapsed ? "chevron-down" : "chevron-up"}
-                size={12}
-                color="rgba(255,255,255,0.5)"
-              />
+              <Ionicons name={topBarCollapsed ? "chevron-down" : "chevron-up"} size={12} color="rgba(255,255,255,0.5)" />
             </View>
           </Pressable>
-
           {isDriver ? (
             <EarningsCounter coins={earningsCoins} />
           ) : (
@@ -911,22 +761,16 @@ export default function LiveTripScreen() {
             </View>
           )}
         </View>
-
-        {/* Collapsible route detail row */}
         <Animated.View style={topBarStyle}>
           <View style={styles.topBarDetailRow}>
             <View style={styles.topBarDetailItem}>
               <Ionicons name="radio-button-on" size={10} color={Colors.primary} />
-              <Text style={styles.topBarDetailText} numberOfLines={1}>
-                {displayTrip?.origin || "—"}
-              </Text>
+              <Text style={styles.topBarDetailText} numberOfLines={1}>{displayTrip?.origin || "—"}</Text>
             </View>
             <Ionicons name="arrow-forward" size={12} color="rgba(255,255,255,0.3)" />
             <View style={styles.topBarDetailItem}>
               <Ionicons name="location" size={10} color={Colors.error} />
-              <Text style={styles.topBarDetailText} numberOfLines={1}>
-                {displayTrip?.destination || "—"}
-              </Text>
+              <Text style={styles.topBarDetailText} numberOfLines={1}>{displayTrip?.destination || "—"}</Text>
             </View>
             {isDriver && (
               <View style={styles.topBarDetailItem}>
@@ -939,26 +783,17 @@ export default function LiveTripScreen() {
       </View>
 
       {/* ── Bottom Sheet ── */}
-      <View style={[styles.bottomSheet, {
-        paddingBottom: Math.max(insets.bottom, 16) + (Platform.OS === "web" ? 34 : 0),
-      }]}>
+      <View style={[styles.bottomSheet, { paddingBottom: Math.max(insets.bottom, 16) + (Platform.OS === "web" ? 34 : 0) }]}>
         <View style={styles.sheetHandle} />
-
-        {/* Trip meta row */}
         <View style={styles.tripMetaRow}>
-          <View style={styles.tripCodeBadge}>
-            <Text style={styles.tripCodeBadgeText}>{code}</Text>
-          </View>
+          <View style={styles.tripCodeBadge}><Text style={styles.tripCodeBadgeText}>{code}</Text></View>
           <Text style={styles.tripDurationBadge}>{formatDuration(elapsedSeconds)}</Text>
           <View style={styles.passengerCountBadge}>
             <Ionicons name="people" size={13} color={Colors.primary} />
-            <Text style={styles.passengerCountText}>
-              {passengers.length} {t("trip.passengersOnboard")}
-            </Text>
+            <Text style={styles.passengerCountText}>{passengers.length} {t("trip.passengersOnboard")}</Text>
           </View>
         </View>
 
-        {/* Driver: passenger chips */}
         {isDriver && passengers.length > 0 && (
           <View style={styles.passengersSection}>
             <Text style={styles.sectionLabel}>{t("trip.passengers")}</Text>
@@ -968,7 +803,6 @@ export default function LiveTripScreen() {
           </View>
         )}
 
-        {/* Driver: empty state */}
         {isDriver && passengers.length === 0 && (
           <View style={styles.noPassengersRow}>
             <Ionicons name="person-add-outline" size={16} color={Colors.textTertiary} />
@@ -976,72 +810,39 @@ export default function LiveTripScreen() {
           </View>
         )}
 
-        {/* Passenger: destination reminder */}
         {!isDriver && myPassenger?.destination && (
           <View style={styles.myDestRow}>
             <Ionicons name="location" size={14} color={Colors.primary} />
-            <Text style={styles.myDestText} numberOfLines={1}>
-              Your stop: {myPassenger.destination}
-            </Text>
+            <Text style={styles.myDestText} numberOfLines={1}>Your stop: {myPassenger.destination}</Text>
           </View>
         )}
 
-        {/* Action buttons */}
         <View style={styles.actionRow}>
           <AnimatedPressable onPress={handleSOSPress} style={styles.sosBtn} scaleValue={0.9}>
-            <View style={styles.sosBtnInner}>
-              <Text style={styles.sosBtnText}>{t("trip.sos")}</Text>
-            </View>
+            <View style={styles.sosBtnInner}><Text style={styles.sosBtnText}>{t("trip.sos")}</Text></View>
           </AnimatedPressable>
 
           {isDriver ? (
-            <AnimatedPressable
-              onPress={handleEndTrip}
-              style={[styles.endTripBtn, isEnding && styles.endTripBtnDisabled]}
-              scaleValue={0.96}
-            >
-              <LinearGradient
-                colors={[Colors.primary, Colors.primaryDark]}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={styles.endTripGradient}
-              >
+            <AnimatedPressable onPress={handleEndTrip} style={[styles.endTripBtn, isEnding && styles.endTripBtnDisabled]} scaleValue={0.96}>
+              <LinearGradient colors={[Colors.primary, Colors.primaryDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.endTripGradient}>
                 <Ionicons name="flag" size={18} color="#fff" />
-                <Text style={styles.endTripText}>
-                  {isEnding ? "Ending..." : t("trip.endTrip")}
-                </Text>
+                <Text style={styles.endTripText}>{isEnding ? "Ending..." : t("trip.endTrip")}</Text>
               </LinearGradient>
             </AnimatedPressable>
           ) : (
             <AnimatedPressable onPress={handleLeaveTrip} style={styles.endTripBtn} scaleValue={0.96}>
-              <LinearGradient
-                colors={["#3B82F6", "#1D4ED8"]}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={styles.endTripGradient}
-              >
+              <LinearGradient colors={["#3B82F6", "#1D4ED8"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.endTripGradient}>
                 <Ionicons name="exit-outline" size={18} color="#fff" />
-                <Text style={styles.endTripText}>
-                  {isEnding ? "Leaving..." : "Leave Trip"}
-                </Text>
+                <Text style={styles.endTripText}>{isEnding ? "Leaving..." : "Leave Trip"}</Text>
               </LinearGradient>
             </AnimatedPressable>
           )}
         </View>
       </View>
 
-      {/* ── Floating AI FAB ── */}
-      <Animated.View style={[
-        styles.aiFabContainer,
-        {
-          bottom: Math.max(insets.bottom, 16) + (Platform.OS === "web" ? 34 : 0) +
-            (isDriver && passengers.length > 0 ? 240 : 190),
-        },
-        aiBtnStyle,
-      ]}>
-        <AnimatedPressable
-          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setAiVisible(true); }}
-          style={styles.aiFab}
-          scaleValue={0.88}
-        >
+      {/* ── AI FAB ── */}
+      <Animated.View style={[styles.aiFabContainer, { bottom: Math.max(insets.bottom, 16) + (Platform.OS === "web" ? 34 : 0) + (isDriver && passengers.length > 0 ? 240 : 190) }, aiBtnStyle]}>
+        <AnimatedPressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setAiVisible(true); }} style={styles.aiFab} scaleValue={0.88}>
           <LinearGradient colors={["#2D2D2D", "#1A1A1A"]} style={styles.aiFabGradient}>
             <Ionicons name="sparkles" size={22} color={Colors.gold} />
           </LinearGradient>
@@ -1049,24 +850,26 @@ export default function LiveTripScreen() {
       </Animated.View>
 
       {/* ── SOS Modal ── */}
-      <SOSModal
-        visible={sosVisible}
-        onConfirm={handleSOSConfirm}
-        onCancel={() => setSosVisible(false)}
-      />
+      <SOSModal visible={sosVisible} onConfirm={handleSOSConfirm} onCancel={() => setSosVisible(false)} />
 
-      {/* ── AI Assistant Modal ── */}
+      {/* ── AI Modal ── */}
       <AIAssistantModal visible={aiVisible} onClose={() => setAiVisible(false)} ctx={aiCtx} />
 
-      {/* ── Rating Modal ── */}
-      {ratingContext && (
+      {/* ── Rating Modal (PASSENGERS ONLY — shown after leaving a trip) ── */}
+      {showRating && (
         <RatingModal
-          visible
-          onClose={() => { setRatingContext(null); router.replace("/(passenger)"); }}
-          tripId={ratingContext.tripId}
-          ratedUserId={ratingContext.ratedUserId}
-          raterRole={ratingContext.raterRole}
-          onSubmit={() => { setRatingContext(null); router.replace("/(passenger)"); }}
+          visible={showRating}
+          tripId={ratingTripId}
+          driverUserId={ratingDriverId}
+          onDone={() => {
+            setShowRating(false);
+            router.replace("/(passenger)");
+          }}
+          onClose={() => {
+            // Skip pressed — still navigate home
+            setShowRating(false);
+            router.replace("/(passenger)");
+          }}
         />
       )}
     </View>
@@ -1075,486 +878,122 @@ export default function LiveTripScreen() {
 
 // ─── Map Marker Styles ────────────────────────────────────────────────────────
 const mapStyles = StyleSheet.create({
-  originMarker: {
-    width: 18, height: 18, borderRadius: 9,
-    backgroundColor: "rgba(74,222,128,0.25)",
-    alignItems: "center", justifyContent: "center",
-    borderWidth: 1.5, borderColor: "#4ADE80",
-  },
+  originMarker: { width: 18, height: 18, borderRadius: 9, backgroundColor: "rgba(74,222,128,0.25)", alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "#4ADE80" },
   originDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#4ADE80" },
   destMarkerWrap: { alignItems: "center" },
-  destMarker: {
-    width: 34, height: 34, borderRadius: 10, backgroundColor: Colors.error,
-    alignItems: "center", justifyContent: "center",
-    shadowColor: Colors.error, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 6, elevation: 6,
-  },
-  destMarkerTail: {
-    width: 0, height: 0,
-    borderLeftWidth: 6, borderRightWidth: 6, borderTopWidth: 8,
-    borderLeftColor: "transparent", borderRightColor: "transparent", borderTopColor: Colors.error,
-    marginTop: -1,
-  },
+  destMarker: { width: 34, height: 34, borderRadius: 10, backgroundColor: Colors.error, alignItems: "center", justifyContent: "center", shadowColor: Colors.error, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 6, elevation: 6 },
+  destMarkerTail: { width: 0, height: 0, borderLeftWidth: 6, borderRightWidth: 6, borderTopWidth: 8, borderLeftColor: "transparent", borderRightColor: "transparent", borderTopColor: Colors.error, marginTop: -1 },
   driverMarker: { alignItems: "center", justifyContent: "center", position: "relative" },
-  driverMarkerGradient: {
-    width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center",
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.6, shadowRadius: 8, elevation: 8,
-  },
-  driverPulse: {
-    position: "absolute", width: 56, height: 56, borderRadius: 28,
-    borderWidth: 2, borderColor: Colors.primary + "55", backgroundColor: "transparent",
-  },
+  driverMarkerGradient: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.6, shadowRadius: 8, elevation: 8 },
+  driverPulse: { position: "absolute", width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: Colors.primary + "55", backgroundColor: "transparent" },
   passengerMarkerWrap: { alignItems: "center" },
-  passengerMarker: {
-    width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.error,
-    alignItems: "center", justifyContent: "center",
-    shadowColor: Colors.error, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 4,
-  },
+  passengerMarker: { width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.error, alignItems: "center", justifyContent: "center", shadowColor: Colors.error, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 4 },
   passengerMarkerText: { fontFamily: "Poppins_700Bold", fontSize: 12, color: "#fff" },
-  passengerMarkerTail: {
-    width: 0, height: 0,
-    borderLeftWidth: 5, borderRightWidth: 5, borderTopWidth: 6,
-    borderLeftColor: "transparent", borderRightColor: "transparent", borderTopColor: Colors.error,
-    marginTop: -1,
-  },
+  passengerMarkerTail: { width: 0, height: 0, borderLeftWidth: 5, borderRightWidth: 5, borderTopWidth: 6, borderLeftColor: "transparent", borderRightColor: "transparent", borderTopColor: Colors.error, marginTop: -1 },
 });
 
 // ─── Main Styles ──────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f2d1c" },
-
-  routeErrorBanner: {
-    position: "absolute", bottom: 270, left: 16, right: 70,
-    flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: "rgba(20,30,22,0.9)", borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 8,
-    borderWidth: 1, borderColor: "rgba(245,166,35,0.3)", zIndex: 10,
-  },
-  routeErrorText: {
-    flex: 1, fontFamily: "Poppins_400Regular", fontSize: 11,
-    color: "rgba(245,166,35,0.85)", lineHeight: 16,
-  },
-
-  recenterBtn: {
-    position: "absolute", right: 16, zIndex: 10,
-    width: 42, height: 42, borderRadius: 13,
-    backgroundColor: "rgba(10,22,14,0.85)",
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.12)",
-    alignItems: "center", justifyContent: "center",
-    shadowColor: "#000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 6,
-  },
-
-  // Top bar
-  topBarWrapper: {
-    position: "absolute", top: 0, left: 0, right: 0,
-    paddingHorizontal: 16, paddingBottom: 12,
-    backgroundColor: "rgba(10,22,14,0.88)",
-    borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)", zIndex: 20,
-  },
+  routeErrorBanner: { position: "absolute", bottom: 270, left: 16, right: 70, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(20,30,22,0.9)", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: "rgba(245,166,35,0.3)", zIndex: 10 },
+  routeErrorText: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 11, color: "rgba(245,166,35,0.85)", lineHeight: 16 },
+  recenterBtn: { position: "absolute", right: 16, zIndex: 10, width: 42, height: 42, borderRadius: 13, backgroundColor: "rgba(10,22,14,0.85)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 6 },
+  topBarWrapper: { position: "absolute", top: 0, left: 0, right: 0, paddingHorizontal: 16, paddingBottom: 12, backgroundColor: "rgba(10,22,14,0.88)", borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)", zIndex: 20 },
   topBarRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   topBarIconBtn: { width: 38, height: 38 },
-  topBarIconInner: {
-    flex: 1, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.1)",
-    alignItems: "center", justifyContent: "center",
-  },
+  topBarIconInner: { flex: 1, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.1)", alignItems: "center", justifyContent: "center" },
   topBarCenter: { flex: 1, alignItems: "center" },
   topBarCenterContent: { flexDirection: "row", alignItems: "center", gap: 8 },
   topBarCodeText: { fontFamily: "Poppins_700Bold", fontSize: 14, color: "#fff", letterSpacing: 2 },
-  topBarDetailRow: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    marginTop: 10, paddingTop: 10,
-    borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.07)", flexWrap: "wrap",
-  },
+  topBarDetailRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.07)", flexWrap: "wrap" },
   topBarDetailItem: { flexDirection: "row", alignItems: "center", gap: 4, flex: 1, minWidth: 80 },
   topBarDetailText: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "rgba(255,255,255,0.65)", flex: 1 },
-
-  // Badges
-  liveBadge: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    backgroundColor: "rgba(239,68,68,0.15)", borderRadius: 10,
-    paddingHorizontal: 8, paddingVertical: 3,
-    borderWidth: 1, borderColor: "rgba(239,68,68,0.3)",
-  },
+  liveBadge: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(239,68,68,0.15)", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: "rgba(239,68,68,0.3)" },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.error },
   liveText: { fontFamily: "Poppins_700Bold", fontSize: 10, color: Colors.error, letterSpacing: 1.5 },
-  earningsPill: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    backgroundColor: "rgba(245,166,35,0.15)", borderRadius: 12,
-    paddingHorizontal: 10, paddingVertical: 5,
-    borderWidth: 1, borderColor: "rgba(245,166,35,0.3)",
-  },
+  earningsPill: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(245,166,35,0.15)", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: "rgba(245,166,35,0.3)" },
   earningsText: { fontFamily: "Poppins_700Bold", fontSize: 12, color: Colors.gold },
-  durationPill: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5,
-  },
+  durationPill: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
   durationText: { fontFamily: "Poppins_600SemiBold", fontSize: 12, color: "rgba(255,255,255,0.7)" },
-
-  // Bottom sheet
-  bottomSheet: {
-    position: "absolute", bottom: 0, left: 0, right: 0,
-    backgroundColor: "rgba(17,26,20,0.95)",
-    borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingTop: 10, paddingHorizontal: 20,
-    borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.08)",
-    shadowColor: "#000", shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.4, shadowRadius: 20, elevation: 20,
-    zIndex: 20,
-  },
-  sheetHandle: {
-    width: 36, height: 4, borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    alignSelf: "center", marginBottom: 16,
-  },
+  bottomSheet: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "rgba(17,26,20,0.95)", borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 10, paddingHorizontal: 20, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.08)", shadowColor: "#000", shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.4, shadowRadius: 20, elevation: 20, zIndex: 20 },
+  sheetHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.12)", alignSelf: "center", marginBottom: 16 },
   tripMetaRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" },
-  tripCodeBadge: {
-    backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 8,
-    paddingHorizontal: 10, paddingVertical: 5,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
-  },
+  tripCodeBadge: { backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
   tripCodeBadgeText: { fontFamily: "Poppins_700Bold", fontSize: 12, color: "#fff", letterSpacing: 2 },
   tripDurationBadge: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: Colors.primary },
   passengerCountBadge: { flexDirection: "row", alignItems: "center", gap: 5 },
   passengerCountText: { fontFamily: "Poppins_400Regular", fontSize: 12, color: "rgba(255,255,255,0.5)" },
-
   passengersSection: { marginBottom: 14 },
-  sectionLabel: {
-    fontFamily: "Poppins_600SemiBold", fontSize: 12, color: "rgba(255,255,255,0.4)",
-    letterSpacing: 1, textTransform: "uppercase", marginBottom: 8,
-  },
+  sectionLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 12, color: "rgba(255,255,255,0.4)", letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 },
   passengersRow: { gap: 10, paddingRight: 8 },
   passengerChip: { alignItems: "center", gap: 5, width: 64 },
-  passengerAvatar: {
-    width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center",
-    borderWidth: 1.5, borderColor: "rgba(255,255,255,0.08)",
-  },
+  passengerAvatar: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "rgba(255,255,255,0.08)" },
   passengerAvatarText: { fontFamily: "Poppins_700Bold", fontSize: 15 },
   passengerDestText: { fontFamily: "Poppins_400Regular", fontSize: 10, color: "rgba(255,255,255,0.45)", textAlign: "center" },
-
-  noPassengersRow: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 12,
-    padding: 12, marginBottom: 14,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.06)",
-  },
+  noPassengersRow: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 12, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" },
   noPassengersText: { fontFamily: "Poppins_400Regular", fontSize: 13, color: "rgba(255,255,255,0.35)" },
-
-  myDestRow: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    backgroundColor: "rgba(0,166,81,0.08)", borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 8, marginBottom: 12,
-    borderWidth: 1, borderColor: "rgba(0,166,81,0.18)",
-  },
+  myDestRow: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(0,166,81,0.08)", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 12, borderWidth: 1, borderColor: "rgba(0,166,81,0.18)" },
   myDestText: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "rgba(255,255,255,0.75)", flex: 1 },
-
   actionRow: { flexDirection: "row", gap: 12 },
   sosBtn: { width: 72, height: 54 },
   sosBtnInner: { flex: 1, borderRadius: 16, backgroundColor: "rgba(239,68,68,0.12)", alignItems: "center", justifyContent: "center" },
   sosBtnText: { fontFamily: "Poppins_700Bold", fontSize: 13, color: Colors.error, letterSpacing: 0.5 },
-  endTripBtn: {
-    flex: 1, height: 54, borderRadius: 16, overflow: "hidden",
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 8,
-  },
+  endTripBtn: { flex: 1, height: 54, borderRadius: 16, overflow: "hidden", shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 8 },
   endTripBtnDisabled: { opacity: 0.6 },
   endTripGradient: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   endTripText: { fontFamily: "Poppins_600SemiBold", fontSize: 15, color: "#fff" },
-
-  // AI FAB
   aiFabContainer: { position: "absolute", right: 20, zIndex: 15 },
-  aiFab: {
-    width: 52, height: 52, borderRadius: 26, overflow: "hidden",
-    shadowColor: Colors.gold, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 10,
-  },
+  aiFab: { width: 52, height: 52, borderRadius: 26, overflow: "hidden", shadowColor: Colors.gold, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 10 },
   aiFabGradient: { flex: 1, alignItems: "center", justifyContent: "center" },
-
-  // SOS modal
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.72)", justifyContent: "flex-end" },
-  sosSheet: {
-    backgroundColor: "rgba(59,59,59,0.85)", borderRadius: 28, marginHorizontal: 12,
-    padding: 28, paddingBottom: 40, alignItems: "center",
-    borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)",
-  },
-  sosIconRing: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: "rgba(239,68,68,0.12)", alignItems: "center", justifyContent: "center",
-    marginBottom: 16, borderWidth: 2, borderColor: "rgba(239,68,68,0.3)",
-  },
+  sosSheet: { backgroundColor: "rgba(59,59,59,0.85)", borderRadius: 28, marginHorizontal: 12, padding: 28, paddingBottom: 40, alignItems: "center", borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)" },
+  sosIconRing: { width: 72, height: 72, borderRadius: 36, backgroundColor: "rgba(239,68,68,0.12)", alignItems: "center", justifyContent: "center", marginBottom: 16, borderWidth: 2, borderColor: "rgba(239,68,68,0.3)" },
   sosTitle: { fontFamily: "Poppins_700Bold", fontSize: 20, color: "#fff", marginBottom: 8 },
-  sosDesc: {
-    fontFamily: "Poppins_400Regular", fontSize: 14, color: "rgba(255,255,255,0.55)",
-    textAlign: "center", lineHeight: 22, marginBottom: 28, paddingHorizontal: 8,
-  },
+  sosDesc: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "rgba(255,255,255,0.55)", textAlign: "center", lineHeight: 22, marginBottom: 28, paddingHorizontal: 8 },
   sosActions: { flexDirection: "row", gap: 12, width: "100%" },
   sosCancelBtn: { flex: 1, height: 52 },
-  sosCancelInner: {
-    flex: 1, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.06)",
-    alignItems: "center", justifyContent: "center",
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
-  },
+  sosCancelInner: { flex: 1, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.06)", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
   sosCancelText: { fontFamily: "Poppins_600SemiBold", fontSize: 15, color: "rgba(255,255,255,0.7)" },
   sosConfirmBtn: { flex: 1, height: 52, borderRadius: 16, overflow: "hidden", backgroundColor: Colors.error },
-  sosConfirmInner: {
-    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 8, backgroundColor: Colors.error,
-  },
+  sosConfirmInner: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: Colors.error },
   sosConfirmText: { fontFamily: "Poppins_600SemiBold", fontSize: 15, color: "#fff" },
 });
 
 // ─── AI Modal Styles ───────────────────────────────────────────────────────────
 const aiStyles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0 0 0 / 0.76)",
-  },
-  overlayTap: {
-    flex: 1,
-  },
-  sheet: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "#111A14",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingTop: 10,
-    paddingHorizontal: 0,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
-    maxHeight: "90%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 24,
-    elevation: 24,
-  },
-  sheetHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(255 255 255 / 0.58)7)7)5)",
-    alignSelf: "center",
-    marginBottom: 14,
-  },
-  header: {
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    marginBottom: 12,
-  },
-  headerLeft: {
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 12,
-  },
-  headerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "rgba(245,166,35,0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(245,166,35,0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 16,
-     color: "#fff",
-    textAlign: 'center'
-  },
-  headerSub: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 11,
-    color: "rgba(255,255,255,0.4)",
-    marginTop: 1,
-  },
-  headerRight: {
-    flexDirection: "row",
-    // alignItems: "center",
-     gap: 6,
-     justifyContent: 'flex-end',
-    alignSelf: 'flex-end'
-  },
-  muteBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  // Quick actions
-  quickScroll: {
-    // flexGrow: 0,
-    marginBottom: 10,
-    flexDirection: "column",
-    height: "auto",
-    minHeight: 'auto',
-  },
-    quickRow: {
-      gap: 8,
-      paddingHorizontal: 20,
-      paddingVertical: 2,
-      flexWrap: 'wrap',
-      justifyContent: "space-evenly",
-    },
-    quickChip: {
-     width: 'auto',
-    flexDirection: "row",
-     alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(0,166,81,0.1)",
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "rgba(0,166,81,0.22)",
-  },
-  quickChipText: {
-    fontFamily: "Poppins_500Medium",
-     fontSize: 12,
-    color: "rgba(255,255,255,0.8)",
-  },
-  // Chat area
-  chatScroll: {
-    flex: 1,
-    minHeight: 120,
-  },
-  chatContent: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 8,
-    gap: 10,
-  },
-  // Bubbles
-  bubble: {
-    maxWidth: "85%",
-    borderRadius: 16,
-    padding: 12,
-  },
-  bubbleUser: {
-    alignSelf: "flex-end",
-    backgroundColor: Colors.primary,
-    borderBottomRightRadius: 4,
-  },
-  bubbleAI: {
-    alignSelf: "flex-start",
-    backgroundColor: "#1E2820",
-    borderBottomLeftRadius: 4,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
-  },
-  bubbleHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 6,
-  },
-  aiBubbleIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
-    backgroundColor: "rgba(245,166,35,0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  bubbleAILabel: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 10,
-    color: Colors.gold,
-    letterSpacing: 0.5,
-    flex: 1,
-  },
-  speakBtn: {
-    padding: 2,
-  },
-  bubbleText: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 13,
-    color: "rgba(255,255,255,0.85)",
-    lineHeight: 20,
-  },
-  bubbleTextUser: {
-    color: "#fff",
-  },
-  bubbleTime: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 10,
-    color: "rgb(255 0 0)",
-    fontWeight: "heavy",
-    marginTop: 4,
-    alignSelf: "flex-end",
-  },
-  // Typing indicator
-  typingRow: {
-    alignSelf: "flex-start",
-  },
-  typingBubble: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#1E2820",
-    borderRadius: 16,
-    borderBottomLeftRadius: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
-  },
-  typingText: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12,
-    color: "rgba(255,255,255,0.4)",
-  },
-  // Input area
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 4,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
-  },
-  input: {
-    flex: 1,
-    minHeight: 42,
-    maxHeight: 90,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontFamily: "Poppins_400Regular",
-    fontSize: 13,
-    color: "#fff",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
-  },
-  sendBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-    backgroundColor: Colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  sendBtnDisabled: {
-    backgroundColor: "rgba(255,255,255,0.1)",
-    shadowOpacity: 0,
-    elevation: 0,
-  },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.76)" },
+  overlayTap: { flex: 1 },
+  sheet: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "#111A14", borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 10, paddingHorizontal: 0, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)", maxHeight: "90%", shadowColor: "#000", shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.5, shadowRadius: 24, elevation: 24 },
+  sheetHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.15)", alignSelf: "center", marginBottom: 14 },
+  header: { flexDirection: "column", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, marginBottom: 12 },
+  headerLeft: { flexDirection: "column", alignItems: "center", gap: 12 },
+  headerIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: "rgba(245,166,35,0.12)", borderWidth: 1, borderColor: "rgba(245,166,35,0.2)", alignItems: "center", justifyContent: "center" },
+  headerTitle: { fontFamily: "Poppins_700Bold", fontSize: 16, color: "#fff", textAlign: "center" },
+  headerSub: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "rgba(255,255,255,0.4)", marginTop: 1 },
+  headerRight: { flexDirection: "row", gap: 6, justifyContent: "flex-end", alignSelf: "flex-end" },
+  muteBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.06)", alignItems: "center", justifyContent: "center" },
+  closeBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.06)", alignItems: "center", justifyContent: "center" },
+  quickScroll: { marginBottom: 10 },
+  quickRow: { gap: 8, paddingHorizontal: 20, paddingVertical: 2, flexWrap: "wrap", justifyContent: "space-evenly" },
+  quickChip: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(0,166,81,0.1)", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: "rgba(0,166,81,0.22)" },
+  quickChipText: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "rgba(255,255,255,0.8)" },
+  chatScroll: { flex: 1, minHeight: 120 },
+  chatContent: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8, gap: 10 },
+  bubble: { maxWidth: "85%", borderRadius: 16, padding: 12 },
+  bubbleUser: { alignSelf: "flex-end", backgroundColor: Colors.primary, borderBottomRightRadius: 4 },
+  bubbleAI: { alignSelf: "flex-start", backgroundColor: "#1E2820", borderBottomLeftRadius: 4, borderWidth: 1, borderColor: "rgba(255,255,255,0.07)" },
+  bubbleHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 },
+  aiBubbleIcon: { width: 20, height: 20, borderRadius: 6, backgroundColor: "rgba(245,166,35,0.15)", alignItems: "center", justifyContent: "center" },
+  bubbleAILabel: { fontFamily: "Poppins_600SemiBold", fontSize: 10, color: Colors.gold, letterSpacing: 0.5, flex: 1 },
+  speakBtn: { padding: 2 },
+  bubbleText: { fontFamily: "Poppins_400Regular", fontSize: 13, color: "rgba(255,255,255,0.85)", lineHeight: 20 },
+  bubbleTextUser: { color: "#fff" },
+  bubbleTime: { fontFamily: "Poppins_400Regular", fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 4, alignSelf: "flex-end" },
+  typingRow: { alignSelf: "flex-start" },
+  typingBubble: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#1E2820", borderRadius: 16, borderBottomLeftRadius: 4, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.07)" },
+  typingText: { fontFamily: "Poppins_400Regular", fontSize: 12, color: "rgba(255,255,255,0.4)" },
+  inputRow: { flexDirection: "row", alignItems: "flex-end", gap: 10, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)" },
+  input: { flex: 1, minHeight: 42, maxHeight: 90, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10, fontFamily: "Poppins_400Regular", fontSize: 13, color: "#fff", borderWidth: 1, borderColor: "rgba(255,255,255,0.09)" },
+  sendBtn: { width: 42, height: 42, borderRadius: 13, backgroundColor: Colors.primary, alignItems: "center", justifyContent: "center", shadowColor: Colors.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 4 },
+  sendBtnDisabled: { backgroundColor: "rgba(255,255,255,0.1)", shadowOpacity: 0, elevation: 0 },
 });

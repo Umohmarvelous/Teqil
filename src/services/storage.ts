@@ -9,8 +9,6 @@ const KEYS = {
   ACTIVE_TRIP_CODE: "teqil_active_trip_code",
 };
 
-// ─── Generic helpers ──────────────────────────────────────────────────────────
-
 async function getAll<T>(key: string): Promise<T[]> {
   try {
     const json = await AsyncStorage.getItem(key);
@@ -24,7 +22,6 @@ async function setAll<T>(key: string, items: T[]): Promise<void> {
   await AsyncStorage.setItem(key, JSON.stringify(items));
 }
 
-/** Returns an ISO timestamp for right now – used on every local write. */
 function now(): string {
   return new Date().toISOString();
 }
@@ -46,26 +43,14 @@ export const TripsStorage = {
     return trips.find((t) => t.trip_code === code) || null;
   },
 
-  /**
-   * Upserts a trip. Stamps updated_at and marks synced = false so the sync
-   * service knows this record needs to be pushed to Supabase.
-   */
   async save(trip: Trip): Promise<void> {
     const trips = await getAll<Trip>(KEYS.TRIPS);
     const stamped: Trip = { ...trip, updated_at: now(), synced: false };
     const idx = trips.findIndex((t) => t.id === trip.id);
-    if (idx >= 0) {
-      trips[idx] = stamped;
-    } else {
-      trips.push(stamped);
-    }
+    if (idx >= 0) { trips[idx] = stamped; } else { trips.push(stamped); }
     await setAll(KEYS.TRIPS, trips);
   },
 
-  /**
-   * Applies a partial update. Always bumps updated_at and resets synced so the
-   * change gets pushed on the next sync cycle.
-   */
   async update(id: string, updates: Partial<Trip>): Promise<void> {
     const trips = await getAll<Trip>(KEYS.TRIPS);
     const idx = trips.findIndex((t) => t.id === id);
@@ -75,10 +60,6 @@ export const TripsStorage = {
     }
   },
 
-  /**
-   * Called by the sync service after a record has been confirmed written to
-   * Supabase. Marks the local copy as clean so it won't be pushed again.
-   */
   async markAsSynced(id: string): Promise<void> {
     const trips = await getAll<Trip>(KEYS.TRIPS);
     const idx = trips.findIndex((t) => t.id === id);
@@ -88,31 +69,20 @@ export const TripsStorage = {
     }
   },
 
-  /**
-   * Used by the pull phase of sync to merge a remote record into local storage
-   * using last-write-wins semantics on updated_at.
-   */
   async mergeRemote(remote: Trip): Promise<void> {
     const trips = await getAll<Trip>(KEYS.TRIPS);
     const idx = trips.findIndex((t) => t.id === remote.id);
     const incoming: Trip = { ...remote, synced: true, updated_at: remote.updated_at ?? now() };
-
     if (idx >= 0) {
-      const local = trips[idx];
-      // Keep whichever version is newer; if equal, remote wins.
-      const localTs = new Date(local.updated_at ?? 0).getTime();
+      const localTs = new Date(trips[idx].updated_at ?? 0).getTime();
       const remoteTs = new Date(incoming.updated_at).getTime();
-      if (remoteTs >= localTs) {
-        trips[idx] = incoming;
-      }
-      // else: local is newer – leave it untouched (it will be pushed next cycle)
+      if (remoteTs >= localTs) trips[idx] = incoming;
     } else {
       trips.push(incoming);
     }
     await setAll(KEYS.TRIPS, trips);
   },
 
-  /** Returns every record that still needs to be pushed to Supabase. */
   async getUnsynced(): Promise<Trip[]> {
     const trips = await getAll<Trip>(KEYS.TRIPS);
     return trips.filter((t) => !t.synced);
@@ -136,11 +106,7 @@ export const PassengersStorage = {
     const all = await getAll<Passenger>(KEYS.PASSENGERS);
     const stamped: Passenger = { ...passenger, updated_at: now(), synced: false };
     const idx = all.findIndex((p) => p.id === passenger.id);
-    if (idx >= 0) {
-      all[idx] = stamped;
-    } else {
-      all.push(stamped);
-    }
+    if (idx >= 0) { all[idx] = stamped; } else { all.push(stamped); }
     await setAll(KEYS.PASSENGERS, all);
   },
 
@@ -185,13 +151,21 @@ export const PassengersStorage = {
 // ─── RatingsStorage ───────────────────────────────────────────────────────────
 
 export const RatingsStorage = {
+  async getAll(): Promise<Rating[]> {
+    return getAll<Rating>(KEYS.RATINGS);
+  },
+
   async getByTripId(tripId: string): Promise<Rating[]> {
     return (await getAll<Rating>(KEYS.RATINGS)).filter((r) => r.trip_id === tripId);
   },
 
+  /** All ratings where `ratedId` was the person being rated. */
+  async getByRatedId(ratedId: string): Promise<Rating[]> {
+    return (await getAll<Rating>(KEYS.RATINGS)).filter((r) => r.rated_id === ratedId);
+  },
+
   async save(rating: Rating): Promise<void> {
     const all = await getAll<Rating>(KEYS.RATINGS);
-    // Ratings are immutable once submitted; only add if not already present.
     const exists = all.some((r) => r.id === rating.id);
     if (!exists) {
       all.push({ ...rating, updated_at: now(), synced: false });
@@ -220,6 +194,17 @@ export const RatingsStorage = {
   async getUnsynced(): Promise<Rating[]> {
     const all = await getAll<Rating>(KEYS.RATINGS);
     return all.filter((r) => !r.synced);
+  },
+
+  /**
+   * Calculates the average star rating for a driver from all locally stored
+   * ratings where they were the rated party. Returns null if no ratings exist.
+   */
+  async calcAvgRating(driverUserId: string): Promise<number | null> {
+    const mine = await RatingsStorage.getByRatedId(driverUserId);
+    if (!mine.length) return null;
+    const sum = mine.reduce((acc, r) => acc + r.stars, 0);
+    return Math.round((sum / mine.length) * 10) / 10; // one decimal place
   },
 };
 
@@ -265,7 +250,7 @@ export const BroadcastsStorage = {
   },
 };
 
-// ─── ActiveTripStorage (unchanged) ───────────────────────────────────────────
+// ─── ActiveTripStorage ────────────────────────────────────────────────────────
 
 export const ActiveTripStorage = {
   async setCode(code: string): Promise<void> {

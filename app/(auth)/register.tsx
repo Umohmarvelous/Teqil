@@ -186,6 +186,7 @@ export default function RegisterScreen() {
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
+          <Text>Back</Text>
         </TouchableOpacity>
       </View>
 
@@ -225,6 +226,7 @@ export default function RegisterScreen() {
                       name="person-outline"
                       size={18}
                       color={Colors.textSecondary}
+                      
                     />
                   }
                   placeholder={t("auth.fullNamePlaceholder", {
@@ -511,12 +513,13 @@ function InputRow({
         inputStyles.row,
         focused && inputStyles.focused,
         hasError && inputStyles.errored,
+
       ]}
     >
       <View style={inputStyles.iconWrap}>{icon}</View>
       <TextInput
         style={inputStyles.input}
-        placeholderTextColor={Colors.textSecondary}
+        placeholderTextColor={Colors.overlayLight}
         onFocus={() => setFocused(true)}
         onBlur={() => {
           setFocused(false);
@@ -546,16 +549,18 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: Colors.surfaceSecondary, // fixed
     alignItems: "center",
     justifyContent: "center",
+    flexDirection: 'row',
+    gap: 5
   },
   scrollContent: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 34,
     paddingTop: 4,
   },
   titleBlock: {
-    marginBottom: 28,
+    marginBottom: 48,
+    alignItems: 'center'
   },
   title: {
     fontFamily: "Poppins_700Bold",
@@ -575,7 +580,7 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     backgroundColor: Colors.primary,
-    borderRadius: 14,
+    borderRadius: 44,
     height: 56,
     alignItems: "center",
     justifyContent: "center",
@@ -640,18 +645,17 @@ const inputStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.surfaceSecondary,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderRadius: 26,
     height: 52,
     paddingHorizontal: 14,
   },
   focused: {
+    borderWidth: 1.5,
     borderColor: Colors.primary,
     backgroundColor: Colors.surface,
   },
   errored: {
-    borderColor: Colors.error,
+    borderColor: Colors.error ?? "#E53E3E",
   },
   iconWrap: {
     marginRight: 10,
@@ -665,8 +669,10 @@ const inputStyles = StyleSheet.create({
     flex: 1,
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
-    color: Colors.text,
+    color: Colors.primary,
     height: "100%",
     ...Platform.select({ web: { outlineStyle: "none" } as any }),
   },
 });
+
+

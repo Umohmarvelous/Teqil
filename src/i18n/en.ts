@@ -35,7 +35,7 @@ export const en = {
     phone: "Phone number",
     password: "Password",
     confirmPassword: "Confirm password",
-    fullName: "Full name (optional)",
+    fullName: "Full name",
     age: "Age",
     forgotPassword: "Forgot password?",
     noAccount: "Don't have an account?",

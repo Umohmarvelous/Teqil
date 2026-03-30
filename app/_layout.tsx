@@ -20,7 +20,11 @@ import { syncAll, startConnectivityListener, SyncUser } from "@/src/services/syn
 import i18n from "@/src/i18n";
 import { StatusBar } from "expo-status-bar";
 
+
 SplashScreen.preventAutoHideAsync();
+
+
+
 
 function RootLayoutNav() {
   return (
@@ -46,6 +50,7 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_500Medium,

@@ -10,7 +10,7 @@ import {
   Alert,
   Image,
   Animated,
-  Dimensions,
+  // Dimensions,
   KeyboardAvoidingView,
 } from "react-native";
 import { router } from "expo-router";
@@ -24,7 +24,7 @@ import { supabase } from "@/src/services/supabase";
 import { useTranslation } from "react-i18next";
 import { generateDriverId } from "@/src/utils/helpers";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+// const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // ─── Field config ────────────────────────────────────────────────────────────
 interface Field {
@@ -129,7 +129,7 @@ function AnimatedField({
   };
 
   const handleBlur = () => {
-    setFocused(false);
+    setFocused(true);
     Animated.spring(scaleAnim, {
       toValue: 0.98,
       useNativeDriver: true,
@@ -154,7 +154,7 @@ function AnimatedField({
       <View
         style={[
           styles.inputRow,
-          focused && styles.inputRowFocused,
+          // focused && styles.inputRowFocused,
           !!error && styles.inputRowError,
         ]}
       >
@@ -385,26 +385,31 @@ export default function DriverProfileScreen() {
           },
         ]}
       >
-        <Pressable
-          style={styles.backBtn}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.replace("/(auth)/welcome");
-          }}
-        >
-          <Ionicons name="arrow-back" size={20} color={Colors.text} />
-        </Pressable>
+        <View style={styles.backBtnContainer}>
+          <Pressable
+            style={styles.backBtn}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.replace("/(auth)/welcome");
+            }}
+          >
+            <Ionicons name="arrow-back" size={20} color={Colors.text} />
+            <Text>Back</Text>
+          </Pressable>
+        </View>
 
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>{t("driverProfile.title")}</Text>
-          {/* Inline progress pill */}
-          <View style={styles.progressPill}>
-            <View
-              style={[styles.progressFill, { width: `${progressPct}%` }]}
-            />
-            <Text style={styles.progressLabel}>
-              {filledCount}/{totalCount} complete
-            </Text>
+        <View style={styles.headerCenterContainer}>
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>{t("driverProfile.title")}</Text>
+            {/* Inline progress pill */}
+            <View style={styles.progressPill}>
+              <View
+                style={[styles.progressFill, { width: `${progressPct}%` }]}
+              />
+              <Text style={styles.progressLabel}>
+                {filledCount}/{totalCount} complete
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -430,7 +435,7 @@ export default function DriverProfileScreen() {
             },
           ]}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="never"
         >
           {/* ── Driver ID card ─────────────────────────────────────────── */}
           <Animated.View
@@ -625,8 +630,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 50,
+    // flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 12,
     backgroundColor: Colors.surface,
@@ -636,18 +643,28 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
-    elevation: 4,
+    // elevation: 4,
+    // gap:90
+  },
+  backBtnContainer: {
+    width: 'auto',
+    alignSelf: 'flex-start',
+    justifyContent: 'flex-start'
   },
   backBtn: {
-    width: 38,
-    height: 38,
     borderRadius: 11,
-    backgroundColor: Colors.surfaceSecondary,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-between",
+    gap: 5,
+    flexDirection: 'row'
+  },
+  headerCenterContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center'
   },
   headerCenter: {
-    flex: 1,
     alignItems: "center",
     gap: 5,
   },
@@ -679,6 +696,7 @@ const styles = StyleSheet.create({
     color: Colors.primaryDark,
     zIndex: 1,
   },
+
   headerRight: {
     width: 38,
     alignItems: "center",
@@ -706,6 +724,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     gap: 16,
+    
   },
 
   // ── Driver ID card ────────────────────────────────────────────────────────
