@@ -157,7 +157,7 @@ export default function IndexScreen() {
         }}
       />
     );
-  }
+  } 
 
   // Authenticated users go directly to the unified dashboard
   router.replace("/(app)");
