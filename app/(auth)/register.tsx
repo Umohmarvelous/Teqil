@@ -15,6 +15,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import * as Haptics from "expo-haptics";
+// import { LinearGradient } from "expo-linear-gradient";
 import {
   Ionicons,
   FontAwesome5,
@@ -27,6 +28,8 @@ import { useAuthStore } from "@/src/store/useStore";
 import { signUpOfflineAware } from "@/src/services/auth";
 import { generateUsername, generateDriverId } from "@/src/utils/helpers";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+// import { ColorSpace } from "react-native-reanimated";
+import { StatusBar } from "expo-status-bar";
 
 // ─── Zod schema ──────────────────────────────────────────────────────────────
 
@@ -173,293 +176,304 @@ export default function RegisterScreen() {
   );
 
   // ── Helpers ──
-  const goBack = () => router.back();
+  const goBack = () => router.navigate('/(auth)/login');
   const goToLogin = () => router.replace("/(auth)/login");
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={goBack}
-          style={styles.backBtn}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      <StatusBar style="dark" backgroundColor="dark" animated/>
+
+      {/* <LinearGradient
+        // colors={["#080808", "#0D0D0D", "#111"]}
+        colors={["#00A651", "#00A651"]}
+          style={[styles.cardGradient]} 
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+      > */}
+        
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={goBack}
+            style={styles.backBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="arrow-back" size={22} color={Colors.primaryDark} />
+            <Text style={{color: Colors.primaryDark}}>Back</Text>
+          </TouchableOpacity>
+        </View>
+
+        <KeyboardAwareScrollViewCompat
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: insets.bottom + 32 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <Ionicons name="arrow-back" size={22} color={Colors.text} />
-          <Text>Back</Text>
-        </TouchableOpacity>
-      </View>
-
-      <KeyboardAwareScrollViewCompat
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + 32 },
-        ]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Title block */}
-        <Animated.View style={[styles.titleBlock, { opacity: fadeAnim }]}>
-          <Text style={styles.title}>{t("auth.register")}</Text>
-          <Text style={styles.subtitle}>
-            {t("auth.registerSubtitle", {
-              defaultValue: "Join thousands of Nigerians on Teqil",
-            })}
-          </Text>
-        </Animated.View>
-
-        {/* Form */}
-        <Animated.View style={{ opacity: fadeAnim }}>
-          {/* Full Name (optional) */}
-          <FieldWrapper
-            label={t("auth.fullName")}
-            hint={t("auth.nameAutoGenerate")}
-            error={errors.fullName?.message}
-          >
-            <Controller
-              control={control}
-              name="fullName"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <InputRow
-                  icon={
-                    <Ionicons
-                      name="person-outline"
-                      size={18}
-                      color={Colors.textSecondary}
-                      
-                    />
-                  }
-                  placeholder={t("auth.fullNamePlaceholder", {
-                    defaultValue: "e.g. Emeka Okonkwo",
-                  })}
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  hasError={!!errors.fullName}
-                  autoCapitalize="words"
-                />
-              )}
-            />
-          </FieldWrapper>
-
-          {/* Email */}
-          <FieldWrapper
-            label={t("auth.email")}
-            error={errors.email?.message}
-          >
-            <Controller
-              control={control}
-              name="email"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <InputRow
-                  icon={
-                    <Ionicons
-                      name="mail-outline"
-                      size={18}
-                      color={Colors.textSecondary}
-                    />
-                  }
-                  placeholder={t("auth.emailPlaceholder", {
-                    defaultValue: "you@example.com",
-                  })}
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  hasError={!!errors.email}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                />
-              )}
-            />
-          </FieldWrapper>
-
-          {/* Phone */}
-          <FieldWrapper
-            label={t("auth.phone")}
-            error={errors.phone?.message}
-          >
-            <Controller
-              control={control}
-              name="phone"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <InputRow
-                  icon={
-                    <Ionicons
-                      name="call-outline"
-                      size={18}
-                      color={Colors.textSecondary}
-                    />
-                  }
-                  placeholder={t("auth.phonePlaceholder", {
-                    defaultValue: "+234 812 345 6789",
-                  })}
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  hasError={!!errors.phone}
-                  keyboardType="phone-pad"
-                  autoComplete="tel"
-                />
-              )}
-            />
-          </FieldWrapper>
-
-          {/* Age */}
-          <FieldWrapper
-            label={t("auth.age")}
-            error={errors.age?.message}
-          >
-            <Controller
-              control={control}
-              name="age"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <InputRow
-                  icon={
-                    <FontAwesome5
-                      name="birthday-cake"
-                      size={16}
-                      color={Colors.textSecondary}
-                    />
-                  }
-                  placeholder={t("auth.agePlaceholder", {
-                    defaultValue: "e.g. 24",
-                  })}
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  hasError={!!errors.age}
-                  keyboardType="number-pad"
-                  maxLength={3}
-                />
-              )}
-            />
-          </FieldWrapper>
-
-          {/* Password */}
-          <FieldWrapper
-            label={t("auth.password")}
-            error={errors.password?.message}
-          >
-            <Controller
-              control={control}
-              name="password"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <InputRow
-                  icon={
-                    <Ionicons
-                      name="lock-closed-outline"
-                      size={18}
-                      color={Colors.textSecondary}
-                    />
-                  }
-                  placeholder={t("auth.passwordPlaceholder", {
-                    defaultValue: "Min. 8 characters",
-                  })}
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  hasError={!!errors.password}
-                  secureTextEntry={!showPassword}
-                  trailingIcon={
-                    <TouchableOpacity
-                      onPress={() => setShowPassword((v) => !v)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons
-                        name={showPassword ? "eye-off-outline" : "eye-outline"}
-                        size={18}
-                        color={Colors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  }
-                />
-              )}
-            />
-          </FieldWrapper>
-
-          {/* Confirm Password */}
-          <FieldWrapper
-            label={t("auth.confirmPassword")}
-            error={errors.confirmPassword?.message}
-          >
-            <Controller
-              control={control}
-              name="confirmPassword"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <InputRow
-                  icon={
-                    <Ionicons
-                      name="shield-checkmark-outline"
-                      size={18}
-                      color={Colors.textSecondary}
-                    />
-                  }
-                  placeholder={t("auth.confirmPasswordPlaceholder", {
-                    defaultValue: "Repeat your password",
-                  })}
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  hasError={!!errors.confirmPassword}
-                  secureTextEntry={!showConfirm}
-                  trailingIcon={
-                    <TouchableOpacity
-                      onPress={() => setShowConfirm((v) => !v)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons
-                        name={showConfirm ? "eye-off-outline" : "eye-outline"}
-                        size={18}
-                        color={Colors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  }
-                />
-              )}
-            />
-          </FieldWrapper>
-
-          {/* Submit button */}
-          <Animated.View
-            style={[
-              styles.buttonWrap,
-              { transform: [{ scale: buttonScale }] },
-            ]}
-          >
-            <TouchableOpacity
-              style={styles.submitBtn}
-              onPress={handleSubmit(onSubmit)}
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
-              disabled={loading}
-              activeOpacity={0.9}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.submitBtnText}>
-                  {t("auth.createAccount", { defaultValue: "Create Account" })}
-                </Text>
-              )}
-            </TouchableOpacity>
+          {/* Title block */}
+          <Animated.View style={[styles.titleBlock, { opacity: fadeAnim }]}>
+            <Text style={styles.title}>{t("auth.register")}</Text>
+            <Text style={styles.subtitle}>
+              {t("auth.registerSubtitle", {
+                defaultValue: "Join thousands of Nigerians on Teqil",
+              })}
+            </Text>
           </Animated.View>
 
-          {/* Sign in link */}
-          <View style={styles.signInRow}>
-            <Text style={styles.signInText}>
-              {t("auth.alreadyHaveAccount", {
-                defaultValue: "Already have an account?",
-              })}{" "}
-            </Text>
-            <TouchableOpacity onPress={goToLogin} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
-              <Text style={styles.signInLink}>
-                {t("auth.signIn", { defaultValue: "Sign In" })}
+          {/* Form */}
+          <Animated.View style={{ opacity: fadeAnim }}>
+            {/* Full Name (optional) */}
+            <FieldWrapper
+              label={t("auth.fullName")}
+              hint={t("auth.nameAutoGenerate")}
+              error={errors.fullName?.message}
+            >
+              <Controller
+                control={control}
+                name="fullName"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <InputRow
+                    icon={
+                      <Ionicons
+                        name="person-outline"
+                        size={18}
+                        color={Colors.primaryDark}
+                        
+                      />
+                    }
+                    placeholder={t("auth.fullNamePlaceholder", {
+                      defaultValue: "e.g. Emeka Okonkwo",
+                    })}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    hasError={!!errors.fullName}
+                    autoCapitalize="words"
+                  />
+                )}
+              />
+            </FieldWrapper>
+
+            {/* Email */}
+            <FieldWrapper
+              label={t("auth.email")}
+              error={errors.email?.message}
+            >
+              <Controller
+                control={control}
+                name="email"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <InputRow
+                    icon={
+                      <Ionicons
+                        name="mail-outline"
+                        size={18}
+                        color={Colors.primaryDark}
+                      />
+                    }
+                    placeholder={t("auth.emailPlaceholder", {
+                      defaultValue: "you@example.com",
+                    })}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    hasError={!!errors.email}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                  />
+                )}
+              />
+            </FieldWrapper>
+
+            {/* Phone */}
+            <FieldWrapper
+              label={t("auth.phone")}
+              error={errors.phone?.message}
+            >
+              <Controller
+                control={control}
+                name="phone"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <InputRow
+                    icon={
+                      <Ionicons
+                        name="call-outline"
+                        size={18}
+                        color={Colors.primaryDark}
+                      />
+                    }
+                    placeholder={t("auth.phonePlaceholder", {
+                      defaultValue: "+234 812 345 6789",
+                    })}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    hasError={!!errors.phone}
+                    keyboardType="phone-pad"
+                    autoComplete="tel"
+                  />
+                )}
+              />
+            </FieldWrapper>
+
+            {/* Age */}
+            <FieldWrapper
+              label={t("auth.age")}
+              error={errors.age?.message}
+            >
+              <Controller
+                control={control}
+                name="age"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <InputRow
+                    icon={
+                      <FontAwesome5
+                        name="birthday-cake"
+                        size={16}
+                        color={Colors.primaryDark}
+                      />
+                    }
+                    placeholder={t("auth.agePlaceholder", {
+                      defaultValue: "e.g. 24",
+                    })}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    hasError={!!errors.age}
+                    keyboardType="number-pad"
+                    maxLength={3}
+                  />
+                )}
+              />
+            </FieldWrapper>
+
+            {/* Password */}
+            <FieldWrapper
+              label={t("auth.password")}
+              error={errors.password?.message}
+            >
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <InputRow
+                    icon={
+                      <Ionicons
+                        name="lock-closed-outline"
+                        size={18}
+                        color={Colors.primaryDark}
+                      />
+                    }
+                    placeholder={t("auth.passwordPlaceholder", {
+                      defaultValue: "Min. 8 characters",
+                    })}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    hasError={!!errors.password}
+                    secureTextEntry={!showPassword}
+                    trailingIcon={
+                      <TouchableOpacity
+                        onPress={() => setShowPassword((v) => !v)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons
+                          name={showPassword ? "eye-off-outline" : "eye-outline"}
+                          size={18}
+                          color={Colors.primaryDark}
+                        />
+                      </TouchableOpacity>
+                    }
+                  />
+                )}
+              />
+            </FieldWrapper>
+
+            {/* Confirm Password */}
+            <FieldWrapper
+              label={t("auth.confirmPassword")}
+              error={errors.confirmPassword?.message}
+            >
+              <Controller
+                control={control}
+                name="confirmPassword"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <InputRow
+                    icon={
+                      <Ionicons
+                        name="shield-checkmark-outline"
+                        size={18}
+                        color={Colors.primaryDark}
+                      />
+                    }
+                    placeholder={t("auth.confirmPasswordPlaceholder", {
+                      defaultValue: "Repeat your password",
+                    })}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    hasError={!!errors.confirmPassword}
+                    secureTextEntry={!showConfirm}
+                    trailingIcon={
+                      <TouchableOpacity
+                        onPress={() => setShowConfirm((v) => !v)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons
+                          name={showConfirm ? "eye-off-outline" : "eye-outline"}
+                          size={18}
+                          color={Colors.primaryDark}
+                        />
+                      </TouchableOpacity>
+                    }
+                  />
+                )}
+              />
+            </FieldWrapper>
+
+            {/* Submit button */}
+            <Animated.View
+              style={[
+                styles.buttonWrap,
+                { transform: [{ scale: buttonScale }] },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.submitBtn}
+                onPress={handleSubmit(onSubmit)}
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
+                disabled={loading}
+                activeOpacity={0.9}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.submitBtnText}>
+                    {t("auth.createAccount", { defaultValue: "Create Account" })}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+
+            {/* Sign in link */}
+            <View style={styles.signInRow}>
+              <Text style={styles.signInText}>
+                {t("auth.alreadyHaveAccount", {
+                  defaultValue: "Already have an account?",
+                })}{" "}
               </Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      </KeyboardAwareScrollViewCompat>
+              <TouchableOpacity onPress={goToLogin} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+                <Text style={styles.signInLink}>
+                  {t("auth.signIn", { defaultValue: "Sign In" })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </KeyboardAwareScrollViewCompat>
+      {/* </LinearGradient> */}
     </View>
   );
 }
@@ -477,7 +491,7 @@ function FieldWrapper({ label, hint, error, children }: FieldWrapperProps) {
   return (
     <View style={fieldStyles.wrapper}>
       <Text style={fieldStyles.label}>{label}</Text>
-      {hint && <Text style={fieldStyles.hint}>{hint}</Text>}
+      {/* {hint && <Text style={fieldStyles.hint}>{hint}</Text>} */}
       {children}
       {error ? <Text style={fieldStyles.errorText}>{error}</Text> : null}
     </View>
@@ -516,10 +530,11 @@ function InputRow({
 
       ]}
     >
-      <View style={inputStyles.iconWrap}>{icon}</View>
+      <View style={[inputStyles.iconWrap]}>{icon}</View>
+    
       <TextInput
         style={inputStyles.input}
-        placeholderTextColor={Colors.overlayLight}
+        placeholderTextColor={Colors.primaryDark}
         onFocus={() => setFocused(true)}
         onBlur={() => {
           setFocused(false);
@@ -539,10 +554,13 @@ function InputRow({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.primary,
+  },
+  cardGradient: {
+    flex:1,
   },
   header: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 30,
     paddingVertical: 12,
   },
   backBtn: {
@@ -555,7 +573,7 @@ const styles = StyleSheet.create({
     gap: 5
   },
   scrollContent: {
-    paddingHorizontal: 34,
+    paddingHorizontal: 54,
     paddingTop: 4,
   },
   titleBlock: {
@@ -564,30 +582,26 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: "Poppins_700Bold",
-    fontSize: 28,
-    color: Colors.text,
+    fontSize: 30,
+    color: Colors.primaryDark,
     marginBottom: 6,
   },
   subtitle: {
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: Colors.primaryDark,
     lineHeight: 20,
   },
   buttonWrap: {
-    marginTop: 28,
+    marginTop:68,
     marginBottom: 20,
   },
   submitBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.overlay,
     borderRadius: 44,
     height: 56,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
     elevation: 6,
   },
   submitBtnText: {
@@ -600,17 +614,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 8,
+    // marginBottom: 8,
   },
   signInText: {
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: Colors.primaryLight,
   },
   signInLink: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 14,
-    color: Colors.primary,
+    color: Colors.primaryDark,
   },
 });
 
@@ -621,14 +635,17 @@ const fieldStyles = StyleSheet.create({
   label: {
     fontFamily: "Poppins_500Medium",
     fontSize: 13,
-    color: Colors.text,
-    marginBottom: 4,
+    color: Colors.primaryDark,
+    marginTop: 16,
+    marginBottom: 7,
+    paddingLeft: 15
   },
   hint: {
     fontFamily: "Poppins_400Regular",
     fontSize: 11,
-    color: Colors.textSecondary,
+    color: Colors.primaryDark,
     marginBottom: 6,
+    paddingLeft: 15,
     fontStyle: "italic",
   },
   errorText: {
@@ -644,15 +661,17 @@ const inputStyles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: Colors.overlayLight,
     borderRadius: 26,
-    height: 52,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1.5,
+    borderColor: "transparent",
   },
   focused: {
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-    backgroundColor: Colors.surface,
+    // borderWidth: 1.5,
+    // borderColor: Colors.primary,
+    backgroundColor: Colors.overlayLight,
   },
   errored: {
     borderColor: Colors.error ?? "#E53E3E",
@@ -669,7 +688,7 @@ const inputStyles = StyleSheet.create({
     flex: 1,
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
-    color: Colors.primary,
+    color: Colors.primaryDark,
     height: "100%",
     ...Platform.select({ web: { outlineStyle: "none" } as any }),
   },

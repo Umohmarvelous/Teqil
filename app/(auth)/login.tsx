@@ -9,6 +9,7 @@ import {
   Platform,
   ActivityIndicator,
 } from "react-native";
+
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -30,7 +31,6 @@ import { Colors } from "@/constants/colors";
 import { signInOfflineAware } from "@/src/services/auth";
 import { useTranslation } from "react-i18next";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { StatusBar } from "expo-status-bar";
 
 // ─── Validation schema ────────────────────────────────────────────────────────
 
@@ -128,14 +128,14 @@ function FormField({
         <Ionicons
           name={icon}
           size={20}
-          color={error ? Colors.error : Colors.textSecondary}
+          color={error ? Colors.error : Colors.primaryLight}
           style={fieldStyles.icon}
         />
         <TextInput
           ref={inputRef}
           style={fieldStyles.input}
           placeholder={placeholder}
-          placeholderTextColor={Colors.overlayLight}
+          placeholderTextColor={Colors.primaryLight}
           value={value}
           onChangeText={onChangeText}
           onBlur={onBlur}
@@ -159,15 +159,15 @@ const fieldStyles = StyleSheet.create({
   label: {
     fontFamily: "Poppins_500Medium",
     fontSize: 13,
-    color: Colors.text,
-    marginTop: 6,
-    marginBottom: 9,
+    color: Colors.primaryLight,
+    marginTop: 16,
+    marginBottom: 17,
     paddingLeft: 5
   },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: Colors.overlayLight,
     borderRadius: 26,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -176,14 +176,16 @@ const fieldStyles = StyleSheet.create({
   },
   inputRowError: {
     borderColor: Colors.error,
-    backgroundColor: "#9E080800",
+    backgroundColor: Colors.overlayLight,
+    // backgroundColor: "rgba(28 28 28 / 0.64)",
   },
+
   icon: { marginRight: 12 },
   input: {
     flex: 1,
     fontFamily: "Poppins_400Regular",
     fontSize: 15,
-    color: Colors.text,
+    color: Colors.primaryLight,
   },
   errorText: {
     fontFamily: "Poppins_400Regular",
@@ -197,7 +199,7 @@ const fieldStyles = StyleSheet.create({
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
-  const { setUser, setIsAuthenticated, selectedRole } = useAuthStore();
+  const { setUser, setIsAuthenticated } = useAuthStore();
   const { t } = useTranslation();
 
   const [showPassword, setShowPassword] = React.useState(false);
@@ -218,7 +220,7 @@ export default function LoginScreen() {
       150,
       withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) })
     );
-  }, []);
+  });
 
   const formAnimStyle = useAnimatedStyle(() => ({
     opacity: formOpacity.value,
@@ -283,144 +285,152 @@ export default function LoginScreen() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="dark" backgroundColor="red" animated/>
+  <View style={styles.container}>
+    {/* <LinearGradient
+        colors={["#000","#00A651"]}
+          style={[styles.cardGradient]} 
+          start={{ x: .1, y: 0 }}
+          end={{ x: .1, y: 1 }}
+      > */}
+          
+        {/* <StatusBar style="light" backgroundColor="transparent" animated/> */}
 
-      {/* ── Header ── */}
-      <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color={Colors.text} />
-          <Text>Back</Text>
-        </Pressable>
-        {/* <Text style={styles.headerTitle}>{t("auth.login")}</Text> */}
-        {/* Spacer to centre the title */}
-        <View style={styles.backBtn} />
-      </View>
-
-      {/* ── Scrollable form ── */}
-      <KeyboardAwareScrollViewCompat
-        style={styles.scroll}
-        contentContainerStyle={[
-          styles.scrollContent,
-          {
-            paddingBottom:
-              Math.max(insets.bottom, 24) + (Platform.OS === "web" ? 34 : 0),
-          },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Page title */}
-        <View style={styles.pageHeaderContainer}>
-          <Text style={styles.pageTitle}>Welcome back</Text>
-          <Text style={styles.pageSubtitle}>
-            Sign in to continue your journey
-          </Text>
+        {/* ── Header ── */}
+        <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
+          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={22} color={Colors.primaryLight} />
+            <Text style={{color: Colors.primaryLight}}>Back</Text>
+          </Pressable>
+          {/* <Text style={styles.headerTitle}>{t("auth.login")}</Text> */}
+          {/* Spacer to centre the title */}
+          <View style={styles.backBtn} />
         </View>
 
-        {/* Animated form */}
-        <Animated.View style={formAnimStyle}>
-          {/* Email */}
-          <Controller
-            control={control}
-            name="email"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <FormField
-                label={t("auth.email")}
-                icon="mail-outline"
-                placeholder={t("auth.emailPlaceholder")}
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                error={errors.email?.message}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                returnKeyType="next"
-                onSubmitEditing={() => passwordRef.current?.focus()}
-              />
-            )}
-          />
-
-          {/* Password */}
-          <Controller
-            control={control}
-            name="password"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <FormField
-                label={t("auth.password")}
-                icon="lock-closed-outline"
-                placeholder={t("auth.passwordPlaceholder")}
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                error={errors.password?.message}
-                secureTextEntry={!showPassword}
-                inputRef={passwordRef}
-                returnKeyType="done"
-                onSubmitEditing={handleSubmit(onSubmit)}
-                rightElement={
-                  <Pressable
-                    onPress={() => setShowPassword((s) => !s)}
-                    hitSlop={8}
-                  >
-                    <Ionicons
-                      name={showPassword ? "eye-off-outline" : "eye-outline"}
-                      size={20}
-                      color={Colors.textSecondary}
-                    />
-                  </Pressable>
-                }
-              />
-            )}
-          />
-
-          {/* Forgot password */}
-          <Pressable
-            style={styles.forgotBtn}
-            onPress={() =>
-              Alert.alert(
-                "Reset Password",
-                "Password reset is coming soon. Please contact support for now."
-              )
-            }
-            hitSlop={8}
-          >
-            <Text style={styles.forgotText}>{t("auth.forgotPassword")}</Text>
-          </Pressable>
-
-          {/* Submit */}
-          <AnimatedPressable
-            onPress={handleSubmit(onSubmit)}
-            disabled={isLoading}
-            style={[styles.submitBtn, isLoading && styles.submitBtnLoading]}
-          >
-            <Text style={styles.submitBtnText}>
-
-              {isLoading ? (
-                
-                <ActivityIndicator size="small" color={Colors.borderLight} />
-                // t("auth.loggingIn")
-                
-              ) : t("auth.login")}
+        {/* ── Scrollable form ── */}
+        <KeyboardAwareScrollViewCompat
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingBottom:
+                Math.max(insets.bottom, 24) + (Platform.OS === "web" ? 34 : 0),
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Page title */}
+          <View style={styles.pageHeaderContainer}>
+            <Text style={styles.pageTitle}>Welcome back</Text>
+            <Text style={styles.pageSubtitle}>
+              Sign in to continue your journey
             </Text>
-            {!isLoading && (
-              <Ionicons name="arrow-forward" size={18} color={Colors.surface} />
-              
-            )}
-          </AnimatedPressable>
+          </View>
 
-          {/* Switch to register */}
-          <Pressable
-            style={styles.switchBtn}
-            onPress={() => router.replace("/(auth)/register")}
-          >
-            <Text style={styles.switchText}>
-              {t("auth.noAccount")}{" "}
-              <Text style={styles.switchLink}>{t("auth.signUp")}</Text>
-            </Text>
-          </Pressable>
-        </Animated.View>
-      </KeyboardAwareScrollViewCompat>
-    </View>
+          {/* Animated form */}
+          <Animated.View style={formAnimStyle}>
+            {/* Email */}
+            <Controller
+              control={control}
+              name="email"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <FormField
+                  label={t("auth.email")}
+                  icon="mail-outline"
+                  placeholder={t("auth.emailPlaceholder")}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  error={errors.email?.message}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  returnKeyType="next"
+                  onSubmitEditing={() => passwordRef.current?.focus()}
+                />
+              )}
+            />
+
+            {/* Password */}
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <FormField
+                  label={t("auth.password")}
+                  icon="lock-closed-outline"
+                  placeholder={t("auth.passwordPlaceholder")}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  error={errors.password?.message}
+                  secureTextEntry={!showPassword}
+                  inputRef={passwordRef}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSubmit(onSubmit)}
+                  rightElement={
+                    <Pressable
+                      onPress={() => setShowPassword((s) => !s)}
+                      hitSlop={8}
+                    >
+                      <Ionicons
+                        name={showPassword ? "eye-off-outline" : "eye-outline"}
+                        size={20}
+                        color={Colors.primaryLight}
+                      />
+                    </Pressable>
+                  }
+                />
+              )}
+            />
+
+            {/* Forgot password */}
+            <Pressable
+              style={styles.forgotBtn}
+              onPress={() =>
+                Alert.alert(
+                  "Reset Password",
+                  "Password reset is coming soon. Please contact support for now."
+                )
+              }
+              hitSlop={8}
+            >
+              <Text style={styles.forgotText}>{t("auth.forgotPassword")}</Text>
+            </Pressable>
+
+            {/* Submit */}
+            <AnimatedPressable
+              onPress={handleSubmit(onSubmit)}
+              disabled={isLoading}
+              style={[styles.submitBtn, isLoading && styles.submitBtnLoading]}
+            >
+              <Text style={styles.submitBtnText}>
+
+                {isLoading ? (
+                  
+                  <ActivityIndicator size="small" color={Colors.primaryLight} />
+                  // t("auth.loggingIn")
+                  
+                ) : t("auth.login")}
+              </Text>
+              {!isLoading && (
+                <Ionicons name="arrow-forward" size={18} color={Colors.primaryLight} />
+                
+              )}
+            </AnimatedPressable>
+
+            {/* Switch to register */}
+            <Pressable
+              style={styles.switchBtn}
+              onPress={() => router.replace("/(auth)/register")}
+            >
+              <Text style={styles.switchText}>
+                {t("auth.noAccount")}{" "}
+                <Text style={styles.switchLink}>{t("auth.signUp")}</Text>
+              </Text>
+            </Pressable>
+          </Animated.View>
+        </KeyboardAwareScrollViewCompat>
+    {/* </LinearGradient> */}
+  </View>
   );
 }
 
@@ -429,9 +439,13 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.primary
   },
-
+  
+  cardGradient: {
+    flex:1,
+  },
+  
   // Header
   header: {
     flexDirection: "row",
@@ -439,8 +453,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
   },
   backBtn: {
     width: 40,
@@ -450,11 +462,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexDirection: 'row',
     gap: 5,
-  },
-  headerTitle: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 16,
-    color: Colors.text,
   },
 
   // Scroll
@@ -472,14 +479,14 @@ const styles = StyleSheet.create({
   },
   pageTitle: {
     fontFamily: "Poppins_700Bold",
-    fontSize: 28,
-    color: Colors.text,
+    fontSize: 30,
+    color: Colors.primaryLight,
     marginBottom: 6,
   },
   pageSubtitle: {
     fontFamily: "Poppins_400Regular",
     fontSize: 15,
-    color: Colors.textSecondary,
+    color: Colors.primaryLight,
     marginBottom: 32,
   },
 
@@ -492,23 +499,20 @@ const styles = StyleSheet.create({
   forgotText: {
     fontFamily: "Poppins_500Medium",
     fontSize: 13,
-    color: Colors.primary,
+    color: Colors.primaryLight,
   },
 
   // Submit button
   submitBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.primaryLight,
     borderRadius: 26,
     height: 56,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
     elevation: 8,
+    marginTop: 50
   },
   submitBtnLoading: {
     opacity: 0.7,
@@ -516,7 +520,7 @@ const styles = StyleSheet.create({
   submitBtnText: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 16,
-    color: Colors.surface,
+    color: Colors.primaryLight,
   },
 
   // Switch
@@ -528,10 +532,10 @@ const styles = StyleSheet.create({
   switchText: {
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: Colors.primaryLight,
   },
   switchLink: {
     fontFamily: "Poppins_600SemiBold",
-    color: Colors.primary,
+    color: Colors.primaryLight,
   },
 });

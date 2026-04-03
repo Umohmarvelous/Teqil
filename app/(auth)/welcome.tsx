@@ -1,4 +1,17 @@
-import React, { useEffect } from "react";
+/**
+ * app/(auth)/welcome.tsx
+ *
+ * Full-screen onboarding carousel.
+ * - Slides 0-2: brand/feature slides
+ * - Slide 3 (last): full-screen role selection
+ *
+ * Role routing:
+ *   driver     → /(auth)/login  (with role pre-selected)
+ *   passenger  → /(auth)/passenger-entry  (3 options: Pay Fare, Bolt Ride, Find Trip)
+ *   park_owner → /(auth)/login
+ */
+
+import React, { useRef, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,499 +19,774 @@ import {
   Pressable,
   Dimensions,
   Platform,
-  StatusBar,
+  ScrollView,
+  Animated,
 } from "react-native";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withDelay,
-  withSpring,
-  Easing,
-} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAuthStore } from "@/src/store/useStore";
 import { Colors } from "@/constants/colors";
 import type { UserRole } from "@/src/models/types";
-import { useTranslation } from "react-i18next";
 
-const { width } = Dimensions.get("window");
+const { width: W, height: H } = Dimensions.get("window");
 
-// ─── Role Card ────────────────────────────────────────────────────────────────
+// ─── Slide data ───────────────────────────────────────────────────────────────
+const SLIDES = [
+  {
+    id: "earn",
+    gradient: ["#003D1F", "#000"] as const,
+    accentColor: "#99F3C6",
+    icon: "car-sport" as const,
+    iconBg: "rgba(74,222,128,0.15)",
+    eyebrow: "FOR DRIVERS",
+    title: "Earn While\nYou Drive",
+    body: "Fuel coins stack automatically every trip. No forced ads — revenue shares directly into your wallet.",
+    decorIcon1: "wallet" as const,
+    decorIcon2: "star" as const,
+  },
+  {
+    id: "safe",
+    gradient: ["#0A0A2E", "#000"] as const,
+    accentColor: "#60A5FA",
+    icon: "shield-checkmark" as const,
+    iconBg: "rgba(96,165,250,0.15)",
+    eyebrow: "FOR PASSENGERS",
+    title: "Travel Safe,\nAlways",
+    body: "Live tracking, emergency contacts, and real-time arrival alerts — every trip, every time.",
+    decorIcon1: "people" as const,
+    decorIcon2: "location" as const,
+  },
+  // 00A651
+  {
+    id: "park",
+    gradient: ["#1A0A00", "#000"] as const,
+    accentColor: "#FB923C",
+    icon: "business" as const,
+    iconBg: "rgba(251,146,60,0.15)",
+    eyebrow: "FOR PARK OWNERS",
+    title: "Monitor Your\nPark Live",
+    body: "Real-time trip stats, driver verification, emergency alerts, and park-wide broadcasts.",
+    decorIcon1: "megaphone" as const,
+    decorIcon2: "bar-chart" as const,
+  },
+];
 
-interface RoleCardProps {
+// ─── Feature slide ────────────────────────────────────────────────────────────
+function FeatureSlide({
+  slide,
+  index,
+  scrollX,
+}: {
+  slide: (typeof SLIDES)[0];
+  index: number;
+  scrollX: Animated.Value;
+}) {
+  const inputRange = [(index - 1) * W, index * W, (index + 1) * W];
+
+  const opacity = scrollX.interpolate({
+    inputRange,
+    outputRange: [0, 1, 0],
+    extrapolate: "clamp",
+  });
+  const scale = scrollX.interpolate({
+    inputRange,
+    outputRange: [0.88, 1, 0.88],
+    extrapolate: "clamp",
+  });
+  const translateY = scrollX.interpolate({
+    inputRange,
+    outputRange: [40, 0, 40],
+    extrapolate: "clamp",
+  });
+
+  return (
+    <View style={{ width: W, height: H }}>
+      
+      <LinearGradient
+        colors={slide.gradient}
+        style={StyleSheet.absoluteFillObject}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+      />
+
+      {/* Decorative circles */}
+      <View style={[decorStyles.circle1, { borderColor: slide.accentColor + "18" }]} />
+      <View style={[decorStyles.circle2, { borderColor: slide.accentColor + "10" }]} />
+
+      {/* Decor icons */}
+      <Animated.View style={[decorStyles.iconFloat1, { opacity }]}>
+        <View style={[decorStyles.floatIconBg, { backgroundColor: slide.accentColor + "12" }]}>
+          <Ionicons name={slide.decorIcon1} size={28} color={slide.accentColor + "66"} />
+        </View>
+      </Animated.View>
+      {/* <Animated.View style={[decorStyles.iconFloat2, { opacity }]}>
+        <View style={[decorStyles.floatIconBg, { backgroundColor: slide.accentColor + "12" }]}>
+          <Ionicons name={slide.decorIcon2} size={24} color={slide.accentColor + "55"} />
+        </View>
+      </Animated.View> */}
+
+      {/* Main content */}
+      <Animated.View
+        style={[
+          slideStyles.content,
+          { opacity, transform: [{ scale }, { translateY }] },
+        ]}
+      >
+        {/* Icon */}
+        <View style={[slideStyles.mainIconWrap,
+          // { backgroundColor: slide.iconBg }
+        ]}>
+          <Ionicons name={slide.icon} size={100} color={slide.accentColor} />
+        </View>
+
+        {/* Eyebrow */}
+        <View style={[slideStyles.eyebrowPill, { backgroundColor: slide.accentColor + "18" }]}>
+          <Text style={[slideStyles.eyebrow, { color: slide.accentColor }]}>{slide.eyebrow}</Text>
+        </View>
+
+        {/* Title */}
+        <View>
+          <Text style={slideStyles.title}>{slide.title}</Text>
+        </View>
+
+        {/* Body */}
+        <Text style={slideStyles.body}>{slide.body}</Text>
+      </Animated.View>
+    </View>
+  );
+}
+
+// ─── Role card ────────────────────────────────────────────────────────────────
+function RoleCard({
+  role,
+  icon,
+  title,
+  desc,
+  gradient,
+  selected,
+  onPress,
+}: {
   role: UserRole;
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   desc: string;
+  gradient: readonly [string, string];
   selected: boolean;
   onPress: () => void;
-  delay: number;
-}
-
-function RoleCard({
-  icon,
-  title,
-  desc,
-  selected,
-  onPress,
-  delay,
-}: RoleCardProps) {
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(20);
-  const scale = useSharedValue(1);
-
-  useEffect(() => {
-    opacity.value = withDelay(delay, withTiming(1, { duration: 400 }));
-    translateY.value = withDelay(
-      delay,
-      withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) })
-    );
-  }, []);
-
-  const cardStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }, { scale: scale.value }],
-  }));
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
 
   const handlePress = () => {
-    scale.value = withSpring(0.96, { damping: 20 }, () => {
-      scale.value = withSpring(1, { damping: 15 });
-    });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Animated.sequence([
+      Animated.timing(scale, { toValue: 0.95, duration: 80, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, friction: 5, useNativeDriver: true }),
+    ]).start();
     onPress();
   };
 
   return (
-    <Animated.View style={cardStyle}>
-      <StatusBar barStyle={"dark-content"} backgroundColor={"red"} animated/>
-
-      <Pressable
-        onPress={handlePress}
-        style={[styles.roleCard, selected && styles.roleCardSelected]}
-      >
-        {/* Icon */}
-        <View
-          style={[styles.roleIconWrap, selected && styles.roleIconWrapSelected]}
+    <Animated.View style={{ transform: [{ scale }] }}>
+      {/* <StatusBar style="inverted" backgroundColor="transparent" animated/> */}
+      <Pressable onPress={handlePress} style={[roleStyles.card, selected && roleStyles.cardSelected]}>
+        <LinearGradient
+          colors={selected ? gradient : ["#1A1A1A", "rgb(23 32 25)"]}
+          style={roleStyles.cardGradient} 
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
         >
-          <Ionicons
-            name={icon}
-            size={24}
-            color={selected ? Colors.surface : Colors.primary}
-          />
-        </View>
-
-        {/* Text */}
-        <View style={styles.roleTextWrap}>
-          <Text
-            style={[styles.roleTitle, selected && styles.roleTitleSelected]}
-          >
-            {title}
-          </Text>
-          <Text style={[styles.roleDesc, selected && styles.roleDescSelected]}>
-            {desc}
-          </Text>
-        </View>
-
-        {/* Checkmark */}
-        {selected ? (
-          <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
-        ) : (
-          <View style={styles.roleCheck} />
-        )}
+          <View style={[roleStyles.iconWrap, { backgroundColor: selected ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.06)" }]}>
+            <Ionicons name={icon} size={22} color={selected ? "#fff" : "rgba(255,255,255,0.55)"} />
+          </View>
+          <View style={roleStyles.textWrap}>
+            <Text style={[roleStyles.title, selected && roleStyles.titleSelected]}>{title}</Text>
+            <Text style={[roleStyles.desc, selected && roleStyles.descSelected]}>{desc}</Text>
+          </View>
+          <View style={[roleStyles.checkCircle, selected && roleStyles.checkCircleSelected]}>
+            {selected && <Ionicons name="checkmark" size={24} color="#fff" />}
+          </View>
+        </LinearGradient>
       </Pressable>
     </Animated.View>
   );
 }
 
-// ─── Welcome Screen ───────────────────────────────────────────────────────────
-
-export default function WelcomeScreen() {
+// ─── Role selection slide (last full-screen slide) ────────────────────────────
+function RoleSlide({ scrollX }: { scrollX: Animated.Value }) {
   const insets = useSafeAreaInsets();
-  const { selectedRole, setSelectedRole } = useAuthStore();
-  const { t } = useTranslation();
+  const { setSelectedRole, selectedRole } = useAuthStore();
+  const [localRole, setLocalRole] = useState<UserRole | null>(selectedRole);
 
-  // Entrance animations
-  const logoOpacity = useSharedValue(0);
-  const logoScale = useSharedValue(0.7);
-  const headingOpacity = useSharedValue(0);
-  const headingY = useSharedValue(-24);
-  const actionsOpacity = useSharedValue(0);
-  const actionsY = useSharedValue(24);
+  const index = SLIDES.length; // last slide index
+  const inputRange = [(index - 1) * W, index * W, (index + 1) * W];
 
-  useEffect(() => {
-    logoOpacity.value = withDelay(100, withTiming(1, { duration: 600 }));
-    logoScale.value = withDelay(100, withSpring(1, { damping: 12 }));
-    headingOpacity.value = withDelay(
-      350,
-      withTiming(1, { duration: 500 })
-    );
-    headingY.value = withDelay(
-      350,
-      withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) })
-    );
-    actionsOpacity.value = withDelay(850, withTiming(1, { duration: 400 }));
-    actionsY.value = withDelay(
-      850,
-      withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) })
-    );
-  }, []);
+  const opacity = scrollX.interpolate({
+    inputRange,
+    outputRange: [0, 1, 0],
+    extrapolate: "clamp",
+  });
 
-  const logoStyle = useAnimatedStyle(() => ({
-    opacity: logoOpacity.value,
-    transform: [{ scale: logoScale.value }],
-  }));
-  const headingStyle = useAnimatedStyle(() => ({
-    opacity: headingOpacity.value,
-    transform: [{ translateY: headingY.value }],
-  }));
-  const actionsStyle = useAnimatedStyle(() => ({
-    opacity: actionsOpacity.value,
-    transform: [{ translateY: actionsY.value }],
-  }));
-
-  const handleGetStarted = () => {
-    if (!selectedRole) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push("/(auth)/register");
+  const handleSelect = (role: UserRole) => {
+    setLocalRole(role);
+    setSelectedRole(role);
   };
 
-  const handleSignIn = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/(auth)/login");
-  };
+  const handleContinue = useCallback(() => {
+    if (!localRole) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
+    if (localRole === "driver") {
+      router.push("/(auth)/login");
+    } else if (localRole === "passenger") {
+      router.push("/(auth)/passenger-entry");
+    } else {
+      router.push("/(auth)/login");
+    }
+  }, [localRole]);
 
-  const roles: {
-    role: UserRole;
-    icon: keyof typeof Ionicons.glyphMap;
-    titleKey: string;
-    descKey: string;
-  }[] = [
+  const ROLES = [
     {
-      role: "driver",
-      icon: "car-sport",
-      titleKey: "welcome.driver",
-      descKey: "welcome.driverDesc",
+      role: "driver" as UserRole,
+      icon: "car-sport" as const,
+      title: "Driver",
+      desc: "Earn fuel coins on every trip",
+      gradient: [Colors.primary, Colors.primaryDark] as const,
     },
     {
-      role: "passenger",
-      icon: "person",
-      titleKey: "welcome.passenger",
-      descKey: "welcome.passengerDesc",
+      role: "passenger" as UserRole,
+      icon: "person" as const,
+      title: "Passenger",
+      desc: "Find trips & travel safely",
+      gradient: [Colors.primary, Colors.primaryDark] as const,
     },
     {
-      role: "park_owner",
-      icon: "business",
-      titleKey: "welcome.parkOwner",
-      descKey: "welcome.parkOwnerDesc",
+      role: "park_owner" as UserRole,
+      icon: "business" as const,
+      title: "Park Owner",
+      desc: "Monitor and manage your park",
+      gradient: [Colors.primary, Colors.primaryDark] as const,
     },
   ];
 
   return (
-    <View style={styles.container}>
-      {/* ── Hero gradient top ── */}
+    <Animated.View style={{ width: W, height: H, opacity }}>
       <LinearGradient
-        colors={["#006B35", Colors.primary, "#00C862"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.hero, { paddingTop: topPadding + 24 }]}
-      >
-        {/* Logo */}
-        <Animated.View style={[styles.logoWrap, logoStyle]}>
-          <View style={styles.logoCircle}>
-            <Ionicons name="navigate" size={36} color={Colors.primary} />
-          </View>
-          <View style={styles.logoBadge}>
-            <Ionicons name="star" size={11} color={Colors.gold} />
-          </View>
-        </Animated.View>
+        colors={["#080808", "#0D0D0D", "#111"]}
+        style={StyleSheet.absoluteFillObject}
+      />
 
-        {/* Heading */}
-        <Animated.View style={headingStyle}>
-          <Text style={styles.appName}>Teqil</Text>
-          <Text style={styles.tagline}>{t("welcome.tagline")}</Text>
-          <Text style={styles.subtitle}>{t("welcome.subtitle")}</Text>
-        </Animated.View>
-      </LinearGradient>
+      {/* Subtle green glow top-center */}
+      <View style={roleSlideStyles.glowTop} />
 
-      {/* ── Bottom sheet ── */}
       <View
         style={[
-          styles.sheet,
-          {
-            paddingBottom:
-              Math.max(insets.bottom, 20) + (Platform.OS === "web" ? 34 : 0),
-          },
+          roleSlideStyles.inner,
+          { paddingTop: insets.top + 60, paddingBottom: Math.max(insets.bottom, 24) + (Platform.OS === "web" ? 34 : 0) },
         ]}
       >
-        {/* Handle */}
-        <View style={styles.handle} />
+        {/* Header */}
+        <View style={roleSlideStyles.container}>
+          <View style={roleSlideStyles.header}>
+            {/* <View style={roleSlideStyles.teqilBadge}>
+              <Ionicons name="navigate" size={18} color={Colors.primary} />
+              <Text style={roleSlideStyles.teqilText}>TEQIL</Text>
+            </View> */}
+            <Text style={roleSlideStyles.heading}>Who are you?</Text>
+            <Text style={roleSlideStyles.sub}>
+              Choose your role to get started
+            </Text>
+          </View>
 
-        <Text style={styles.sectionTitle}>{t("welcome.selectRole")}</Text>
-        <Text style={styles.sectionSubtitle}>
-          {t("welcome.selectRoleDesc")}
-        </Text>
-
-        {/* Role cards */}
-        <View style={styles.roles}>
-          {roles.map((r, i) => (
-            <RoleCard
-              key={r.role}
-              role={r.role}
-              icon={r.icon}
-              title={t(r.titleKey)}
-              desc={t(r.descKey)}
-              selected={selectedRole === r.role}
-              onPress={() => setSelectedRole(r.role)}
-              delay={200 + i * 80}
-            />
-          ))}
+          {/* Role cards */}
+          <View style={roleSlideStyles.cards}>
+            {ROLES.map((r) => (
+              <RoleCard
+                key={r.role}
+                role={r.role}
+                icon={r.icon}
+                title={r.title}
+                desc={r.desc}
+                gradient={r.gradient}
+                selected={localRole === r.role}
+                onPress={() => handleSelect(r.role)}
+              />
+            ))}
+          </View>
         </View>
 
-        {/* Actions */}
-        <Animated.View style={[styles.actions, actionsStyle]}>
-          {/* Get Started */}
+        {/* Continue button */}
+        <View style={roleSlideStyles.footer}>
           <Pressable
             style={({ pressed }) => [
-              styles.primaryBtn,
-              !selectedRole && styles.primaryBtnDisabled,
-              pressed && selectedRole && styles.primaryBtnPressed,
+              roleSlideStyles.continueBtn,
+              !localRole && roleSlideStyles.continueBtnDisabled,
+              pressed && localRole && { opacity: 0.88 },
             ]}
-            onPress={handleGetStarted}
-            disabled={!selectedRole}
+            onPress={handleContinue}
+            disabled={!localRole}
           >
-            <Text style={styles.primaryBtnText}>
-              {t("welcome.getStarted")}
-            </Text>
-            <Ionicons name="arrow-forward" size={20} color={Colors.surface} />
+            <LinearGradient
+              colors={localRole ? [Colors.primary, Colors.primaryDark] : ["#2A2A2A", "#222"]}
+              style={roleSlideStyles.continueBtnGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Text style={[roleSlideStyles.continueBtnText, !localRole && roleSlideStyles.continueBtnTextDisabled]}>
+                {localRole ? "Continue" : "Select a role"}
+              </Text>
+              {localRole && <Ionicons name="arrow-forward" size={18} color="#fff" />}
+            </LinearGradient>
           </Pressable>
 
           {/* Already have account */}
-          <Pressable style={styles.secondaryBtn} onPress={handleSignIn}>
-            <Text style={styles.secondaryBtnText}>
+          {/* <Pressable
+            style={roleSlideStyles.signinLink}
+            onPress={() => router.push("/(auth)/login")}
+          >
+            <Text style={roleSlideStyles.signinLinkText}>
               Already have an account?{" "}
-              <Text style={styles.secondaryBtnLink}>{t("welcome.signIn")}</Text>
+              <Text style={roleSlideStyles.signinLinkHighlight}>Sign In</Text>
             </Text>
-          </Pressable>
-        </Animated.View>
+          </Pressable> */}
+        </View>
       </View>
+    </Animated.View>
+  );
+}
+
+// ─── Dot indicators ───────────────────────────────────────────────────────────
+function Dots({ total, scrollX }: { total: number; scrollX: Animated.Value }) {
+  return (
+    <View style={dotStyles.row}>
+      {Array.from({ length: total }).map((_, i) => {
+        const width = scrollX.interpolate({
+          inputRange: [(i - 1) * W, i * W, (i + 1) * W],
+          outputRange: [6, 22, 6],
+          extrapolate: "clamp",
+        });
+        const opacity = scrollX.interpolate({
+          inputRange: [(i - 1) * W, i * W, (i + 1) * W],
+          outputRange: [0.35, 1, 0.35],
+          extrapolate: "clamp",
+        });
+        const bg = scrollX.interpolate({
+          inputRange: [(i - 1) * W, i * W, (i + 1) * W],
+          outputRange: [
+            "rgba(255,255,255,0.3)",
+            Colors.textTertiary,
+            "rgba(255,255,255,0.3)",
+          ],
+          extrapolate: "clamp",
+        });
+        return (
+          <Animated.View
+            key={i}
+            style={[dotStyles.dot, { width, opacity, backgroundColor: bg as any }]}
+          />
+        );
+      })}
     </View>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+// ─── Main screen ──────────────────────────────────────────────────────────────
+export default function WelcomeScreen() {
+  const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const totalSlides = SLIDES.length + 1; // +1 for role slide
+
+  const handleNext = () => {
+    const next = Math.min(currentIndex + 1, totalSlides - 1);
+    scrollRef.current?.scrollTo({ x: next * W, animated: true });
+    setCurrentIndex(next);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+    {
+      useNativeDriver: false,
+      listener: (e: any) => {
+        const idx = Math.round(e.nativeEvent.contentOffset.x / W);
+        setCurrentIndex(idx);
+      },
+    }
+  );
+
+  const isLastSlide = currentIndex === totalSlides - 1;
+
+  return (
+    <View style={styles.root}>
+      {/* Carousel */}
+      <Animated.ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        bounces={false}
+        style={{ flex: 1 }}
+      >
+        {SLIDES.map((slide, index) => (
+          <FeatureSlide
+            key={slide.id}
+            slide={slide}
+            index={index}
+            scrollX={scrollX}
+          />
+        ))}
+        <RoleSlide scrollX={scrollX} />
+      </Animated.ScrollView>
+
+      {/* Bottom nav: dots + next button (hidden on last slide) */}
+      {!isLastSlide && (
+        <View
+          style={[
+            styles.bottomNav,
+            { bottom: Math.max(insets.bottom, 24) + (Platform.OS === "web" ? 34 : 0) },
+          ]}
+        >
+          <Dots total={totalSlides} scrollX={scrollX} />
+          <Pressable
+            style={({ pressed }) => [styles.nextBtn, pressed && { opacity: 0.85 }]}
+            onPress={handleNext}
+          >
+            <LinearGradient
+              colors={[Colors.text, Colors.text]}
+              style={styles.nextBtnGradient}
+              start={{ x: 0, y: 1 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
+            </LinearGradient>
+          </Pressable>
+        </View>
+      )}
+
+      {/* Dots only on last slide (no next btn) */}
+      {isLastSlide && (
+        <View
+          style={[
+            styles.bottomNavCentered,
+            { bottom: Math.max(insets.bottom, 24) + (Platform.OS === "web" ? 34 : 0) + 200 },
+          ]}
+        >
+          <Dots total={totalSlides} scrollX={scrollX} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.primary,
-  },
-
-  // Hero
-  hero: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 32,
-    paddingBottom: 40,
-  },
-  logoWrap: {
-    marginBottom: 28,
-    position: "relative",
-  },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    backgroundColor: Colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 12,
-  },
-  logoBadge: {
+  root: { flex: 1, backgroundColor: "#fff" },
+  bottomNav: {
     position: "absolute",
-    top: -6,
-    right: -6,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: Colors.gold,
+    left: 0,
+    right: 0,
+    flexDirection: "column",
     alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: Colors.surface,
+    justifyContent: "flex-end",
+    paddingHorizontal: 32,
+    gap: 100
   },
-  appName: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 42,
-    color: Colors.surface,
-    textAlign: "center",
-    letterSpacing: -1,
-    lineHeight: 50,
-  },
-  tagline: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 17,
-    color: "rgba(255,255,255,0.95)",
-    textAlign: "center",
-    lineHeight: 26,
-    marginTop: 8,
-  },
-  subtitle: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 13,
-    color: "rgba(255,255,255,0.72)",
-    textAlign: "center",
-    lineHeight: 20,
-    marginTop: 10,
-    paddingHorizontal: 12,
-  },
-
-  // Sheet
-  sheet: {
-    backgroundColor: Colors.surface,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingTop: 12,
-    paddingHorizontal: 24,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.border,
-    alignSelf: "center",
-    marginBottom: 22,
-  },
-  sectionTitle: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 21,
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginBottom: 18,
-  },
-
-  // Roles
-  roles: {
-    gap: 10,
-  },
-  roleCard: {
-    flexDirection: "row",
+  bottomNavCentered: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 650,
     alignItems: "center",
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 2,
-    borderColor: "transparent",
-    gap: 14,
-    // Subtle elevation
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
   },
-  roleCardSelected: {
-    backgroundColor: Colors.primaryLight,
-    borderColor: Colors.primary,
-  },
-  roleIconWrap: {
-    width: 50,
-    height: 50,
-    borderRadius: 14,
-    backgroundColor: Colors.primaryLight,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  roleIconWrapSelected: {
-    backgroundColor: Colors.primary,
-  },
-  roleTextWrap: {
-    flex: 1,
-  },
-  roleTitle: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 15,
-    color: Colors.text,
-  },
-  roleTitleSelected: {
-    color: Colors.primaryDark,
-  },
-  roleDesc: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  roleDescSelected: {
-    color: Colors.primary,
-  },
-  roleCheck: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: Colors.border,
-  },
-
-  // Actions
-  actions: {
-    marginTop: 22,
-    gap: 12,
-  },
-  primaryBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 16,
+  nextBtn: {
+    width: 56,
     height: 56,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+    borderRadius: 30,
+    overflow: "hidden",
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.5,
     shadowRadius: 12,
-    elevation: 8,
+    elevation: 10,
+    alignSelf: 'flex-end',
   },
-  primaryBtnDisabled: {
-    backgroundColor: Colors.border,
+  nextBtnGradient: {
+    flex: 1,
+    // paddingRight: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
+
+const decorStyles = StyleSheet.create({
+  circle1: {
+    position: "absolute",
+    width: W * 1.2,
+    height: W * 1.2,
+    borderRadius: W * 0.6,
+    borderWidth: 1,
+    top: -W * 0.4,
+    left: -W * 0.1,
+  },
+  circle2: {
+    position: "absolute",
+    width: W * 0.8,
+    height: W * 0.8,
+    borderRadius: W * 0.4,
+    borderWidth: 1,
+    bottom: H * 0.1,
+    right: -W * 0.3,
+  },
+  iconFloat1: {
+    position: "absolute",
+    top: H * 0.12,
+    right: 32,
+  },
+  iconFloat2: {
+    position: "absolute",
+    bottom: H * 0.42,
+    right: 38,
+  },
+  floatIconBg: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
+
+const slideStyles = StyleSheet.create({
+  content: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 32,
+    paddingBottom: 120,
+    gap: 18,
+  },
+  mainIconWrap: {
+    width: 188,
+    height: 188,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+    alignSelf: 'center'
+  },
+  eyebrowPill: {
+    alignSelf: "center",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+
+  },
+  eyebrow: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 11,
+    letterSpacing: 2,
+
+  },
+  title: {
+    fontFamily: "Poppins_700Bold",
+    fontSize: 38,
+    color: "#fff",
+    lineHeight: 46,
+    letterSpacing: -0.5,
+    textAlign:"center"
+  },
+  body: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 16,
+    color: "rgba(255,255,255,0.65)",
+    lineHeight: 26,
+    maxWidth: W * 0.82,
+    textAlign: 'center'
+  },
+});
+
+const roleSlideStyles = StyleSheet.create({
+  inner: {
+    flex: 1,
+    paddingHorizontal: 24,    
+  },
+  glowTop: {
+    position: "absolute",
+    top: -190,
+    left: W / 2 - 130,
+    width: 580,
+    height: 580,
+    borderRadius: 620,
+    backgroundColor: Colors.primary,
+    opacity: 0.20,
+  },
+  container: {
+    marginTop: 40,
+    flex: 1,
+    // justifyContent: "center",
+  },
+  header: {
+    marginBottom: 23,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  teqilBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(0,166,81,0.12)",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "rgba(0,166,81,0.2)",
+  },
+  teqilText: {
+    fontFamily: "Poppins_700Bold",
+    fontSize: 11,
+    color: Colors.primary,
+    letterSpacing: 2,
+  },
+
+  heading: {
+    fontFamily: "Poppins_700Bold",
+    fontSize: 30,
+    color: "#fff",
+    lineHeight: 40,
+    letterSpacing: -0.5,
+  },
+  sub: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 15,
+    color: "rgba(255,255,255,0.5)",
+    lineHeight: 22,
+  },
+  cards: {
+    gap: 22,
+  },
+  footer: {
+    gap: 44,
+  },
+  continueBtn: {
+    borderRadius: 30,
+    overflow: "hidden",
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 14,
+    elevation: 10,
+    
+  },
+  continueBtnDisabled: {
     shadowOpacity: 0,
     elevation: 0,
   },
-  primaryBtnPressed: {
-    opacity: 0.92,
+  continueBtnGradient: {
+    height: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
   },
-  primaryBtnText: {
+  continueBtnText: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 16,
-    color: Colors.surface,
+    color: "#fff",
   },
-  secondaryBtn: {
+  continueBtnTextDisabled: {
+    color: "rgba(255,255,255,0.3)",
+  },
+  signinLink: {
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 6,
   },
-  secondaryBtnText: {
+  signinLinkText: {
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: "rgba(255,255,255,0.4)",
   },
-  secondaryBtnLink: {
+  signinLinkHighlight: {
     fontFamily: "Poppins_600SemiBold",
     color: Colors.primary,
+  },
+});
+
+const roleStyles = StyleSheet.create({
+  card: {
+    borderRadius: 100,
+    overflow: "hidden",
+    // borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.06)",
+  },
+  cardSelected: {
+    borderColor: "transparent",
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  cardGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 18,
+    gap: 14,
+  },
+  iconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 100,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  textWrap: { flex: 1 },
+  title: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 16,
+    color: "rgba(255,255,255,0.55)",
+  },
+  titleSelected: { color: "#fff" },
+  desc: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    color: "rgba(255,255,255,0.3)",
+    marginTop: 3,
+  },
+  descSelected: { color: "rgba(255,255,255,0.75)" },
+  checkCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 42,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkCircleSelected: {
+    borderColor: "transparent",
+    backgroundColor: "rgba(255,255,255,0.25)",
+  },
+});
+
+const dotStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+
+  },
+  dot: {
+    height: 6,
+    borderRadius: 3,
   },
 });

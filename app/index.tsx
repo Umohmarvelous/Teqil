@@ -129,38 +129,38 @@
 
 
 
-import React from "react";
-import { View, ActivityIndicator, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
 import { router } from "expo-router";
 import { useAuthStore } from "@/src/store/useStore";
 import { Colors } from "@/constants/colors";
-import OnboardingCarousel from "@/components/OnboardingCarousel";
+// import OnboardingCarousel from "@/components/OnboardingCarousel";
 
 export default function IndexScreen() {
   const { isAuthenticated, isLoading } = useAuthStore();
 
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
-    );
-  }
+  // if (isLoading) {
+  //   return (
+  //     <View style={styles.container}>
+  //       <ActivityIndicator size="large" color={Colors.border} />
+  //     </View>
+  //   );
+  // }
 
   if (!isAuthenticated) {
     // Show carousel for all unauthenticated users (every time they open the app)
     return (
-      <OnboardingCarousel
-        onFinish={() => {
-          // After carousel, go to the role selection / welcome screen
-          router.replace("/(auth)/welcome");
-        }}
-      />
+      router.replace("/(auth)/welcome")
+    //   <OnboardingCarousel
+    //     onFinish={() => {
+    //       // After carousel, go to the role selection / welcome screen
+    //       router.replace("/(auth)/welcome");
+    //     }}
+    //   />
     );
   } 
 
   // Authenticated users go directly to the unified dashboard
-  router.replace("/(app)");
+  router.replace("/(auth)/welcome");
   return null; // prevent flashing
 }
 

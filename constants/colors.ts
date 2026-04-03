@@ -1,6 +1,7 @@
-const PRIMARY = "#00A651";
-const PRIMARY_DARK = "#007A3D";
-const PRIMARY_LIGHT = "#E8F8EF";
+const PRIMARY = "#02D05B";
+// 00A651
+const PRIMARY_DARK = "#023A1E";
+const PRIMARY_LIGHT = "#B9F0D4";
 const GOLD = "#F5A623";
 const GOLD_LIGHT = "#FEF6E7";
 
@@ -25,11 +26,11 @@ export const Colors = {
 
   success: "#00A651",
   warning: "#F5A623",
-  error: "#EF4444",
+  error: "#EF4464",
   info: "#3B82F6",
 
   overlay: "rgba(0, 0, 0, 0.5)",
-  overlayLight: "rgba(0, 0, 0, 0.15)",
+  overlayLight: "#00000026",
 
   overlayColored: "rgb(14 1 12)",
 
