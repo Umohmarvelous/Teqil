@@ -14,7 +14,7 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Dimensions,
+  
   Platform,
   Animated,
   Easing,
@@ -27,7 +27,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/colors";
 
-const { width: W } = Dimensions.get("window");
+// const { width: W } = Dimensions.get("window");
 
 // ─── Option card data ─────────────────────────────────────────────────────────
 const OPTIONS = [
@@ -189,7 +189,7 @@ export default function PassengerEntryScreen() {
     } else if (id === "bolt") {
       setBoltModalVisible(true);
     } else if (id === "find") {
-      router.push("/(auth)/register");
+      router.push("/(auth)/login");
     }
   };
 

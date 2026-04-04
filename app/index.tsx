@@ -129,14 +129,12 @@
 
 
 
-import { StyleSheet } from "react-native";
 import { router } from "expo-router";
 import { useAuthStore } from "@/src/store/useStore";
-import { Colors } from "@/constants/colors";
 // import OnboardingCarousel from "@/components/OnboardingCarousel";
 
 export default function IndexScreen() {
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
 
   // if (isLoading) {
   //   return (
@@ -149,7 +147,7 @@ export default function IndexScreen() {
   if (!isAuthenticated) {
     // Show carousel for all unauthenticated users (every time they open the app)
     return (
-      router.replace("/(auth)/welcome")
+      router.replace("/(auth)/pay-fare")
     //   <OnboardingCarousel
     //     onFinish={() => {
     //       // After carousel, go to the role selection / welcome screen
@@ -160,15 +158,6 @@ export default function IndexScreen() {
   } 
 
   // Authenticated users go directly to the unified dashboard
-  router.replace("/(auth)/welcome");
+  router.replace("/(auth)/pay-fare");
   return null; // prevent flashing
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});

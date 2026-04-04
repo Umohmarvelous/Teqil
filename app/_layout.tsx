@@ -43,7 +43,7 @@ function RootLayoutNav() {
       <Stack.Screen name="(park-owner)" options={{ headerShown: false }} />
       <Stack.Screen
         name="live-trip/[code]"
-        options={{ headerShown: false, animation: "slide_from_right" }}
+        options={{ headerShown: false, animation: "fade" }}
       />
     </Stack>
   );

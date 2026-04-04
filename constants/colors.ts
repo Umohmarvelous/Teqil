@@ -1,4 +1,4 @@
-const PRIMARY = "#02D05B";
+const PRIMARY = "#009A43";
 // 00A651
 const PRIMARY_DARK = "#023A1E";
 const PRIMARY_LIGHT = "#B9F0D4";

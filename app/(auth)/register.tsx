@@ -176,7 +176,7 @@ export default function RegisterScreen() {
   );
 
   // ── Helpers ──
-  const goBack = () => router.navigate('/(auth)/login');
+  const goBack = () => router.dismissTo('/(auth)/login');
   const goToLogin = () => router.replace("/(auth)/login");
 
   return (

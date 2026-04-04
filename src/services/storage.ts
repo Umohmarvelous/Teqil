@@ -9,6 +9,8 @@ const KEYS = {
   ACTIVE_TRIP_CODE: "teqil_active_trip_code",
 };
 
+// ─── Generic helpers ──────────────────────────────────────────────────────────
+
 async function getAll<T>(key: string): Promise<T[]> {
   try {
     const json = await AsyncStorage.getItem(key);
@@ -47,7 +49,11 @@ export const TripsStorage = {
     const trips = await getAll<Trip>(KEYS.TRIPS);
     const stamped: Trip = { ...trip, updated_at: now(), synced: false };
     const idx = trips.findIndex((t) => t.id === trip.id);
-    if (idx >= 0) { trips[idx] = stamped; } else { trips.push(stamped); }
+    if (idx >= 0) {
+      trips[idx] = stamped;
+    } else {
+      trips.push(stamped);
+    }
     await setAll(KEYS.TRIPS, trips);
   },
 
@@ -55,7 +61,12 @@ export const TripsStorage = {
     const trips = await getAll<Trip>(KEYS.TRIPS);
     const idx = trips.findIndex((t) => t.id === id);
     if (idx >= 0) {
-      trips[idx] = { ...trips[idx], ...updates, updated_at: now(), synced: false };
+      trips[idx] = {
+        ...trips[idx],
+        ...updates,
+        updated_at: now(),
+        synced: false,
+      };
       await setAll(KEYS.TRIPS, trips);
     }
   },
@@ -72,7 +83,11 @@ export const TripsStorage = {
   async mergeRemote(remote: Trip): Promise<void> {
     const trips = await getAll<Trip>(KEYS.TRIPS);
     const idx = trips.findIndex((t) => t.id === remote.id);
-    const incoming: Trip = { ...remote, synced: true, updated_at: remote.updated_at ?? now() };
+    const incoming: Trip = {
+      ...remote,
+      synced: true,
+      updated_at: remote.updated_at ?? now(),
+    };
     if (idx >= 0) {
       const localTs = new Date(trips[idx].updated_at ?? 0).getTime();
       const remoteTs = new Date(incoming.updated_at).getTime();
@@ -104,9 +119,17 @@ export const PassengersStorage = {
 
   async save(passenger: Passenger): Promise<void> {
     const all = await getAll<Passenger>(KEYS.PASSENGERS);
-    const stamped: Passenger = { ...passenger, updated_at: now(), synced: false };
+    const stamped: Passenger = {
+      ...passenger,
+      updated_at: now(),
+      synced: false,
+    };
     const idx = all.findIndex((p) => p.id === passenger.id);
-    if (idx >= 0) { all[idx] = stamped; } else { all.push(stamped); }
+    if (idx >= 0) {
+      all[idx] = stamped;
+    } else {
+      all.push(stamped);
+    }
     await setAll(KEYS.PASSENGERS, all);
   },
 
@@ -114,7 +137,12 @@ export const PassengersStorage = {
     const all = await getAll<Passenger>(KEYS.PASSENGERS);
     const idx = all.findIndex((p) => p.id === id);
     if (idx >= 0) {
-      all[idx] = { ...all[idx], ...updates, updated_at: now(), synced: false };
+      all[idx] = {
+        ...all[idx],
+        ...updates,
+        updated_at: now(),
+        synced: false,
+      };
       await setAll(KEYS.PASSENGERS, all);
     }
   },
@@ -131,7 +159,11 @@ export const PassengersStorage = {
   async mergeRemote(remote: Passenger): Promise<void> {
     const all = await getAll<Passenger>(KEYS.PASSENGERS);
     const idx = all.findIndex((p) => p.id === remote.id);
-    const incoming: Passenger = { ...remote, synced: true, updated_at: remote.updated_at ?? now() };
+    const incoming: Passenger = {
+      ...remote,
+      synced: true,
+      updated_at: remote.updated_at ?? now(),
+    };
     if (idx >= 0) {
       const localTs = new Date(all[idx].updated_at ?? 0).getTime();
       const remoteTs = new Date(incoming.updated_at).getTime();
@@ -151,17 +183,18 @@ export const PassengersStorage = {
 // ─── RatingsStorage ───────────────────────────────────────────────────────────
 
 export const RatingsStorage = {
-  async getAll(): Promise<Rating[]> {
-    return getAll<Rating>(KEYS.RATINGS);
-  },
-
   async getByTripId(tripId: string): Promise<Rating[]> {
-    return (await getAll<Rating>(KEYS.RATINGS)).filter((r) => r.trip_id === tripId);
+    return (await getAll<Rating>(KEYS.RATINGS)).filter(
+      (r) => r.trip_id === tripId
+    );
   },
 
-  /** All ratings where `ratedId` was the person being rated. */
-  async getByRatedId(ratedId: string): Promise<Rating[]> {
-    return (await getAll<Rating>(KEYS.RATINGS)).filter((r) => r.rated_id === ratedId);
+  /** Returns all ratings where this user was the one being rated.
+   *  Used to recalculate avg_rating after a new rating is saved. */
+  async getByRatedUser(ratedUserId: string): Promise<Rating[]> {
+    return (await getAll<Rating>(KEYS.RATINGS)).filter(
+      (r) => r.rated_id === ratedUserId
+    );
   },
 
   async save(rating: Rating): Promise<void> {
@@ -186,7 +219,11 @@ export const RatingsStorage = {
     const all = await getAll<Rating>(KEYS.RATINGS);
     const exists = all.some((r) => r.id === remote.id);
     if (!exists) {
-      all.push({ ...remote, synced: true, updated_at: remote.updated_at ?? now() });
+      all.push({
+        ...remote,
+        synced: true,
+        updated_at: remote.updated_at ?? now(),
+      });
       await setAll(KEYS.RATINGS, all);
     }
   },
@@ -194,17 +231,6 @@ export const RatingsStorage = {
   async getUnsynced(): Promise<Rating[]> {
     const all = await getAll<Rating>(KEYS.RATINGS);
     return all.filter((r) => !r.synced);
-  },
-
-  /**
-   * Calculates the average star rating for a driver from all locally stored
-   * ratings where they were the rated party. Returns null if no ratings exist.
-   */
-  async calcAvgRating(driverUserId: string): Promise<number | null> {
-    const mine = await RatingsStorage.getByRatedId(driverUserId);
-    if (!mine.length) return null;
-    const sum = mine.reduce((acc, r) => acc + r.stars, 0);
-    return Math.round((sum / mine.length) * 10) / 10; // one decimal place
   },
 };
 
@@ -238,7 +264,11 @@ export const BroadcastsStorage = {
     const all = await getAll<Broadcast>(KEYS.BROADCASTS);
     const exists = all.some((b) => b.id === broadcast.id);
     if (!exists) {
-      all.unshift({ ...broadcast, synced: true, updated_at: broadcast.updated_at ?? now() });
+      all.unshift({
+        ...broadcast,
+        synced: true,
+        updated_at: broadcast.updated_at ?? now(),
+      });
       if (all.length > 50) all.length = 50;
       await setAll(KEYS.BROADCASTS, all);
     }

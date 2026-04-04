@@ -547,8 +547,8 @@ const decorStyles = StyleSheet.create({
   },
   iconFloat1: {
     position: "absolute",
-    top: H * 0.12,
-    right: 32,
+    top: H * 0.06,
+    right: 35,
   },
   iconFloat2: {
     position: "absolute",
@@ -558,7 +558,7 @@ const decorStyles = StyleSheet.create({
   floatIconBg: {
     width: 56,
     height: 56,
-    borderRadius: 16,
+    borderRadius: 76,
     alignItems: "center",
     justifyContent: "center",
   },
