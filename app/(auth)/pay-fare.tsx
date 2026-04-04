@@ -671,16 +671,18 @@ const styles = StyleSheet.create({
     borderRadius: 45,
     overflow: "hidden",
     elevation: 10,
-    padding: 28,
+    padding: 22,
     justifyContent: 'space-between',
     gap: 40,
-    backgroundColor: Colors.borderLight
+    backgroundColor: Colors.overlayLight
   },
   amountTop: {
     backgroundColor: Colors.border,
     alignItems: "center",
     borderRadius: 40,
     padding: 45,
+    paddingVertical: 16,
+    gap: 30
   },
   amountCardGradient: {
     padding: 28,
@@ -898,7 +900,7 @@ const successStyles = StyleSheet.create({
   sub: {
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
-    color: "rgba(255,255,255,0.5)",
+    color: "rgb(0 0 0)",
     textAlign: "center",
   },
   btn: {
@@ -918,7 +920,7 @@ const successStyles = StyleSheet.create({
 const scanStyles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#000",
+    // backgroundColor: "rgb(0 0 0)909",
   },
   overlay: {
     flex: 1,

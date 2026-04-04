@@ -147,7 +147,7 @@ export default function IndexScreen() {
   if (!isAuthenticated) {
     // Show carousel for all unauthenticated users (every time they open the app)
     return (
-      router.replace("/(auth)/pay-fare")
+      router.replace("/(auth)/welcome")
     //   <OnboardingCarousel
     //     onFinish={() => {
     //       // After carousel, go to the role selection / welcome screen
@@ -158,6 +158,6 @@ export default function IndexScreen() {
   } 
 
   // Authenticated users go directly to the unified dashboard
-  router.replace("/(auth)/pay-fare");
+  router.replace("/(auth)/welcome");
   return null; // prevent flashing
 }

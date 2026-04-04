@@ -7,7 +7,7 @@
  *
  * Role routing:
  *   driver     → /(auth)/login  (with role pre-selected)
- *   passenger  → /(auth)/passenger-entry  (3 options: Pay Fare, Bolt Ride, Find Trip)
+ *   passenger  → /(auth)/passenger-entry  (3 options: Pay Fare, Book Ride, Find Trip)
  *   park_owner → /(auth)/login
  */
 
@@ -193,7 +193,8 @@ function RoleCard({
       {/* <StatusBar style="inverted" backgroundColor="transparent" animated/> */}
       <Pressable onPress={handlePress} style={[roleStyles.card, selected && roleStyles.cardSelected]}>
         <LinearGradient
-          colors={selected ? gradient : ["#1A1A1A", "rgb(23 32 25)"]}
+          colors={selected ? gradient : [Colors.text, Colors.text]}
+              
           style={roleStyles.cardGradient} 
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -660,14 +661,14 @@ const roleSlideStyles = StyleSheet.create({
   heading: {
     fontFamily: "Poppins_700Bold",
     fontSize: 30,
-    color: "#fff",
+    color: Colors.primaryLight,
     lineHeight: 40,
     letterSpacing: -0.5,
   },
   sub: {
     fontFamily: "Poppins_400Regular",
     fontSize: 15,
-    color: "rgba(255,255,255,0.5)",
+    color: Colors.primaryLight,
     lineHeight: 22,
   },
   cards: {

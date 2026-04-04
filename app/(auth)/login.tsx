@@ -128,14 +128,14 @@ function FormField({
         <Ionicons
           name={icon}
           size={20}
-          color={error ? Colors.error : Colors.primaryDark}
+          color={error ? Colors.error : Colors.primaryLight}
           style={fieldStyles.icon}
         />
         <TextInput
           ref={inputRef}
           style={fieldStyles.input}
           placeholder={placeholder}
-          placeholderTextColor={Colors.primaryDark}
+          placeholderTextColor={Colors.primaryLight}
           value={value}
           onChangeText={onChangeText}
           onBlur={onBlur}
@@ -159,9 +159,9 @@ const fieldStyles = StyleSheet.create({
   label: {
     fontFamily: "Poppins_500Medium",
     fontSize: 13,
-    color: Colors.primaryDark,
+    color: Colors.primaryLight,
     marginTop: 16,
-    marginBottom: 17,
+    marginBottom: 7,
     paddingLeft: 5
   },
   inputRow: {
@@ -185,7 +185,7 @@ const fieldStyles = StyleSheet.create({
     flex: 1,
     fontFamily: "Poppins_400Regular",
     fontSize: 15,
-    color: Colors.primaryDark,
+    color: Colors.primaryLight,
   },
   errorText: {
     fontFamily: "Poppins_400Regular",
@@ -297,9 +297,9 @@ export default function LoginScreen() {
 
         {/* ── Header ── */}
         <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
-          <Pressable style={styles.backBtn} onPress={() => router.back('/')}>
-            <Ionicons name="arrow-back" size={22} color={Colors.primaryDark} />
-            <Text style={{color: Colors.primaryDark}}>Back</Text>
+          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={22} color={Colors.primaryLight} />
+            <Text style={[{ color: Colors.primaryLight }, {fontWeight: 600, fontSize: 15}]}>Back</Text>
           </Pressable>
           {/* <Text style={styles.headerTitle}>{t("auth.login")}</Text> */}
           {/* Spacer to centre the title */}
@@ -374,7 +374,7 @@ export default function LoginScreen() {
                       <Ionicons
                         name={showPassword ? "eye-off-outline" : "eye-outline"}
                         size={20}
-                        color={Colors.primaryDark}
+                        color={Colors.primaryLight}
                       />
                     </Pressable>
                   }
@@ -480,13 +480,13 @@ const styles = StyleSheet.create({
   pageTitle: {
     fontFamily: "Poppins_700Bold",
     fontSize: 30,
-    color: Colors.primaryDark,
+    color: Colors.primaryLight,
     marginBottom: 6,
   },
   pageSubtitle: {
     fontFamily: "Poppins_400Regular",
     fontSize: 15,
-    color: Colors.primaryDark,
+    color: Colors.primaryLight,
     marginBottom: 32,
   },
 
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
   forgotText: {
     fontFamily: "Poppins_500Medium",
     fontSize: 13,
-    color: Colors.primaryDark,
+    color: Colors.primaryLight,
   },
 
   // Submit button

@@ -198,8 +198,8 @@ export default function RegisterScreen() {
             style={styles.backBtn}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="arrow-back" size={22} color={Colors.primaryDark} />
-            <Text style={{color: Colors.primaryDark}}>Back</Text>
+            <Ionicons name="arrow-back" size={22} color={Colors.primaryLight} />
+            <Text style={[{ color: Colors.primaryLight }, {fontWeight: 600, fontSize: 15}]}>Back</Text>
           </TouchableOpacity>
         </View>
 
@@ -238,7 +238,7 @@ export default function RegisterScreen() {
                       <Ionicons
                         name="person-outline"
                         size={18}
-                        color={Colors.primaryDark}
+                        color={Colors.primaryLight}
                         
                       />
                     }
@@ -269,7 +269,7 @@ export default function RegisterScreen() {
                       <Ionicons
                         name="mail-outline"
                         size={18}
-                        color={Colors.primaryDark}
+                        color={Colors.primaryLight}
                       />
                     }
                     placeholder={t("auth.emailPlaceholder", {
@@ -301,7 +301,7 @@ export default function RegisterScreen() {
                       <Ionicons
                         name="call-outline"
                         size={18}
-                        color={Colors.primaryDark}
+                        color={Colors.primaryLight}
                       />
                     }
                     placeholder={t("auth.phonePlaceholder", {
@@ -332,7 +332,7 @@ export default function RegisterScreen() {
                       <FontAwesome5
                         name="birthday-cake"
                         size={16}
-                        color={Colors.primaryDark}
+                        color={Colors.primaryLight}
                       />
                     }
                     placeholder={t("auth.agePlaceholder", {
@@ -363,7 +363,7 @@ export default function RegisterScreen() {
                       <Ionicons
                         name="lock-closed-outline"
                         size={18}
-                        color={Colors.primaryDark}
+                        color={Colors.primaryLight}
                       />
                     }
                     placeholder={t("auth.passwordPlaceholder", {
@@ -382,7 +382,7 @@ export default function RegisterScreen() {
                         <Ionicons
                           name={showPassword ? "eye-off-outline" : "eye-outline"}
                           size={18}
-                          color={Colors.primaryDark}
+                          color={Colors.primaryLight}
                         />
                       </TouchableOpacity>
                     }
@@ -405,7 +405,7 @@ export default function RegisterScreen() {
                       <Ionicons
                         name="shield-checkmark-outline"
                         size={18}
-                        color={Colors.primaryDark}
+                        color={Colors.primaryLight}
                       />
                     }
                     placeholder={t("auth.confirmPasswordPlaceholder", {
@@ -424,7 +424,7 @@ export default function RegisterScreen() {
                         <Ionicons
                           name={showConfirm ? "eye-off-outline" : "eye-outline"}
                           size={18}
-                          color={Colors.primaryDark}
+                          color={Colors.primaryLight}
                         />
                       </TouchableOpacity>
                     }
@@ -534,7 +534,7 @@ function InputRow({
     
       <TextInput
         style={inputStyles.input}
-        placeholderTextColor={Colors.primaryDark}
+        placeholderTextColor={Colors.primaryLight}
         onFocus={() => setFocused(true)}
         onBlur={() => {
           setFocused(false);
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
     gap: 5
   },
   scrollContent: {
-    paddingHorizontal: 54,
+    paddingHorizontal: 34,
     paddingTop: 4,
   },
   titleBlock: {
@@ -583,13 +583,13 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: "Poppins_700Bold",
     fontSize: 30,
-    color: Colors.primaryDark,
+    color: Colors.primaryLight,
     marginBottom: 6,
   },
   subtitle: {
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
-    color: Colors.primaryDark,
+    color: Colors.primaryLight,
     lineHeight: 20,
   },
   buttonWrap: {
@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
   signInLink: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 14,
-    color: Colors.primaryDark,
+    color: Colors.primaryLight,
   },
 });
 
@@ -635,7 +635,7 @@ const fieldStyles = StyleSheet.create({
   label: {
     fontFamily: "Poppins_500Medium",
     fontSize: 13,
-    color: Colors.primaryDark,
+    color: Colors.primaryLight,
     marginTop: 16,
     marginBottom: 7,
     paddingLeft: 15
@@ -643,7 +643,7 @@ const fieldStyles = StyleSheet.create({
   hint: {
     fontFamily: "Poppins_400Regular",
     fontSize: 11,
-    color: Colors.primaryDark,
+    color: Colors.primaryLight,
     marginBottom: 6,
     paddingLeft: 15,
     fontStyle: "italic",
@@ -688,7 +688,7 @@ const inputStyles = StyleSheet.create({
     flex: 1,
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
-    color: Colors.primaryDark,
+    color: Colors.primaryLight,
     height: "100%",
     ...Platform.select({ web: { outlineStyle: "none" } as any }),
   },

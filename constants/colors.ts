@@ -17,12 +17,13 @@ export const Colors = {
   surfaceSecondary: "#F5F5F5",
 
   text: "#1A1A1A",
+  textWhite: "#ffffff",
   textSecondary: "#6B7280",
   textTertiary: "#9CA3AF",
   textInverse: "#FFFFFF",
 
   border: "#E5E7EB",
-  borderLight: "#F3F4F6",
+  borderLight: "#FFFFFF",
 
   success: "#00A651",
   warning: "#F5A623",
