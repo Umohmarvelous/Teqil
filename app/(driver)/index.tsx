@@ -1,4 +1,15 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+/**
+ * app/(driver)/index.tsx
+ *
+ * Driver dashboard — FirstBank-style layout.
+ * - Deep navy/green header with coin balance card
+ * - Prominent START TRIP button
+ * - Earnings summary row
+ * - Recent trips list
+ * - Quick Transfer floating trigger
+ */
+
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,261 +18,205 @@ import {
   ScrollView,
   Platform,
   Alert,
-  ActivityIndicator,
   Dimensions,
+  Modal,
+  TextInput,
+  Animated,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withRepeat,
-  withSequence,
-  withTiming,
-  withDelay,
-  FadeInDown,
-  FadeInUp,
-  Easing,
-  interpolate,
-  runOnJS,
-} from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { useAuthStore, useTripStore } from "@/src/store/useStore";
+import { useAuthStore } from "@/src/store/useStore";
 import { Colors } from "@/constants/colors";
 import { TripsStorage } from "@/src/services/storage";
 import {
   formatCoins,
   formatDate,
   formatNaira,
+  coinsToNaira,
 } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
 
-const { width: SCREEN_W } = Dimensions.get("window");
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const { width: W } = Dimensions.get("window");
 
-// ─── Floating Nav Bar ────────────────────────────────────────────────────────
+const FB = {
+  navy: "#00205B",
+  navyDark: "#001440",
+  green: "#009A43",
+  greenLight: "#B9F0D4",
+  gold: "#F5A623",
+  offWhite: "#F4F6FA",
+  textPrimary: "#0D1B3E",
+  textSec: "#6B7280",
+  border: "#E8ECF0",
+  surface: "#FFFFFF",
+};
 
-interface NavItem {
-  icon: keyof typeof Ionicons.glyphMap;
-  iconActive: keyof typeof Ionicons.glyphMap;
-  label: string;
-  route: string;
-}
+// ─── Quick actions row ────────────────────────────────────────────────────────
+const QUICK_ACTIONS = [
+  { id: "create",  icon: "add-circle-outline" as const,   label: "New Trip",   color: FB.green },
+  { id: "history", icon: "time-outline" as const,          label: "History",    color: "#7C3AED" },
+  { id: "profile", icon: "person-circle-outline" as const, label: "Profile",    color: "#0891B2" },
+  { id: "msgs",    icon: "megaphone-outline" as const,     label: "Messages",   color: "#D97706" },
+] as const;
 
-const NAV_ITEMS: NavItem[] = [
-  { icon: "home-outline", iconActive: "home", label: "Home", route: "/(driver)" },
-  { icon: "add-circle-outline", iconActive: "add-circle", label: "New Trip", route: "/(driver)/create-trip" },
-  { icon: "time-outline", iconActive: "time", label: "History", route: "/(driver)/history" },
-  { icon: "notifications-outline", iconActive: "notifications", label: "Messages", route: "/(driver)/messages" },
-];
+// ─── Quick Receive Modal (driver's equivalent of quick transfer) ───────────────
+function QuickReceiveModal({
+  visible,
+  onClose,
+  driverId,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  driverId?: string;
+}) {
+  const slideY = useRef(new Animated.Value(400)).current;
+  const backdropOp = useRef(new Animated.Value(0)).current;
 
-function FloatingNavBar({ activeRoute }: { activeRoute: string }) {
-  const insets = useSafeAreaInsets();
-  const isWeb = Platform.OS === "web";
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(slideY, { toValue: 0, damping: 22, stiffness: 160, useNativeDriver: true }),
+        Animated.timing(backdropOp, { toValue: 1, duration: 260, useNativeDriver: true }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(slideY, { toValue: 400, duration: 240, useNativeDriver: true }),
+        Animated.timing(backdropOp, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible]);
+
+  if (!visible) return null;
 
   return (
-    <View
-      style={[
-        styles.navBarWrapper,
-        { bottom: (isWeb ? 20 : insets.bottom + 10) },
-      ]}
-    >
-      <View style={styles.navBar}>
-        {NAV_ITEMS.map((item) => {
-          const isActive = activeRoute === item.route;
-          return (
-            <NavBarItem
-              key={item.route}
-              item={item}
-              isActive={isActive}
-            />
-          );
-        })}
+    <Modal transparent visible animationType="none" onRequestClose={onClose}>
+      <Animated.View style={[qr.backdrop, { opacity: backdropOp }]}>
+        <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
+      </Animated.View>
+      <Animated.View style={[qr.sheet, { transform: [{ translateY: slideY }] }]}>
+        <View style={qr.handle} />
+        <Text style={qr.title}>Receive Payment</Text>
+        <Text style={qr.sub}>Share your Driver ID or QR code to receive fare</Text>
+
+        <View style={qr.idBox}>
+          <Text style={qr.idLabel}>Your Driver ID</Text>
+          <Text style={qr.idValue}>{driverId || "—"}</Text>
+        </View>
+
+        <View style={qr.qrPlaceholder}>
+          <Ionicons name="qr-code" size={80} color={FB.navy} />
+          <Text style={qr.qrHint}>QR Code (tap to share)</Text>
+        </View>
+
+        <Pressable style={qr.closeBtn} onPress={onClose}>
+          <Text style={qr.closeBtnText}>Done</Text>
+        </Pressable>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+// ─── Stat pill ────────────────────────────────────────────────────────────────
+function StatPill({
+  icon,
+  label,
+  value,
+  color,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+  color: string;
+}) {
+  return (
+    <View style={styles.statPill}>
+      <View style={[styles.statIconBox, { backgroundColor: color + "18" }]}>
+        <Ionicons name={icon} size={18} color={color} />
+      </View>
+      <View>
+        <Text style={styles.statValue}>{value}</Text>
+        <Text style={styles.statLabel}>{label}</Text>
       </View>
     </View>
   );
 }
 
-function NavBarItem({ item, isActive }: { item: NavItem; isActive: boolean }) {
-  const scale = useSharedValue(1);
-  const indicatorOpacity = useSharedValue(isActive ? 1 : 0);
-  const labelOpacity = useSharedValue(isActive ? 1 : 0);
-
-  useEffect(() => {
-    indicatorOpacity.value = withTiming(isActive ? 1 : 0, { duration: 200 });
-    labelOpacity.value = withTiming(isActive ? 1 : 0, { duration: 200 });
-  }, [isActive]);
-
-  const containerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const indicatorStyle = useAnimatedStyle(() => ({
-    opacity: indicatorOpacity.value,
-    transform: [
-      { scaleX: interpolate(indicatorOpacity.value, [0, 1], [0.4, 1]) },
-    ],
-  }));
-
-  const labelStyle = useAnimatedStyle(() => ({
-    opacity: labelOpacity.value,
-  }));
-
-  const handlePress = () => {
-    scale.value = withSequence(
-      withTiming(0.85, { duration: 80 }),
-      withSpring(1, { damping: 12 })
-    );
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (!isActive) router.push(item.route as any);
-  };
-
-  return (
-    <Animated.View style={[styles.navItem, containerStyle]}>
-      <Pressable onPress={handlePress} style={styles.navItemPressable}>
-        <Animated.View style={[styles.navIndicator, indicatorStyle]} />
-        <Ionicons
-          name={isActive ? item.iconActive : item.icon}
-          size={24}
-          color={isActive ? Colors.primary : "#555"}
-        />
-        <Animated.Text
-          style={[styles.navLabel, { color: isActive ? Colors.primary : "#555" }, labelStyle]}
-        >
-          {item.label}
-        </Animated.Text>
-      </Pressable>
-    </Animated.View>
-  );
-}
-
-// ─── Stat Card ────────────────────────────────────────────────────────────────
-
-function StatCard({
-  icon,
-  label,
-  value,
-  accent,
-  delay,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  value: string;
-  accent: string;
-  delay: number;
-}) {
-  return (
-    <Animated.View
-      entering={FadeInDown.delay(delay).springify().damping(14)}
-      style={[styles.statCard]}
-    >
-      <View style={[styles.statIconRing, { borderColor: accent + "30" }]}>
-        <Ionicons name={icon} size={18} color={accent} />
-      </View>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </Animated.View>
-  );
-}
-
-// ─── Trip Row ─────────────────────────────────────────────────────────────────
-
+// ─── Trip row ──────────────────────────────────────────────────────────────────
 function TripRow({ trip, index }: { trip: Trip; index: number }) {
   const isDone = trip.status === "completed";
-
   return (
-    <Animated.View
-      entering={FadeInDown.delay(400 + index * 80).springify().damping(16)}
-      style={styles.tripRow}
-    >
-      <View style={[styles.tripStatusDot, { backgroundColor: isDone ? Colors.primary : Colors.gold }]} />
+    <View style={styles.tripRow}>
+      <View style={[styles.tripIconBox, { backgroundColor: isDone ? FB.green + "15" : FB.gold + "15" }]}>
+        <Ionicons
+          name={isDone ? "checkmark-circle-outline" : "navigate-outline"}
+          size={20}
+          color={isDone ? FB.green : FB.gold}
+        />
+      </View>
       <View style={styles.tripInfo}>
         <Text style={styles.tripRoute} numberOfLines={1}>
           {trip.origin} → {trip.destination}
         </Text>
         <Text style={styles.tripDate}>{formatDate(trip.created_at)}</Text>
       </View>
-      <View style={[styles.statusPill, isDone ? styles.statusPillDone : styles.statusPillActive]}>
-        <Text style={[styles.statusPillText, isDone ? styles.statusTextDone : styles.statusTextActive]}>
+      <View style={[styles.tripStatusPill, isDone ? styles.pillDone : styles.pillActive]}>
+        <Text style={[styles.pillText, isDone ? styles.pillTextDone : styles.pillTextActive]}>
           {isDone ? "Done" : "Active"}
         </Text>
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
-
+// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function DriverDashboard() {
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuthStore();
   const { t } = useTranslation();
   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [balanceHidden, setBalanceHidden] = useState(false);
+  const [receiveVisible, setReceiveVisible] = useState(false);
 
-  // Animations
-  const startBtnScale = useSharedValue(1);
-  const startBtnGlow = useSharedValue(0);
-  const pulseScale = useSharedValue(1);
-
-  useEffect(() => {
-    // Pulse animation on START button
-    pulseScale.value = withRepeat(
-      withSequence(
-        withTiming(1.05, { duration: 900, easing: Easing.inOut(Easing.sine) }),
-        withTiming(1.0, { duration: 900, easing: Easing.inOut(Easing.sine) })
-      ),
-      -1,
-      false
-    );
-    startBtnGlow.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1200 }),
-        withTiming(0.3, { duration: 1200 })
-      ),
-      -1,
-      false
-    );
-  }, []);
-
-  useEffect(() => {
-    if (user?.id) {
-      setIsLoading(true);
-      TripsStorage.getByDriverId(user.id)
-        .then((trips) => {
-          setRecentTrips(trips.slice(-5).reverse());
-        })
-        .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false);
-    }
-  }, [user?.id]);
-
-  const completedCount = recentTrips.filter((t) => t.status === "completed").length;
-  const totalCoins = user?.points_balance || 0;
+  const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const displayName = user?.full_name?.split(" ")[0] || "Driver";
-  const isWeb = Platform.OS === "web";
-  const topPad = isWeb ? 67 : insets.top;
+  const coins = user?.points_balance || 0;
+  const completedTrips = recentTrips.filter((t) => t.status === "completed").length;
+
+  useEffect(() => {
+    if (!user?.id) return;
+    TripsStorage.getByDriverId(user.id).then((trips) =>
+      setRecentTrips(trips.slice(-5).reverse())
+    );
+  }, [user?.id]);
 
   const handleStartTrip = () => {
     if (!user?.profile_complete) {
-      Alert.alert("Profile Required", "Please complete your profile first.");
+      Alert.alert("Profile Required", "Complete your driver profile first.", [
+        { text: "Complete Now", onPress: () => router.push("/(auth)/driver-profile") },
+        { text: "Cancel", style: "cancel" },
+      ]);
       return;
     }
-    startBtnScale.value = withSequence(
-      withTiming(0.93, { duration: 100 }),
-      withSpring(1, { damping: 10 })
-    );
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     router.push("/(driver)/create-trip");
   };
 
+  const handleQuickAction = (id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    switch (id) {
+      case "create":  router.push("/(driver)/create-trip"); break;
+      case "history": router.push("/(driver)/history"); break;
+      case "profile": router.push("/(auth)/driver-profile"); break;
+      case "msgs":    router.push("/(driver)/messages"); break;
+    }
+  };
+
   const handleLogout = () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+    Alert.alert("Sign Out", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Sign Out",
@@ -276,558 +231,578 @@ export default function DriverDashboard() {
     ]);
   };
 
-  const startBtnStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: startBtnScale.value * pulseScale.value }],
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: startBtnGlow.value * 0.55,
-  }));
-
   return (
     <View style={styles.root}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: topPad + 8, paddingBottom: 140 },
+          { paddingBottom: Math.max(insets.bottom, 24) + 100 },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header ── */}
-        <Animated.View
-          entering={FadeInDown.delay(0).springify().damping(14)}
-          style={styles.header}
+        {/* ── Header (FirstBank navy) ── */}
+        <LinearGradient
+          colors={[FB.navy, FB.navyDark]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.hero, { paddingTop: topPadding + 14 }]}
         >
-          <View>
-            <Text style={styles.greetSmall}>{t("driver.dashboard") === "Dashboard" ? "Good day," : t("driver.dashboard")}</Text>
-            <Text style={styles.greetName}>{displayName}</Text>
+          {/* Top bar */}
+          <View style={styles.heroTopBar}>
+            <View>
+              <Text style={styles.heroGreet}>Good day,</Text>
+              <Text style={styles.heroName}>{displayName}</Text>
+            </View>
+            <View style={styles.heroTopRight}>
+              {user?.driver_id && (
+                <View style={styles.driverIdChip}>
+                  <Ionicons name="id-card-outline" size={12} color={FB.gold} />
+                  <Text style={styles.driverIdText}>{user.driver_id}</Text>
+                </View>
+              )}
+              <Pressable onPress={() => setReceiveVisible(true)} style={styles.notifBtn}>
+                <Ionicons name="download-outline" size={20} color="#fff" />
+              </Pressable>
+              <Pressable onPress={handleLogout} style={styles.avatarBtn}>
+                <View style={styles.avatarCircle}>
+                  <Text style={styles.avatarInitial}>
+                    {displayName.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
           </View>
-          <Pressable onPress={handleLogout} style={styles.avatarBtn}>
-            <Ionicons name="person-circle" size={42} color={Colors.primary} />
-          </Pressable>
-        </Animated.View>
 
-        {/* ── Driver ID + Online Pill ── */}
-        <Animated.View
-          entering={FadeInDown.delay(60).springify().damping(14)}
-          style={styles.pillRow}
-        >
-          {user?.driver_id && (
-            <View style={styles.driverIdPill}>
-              <Ionicons name="id-card-outline" size={13} color={Colors.gold} />
-              <Text style={styles.driverIdText}>{user.driver_id}</Text>
+          {/* Balance card */}
+          <View style={styles.balanceCard}>
+            <View style={styles.balanceCardInner}>
+              <View>
+                <Text style={styles.balanceLabel}>Coin Balance</Text>
+                <View style={styles.balanceRow}>
+                  <Text style={styles.balanceValue}>
+                    {balanceHidden ? "• • • • •" : formatCoins(coins)}
+                  </Text>
+                  <Pressable onPress={() => setBalanceHidden((v) => !v)} hitSlop={8}>
+                    <Ionicons
+                      name={balanceHidden ? "eye-off-outline" : "eye-outline"}
+                      size={18}
+                      color="rgba(255,255,255,0.6)"
+                    />
+                  </Pressable>
+                </View>
+                <Text style={styles.balanceEquiv}>
+                  ≈ {formatNaira(coinsToNaira(coins))} value
+                </Text>
+              </View>
+              <Ionicons name="star" size={36} color={FB.gold} />
             </View>
-          )}
-          <View style={styles.onlinePill}>
-            <View style={styles.onlineDot} />
-            <Text style={styles.onlineText}>{t("driver.online")}</Text>
+
+            {/* Online indicator row */}
+            <View style={styles.onlineRow}>
+              <View style={styles.onlineDot} />
+              <Text style={styles.onlineText}>Online · Ready to drive</Text>
+            </View>
           </View>
-        </Animated.View>
 
-        {/* ── Coin Card ── */}
-        <Animated.View entering={FadeInDown.delay(120).springify().damping(14)}>
-          <LinearGradient
-            colors={["#0D2A14", "#143D1E", "#0A2010"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.coinCard}
-          >
-            <View style={styles.coinCardLeft}>
-              <Text style={styles.coinCardLabel}>{t("driver.coinBalance")}</Text>
-              <Text style={styles.coinCardValue}>{formatCoins(totalCoins)}</Text>
-              <Text style={styles.coinCardNaira}>
-                ≈ {formatNaira(totalCoins * 0.7)} value
-              </Text>
-            </View>
-            <View style={styles.coinIconWrap}>
-              <Ionicons name="star" size={40} color={Colors.gold} />
-              <Text style={styles.coinIconLabel}>COINS</Text>
-            </View>
-          </LinearGradient>
-        </Animated.View>
-
-        {/* ── Stats Row ── */}
-        <View style={styles.statsRow}>
-          <StatCard
-            icon="checkmark-circle"
-            label="Trips Done"
-            value={completedCount.toString()}
-            accent={Colors.primary}
-            delay={200}
-          />
-          <StatCard
-            icon="star"
-            label="Avg Rating"
-            value={user?.avg_rating ? user.avg_rating.toFixed(1) : "—"}
-            accent={Colors.gold}
-            delay={260}
-          />
-          <StatCard
-            icon="wallet"
-            label="Total Earned"
-            value={formatNaira(totalCoins * 0.7)}
-            accent="#60A5FA"
-            delay={320}
-          />
-        </View>
-
-        {/* ── START TRIP Button ── */}
-        <Animated.View
-          entering={FadeInUp.delay(200).springify().damping(12)}
-          style={styles.startSection}
-        >
-          {/* Glow halo behind button */}
-          <Animated.View style={[styles.startBtnGlow, glowStyle]} />
-
-          <AnimatedPressable
-            style={[styles.startBtn, startBtnStyle]}
-            onPress={handleStartTrip}
-          >
-            <LinearGradient
-              colors={[Colors.primary, Colors.primaryDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0.6, y: 1 }}
-              style={styles.startBtnGradient}
-            >
-              <Ionicons name="navigate" size={28} color="#fff" />
-              <Text style={styles.startBtnText}>{t("driver.startTrip")}</Text>
-            </LinearGradient>
-          </AnimatedPressable>
-          <Text style={styles.startHint}>Tap to create a new trip and earn coins</Text>
-        </Animated.View>
-
-        {/* ── Profile Banner ── */}
-        {!user?.profile_complete && (
-          <Animated.View entering={FadeInDown.delay(350).springify()}>
+          {/* Profile incomplete banner */}
+          {!user?.profile_complete && (
             <Pressable
               style={styles.profileBanner}
               onPress={() => router.push("/(auth)/driver-profile")}
             >
-              <Ionicons name="warning" size={18} color={Colors.warning} />
+              <Ionicons name="warning-outline" size={15} color={FB.gold} />
               <Text style={styles.profileBannerText}>
-                {t("driver.completeProfile")}
+                Complete your profile to start trips
               </Text>
-              <Ionicons name="chevron-forward" size={16} color={Colors.warning} />
+              <Ionicons name="chevron-forward" size={14} color={FB.gold} />
             </Pressable>
-          </Animated.View>
-        )}
+          )}
+        </LinearGradient>
 
-        {/* ── Recent Trips ── */}
-        <Animated.View entering={FadeInDown.delay(380).springify().damping(14)}>
-          <Text style={styles.sectionTitle}>{t("driver.recentTrips")}</Text>
-        </Animated.View>
+        {/* ── Earnings summary strip ── */}
+        <View style={styles.statsStrip}>
+          <StatPill
+            icon="checkmark-circle-outline"
+            label="Trips"
+            value={recentTrips.length.toString()}
+            color={FB.green}
+          />
+          <View style={styles.statsDivider} />
+          <StatPill
+            icon="trophy-outline"
+            label="Completed"
+            value={completedTrips.toString()}
+            color="#7C3AED"
+          />
+          <View style={styles.statsDivider} />
+          <StatPill
+            icon="wallet-outline"
+            label="Earned"
+            value={formatNaira(coinsToNaira(coins))}
+            color={FB.gold}
+          />
+          <View style={styles.statsDivider} />
+          <StatPill
+            icon="star-outline"
+            label="Rating"
+            value={user?.avg_rating ? user.avg_rating.toFixed(1) : "—"}
+            color="#0891B2"
+          />
+        </View>
 
-        {isLoading ? (
-          <Animated.View entering={FadeInDown.delay(420).springify()} style={styles.loadingBox}>
-            <ActivityIndicator color={Colors.primary} size="large" />
-            <Text style={styles.loadingText}>Loading trips…</Text>
-          </Animated.View>
-        ) : recentTrips.length === 0 ? (
-          <Animated.View entering={FadeInDown.delay(420).springify()} style={styles.emptyState}>
-            <View style={styles.emptyIconWrap}>
-              <Ionicons name="car-outline" size={38} color="#333" />
-            </View>
-            <Text style={styles.emptyTitle}>{t("driver.noTrips")}</Text>
-          </Animated.View>
-        ) : (
-          <View style={styles.tripList}>
-            {recentTrips.map((trip, i) => (
-              <TripRow key={trip.id} trip={trip} index={i} />
-            ))}
+        {/* ── START TRIP button ── */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionHeading}>Ready to drive?</Text>
+          <Pressable onPress={handleStartTrip} style={styles.startTripBtn}>
+            <LinearGradient
+              colors={[FB.green, "#007A3D"]}
+              style={styles.startTripGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Ionicons name="navigate" size={24} color="#fff" />
+              <Text style={styles.startTripText}>START TRIP</Text>
+            </LinearGradient>
+          </Pressable>
+          <Text style={styles.startTripHint}>
+            Create a trip and share the code with passengers
+          </Text>
+        </View>
+
+        {/* ── Quick actions ── */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionHeading}>Quick Actions</Text>
+          <View style={styles.quickActionsRow}>
+            {QUICK_ACTIONS.map((action) => {
+              const scale = useRef(new Animated.Value(1)).current;
+              return (
+                <Animated.View key={action.id} style={[styles.quickTile, { transform: [{ scale }] }]}>
+                  <Pressable
+                    onPress={() => handleQuickAction(action.id)}
+                    onPressIn={() => Animated.spring(scale, { toValue: 0.9, useNativeDriver: true, speed: 50 }).start()}
+                    onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 30 }).start()}
+                    style={styles.quickTileInner}
+                  >
+                    <View style={[styles.quickIconBox, { backgroundColor: action.color + "18" }]}>
+                      <Ionicons name={action.icon} size={22} color={action.color} />
+                    </View>
+                    <Text style={styles.quickLabel}>{action.label}</Text>
+                  </Pressable>
+                </Animated.View>
+              );
+            })}
           </View>
-        )}
+        </View>
+
+        {/* ── Recent trips ── */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionHeading}>Recent Trips</Text>
+            {recentTrips.length > 0 && (
+              <Pressable onPress={() => router.push("/(driver)/history")}>
+                <Text style={styles.seeAll}>See all</Text>
+              </Pressable>
+            )}
+          </View>
+
+          {recentTrips.length === 0 ? (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIconBox}>
+                <Ionicons name="car-outline" size={28} color={FB.textSec} />
+              </View>
+              <Text style={styles.emptyText}>No trips yet</Text>
+              <Text style={styles.emptySubText}>
+                {`Tap "START TRIP" to create your first trip`}
+              </Text>
+            </View>
+          ) : (
+            recentTrips.map((trip, idx) => (
+              <React.Fragment key={trip.id}>
+                <TripRow trip={trip} index={idx} />
+                {idx < recentTrips.length - 1 && <View style={styles.divider} />}
+              </React.Fragment>
+            ))
+          )}
+        </View>
       </ScrollView>
 
-      {/* ── Floating Nav Bar ── */}
-      <FloatingNavBar activeRoute="/(driver)" />
+      {/* Quick Receive modal */}
+      <QuickReceiveModal
+        visible={receiveVisible}
+        onClose={() => setReceiveVisible(false)}
+        driverId={user?.driver_id}
+      />
     </View>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: "#0A0A0A",
+// ─── Quick Receive Sheet Styles ───────────────────────────────────────────────
+const qr = StyleSheet.create({
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    zIndex: 1,
   },
-  scroll: {
-    flex: 1,
+  sheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 2,
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    paddingBottom: 44,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 24,
   },
-  scrollContent: {
-    paddingHorizontal: 20,
-    gap: 16,
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#DDD",
+    alignSelf: "center",
+    marginBottom: 20,
   },
-
-  // Header
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 2,
-  },
-  greetSmall: {
+  title: { fontFamily: "Poppins_700Bold", fontSize: 20, color: FB.textPrimary },
+  sub: {
     fontFamily: "Poppins_400Regular",
     fontSize: 13,
-    color: "#666",
+    color: FB.textSec,
+    marginTop: 4,
+    marginBottom: 20,
   },
-  greetName: {
+  idBox: {
+    backgroundColor: FB.offWhite,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: FB.border,
+  },
+  idLabel: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 11,
+    color: FB.textSec,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  idValue: {
     fontFamily: "Poppins_700Bold",
-    fontSize: 26,
-    color: "#F0F0F0",
-    lineHeight: 34,
-    letterSpacing: -0.5,
+    fontSize: 22,
+    color: FB.navy,
+    letterSpacing: 3,
   },
-  avatarBtn: {
-    padding: 2,
-  },
-
-  // Pills row
-  pillRow: {
-    flexDirection: "row",
+  qrPlaceholder: {
+    alignItems: "center",
+    paddingVertical: 24,
     gap: 10,
-    marginTop: -4,
   },
-  driverIdPill: {
+  qrHint: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 13,
+    color: FB.textSec,
+  },
+  closeBtn: {
+    backgroundColor: FB.navy,
+    borderRadius: 14,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 15, color: "#fff" },
+});
+
+// ─── Main Styles ──────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: FB.offWhite },
+  scroll: { flex: 1 },
+  scrollContent: { gap: 0 },
+
+  // Hero
+  hero: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  heroTopBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 20,
+  },
+  heroGreet: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 13,
+    color: "rgba(255,255,255,0.6)",
+  },
+  heroName: {
+    fontFamily: "Poppins_700Bold",
+    fontSize: 22,
+    color: "#fff",
+    lineHeight: 30,
+  },
+  heroTopRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  driverIdChip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    backgroundColor: "#1A1A1A",
+    gap: 4,
+    backgroundColor: "rgba(245,166,35,0.15)",
     borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderWidth: 1,
-    borderColor: Colors.gold + "30",
+    borderColor: "rgba(245,166,35,0.3)",
   },
   driverIdText: {
     fontFamily: "Poppins_600SemiBold",
-    fontSize: 12,
-    color: Colors.gold,
+    fontSize: 10,
+    color: FB.gold,
     letterSpacing: 1.2,
   },
-  onlinePill: {
+  notifBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarBtn: {},
+  avatarCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: FB.green,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInitial: { fontFamily: "Poppins_700Bold", fontSize: 15, color: "#fff" },
+
+  // Balance
+  balanceCard: {
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    gap: 12,
+  },
+  balanceCardInner: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  balanceLabel: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    color: "rgba(255,255,255,0.55)",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  balanceRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  balanceValue: {
+    fontFamily: "Poppins_700Bold",
+    fontSize: 26,
+    color: "#fff",
+    letterSpacing: -0.5,
+  },
+  balanceEquiv: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    color: FB.gold,
+    marginTop: 4,
+  },
+  onlineRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    backgroundColor: "#1A1A1A",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: Colors.primary + "30",
+    gap: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.1)",
   },
   onlineDot: {
-    width: 7,
-    height: 7,
+    width: 8,
+    height: 8,
     borderRadius: 4,
     backgroundColor: "#4ADE80",
   },
   onlineText: {
-    fontFamily: "Poppins_500Medium",
-    fontSize: 12,
-    color: "#4ADE80",
-  },
-
-  // Coin Card
-  coinCard: {
-    borderRadius: 20,
-    padding: 22,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: Colors.primary + "20",
-  },
-  coinCardLeft: {
-    gap: 2,
-  },
-  coinCardLabel: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12,
-    color: "rgba(255,255,255,0.5)",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  coinCardValue: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 30,
-    color: "#F0F0F0",
-    letterSpacing: -0.5,
-  },
-  coinCardNaira: {
     fontFamily: "Poppins_400Regular",
     fontSize: 13,
-    color: Colors.gold,
-    marginTop: 2,
+    color: "rgba(255,255,255,0.7)",
   },
-  coinIconWrap: {
-    alignItems: "center",
-    gap: 4,
-  },
-  coinIconLabel: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 9,
-    color: Colors.gold,
-    letterSpacing: 2,
-  },
-
-  // Stats
-  statsRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: "#141414",
-    borderRadius: 16,
-    padding: 14,
-    gap: 8,
-    alignItems: "flex-start",
-    borderWidth: 1,
-    borderColor: "#222",
-  },
-  statIconRing: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statValue: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 17,
-    color: "#F0F0F0",
-  },
-  statLabel: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 10,
-    color: "#555",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-
-  // Start Button
-  startSection: {
-    alignItems: "center",
-    position: "relative",
-    paddingVertical: 8,
-  },
-  startBtnGlow: {
-    position: "absolute",
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: Colors.primary,
-    top: "50%",
-    marginTop: -80,
-    zIndex: 0,
-    // blur via shadow
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 60,
-    elevation: 0,
-  },
-  startBtn: {
-    width: 190,
-    borderRadius: 32,
-    overflow: "hidden",
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 14,
-    zIndex: 1,
-  },
-  startBtnGradient: {
-    paddingVertical: 22,
-    alignItems: "center",
-    gap: 8,
-  },
-  startBtnText: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 15,
-    color: "#fff",
-    letterSpacing: 1.5,
-  },
-  startHint: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12,
-    color: "#444",
-    marginTop: 12,
-    textAlign: "center",
-    zIndex: 1,
-  },
-
-  // Profile banner
   profileBanner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    backgroundColor: Colors.goldLight || "#FEF6E7",
-    borderRadius: 14,
-    padding: 14,
+    gap: 8,
+    backgroundColor: "rgba(245,166,35,0.12)",
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
     borderWidth: 1,
-    borderColor: Colors.gold + "50",
+    borderColor: "rgba(245,166,35,0.25)",
   },
   profileBannerText: {
     flex: 1,
     fontFamily: "Poppins_500Medium",
     fontSize: 13,
-    color: "#92400E",
+    color: FB.gold,
   },
 
-  // Recent trips
-  sectionTitle: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 17,
-    color: "#D0D0D0",
-    marginTop: 4,
-    marginBottom: -4,
-  },
-  tripList: {
-    backgroundColor: "#111",
+  // Stats strip
+  statsStrip: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    marginHorizontal: 16,
+    marginTop: 14,
     borderRadius: 18,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#1E1E1E",
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
+  statPill: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 4 },
+  statIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statValue: { fontFamily: "Poppins_700Bold", fontSize: 14, color: FB.textPrimary },
+  statLabel: { fontFamily: "Poppins_400Regular", fontSize: 10, color: FB.textSec },
+  statsDivider: { width: 1, height: 32, backgroundColor: FB.border },
+
+  // Section card
+  sectionCard: {
+    backgroundColor: "#fff",
+    marginHorizontal: 16,
+    marginTop: 14,
+    borderRadius: 20,
+    padding: 18,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  sectionHeading: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 15,
+    color: FB.textPrimary,
+    marginBottom: 14,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  seeAll: { fontFamily: "Poppins_500Medium", fontSize: 13, color: FB.green },
+
+  // Start trip
+  startTripBtn: {
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: FB.green,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  startTripGradient: {
+    height: 62,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  startTripText: {
+    fontFamily: "Poppins_700Bold",
+    fontSize: 18,
+    color: "#fff",
+    letterSpacing: 2,
+  },
+  startTripHint: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    color: FB.textSec,
+    textAlign: "center",
+    marginTop: 10,
+  },
+
+  // Quick actions
+  quickActionsRow: { flexDirection: "row", gap: 10 },
+  quickTile: { flex: 1 },
+  quickTileInner: { alignItems: "center", gap: 8 },
+  quickIconBox: {
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quickLabel: {
+    fontFamily: "Poppins_500Medium",
+    fontSize: 11,
+    color: FB.textPrimary,
+    textAlign: "center",
+  },
+
+  // Trip rows
   tripRow: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#1A1A1A",
     gap: 12,
+    paddingVertical: 10,
   },
-  tripStatusDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    flexShrink: 0,
-  },
-  tripInfo: {
-    flex: 1,
-  },
-  tripRoute: {
-    fontFamily: "Poppins_500Medium",
-    fontSize: 14,
-    color: "#D8D8D8",
-  },
-  tripDate: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 11,
-    color: "#555",
-    marginTop: 2,
-  },
-  statusPill: {
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  statusPillDone: {
-    backgroundColor: Colors.primary + "18",
-  },
-  statusPillActive: {
-    backgroundColor: Colors.gold + "18",
-  },
-  statusPillText: {
-    fontFamily: "Poppins_500Medium",
-    fontSize: 11,
-  },
-  statusTextDone: {
-    color: Colors.primary,
-  },
-  statusTextActive: {
-    color: Colors.gold,
-  },
-
-  // Empty / loading
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: 44,
-    backgroundColor: "#111",
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#1E1E1E",
-    gap: 12,
-  },
-  emptyIconWrap: {
-    width: 70,
-    height: 70,
-    borderRadius: 20,
-    backgroundColor: "#1A1A1A",
+  tripIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
-  emptyTitle: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    color: "#444",
-    textAlign: "center",
-    paddingHorizontal: 24,
-  },
-  loadingBox: {
+  tripInfo: { flex: 1 },
+  tripRoute: { fontFamily: "Poppins_500Medium", fontSize: 14, color: FB.textPrimary },
+  tripDate: { fontFamily: "Poppins_400Regular", fontSize: 11, color: FB.textSec, marginTop: 2 },
+  tripStatusPill: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  pillActive: { backgroundColor: FB.gold + "20" },
+  pillDone: { backgroundColor: "#F0FDF4" },
+  pillText: { fontFamily: "Poppins_500Medium", fontSize: 11 },
+  pillTextActive: { color: FB.gold },
+  pillTextDone: { color: "#16A34A" },
+  divider: { height: 1, backgroundColor: FB.border },
+
+  // Empty
+  emptyState: { alignItems: "center", paddingVertical: 24, gap: 8 },
+  emptyIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: FB.offWhite,
     alignItems: "center",
-    paddingVertical: 44,
-    gap: 12,
+    justifyContent: "center",
   },
-  loadingText: {
+  emptyText: { fontFamily: "Poppins_600SemiBold", fontSize: 15, color: FB.textPrimary },
+  emptySubText: {
     fontFamily: "Poppins_400Regular",
     fontSize: 13,
-    color: "#444",
-  },
-
-  // Floating Nav Bar
-  navBarWrapper: {
-    position: "absolute",
-    left: 20,
-    right: 20,
-    alignItems: "center",
-  },
-  navBar: {
-    flexDirection: "row",
-    backgroundColor: "#141414",
-    borderRadius: 28,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "#252525",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 24,
-    elevation: 20,
-    gap: 4,
-    width: "100%",
-    maxWidth: 380,
-  },
-  navItem: {
-    flex: 1,
-    alignItems: "center",
-  },
-  navItemPressable: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    gap: 3,
-    width: "100%",
-  },
-  navIndicator: {
-    position: "absolute",
-    top: 0,
-    left: "15%",
-    right: "15%",
-    height: 2.5,
-    borderRadius: 2,
-    backgroundColor: Colors.primary,
-  },
-  navLabel: {
-    fontFamily: "Poppins_500Medium",
-    fontSize: 10,
-    letterSpacing: 0.2,
+    color: FB.textSec,
+    textAlign: "center",
+    lineHeight: 20,
   },
 });

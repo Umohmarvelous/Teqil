@@ -16,15 +16,10 @@ import { useFonts } from "expo-font";
 import { useAuthStore } from "@/src/store/useStore";
 import { supabase } from "@/src/services/supabase";
 import { syncAll, startConnectivityListener, SyncUser } from "@/src/services/sync";
-// import "@/src/i18n";
 import i18n from "@/src/i18n";
 import { StatusBar } from "expo-status-bar";
 
-
 SplashScreen.preventAutoHideAsync();
-
-
-
 
 function RootLayoutNav() {
   return (
@@ -50,7 +45,6 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
-  
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_500Medium,
@@ -61,8 +55,6 @@ export default function RootLayout() {
   const { setUser, setIsAuthenticated, setIsLoading, user, language } =
     useAuthStore();
 
-  // Keep a stable ref to the current user so the connectivity listener closure
-  // always reads the freshest value without needing to be re-registered.
   const userRef = useRef<SyncUser | null>(null);
   useEffect(() => {
     userRef.current = user
@@ -70,14 +62,12 @@ export default function RootLayout() {
       : null;
   }, [user]);
 
-  // ── Language ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (language) i18n.changeLanguage(language);
   }, [language]);
 
-  // ── Supabase auth listener ────────────────────────────────────────────────────
   useEffect(() => {
-    // Restore session on cold start
+    // Mark loading=false once we've checked session — this unblocks index.tsx routing
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsAuthenticated(!!session?.user);
       setIsLoading(false);
@@ -92,40 +82,29 @@ export default function RootLayout() {
         setIsAuthenticated(false);
         setUser(null);
       }
+      // Always mark loading false after auth state resolves
+      setIsLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // ── Trigger initial sync once the user is authenticated ───────────────────────
-  // We watch `user` rather than the auth event so we have the full user object
-  // (including role and park_name) at the time we kick off the sync.
   const prevUserIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!user) return;
-    // Avoid re-running on unrelated re-renders that don't change the user ID.
     if (user.id === prevUserIdRef.current) return;
     prevUserIdRef.current = user.id;
 
-    const syncUser: SyncUser = {
-      id: user.id,
-      role: user.role,
-      park_name: user.park_name,
-    };
-
-    syncAll(syncUser).catch((err) =>
-      console.warn("[Layout] initial sync error", err)
+    syncAll({ id: user.id, role: user.role, park_name: user.park_name }).catch(
+      (err) => console.warn("[Layout] initial sync error", err)
     );
   }, [user]);
 
-  // ── Connectivity listener ────────────────────────────────────────────────────
-  // Registered once on mount; uses the userRef so it always has the latest user.
   useEffect(() => {
     const unsubscribe = startConnectivityListener(() => userRef.current);
     return unsubscribe;
   }, []);
 
-  // ── Splash screen ─────────────────────────────────────────────────────────────
   const onLayoutRootView = useCallback(() => {
     if (fontsLoaded) SplashScreen.hideAsync();
   }, [fontsLoaded]);
@@ -137,7 +116,7 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
           <KeyboardProvider>
-            <StatusBar style="inverted" backgroundColor="transparent" animated/>
+            <StatusBar style="inverted" backgroundColor="transparent" animated />
             <RootLayoutNav />
           </KeyboardProvider>
         </GestureHandlerRootView>

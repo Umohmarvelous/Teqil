@@ -1,11 +1,9 @@
 /**
  * app/(auth)/passenger-entry.tsx
  *
- * Intermediate screen shown after passenger selects their role.
- * Three options:
- *  1. Pay Transport Fare → /(auth)/pay-fare  (then → /(passenger))
- *  2. Bolt a Ride        → coming soon modal
- *  3. Find Trip          → /(auth)/register  (then → /(passenger)/find-trip)
+ * Shown when a new user selects the Passenger role.
+ * All options now route through sign-in first. After sign-in,
+ * the user lands on the passenger dashboard where the action buttons live.
  */
 
 import React, { useRef, useEffect, useState } from "react";
@@ -14,7 +12,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  
   Platform,
   Animated,
   Easing,
@@ -27,17 +24,13 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/colors";
 
-// const { width: W } = Dimensions.get("window");
-
-// ─── Option card data ─────────────────────────────────────────────────────────
 const OPTIONS = [
   {
     id: "pay",
     icon: "card" as const,
     title: "Pay Transport Fare",
-    desc: "Send transport fare to any driver",
+    desc: "Send fare to any driver",
     gradient: [Colors.text, Colors.text] as const,
-    glow: Colors.primaryDark,
     badge: null,
   },
   {
@@ -46,7 +39,6 @@ const OPTIONS = [
     title: "Find Trip",
     desc: "Enter a trip code to join & track",
     gradient: [Colors.text, Colors.text] as const,
-    glow: Colors.primaryDark,
     badge: null,
   },
   {
@@ -55,12 +47,10 @@ const OPTIONS = [
     title: "Bolt a Ride",
     desc: "Instant ride booking",
     gradient: ["#023A1E", "#5B21B6"] as const,
-    glow: Colors.primaryDark,
     badge: "COMING SOON",
   },
 ] as const;
 
-// ─── Animated option card ─────────────────────────────────────────────────────
 function OptionCard({
   option,
   index,
@@ -91,28 +81,17 @@ function OptionCard({
         useNativeDriver: true,
       }),
     ]).start();
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handlePressIn = () => {
+  const handlePressIn = () =>
     Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 50 }).start();
-  };
-  const handlePressOut = () => {
+  const handlePressOut = () =>
     Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 30 }).start();
-  };
 
   return (
     <Animated.View
-      style={[
-        cardStyles.wrap,
-        { opacity, transform: [{ translateY }, { scale }] },
-        option.id !== "bolt" && {
-          // shadowColor: option.glow,
-          // shadowOffset: { width: 0, height: 8 },
-          // shadowOpacity: 0.25,
-          // shadowRadius: 16,
-          // elevation: 10,
-        },
-      ]}
+      style={[cardStyles.wrap, { opacity, transform: [{ translateY }, { scale }] }]}
     >
       <Pressable
         onPress={onPress}
@@ -126,29 +105,20 @@ function OptionCard({
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          {/* Icon */}
           <View style={cardStyles.iconWrap}>
             <Ionicons name={option.icon} size={20} color="rgba(255,255,255,0.9)" />
           </View>
-
-          {/* Text */}
           <View style={cardStyles.textBlock}>
             <Text style={cardStyles.title}>{option.title}</Text>
             <Text style={cardStyles.desc}>{option.desc}</Text>
           </View>
-
-          {/* Badge or arrow */}
           {option.badge ? (
             <View style={cardStyles.badge}>
               <Text style={cardStyles.badgeText}>{option.badge}</Text>
             </View>
           ) : (
-            <View style={cardStyles.arrow}>
-              {/* <Ionicons name="arrow-forward-circle" size={29} color="rgba(255,255,255,0.6)" /> */}
-            </View>
+            <View style={cardStyles.arrow} />
           )}
-
-          {/* Decorative shapes */}
           <View style={cardStyles.decCircle1} />
           <View style={cardStyles.decCircle2} />
         </LinearGradient>
@@ -157,7 +127,6 @@ function OptionCard({
   );
 }
 
-// ─── Main screen ──────────────────────────────────────────────────────────────
 export default function PassengerEntryScreen() {
   const insets = useSafeAreaInsets();
   const [boltModalVisible, setBoltModalVisible] = useState(false);
@@ -180,49 +149,48 @@ export default function PassengerEntryScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleOption = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (id === "pay") {
-      router.push("/(auth)/pay-fare");
-    } else if (id === "bolt") {
+    if (id === "bolt") {
       setBoltModalVisible(true);
-    } else if (id === "find") {
-      router.push("/(auth)/login");
+      return;
     }
+    // Both "pay" and "find" require sign-in first.
+    // The passenger dashboard has the action buttons after login.
+    router.push("/(auth)/login");
   };
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + 16 }]}>
       <LinearGradient
-        colors={["#009A43", "#009A43", "#009A43"]}
+        colors={["#009A43", "#009A43"]}
         style={StyleSheet.absoluteFillObject}
       />
 
-      {/* Back button */}
       <Pressable style={styles.backBtn} onPress={() => router.back()}>
         <Ionicons name="arrow-back" size={20} color={Colors.primaryLight} />
-        <Text style={[{ color: Colors.primaryLight }, {fontWeight: 600, fontSize: 15}]}>Back</Text>
+        <Text style={styles.backText}>Back</Text>
       </Pressable>
 
-      {/* Header */}
       <Animated.View
         style={[
           styles.header,
           { opacity: headerOpacity, transform: [{ translateY: headerY }] },
         ]}
       >
-    
-        <Text style={styles.heading}>What would you like {"\n"}to do ?</Text>
-        {/* <Text style={styles.sub}>Choose how you want to get started</Text> */}
+        <Text style={styles.heading}>What would you like{"\n"}to do?</Text>
       </Animated.View>
 
-      {/* Options */}
       <View
         style={[
           styles.options,
-          { paddingBottom: Math.max(insets.bottom, 94) + (Platform.OS === "web" ? 34 : 0) },
+          {
+            paddingBottom:
+              Math.max(insets.bottom, 24) + (Platform.OS === "web" ? 34 : 0),
+          },
         ]}
       >
         {OPTIONS.map((opt, i) => (
@@ -235,15 +203,16 @@ export default function PassengerEntryScreen() {
         ))}
       </View>
 
-      {/* Already have account */}
-      <Pressable style={styles.signinLink} onPress={() => router.push("/(auth)/login")}>
+      <Pressable
+        style={styles.signinLink}
+        onPress={() => router.push("/(auth)/login")}
+      >
         <Text style={styles.signinText}>
           Already have an account?{" "}
           <Text style={styles.signinHighlight}>Sign In</Text>
         </Text>
       </Pressable>
 
-      {/* Bolt coming soon modal */}
       <Modal
         transparent
         visible={boltModalVisible}
@@ -255,12 +224,9 @@ export default function PassengerEntryScreen() {
           onPress={() => setBoltModalVisible(false)}
         >
           <View style={styles.comingSoonCard}>
-            {/* <View style={styles.comingSoonIcon}>
-              <Ionicons name="flash" size={36} color="#A78BFA" />
-            </View> */}
             <Text style={styles.comingSoonTitle}>Coming Soon!</Text>
             <Text style={styles.comingSoonDesc}>
-              Book a Ride will let you instantly book drivers near you. Stay tuned!
+              Book a Ride lets you instantly book nearby drivers. Stay tuned!
             </Text>
             <Pressable
               style={styles.comingSoonBtn}
@@ -275,28 +241,17 @@ export default function PassengerEntryScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
+  root: { flex: 1, paddingHorizontal: 20 },
   backBtn: {
+    flexDirection: "row",
     alignItems: "center",
-    alignSelf: 'flex-start',
-    justifyContent: "center",
+    gap: 5,
+    alignSelf: "flex-start",
     marginBottom: 8,
-    flexDirection: 'row',
-    gap: 5
   },
-  header: {
-    gap: 6,
-    marginBottom: 32,
-    marginTop: 50,
-    marginHorizontal: 10
-  },
-
+  backText: { color: Colors.primaryLight, fontWeight: "600", fontSize: 15 },
+  header: { gap: 6, marginBottom: 32, marginTop: 50, marginHorizontal: 10 },
   heading: {
     fontFamily: "Poppins_700Bold",
     fontSize: 28,
@@ -304,29 +259,10 @@ const styles = StyleSheet.create({
     lineHeight: 38,
     letterSpacing: -0.5,
   },
-  sub: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 15,
-    color: Colors.primaryLight,
-    fontWeight: 700
-  },
-  options: {
-    gap: 15,
-    justifyContent: "center",
-  },
-  signinLink: {
-    alignItems: "center",
-    paddingVertical: 16,
-  },
-  signinText: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    color: Colors.primaryLight,
-  },
-  signinHighlight: {
-    fontFamily: "Poppins_600SemiBold",
-    color: Colors.primaryDark,
-  },
+  options: { gap: 15, justifyContent: "center" },
+  signinLink: { alignItems: "center", paddingVertical: 16 },
+  signinText: { fontFamily: "Poppins_400Regular", fontSize: 14, color: Colors.primaryLight },
+  signinHighlight: { fontFamily: "Poppins_600SemiBold", color: Colors.primaryDark },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.85)",
@@ -341,15 +277,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 34,
     width: "100%",
-  },
-  comingSoonIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 22,
-    backgroundColor: "rgba(167,139,250,0.12)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 4,
   },
   comingSoonTitle: {
     fontFamily: "Poppins_700Bold",
@@ -378,14 +305,8 @@ const styles = StyleSheet.create({
 });
 
 const cardStyles = StyleSheet.create({
-  wrap: {
-    borderRadius: 20,
-    overflow: "hidden",
-  },
-  pressable: {
-    borderRadius: 50,
-    overflow: "hidden",
-  },
+  wrap: { borderRadius: 20, overflow: "hidden" },
+  pressable: { borderRadius: 50, overflow: "hidden" },
   gradient: {
     flexDirection: "row",
     alignItems: "center",
@@ -405,18 +326,8 @@ const cardStyles = StyleSheet.create({
     flexShrink: 0,
   },
   textBlock: { flex: 1 },
-  title: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 16,
-    color: "#fff",
-    marginBottom: 4,
-  },
-  desc: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12,
-    color: "rgba(255,255,255,0.65)",
-    lineHeight: 18,
-  },
+  title: { fontFamily: "Poppins_600SemiBold", fontSize: 16, color: "#fff", marginBottom: 4 },
+  desc: { fontFamily: "Poppins_400Regular", fontSize: 12, color: "rgba(255,255,255,0.65)", lineHeight: 18 },
   badge: {
     backgroundColor: "rgba(255,255,255,0.2)",
     borderRadius: 14,
@@ -434,7 +345,7 @@ const cardStyles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.textSecondary,
     borderRadius: 50,
-    padding: 11
+    padding: 11,
   },
   decCircle1: {
     position: "absolute",

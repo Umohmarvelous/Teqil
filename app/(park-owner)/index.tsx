@@ -1,7 +1,22 @@
-import React, { useEffect, useState, useCallback } from "react";
+/**
+ * app/(park-owner)/index.tsx
+ *
+ * Park Owner dashboard — FirstBank-style layout.
+ */
+
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, Platform,
-  Alert, TextInput, RefreshControl,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Platform,
+  Alert,
+  TextInput,
+  RefreshControl,
+  Animated,
+  Modal,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,7 +31,20 @@ import { generateId, formatNaira, coinsToNaira } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+const FB = {
+  navy: "#00205B",
+  navyDark: "#001440",
+  green: "#009A43",
+  greenLight: "#B9F0D4",
+  gold: "#F5A623",
+  offWhite: "#F4F6FA",
+  textPrimary: "#0D1B3E",
+  textSec: "#6B7280",
+  border: "#E8ECF0",
+  surface: "#FFFFFF",
+  red: "#E02020",
+};
+
 interface DashboardStats {
   activeTrips: number;
   totalDrivers: number;
@@ -26,15 +54,24 @@ interface DashboardStats {
   completedTrips: number;
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-function StatTile({ icon, label, value, sub, accent, wide }: {
-  icon: keyof typeof Ionicons.glyphMap; label: string; value: string;
-  sub?: string; accent?: string; wide?: boolean;
+// ─── Stat card ────────────────────────────────────────────────────────────────
+function StatCard({
+  icon,
+  label,
+  value,
+  sub,
+  color,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+  sub?: string;
+  color: string;
 }) {
   return (
-    <View style={[styles.statTile, wide && styles.statTileWide]}>
-      <View style={[styles.statIconBg, { backgroundColor: `${accent || Colors.primary}18` }]}>
-        <Ionicons name={icon} size={22} color={accent || Colors.primary} />
+    <View style={styles.statCard}>
+      <View style={[styles.statIconBox, { backgroundColor: color + "18" }]}>
+        <Ionicons name={icon} size={22} color={color} />
       </View>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
@@ -43,16 +80,19 @@ function StatTile({ icon, label, value, sub, accent, wide }: {
   );
 }
 
+// ─── Active trip item ─────────────────────────────────────────────────────────
 function ActiveTripItem({ trip }: { trip: Trip & { passengerCount: number } }) {
   return (
     <View style={styles.tripItem}>
       <View style={styles.tripDot} />
       <View style={styles.tripInfo}>
-        <Text style={styles.tripRoute} numberOfLines={1}>{trip.origin} → {trip.destination}</Text>
+        <Text style={styles.tripRoute} numberOfLines={1}>
+          {trip.origin} → {trip.destination}
+        </Text>
         <View style={styles.tripMeta}>
           <Text style={styles.tripCode}>{trip.trip_code}</Text>
           <View style={styles.tripMetaSep} />
-          <Ionicons name="people-outline" size={12} color={Colors.textSecondary} />
+          <Ionicons name="people-outline" size={12} color={FB.textSec} />
           <Text style={styles.tripMetaText}>{trip.passengerCount} passengers</Text>
         </View>
       </View>
@@ -64,22 +104,31 @@ function ActiveTripItem({ trip }: { trip: Trip & { passengerCount: number } }) {
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function ParkOwnerDashboard() {
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuthStore();
   const { t } = useTranslation();
 
   const [stats, setStats] = useState<DashboardStats>({
-    activeTrips: 0, totalDrivers: 0, completionRate: 0,
-    totalEstimatedEarnings: 0, totalTrips: 0, completedTrips: 0,
+    activeTrips: 0,
+    totalDrivers: 0,
+    completionRate: 0,
+    totalEstimatedEarnings: 0,
+    totalTrips: 0,
+    completedTrips: 0,
   });
   const [activeTrips, setActiveTrips] = useState<(Trip & { passengerCount: number })[]>([]);
   const [broadcastMsg, setBroadcastMsg] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [balanceHidden, setBalanceHidden] = useState(false);
 
-  // ── Data loading ──────────────────────────────────────────────────────────────
+  const topPadding = Platform.OS === "web" ? 67 : insets.top;
+  const displayName = user?.full_name || "Park Owner";
+  const parkName = user?.park_name || displayName;
+  const parkLocation = user?.park_location || "Location not set";
+
   const load = useCallback(async () => {
     const allTrips = await TripsStorage.getAll();
     const activeTripsList = allTrips.filter((t) => t.status === "active");
@@ -89,18 +138,18 @@ export default function ParkOwnerDashboard() {
         return { ...trip, passengerCount: passengers.length };
       })
     );
-
     const completedTrips = allTrips.filter((t) => t.status === "completed");
     const totalTrips = allTrips.length;
-    const completionRate = totalTrips > 0 ? Math.round((completedTrips.length / totalTrips) * 100) : 0;
+    const completionRate =
+      totalTrips > 0 ? Math.round((completedTrips.length / totalTrips) * 100) : 0;
 
     let totalCoins = 0;
     for (const trip of completedTrips) {
       const passengers = await PassengersStorage.getByTripId(trip.id);
       totalCoins += 5 + passengers.length * 2;
     }
-
     const driverIds = new Set(allTrips.map((t) => t.driver_id));
+
     setActiveTrips(enriched);
     setStats({
       activeTrips: activeTripsList.length,
@@ -120,7 +169,6 @@ export default function ParkOwnerDashboard() {
     setRefreshing(false);
   };
 
-  // ── Broadcast ─────────────────────────────────────────────────────────────────
   const handleBroadcast = async () => {
     if (!broadcastMsg.trim()) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -131,34 +179,28 @@ export default function ParkOwnerDashboard() {
         park_id: user?.id || "",
         message: broadcastMsg.trim(),
         created_at: new Date().toISOString(),
-        // Syncable defaults.
         synced: false,
         updated_at: new Date().toISOString(),
       });
       setBroadcastMsg("");
-
-      // Push broadcast to Supabase immediately if online.
       if (user) {
-        syncAll({ id: user.id, role: user.role, park_name: user.park_name }).catch(
-          () => {/* offline – will retry */}
-        );
+        syncAll({ id: user.id, role: user.role, park_name: user.park_name }).catch(() => {});
       }
-
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Sent!", "Your message has been broadcast to all drivers.");
+      Alert.alert("Sent!", "Message broadcast to all drivers.");
     } catch {
-      Alert.alert("Error", "Could not send message. Please try again.");
+      Alert.alert("Error", "Could not send. Try again.");
     } finally {
       setIsSending(false);
     }
   };
 
-  // ── Logout ────────────────────────────────────────────────────────────────────
   const handleLogout = () => {
     Alert.alert("Sign Out", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
       {
-        text: "Sign Out", style: "destructive",
+        text: "Sign Out",
+        style: "destructive",
         onPress: async () => {
           const { signOut } = await import("@/src/services/supabase");
           await signOut();
@@ -169,81 +211,153 @@ export default function ParkOwnerDashboard() {
     ]);
   };
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
-  const displayName = user?.full_name || "Park Owner";
-  const parkName = user?.park_name || displayName;
-  const parkLocation = user?.park_location || "Location not set";
-
   return (
     <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
+      style={styles.root}
+      contentContainerStyle={[
+        styles.scrollContent,
+        { paddingBottom: Math.max(insets.bottom, 24) + 100 },
+      ]}
       showsVerticalScrollIndicator={false}
-      contentInsetAdjustmentBehavior="automatic"
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} colors={[Colors.gold]} />
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={FB.green}
+        />
       }
     >
       {/* ── Hero ── */}
       <LinearGradient
-        colors={["#1A1A2E", "#004E2C"]}
-        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={[styles.hero, { paddingTop: topPadding + 16 }]}
+        colors={[FB.navy, FB.navyDark]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.hero, { paddingTop: topPadding + 14 }]}
       >
-        <View style={styles.heroHeader}>
-          <View style={styles.heroTextGroup}>
-            <Text style={styles.heroLabel}>{t("parkOwner.dashboard")}</Text>
+        {/* Top bar */}
+        <View style={styles.heroTopBar}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={styles.heroLabel}>Park Dashboard</Text>
             <Text style={styles.heroName} numberOfLines={1}>{parkName}</Text>
+            <View style={styles.locationRow}>
+              <Ionicons name="location-outline" size={12} color={FB.gold} />
+              <Text style={styles.locationText} numberOfLines={1}>{parkLocation}</Text>
+            </View>
           </View>
-          <Pressable style={styles.avatarBtn} onPress={handleLogout}>
-            <Ionicons name="person-circle" size={40} color="rgba(255,255,255,0.9)" />
+          <Pressable onPress={handleLogout} style={styles.avatarBtn}>
+            <View style={styles.avatarCircle}>
+              <Ionicons name="person" size={20} color="#fff" />
+            </View>
           </Pressable>
         </View>
-        <View style={styles.parkInfoRow}>
-          <View style={styles.parkInfoPill}>
-            <Ionicons name="location" size={14} color={Colors.gold} />
-            <Text style={styles.parkInfoText} numberOfLines={1}>{parkLocation}</Text>
-          </View>
-          {stats.activeTrips > 0 && (
-            <View style={styles.activePill}>
-              <View style={styles.activeDot} />
-              <Text style={styles.activeText}>{stats.activeTrips} active</Text>
+
+        {/* Summary card */}
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryValue}>{stats.activeTrips}</Text>
+              <Text style={styles.summaryLabel}>Active Trips</Text>
             </View>
-          )}
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryValue}>{stats.totalDrivers}</Text>
+              <Text style={styles.summaryLabel}>Drivers</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryValue, { color: FB.gold }]}>
+                {balanceHidden
+                  ? "•••"
+                  : stats.completionRate > 0
+                  ? `${stats.completionRate}%`
+                  : "—"}
+              </Text>
+              <Text style={styles.summaryLabel}>Completion</Text>
+            </View>
+          </View>
+          <View style={styles.summaryFooter}>
+            <Text style={styles.revenueLabel}>Est. Revenue</Text>
+            <View style={styles.revenueRow}>
+              <Text style={styles.revenueValue}>
+                {balanceHidden
+                  ? "• • • • •"
+                  : stats.totalEstimatedEarnings > 0
+                  ? formatNaira(stats.totalEstimatedEarnings)
+                  : "₦0"}
+              </Text>
+              <Pressable onPress={() => setBalanceHidden((v) => !v)} hitSlop={8}>
+                <Ionicons
+                  name={balanceHidden ? "eye-off-outline" : "eye-outline"}
+                  size={16}
+                  color="rgba(255,255,255,0.5)"
+                />
+              </Pressable>
+            </View>
+          </View>
         </View>
       </LinearGradient>
 
-      {/* ── Stats grid ── */}
-      <View style={styles.statsGrid}>
-        <StatTile icon="car-sport" label={t("parkOwner.activeTrips")} value={stats.activeTrips.toString()} sub={`${stats.totalTrips} total`} accent={Colors.primary} />
-        <StatTile icon="people" label={t("parkOwner.totalDrivers")} value={stats.totalDrivers > 0 ? stats.totalDrivers.toString() : "—"} accent="#3B82F6" />
-        <StatTile icon="checkmark-circle" label={t("parkOwner.completionRate")} value={stats.totalTrips > 0 ? `${stats.completionRate}%` : "—"} sub={stats.completedTrips > 0 ? `${stats.completedTrips} done` : undefined} accent={Colors.gold} />
-        <StatTile icon="wallet" label="Revenue" value={stats.totalEstimatedEarnings > 0 ? formatNaira(stats.totalEstimatedEarnings) : "—"} sub="estimated" accent="#8B5CF6" />
+      {/* ── Quick action tiles ── */}
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionHeading}>Park Management</Text>
+        <View style={styles.quickGrid}>
+          {[
+            { label: "Drivers",  icon: "people-outline" as const,       color: FB.green,  route: "/(park-owner)/drivers" },
+            { label: "Alerts",   icon: "warning-outline" as const,       color: FB.red,    route: "/(park-owner)/alerts" },
+            { label: "Broadcast",icon: "megaphone-outline" as const,     color: "#7C3AED", route: null },
+            { label: "Reports",  icon: "bar-chart-outline" as const,     color: "#0891B2", route: null },
+          ].map((item) => {
+            const scale = useRef(new Animated.Value(1)).current;
+            return (
+              <Animated.View key={item.label} style={[styles.quickTile, { transform: [{ scale }] }]}>
+                <Pressable
+                  onPressIn={() => Animated.spring(scale, { toValue: 0.9, useNativeDriver: true, speed: 50 }).start()}
+                  onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 30 }).start()}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    if (item.route) router.push(item.route as any);
+                    else Alert.alert("Coming Soon", `${item.label} feature coming soon.`);
+                  }}
+                  style={styles.quickTileInner}
+                >
+                  <View style={[styles.quickIconBox, { backgroundColor: item.color + "18" }]}>
+                    <Ionicons name={item.icon} size={22} color={item.color} />
+                  </View>
+                  <Text style={styles.quickLabel}>{item.label}</Text>
+                </Pressable>
+              </Animated.View>
+            );
+          })}
+        </View>
       </View>
 
       {/* ── Active trips ── */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{t("parkOwner.activeTrips")}</Text>
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionHeading}>Active Trips</Text>
           {stats.activeTrips > 0 && (
-            <View style={styles.sectionBadge}>
-              <Text style={styles.sectionBadgeText}>{stats.activeTrips}</Text>
+            <View style={styles.activeBadge}>
+              <Text style={styles.activeBadgeText}>{stats.activeTrips}</Text>
             </View>
           )}
         </View>
 
         {activeTrips.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Ionicons name="car-outline" size={36} color={Colors.border} />
-            <Text style={styles.emptyText}>No active trips right now</Text>
-            <Text style={styles.emptySubText}>Trips from your park drivers will appear here</Text>
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIconBox}>
+              <Ionicons name="car-outline" size={28} color={FB.textSec} />
+            </View>
+            <Text style={styles.emptyText}>No active trips</Text>
+            <Text style={styles.emptySubText}>
+              Trips from your park drivers will appear here
+            </Text>
           </View>
         ) : (
           <View style={styles.tripList}>
             {activeTrips.map((trip, idx) => (
               <View key={trip.id}>
                 <ActiveTripItem trip={trip} />
-                {idx < activeTrips.length - 1 && <View style={styles.tripDivider} />}
+                {idx < activeTrips.length - 1 && <View style={styles.divider} />}
               </View>
             ))}
           </View>
@@ -251,17 +365,17 @@ export default function ParkOwnerDashboard() {
       </View>
 
       {/* ── Broadcast ── */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{t("parkOwner.broadcast")}</Text>
-          <Ionicons name="megaphone-outline" size={18} color={Colors.textSecondary} />
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionHeading}>Broadcast Message</Text>
+          <Ionicons name="megaphone-outline" size={16} color={FB.textSec} />
         </View>
 
         <View style={styles.broadcastCard}>
           <TextInput
             style={styles.broadcastInput}
-            placeholder={t("parkOwner.broadcastPlaceholder")}
-            placeholderTextColor={Colors.textTertiary}
+            placeholder="Write a message to all drivers..."
+            placeholderTextColor={FB.textSec}
             value={broadcastMsg}
             onChangeText={setBroadcastMsg}
             multiline
@@ -273,76 +387,300 @@ export default function ParkOwnerDashboard() {
             <Text style={styles.charCount}>{broadcastMsg.length}/500</Text>
           )}
           <Pressable
-            style={({ pressed }) => [
+            style={[
               styles.broadcastBtn,
               !broadcastMsg.trim() && styles.broadcastBtnDisabled,
-              isSending && styles.broadcastBtnLoading,
-              pressed && broadcastMsg.trim() && styles.broadcastBtnPressed,
             ]}
             onPress={handleBroadcast}
             disabled={!broadcastMsg.trim() || isSending}
           >
-            <Ionicons name={isSending ? "hourglass-outline" : "megaphone"} size={18} color={Colors.surface} />
-            <Text style={styles.broadcastBtnText}>{isSending ? "Sending..." : t("parkOwner.send")}</Text>
+            <LinearGradient
+              colors={broadcastMsg.trim() ? [FB.green, "#007A3D"] : [FB.border, FB.border]}
+              style={styles.broadcastBtnGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Ionicons
+                name={isSending ? "hourglass-outline" : "megaphone"}
+                size={16}
+                color={broadcastMsg.trim() ? "#fff" : FB.textSec}
+              />
+              <Text style={[styles.broadcastBtnText, !broadcastMsg.trim() && styles.broadcastBtnTextDisabled]}>
+                {isSending ? "Sending..." : "Send to All Drivers"}
+              </Text>
+            </LinearGradient>
           </Pressable>
         </View>
       </View>
-
-      <View style={{ height: 100 + (Platform.OS === "web" ? 34 : 0) }} />
     </ScrollView>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  content: {},
-  hero: { paddingHorizontal: 24, paddingBottom: 28, marginHorizontal: 10, borderRadius: 30, marginTop: 10 },
-  heroHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 },
-  heroTextGroup: { flex: 1, paddingRight: 12 },
-  heroLabel: { fontFamily: "Poppins_400Regular", fontSize: 12, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 2 },
-  heroName: { fontFamily: "Poppins_700Bold", fontSize: 22, color: Colors.surface, lineHeight: 30 },
-  avatarBtn: { padding: 2 },
-  parkInfoRow: { flexDirection: "row", gap: 40, flexWrap: "wrap" },
-  parkInfoPill: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,255,255,0.12)", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7, flex: 1 },
-  parkInfoText: { fontFamily: "Poppins_400Regular", fontSize: 13, color: "rgba(255,255,255,0.85)", flex: 1 },
-  activePill: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,255,255,0.12)", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7 },
-  activeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#4ADE80" },
-  activeText: { fontFamily: "Poppins_500Medium", fontSize: 12, color: Colors.surface },
-  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, padding: 9, paddingBottom: 8, alignItems: 'center', justifyContent: 'space-around' },
-  statTile: { width: "46%", minHeight: 176, backgroundColor: Colors.textInverse, borderRadius: 18, padding: 18, gap: 8, borderWidth: .2, borderColor: Colors.primary, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
-  statTileWide: { width: "100%" },
-  statIconBg: { width: 44, height: 44, borderRadius: 13, alignItems: "center", justifyContent: "center" },
-  statValue: { fontFamily: "Poppins_700Bold", fontSize: 22, color: Colors.text },
-  statLabel: { fontFamily: "Poppins_400Regular", fontSize: 12, color: Colors.textSecondary },
-  statSub: { fontFamily: "Poppins_400Regular", fontSize: 11, color: Colors.textTertiary, marginTop: -4 },
-  section: { paddingHorizontal: 24, paddingTop: 16 },
-  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 14 },
-  sectionTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 17, color: Colors.text, flex: 1 },
-  sectionBadge: { backgroundColor: Colors.primaryLight, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3 },
-  sectionBadgeText: { fontFamily: "Poppins_600SemiBold", fontSize: 12, color: Colors.primary },
-  emptyCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 32, alignItems: "center", gap: 8 },
-  emptyText: { fontFamily: "Poppins_500Medium", fontSize: 15, color: Colors.text, textAlign: "center" },
-  emptySubText: { fontFamily: "Poppins_400Regular", fontSize: 13, color: Colors.textSecondary, textAlign: "center", lineHeight: 20 },
-  tripList: { backgroundColor: Colors.surface, borderRadius: 16, overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
-  tripItem: { flexDirection: "row", alignItems: "center", padding: 16, gap: 12 },
-  tripDivider: { height: 1, backgroundColor: Colors.borderLight, marginLeft: 16 + 10 + 12 },
-  tripDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary, flexShrink: 0 },
+  root: { flex: 1, backgroundColor: FB.offWhite },
+  scrollContent: {},
+
+  // Hero
+  hero: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  heroTopBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 20,
+  },
+  heroLabel: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 11,
+    color: "rgba(255,255,255,0.55)",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  heroName: {
+    fontFamily: "Poppins_700Bold",
+    fontSize: 20,
+    color: "#fff",
+    lineHeight: 28,
+  },
+  locationRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+  locationText: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    color: "rgba(255,255,255,0.6)",
+    flex: 1,
+  },
+  avatarBtn: {},
+  avatarCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // Summary card
+  summaryCard: {
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  summaryItem: { flex: 1, alignItems: "center" },
+  summaryDivider: { width: 1, height: 36, backgroundColor: "rgba(255,255,255,0.15)" },
+  summaryValue: {
+    fontFamily: "Poppins_700Bold",
+    fontSize: 22,
+    color: "#fff",
+  },
+  summaryLabel: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 11,
+    color: "rgba(255,255,255,0.55)",
+    marginTop: 2,
+  },
+  summaryFooter: {
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.1)",
+  },
+  revenueLabel: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 11,
+    color: "rgba(255,255,255,0.55)",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  revenueRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  revenueValue: {
+    fontFamily: "Poppins_700Bold",
+    fontSize: 22,
+    color: "#fff",
+  },
+
+  // Section card
+  sectionCard: {
+    backgroundColor: "#fff",
+    marginHorizontal: 16,
+    marginTop: 14,
+    borderRadius: 20,
+    padding: 18,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  sectionHeading: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 15,
+    color: FB.textPrimary,
+    marginBottom: 14,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  activeBadge: {
+    backgroundColor: "#FEF2F2",
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  activeBadgeText: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 12,
+    color: FB.red,
+  },
+
+  // Quick grid
+  quickGrid: { flexDirection: "row", gap: 10 },
+  quickTile: { flex: 1 },
+  quickTileInner: { alignItems: "center", gap: 8 },
+  quickIconBox: {
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quickLabel: {
+    fontFamily: "Poppins_500Medium",
+    fontSize: 11,
+    color: FB.textPrimary,
+    textAlign: "center",
+  },
+
+  // Trip list
+  tripList: { gap: 0 },
+  tripItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    gap: 12,
+  },
+  tripDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: FB.green,
+    flexShrink: 0,
+  },
   tripInfo: { flex: 1 },
-  tripRoute: { fontFamily: "Poppins_500Medium", fontSize: 14, color: Colors.text, marginBottom: 4 },
-  tripMeta: { flexDirection: "row", alignItems: "center", gap: 6 },
-  tripCode: { fontFamily: "Poppins_400Regular", fontSize: 12, color: Colors.textSecondary, letterSpacing: 0.8 },
-  tripMetaSep: { width: 3, height: 3, borderRadius: 2, backgroundColor: Colors.textTertiary },
-  tripMetaText: { fontFamily: "Poppins_400Regular", fontSize: 12, color: Colors.textSecondary },
-  livePill: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#FEF2F2", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, flexShrink: 0 },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.error },
-  liveText: { fontFamily: "Poppins_600SemiBold", fontSize: 11, color: Colors.error },
-  broadcastCard: { backgroundColor: Colors.surface, borderRadius: 18, overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
-  broadcastInput: { fontFamily: "Poppins_400Regular", fontSize: 15, color: Colors.text, padding: 18, minHeight: 110, lineHeight: 24 },
-  charCount: { fontFamily: "Poppins_400Regular", fontSize: 11, color: Colors.textTertiary, textAlign: "right", paddingHorizontal: 18, paddingBottom: 8 },
-  broadcastBtn: { backgroundColor: Colors.primary, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 16 },
-  broadcastBtnDisabled: { backgroundColor: Colors.border },
-  broadcastBtnLoading: { opacity: 0.7 },
-  broadcastBtnPressed: { opacity: 0.9 },
-  broadcastBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 15, color: Colors.surface },
+  tripRoute: { fontFamily: "Poppins_500Medium", fontSize: 14, color: FB.textPrimary },
+  tripMeta: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  tripCode: { fontFamily: "Poppins_400Regular", fontSize: 12, color: FB.textSec, letterSpacing: 0.8 },
+  tripMetaSep: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: FB.textSec },
+  tripMetaText: { fontFamily: "Poppins_400Regular", fontSize: 12, color: FB.textSec },
+  livePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#FEF2F2",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: FB.red },
+  liveText: { fontFamily: "Poppins_600SemiBold", fontSize: 11, color: FB.red },
+  divider: { height: 1, backgroundColor: FB.border },
+
+  // Empty
+  emptyState: { alignItems: "center", paddingVertical: 24, gap: 8 },
+  emptyIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: FB.offWhite,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyText: { fontFamily: "Poppins_600SemiBold", fontSize: 15, color: FB.textPrimary },
+  emptySubText: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 13,
+    color: FB.textSec,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+
+  // Broadcast
+  broadcastCard: {
+    backgroundColor: FB.offWhite,
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: FB.border,
+  },
+  broadcastInput: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 14,
+    color: FB.textPrimary,
+    padding: 16,
+    minHeight: 100,
+    lineHeight: 22,
+  },
+  charCount: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 11,
+    color: FB.textSec,
+    textAlign: "right",
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  broadcastBtn: { overflow: "hidden" },
+  broadcastBtnDisabled: {},
+  broadcastBtnGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 15,
+  },
+  broadcastBtnText: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 14,
+    color: "#fff",
+  },
+  broadcastBtnTextDisabled: { color: FB.textSec },
+
+  // Stat card (unused in this layout but kept for reuse)
+  statCard: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 14,
+    alignItems: "flex-start",
+    gap: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  statIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statValue: { fontFamily: "Poppins_700Bold", fontSize: 18, color: FB.textPrimary },
+  statLabel: { fontFamily: "Poppins_400Regular", fontSize: 12, color: FB.textSec },
+  statSub: { fontFamily: "Poppins_400Regular", fontSize: 11, color: FB.textSec, marginTop: -2 },
 });
