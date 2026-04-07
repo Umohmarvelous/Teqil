@@ -19,7 +19,7 @@ import { useSettingsStore } from "@/src/store/useSettingsStore";
 import Avatar from "@/components/Avatar";
 import { Colors } from "@/constants/colors";
 
-const SIDEBAR_WIDTH = 300;
+const SIDEBAR_WIDTH = 350;
 
 interface SidebarItem {
   id: string;
@@ -36,8 +36,8 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ visible, onClose }: SidebarProps) {
+  const { isAuthenticated, user, logout } = useAuthStore();
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuthStore();
   const { theme, setTheme } = useSettingsStore();
 
   const translateX = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
@@ -154,6 +154,11 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
     },
   ];
 
+  // Filter out logout item when user is not authenticated
+  const filteredNavItems = !isAuthenticated 
+    ? navItems.filter(item => item.id !== 'logout')
+    : navItems;
+
   const isDark = theme === "dark";
   const bg = isDark ? "#0D1117" : "#FFFFFF";
   const textColor = isDark ? "#F0F0F0" : "#0D1B3E";
@@ -191,11 +196,16 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
             <Avatar
               name={user?.full_name || "User"}
               photoUri={user?.profile_photo}
-              size={64}
+              size={54}
             />
-            <Pressable onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={20} color={subColor} />
-            </Pressable>
+            <View style={styles.drawerRightIcon}>
+              <Pressable style={styles.menuList}>
+                <Ionicons name="list-sharp" size={20} color={"#000"} />
+              </Pressable>
+              <Pressable onPress={onClose} style={styles.closeBtn}>
+                <Ionicons name="close" size={20} color={"#000"} />
+              </Pressable>
+            </View>
           </View>
           <Text style={[styles.userName, { color: textColor }]} numberOfLines={1}>
             {user?.full_name || "Teqil User"}
@@ -235,66 +245,89 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
           />
         </View>
 
-        <View style={[styles.divider, { backgroundColor: dividerColor }]} />
-
-        {/* Nav items */}
-        <ScrollView
-          style={styles.navList}
-          showsVerticalScrollIndicator={false}
-        >
-          {navItems.map((item) => (
+        {/* Conditional Content: Show buttons when NOT authenticated, else show Sign In button */}
+        {isAuthenticated ? (
+          <ScrollView
+            style={styles.navList}
+            showsVerticalScrollIndicator={false}
+          >
+            {filteredNavItems.map((item) => (
+              <Pressable
+                key={item.id}
+                style={({ pressed }) => [
+                  styles.navItem,
+                  pressed && { backgroundColor: itemBg },
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  item.onPress();
+                }}
+              >
+                <View
+                  style={[
+                    styles.navIconBox,
+                    {
+                      backgroundColor: item.danger
+                        ? "rgba(239,68,68,0.1)"
+                        : itemBg,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={item.icon}
+                    size={18}
+                    color={item.danger ? "#EF4444" : Colors.primary}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.navLabel,
+                    {
+                      color: item.danger ? "#EF4444" : textColor,
+                    },
+                  ]}
+                >
+                  {item.label}
+                </Text>
+                {item.badge ? (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{item.badge}</Text>
+                  </View>
+                ) : (
+                  <Ionicons
+                    name="chevron-forward"
+                    size={14}
+                    color={subColor}
+                    style={styles.navChevron}
+                  />
+                )}
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : (
+          <View style={styles.signInContainer}>
+            <Text style={[styles.signInText, { color: textColor }]}>
+              You are signed in as {user?.full_name || "User"}
+            </Text>
+            <Text style={[styles.signInSubText, { color: subColor }]}>
+              Sign in with a different account
+            </Text>
             <Pressable
-              key={item.id}
               style={({ pressed }) => [
-                styles.navItem,
-                pressed && { backgroundColor: itemBg },
+                styles.signInButton,
+                { backgroundColor: Colors.primary },
+                pressed && { opacity: 0.8 },
               ]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                item.onPress();
+                onClose();
+                router.push("/(auth)/login");
               }}
             >
-              <View
-                style={[
-                  styles.navIconBox,
-                  {
-                    backgroundColor: item.danger
-                      ? "rgba(239,68,68,0.1)"
-                      : itemBg,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name={item.icon}
-                  size={18}
-                  color={item.danger ? "#EF4444" : Colors.primary}
-                />
-              </View>
-              <Text
-                style={[
-                  styles.navLabel,
-                  {
-                    color: item.danger ? "#EF4444" : textColor,
-                  },
-                ]}
-              >
-                {item.label}
-              </Text>
-              {item.badge ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{item.badge}</Text>
-                </View>
-              ) : (
-                <Ionicons
-                  name="chevron-forward"
-                  size={14}
-                  color={subColor}
-                  style={styles.navChevron}
-                />
-              )}
+              <Text style={styles.signInButtonText}>Sign In</Text>
             </Pressable>
-          ))}
-        </ScrollView>
+          </View>
+        )}
 
         {/* Footer */}
         <Text style={[styles.version, { color: subColor }]}>
@@ -308,7 +341,7 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor: "rgba(0,0,0, 0.55)",
     zIndex: 1,
   },
   drawer: {
@@ -323,6 +356,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 20,
     elevation: 20,
+    borderTopRightRadius: 30,
+    borderBottomRightRadius: 30,
   },
   drawerHeader: {
     paddingHorizontal: 20,
@@ -332,16 +367,26 @@ const styles = StyleSheet.create({
   headerTop: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     marginBottom: 10,
+  },
+  drawerRightIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
   },
   closeBtn: {
     width: 32,
     height: 32,
-    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.05)",
+  },
+  menuList: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
   },
   userName: {
     fontFamily: "Poppins_700Bold",
@@ -422,5 +467,36 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: "center",
     paddingBottom: 8,
+  },
+  signInContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 32,
+  },
+  signInText: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  signInSubText: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 13,
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  signInButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 30,
+    width: "100%",
+    alignItems: "center",
+  },
+  signInButtonText: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 16,
+    color: "#FFFFFF",
   },
 });

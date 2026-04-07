@@ -120,7 +120,7 @@ export default function SearchBar({ isDark = false, onSelect }: SearchBarProps) 
         />
         {query.length > 0 && (
           <Pressable onPress={handleClear} hitSlop={8}>
-            <Ionicons name="close-circle" size={18} color={placeholderColor} />
+            <Ionicons name="close-circle" size={22} color={placeholderColor} />
           </Pressable>
         )}
       </View>
@@ -155,7 +155,7 @@ export default function SearchBar({ isDark = false, onSelect }: SearchBarProps) 
                     backgroundColor:
                       item.type === "trip"
                         ? Colors.primaryLight
-                        : "rgba(59,130,246,0.12)",
+                        : Colors.gold,
                   },
                 ]}
               >
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    borderRadius: 16,
+    borderRadius: 66,
     paddingHorizontal: 14,
     paddingVertical: 11,
     borderWidth: 1.5,
@@ -236,8 +236,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     marginTop: 4,
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: 26,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },

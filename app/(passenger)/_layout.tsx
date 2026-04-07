@@ -7,24 +7,6 @@ import React from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/colors";
 
-// function NativePassengerTabs() {
-//   return (
-//     <NativeTabs>
-//       <NativeTabs.Trigger name="index">
-//         <Icon sf={{ default: "house", selected: "house.fill" }} />
-//         <Label>Home</Label>
-//       </NativeTabs.Trigger>
-//       <NativeTabs.Trigger name="find-trip">
-//         <Icon sf={{ default: "magnifyingglass", selected: "magnifyingglass" }} role="search" />
-//         <Label>Find Trip</Label>
-//       </NativeTabs.Trigger>
-//       <NativeTabs.Trigger name="history">
-//         <Icon sf={{ default: "clock", selected: "clock.fill" }} />
-//         <Label>History</Label>
-//       </NativeTabs.Trigger>
-//     </NativeTabs>
-//   );
-// }
 
 function ClassicPassengerTabs() {
   const isIOS = Platform.OS === "ios";
@@ -45,24 +27,15 @@ function ClassicPassengerTabs() {
         tabBarPosition: "bottom",
         tabBarStyle: {
           position: "absolute",
-          // bottom: 20,
           left: 0,
           right: 0,
           maxWidth: 'auto',
           alignSelf: 'center',
-          // marginHorizontal: 60,
           paddingTop: 12,
           height: 90,
           backgroundColor: isIOS ? "transparent" : Colors.surface,
-          // borderRadius: 35,
           overflow: "hidden",
-          // borderWidth: 1,
           borderColor: "transparent",
-          // elevation: 16,
-          // shadowColor: "#000",
-          // shadowOpacity: 0.12,
-          // shadowRadius: 12,
-          // shadowOffset: { width: 0, height: 8 },
           ...(isWeb ? { height: 84 } : {}),
         },
         tabBarBackground: () =>
@@ -110,7 +83,6 @@ function ClassicPassengerTabs() {
 
 export default function PassengerTabLayout() {
   if (isLiquidGlassAvailable()) {
-    // return <NativePassengerTabs />;
   }
   return <ClassicPassengerTabs />;
 }

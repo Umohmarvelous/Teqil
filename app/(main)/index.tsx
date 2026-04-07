@@ -7,11 +7,11 @@ import {
   ScrollView,
   Platform,
   Alert,
+  Image,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
@@ -21,6 +21,7 @@ import { Colors } from "@/constants/colors";
 import SearchBar from "@/components/SearchBar";
 import Avatar from "@/components/Avatar";
 import type { Trip } from "@/src/models/types";
+import Vi from "zod/v4/locales/vi.cjs";
 
 interface HomeTabProps {
   onOpenSidebar: () => void;
@@ -48,7 +49,7 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
   const borderColor = isDark ? "rgba(255,255,255,0.06)" : "#E8ECF0";
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
-  const firstName = (user?.full_name || "User").split(" ")[0];
+  const firstName = (user?.full_name || "--").split(" ")[0];
   const coins = user?.points_balance || 0;
 
   useEffect(() => {
@@ -107,31 +108,39 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
   return (
     <View style={[styles.root, { backgroundColor: bg }]}>
       {/* Header */}
-      <View
-        // colors={isDark ? ["#009A43", "#009A43"] : ["#009A43", "#009A43"]}
-        style={[styles.header, { paddingTop: topPadding + 22 }]}
-      >
-        <View style={styles.headerRow}>
-          <Pressable onPress={onOpenSidebar} style={styles.menuBtn}>
-            <Ionicons name="menu" size={22} color="#fff" />
-          </Pressable>
+      <View style={ styles.header }>
+          <View style={[ styles.headerImage, { paddingTop: topPadding + 2 } ]} >
+              <Pressable onPress={onOpenSidebar} style={styles.menuBtn}>
+                <Ionicons name="menu" size={22} color="#fff" />
+              </Pressable>
+              
+              <Image source={{ uri: "../../assets/images/Black_logo_with_black_background_linkedIn00000024.png" }} width={20} height={30} style={styles.photoImg} />
 
-          <View style={styles.headerCenter}>
-            <Text style={styles.greetText}>{getGreeting()},</Text>
-            <Text style={styles.nameText}>{firstName}</Text>
+              <Avatar
+                name={user?.full_name || "U"}
+                photoUri={user?.profile_photo}
+                size={38}
+              />
           </View>
+          
+          {/* <View
+            style={styles.header}
+          > */}
+            {/* <View style={styles.headerRow}>
+              <View style={styles.headerCenter}>
+                <Text style={styles.greetText}>{getGreeting()},</Text>
+                <Text style={styles.nameText}>{firstName}</Text>
+              </View>
 
-          <Avatar
-            name={user?.full_name || "U"}
-            photoUri={user?.profile_photo}
-            size={38}
-          />
-        </View>
+            
+            </View> */}
 
-        {/* Search */}
-        <View style={styles.searchWrap}>
-          <SearchBar isDark={false} />
-        </View>
+            {/* Search */}
+            <View style={styles.searchWrap}>
+              <SearchBar isDark={false} />
+            </View>
+
+          {/* </View> */}
       </View>
 
       <ScrollView
@@ -160,15 +169,12 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
 
           {/* Quick action */}
           <Pressable onPress={handleQuickAction} style={styles.quickActionBtn}>
-            {/* <LinearGradient
-              colors={[Colors.primary, Colors.primaryDark]}
-              style={styles.quickActionGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            > */}
-              <Ionicons name={quickActionIcon} size={20} color="#fff" />
+            <View
+              style={styles.quickAction}
+            >
+              <Ionicons name={quickActionIcon} size={20} color={Colors.primaryDark} />
               <Text style={styles.quickActionText}>{quickActionLabel}</Text>
-            {/* </LinearGradient> */}
+            </View>
           </Pressable>
         </View>
 
@@ -344,22 +350,39 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   header: {
-    paddingHorizontal: 20,
+    gap: 19,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 40,
     paddingBottom: 20,
-    backgroundColor: Colors.primary
+    borderBottomRightRadius: 50,
+    borderBottomLeftRadius: 50,
+    paddingTop: 0,
+    flexDirection: 'column',
+  },
+  headerImage: {
+    alignItems: "center",
+    justifyContent: 'space-between',
+    flexDirection: 'row',
+  },
+  photoImg: {
+    width: 40,
+    height: 40,
+    borderRadius: 34,
+    backgroundColor: Colors.border,
+    alignSelf: 'center',
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 16,
     gap: 12,
+    
   },
   menuBtn: {
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "center",
   },
   headerCenter: { flex: 1 },
@@ -374,7 +397,9 @@ const styles = StyleSheet.create({
     color: "#fff",
     lineHeight: 26,
   },
-  searchWrap: { zIndex: 100 },
+  searchWrap: {
+    zIndex: 100,
+   },
   scrollContent: {
     padding: 16,
     gap: 14,
@@ -423,13 +448,13 @@ const styles = StyleSheet.create({
   quickActionBtn: {
     borderRadius: 14,
     overflow: "hidden",
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    // shadowColor: Colors.primary,
+    // shadowOffset: { width: 0, height: 4 },
+    // shadowOpacity: 0.3,
+    // shadowRadius: 8,
+    // elevation: 6,
   },
-  quickActionGradient: {
+  quickAction: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -439,7 +464,7 @@ const styles = StyleSheet.create({
   quickActionText: {
     fontFamily: "Poppins_700Bold",
     fontSize: 16,
-    color: "#fff",
+    color: Colors.primaryDark,
     letterSpacing: 0.5,
   },
   sectionTitle: {

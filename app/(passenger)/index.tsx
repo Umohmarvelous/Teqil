@@ -406,7 +406,7 @@ export default function PassengerDashboard() {
               </View>
               <Text style={styles.emptyText}>No trips yet</Text>
               <Text style={styles.emptySubText}>
-                Tap "Find Trip" above to join your first trip
+                Tap {`"Find Trip"`} above to join your first trip
               </Text>
             </View>
           ) : (
