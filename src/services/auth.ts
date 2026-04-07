@@ -6,10 +6,14 @@
  *   locally-cached credentials so drivers can log in without internet.
  * - cacheCredentials / clearCachedCredentials: manage the local cache.
  */
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { signUp as supabaseSignUp, signIn as supabaseSignIn } from "./supabase";
 import type { User } from "../models/types";
+import * as LocalAuthentication from "expo-local-authentication";
+
+const BIOMETRIC_EMAIL_KEY = "teqil_biometric_email";
+const BIOMETRIC_PW_KEY    = "teqil_biometric_pw"; // use expo-secure-store in production
+
 
 const CACHED_USER_KEY = "teqil_cached_user";
 const CACHED_EMAIL_KEY = "teqil_cached_email";
@@ -227,5 +231,99 @@ export async function signUpOfflineAware(
     }
     // Otherwise, re‑throw the original error (e.g., duplicate email, etc.)
     throw error;
+  }
+}
+
+
+
+
+
+
+
+
+// ─── ADD to src/services/auth.ts ─────────────────────────────────────────────
+// Paste at the bottom of the existing file.
+
+
+/**
+ * Persist credentials for biometric re-login after a successful password login.
+ * Production note: swap AsyncStorage for expo-secure-store here.
+ */
+export async function saveBiometricCredentials(
+  email: string,
+  password: string
+): Promise<void> {
+  await AsyncStorage.multiSet([
+    [BIOMETRIC_EMAIL_KEY, email.toLowerCase().trim()],
+    [BIOMETRIC_PW_KEY, password],
+  ]);
+}
+
+export async function clearBiometricCredentials(): Promise<void> {
+  await AsyncStorage.multiRemove([BIOMETRIC_EMAIL_KEY, BIOMETRIC_PW_KEY]);
+}
+
+export async function getBiometricCredentials(): Promise<{ email: string; password: string } | null> {
+  const [[, email], [, pw]] = await AsyncStorage.multiGet([BIOMETRIC_EMAIL_KEY, BIOMETRIC_PW_KEY]);
+  if (!email || !pw) return null;
+  return { email, password: pw };
+}
+
+export interface BiometricLoginResult {
+  supported: boolean;
+  enrolled: boolean;
+  success: boolean;
+  user?: import("../models/types").User;
+  offlineMode?: boolean;
+  error?: string;
+}
+
+/**
+ * Attempt biometric authentication, then replay stored credentials if successful.
+ *
+ * Returns { success: false, error: "no_credentials" } if the user hasn't
+ * signed in with a password yet (biometric has nothing to replay).
+ */
+export async function signInWithBiometrics(): Promise<BiometricLoginResult> {
+  // Lazy import so the module isn't required on devices without it
+  let LocalAuthentication: typeof import("expo-local-authentication");
+  try {
+    LocalAuthentication = await import("expo-local-authentication");
+  } catch {
+    return { supported: false, enrolled: false, success: false };
+  }
+
+  const compatible = await LocalAuthentication.hasHardwareAsync();
+  if (!compatible) return { supported: false, enrolled: false, success: false };
+
+  const enrolled = await LocalAuthentication.isEnrolledAsync();
+  if (!enrolled) return { supported: true, enrolled: false, success: false };
+
+  const result = await LocalAuthentication.authenticateAsync({
+    promptMessage: "Sign in to Teqil",
+    fallbackLabel: "Use password",
+    cancelLabel: "Cancel",
+    disableDeviceFallback: false,
+  });
+
+  if (!result.success) {
+    return { supported: true, enrolled: true, success: false, error: result.error };
+  }
+
+  const creds = await getBiometricCredentials();
+  if (!creds) {
+    return { supported: true, enrolled: true, success: false, error: "no_credentials" };
+  }
+
+  try {
+    const { user, offlineMode } = await signInOfflineAware(creds.email, creds.password);
+    return { supported: true, enrolled: true, success: true, user, offlineMode };
+  } catch (err) {
+    return {
+      supported: true,
+      enrolled: true,
+      success: false,
+      error: err instanceof Error ? err.message : "auth_failed",
+    };
   }
 }

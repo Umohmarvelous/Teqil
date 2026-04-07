@@ -217,6 +217,8 @@ function RoleCard({
 
 // ─── Role selection slide (last full-screen slide) ────────────────────────────
 function RoleSlide({ scrollX }: { scrollX: Animated.Value }) {
+  const { isAuthenticated, user } = useAuthStore();
+
   const insets = useSafeAreaInsets();
   const { setSelectedRole, selectedRole } = useAuthStore();
   const [localRole, setLocalRole] = useState<UserRole | null>(selectedRole);
@@ -236,17 +238,26 @@ function RoleSlide({ scrollX }: { scrollX: Animated.Value }) {
   };
 
   const handleContinue = useCallback(() => {
-    if (!localRole) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    // if (!localRole) return;
+    // Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
-    if (localRole === "driver") {
-      router.push("/(auth)/login");
-    } else if (localRole === "passenger") {
-      router.push("/(auth)/passenger-entry");
-    } else {
-      router.push("/(auth)/login");
+    // if (localRole === "driver") {
+    //   router.push("/(auth)/login");
+    // } else if (localRole === "passenger") {
+    //   router.push("/(auth)/passenger-entry");
+    // } else {
+    //   router.push("/(auth)/login");
+    // }
+
+
+    if (!isAuthenticated || !user) {
+      // First time or logged out — always go to login, not welcome
+      // Welcome is only for brand new users (handled in login screen with a
+      // "Don't have an account? Sign up" flow)
+      router.replace("/(auth)/login");
+      return;
     }
-  }, [localRole]);
+  }, []);
 
   const ROLES = [
     {
@@ -280,7 +291,7 @@ function RoleSlide({ scrollX }: { scrollX: Animated.Value }) {
       />
 
       {/* Subtle green glow top-center */}
-      <View style={roleSlideStyles.glowTop} />
+      {/* <View style={roleSlideStyles.glowTop} /> */}
 
       <View
         style={[
@@ -289,20 +300,20 @@ function RoleSlide({ scrollX }: { scrollX: Animated.Value }) {
         ]}
       >
         {/* Header */}
-        <View style={roleSlideStyles.container}>
+        {/* <View style={roleSlideStyles.container}>
           <View style={roleSlideStyles.header}>
-            {/* <View style={roleSlideStyles.teqilBadge}>
+            <View style={roleSlideStyles.teqilBadge}>
               <Ionicons name="navigate" size={18} color={Colors.primary} />
               <Text style={roleSlideStyles.teqilText}>TEQIL</Text>
-            </View> */}
+            </View> 
             <Text style={roleSlideStyles.heading}>Who are you?</Text>
             <Text style={roleSlideStyles.sub}>
               Choose your role to get started
             </Text>
-          </View>
+          </View> */}
 
           {/* Role cards */}
-          <View style={roleSlideStyles.cards}>
+          {/* <View style={roleSlideStyles.cards}>
             {ROLES.map((r) => (
               <RoleCard
                 key={r.role}
@@ -315,8 +326,8 @@ function RoleSlide({ scrollX }: { scrollX: Animated.Value }) {
                 onPress={() => handleSelect(r.role)}
               />
             ))}
-          </View>
-        </View>
+          </View> */}
+        {/* </View> */}
 
         {/* Continue button */}
         <View style={roleSlideStyles.footer}>
@@ -327,7 +338,7 @@ function RoleSlide({ scrollX }: { scrollX: Animated.Value }) {
               pressed && localRole && { opacity: 0.88 },
             ]}
             onPress={handleContinue}
-            disabled={!localRole}
+            // disabled={!localRole}
           >
             <LinearGradient
               colors={localRole ? [Colors.primary, Colors.primaryDark] : ["#2A2A2A", "#222"]}

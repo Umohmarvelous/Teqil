@@ -33,12 +33,23 @@ function RootLayoutNav() {
           animation: "slide_from_bottom",
         }}
       />
+      {/* New unified main dashboard */}
+      <Stack.Screen name="(main)" options={{ headerShown: false, animation: "fade" }} />
+      {/* Legacy role-specific routes kept for deep links from live-trip etc */}
       <Stack.Screen name="(driver)" options={{ headerShown: false }} />
       <Stack.Screen name="(passenger)" options={{ headerShown: false }} />
       <Stack.Screen name="(park-owner)" options={{ headerShown: false }} />
       <Stack.Screen
         name="live-trip/[code]"
         options={{ headerShown: false, animation: "fade" }}
+      />
+      <Stack.Screen
+        name="live-trip-code/[code]"
+        options={{ headerShown: false, animation: "fade" }}
+      />
+      <Stack.Screen
+        name="rating"
+        options={{ headerShown: false, presentation: "modal" }}
       />
     </Stack>
   );
@@ -67,7 +78,6 @@ export default function RootLayout() {
   }, [language]);
 
   useEffect(() => {
-    // Mark loading=false once we've checked session — this unblocks index.tsx routing
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsAuthenticated(!!session?.user);
       setIsLoading(false);
@@ -82,7 +92,6 @@ export default function RootLayout() {
         setIsAuthenticated(false);
         setUser(null);
       }
-      // Always mark loading false after auth state resolves
       setIsLoading(false);
     });
 

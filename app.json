@@ -22,10 +22,12 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.teqil.app",
       "infoPlist": {
+        "NSFaceIDUsageDescription": "Teqil uses Face ID to sign you in quickly and securely.",
         "NSLocationWhenInUseUsageDescription": "Teqil needs your location to track trips and show your position on the map.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Teqil needs your location to track trips in the background.",
         "NSCameraUsageDescription": "Teqil needs camera access to take your profile photo.",
         "NSPhotoLibraryUsageDescription": "Teqil needs photo library access to select your profile photo."
+
       }
     },
     "android": {

@@ -107,3 +107,72 @@ export function isWithinRadius(
   const distance = R * c;
   return distance <= radiusMeters;
 }
+
+
+// ─── ADD to src/utils/helpers.ts ──────────────────────────────────────────────
+// These are additions to the existing file — paste them at the bottom.
+
+/**
+ * Generate a Driver ID from a display name + 4 random digits.
+ * "Emeka Obi" → "emeka_obi7832"
+ */
+export function generateDriverIdFromUsername(name: string): string {
+  const digits = Math.floor(1000 + Math.random() * 9000).toString();
+  const clean = name.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+  return `${clean || "driver"}${digits}`;
+}
+
+/**
+ * Generate an SVG-based initials avatar as a base64 data URI.
+ * Works as a React Native Image source: { uri: generateInitialsAvatar("John Doe") }
+ */
+export function generateInitialsAvatar(name: string): string {
+  const initials = name
+    .split(" ")
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "?";
+
+  const palette = [
+    "#00A651", "#3B82F6", "#F5A623", "#EF4444",
+    "#8B5CF6", "#EC4899", "#14B8A6", "#F97316",
+  ];
+  const color = palette[(name.charCodeAt(0) || 0) % palette.length];
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><rect width="100" height="100" rx="50" fill="${color}"/><text x="50" y="50" dy="0.35em" text-anchor="middle" fill="white" font-family="Arial,Helvetica,sans-serif" font-size="40" font-weight="bold">${initials}</text></svg>`;
+
+  try {
+    const encoded = btoa(unescape(encodeURIComponent(svg)));
+    return `data:image/svg+xml;base64,${encoded}`;
+  } catch {
+    // btoa may fail in some RN environments for non-ASCII — return empty string
+    // and let the caller fall back to a placeholder
+    return "";
+  }
+}
+
+/**
+ * Generate a strong random password: 12 chars, mixed case + digits + symbols.
+ */
+export function generateStrongPassword(): string {
+  const upper   = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower   = "abcdefghjkmnpqrstuvwxyz";
+  const digits  = "23456789";
+  const symbols = "!@#$%&*";
+  const all = upper + lower + digits + symbols;
+
+  const pick = (src: string) => src[Math.floor(Math.random() * src.length)];
+
+  // Guarantee at least one character from each category
+  const chars = [pick(upper), pick(lower), pick(digits), pick(symbols)];
+  for (let i = 0; i < 8; i++) chars.push(pick(all));
+
+  // Shuffle
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
+}

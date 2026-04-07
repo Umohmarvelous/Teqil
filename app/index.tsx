@@ -5,32 +5,27 @@ import { useAuthStore } from "@/src/store/useStore";
 import { Colors } from "@/constants/colors";
 
 export default function IndexScreen() {
-  const { isAuthenticated, isLoading, user } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
 
   useEffect(() => {
-    // Wait for the persisted store to rehydrate before routing
-    if (isLoading) return;
+    // if (isLoading) return;
 
     if (!isAuthenticated || !user) {
-      router.replace("/(auth)/welcome");
+      // First time or logged out — always go to login, not welcome
+      // Welcome is only for brand new users (handled in login screen with a
+      // "Don't have an account? Sign up" flow)
+      router.replace("/(main)");
       return;
     }
 
-    // Authenticated — go straight to their dashboard, bypass welcome entirely
-    if (user.role === "driver") {
-      if (!user.profile_complete) {
-        router.replace("/(auth)/driver-profile");
-      } else {
-        router.replace("/(driver)");
-      }
-    } else if (user.role === "passenger") {
-      router.replace("/(passenger)");
-    } else if (user.role === "park_owner") {
-      router.replace("/(park-owner)");
+    // Authenticated: drivers need profile completion first, everyone else
+    // goes to the unified (main) dashboard
+    if (user.role === "driver" && !user.profile_complete) {
+      router.replace("/(driver)");
     } else {
-      router.replace("/(auth)/welcome");
+      router.replace("/(main)");
     }
-  }, [isAuthenticated, isLoading, user]);
+  }, [isAuthenticated, user]);
 
   return (
     <View style={styles.container}>
