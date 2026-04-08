@@ -6,7 +6,6 @@ import {
   Text,
   Platform,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
@@ -20,6 +19,15 @@ import HomeTab from "./index";
 import ProfileTab from "./profile";
 import MessagesTab from "./messages";
 import SettingsTab from "./settings";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import {
+  HomeIcon,
+  Home01Icon,
+  SettingsIcon,
+  Settings01Icon,
+  MessageIcon,
+  Message01Icon,
+} from "@hugeicons/core-free-icons";
 
 type Tab = "home" | "profile" | "messages" | "settings";
 
@@ -35,7 +43,7 @@ export default function MainLayout() {
 
   const isDark = theme === "dark";
   const totalUnread = conversations.reduce((s, c) => s + c.unreadCount, 0);
-  const tabBarBg = isDark ? "#0D1117" : "#FFFFFF";
+  const tabBarBg = isDark ? "" : "#FFFFFF";
 
   const handleTabPress = (tab: Tab) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -86,8 +94,8 @@ export default function MainLayout() {
           {/* Home */}
           <TabItem
             id="home"
-            icon="home-outline"
-            iconActive="home"
+            activeIcon={HomeIcon}
+            inactiveIcon={Home01Icon}
             label="Home"
             active={activeTab === "home"}
             onPress={() => handleTabPress("home")}
@@ -133,8 +141,8 @@ export default function MainLayout() {
             onPress={() => handleTabPress("messages")}
           >
             <View style={{ position: "relative" }}>
-              <Ionicons
-                name={activeTab === "messages" ? "chatbubbles" : "chatbubbles-outline"}
+              <HugeiconsIcon
+                icon={activeTab === "messages" ? MessageIcon : Message01Icon}
                 size={24}
                 color={
                   activeTab === "messages"
@@ -176,8 +184,8 @@ export default function MainLayout() {
           {/* Settings */}
           <TabItem
             id="settings"
-            icon="settings-outline"
-            iconActive="settings"
+            activeIcon={SettingsIcon}
+            inactiveIcon={Settings01Icon}
             label="Settings"
             active={activeTab === "settings"}
             onPress={() => handleTabPress("settings")}
@@ -195,18 +203,19 @@ export default function MainLayout() {
   );
 }
 
+// Refactored TabItem to use Hugeicons components
 function TabItem({
   id,
-  icon,
-  iconActive,
+  activeIcon,
+  inactiveIcon,
   label,
   active,
   onPress,
   isDark,
 }: {
   id: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  iconActive: keyof typeof Ionicons.glyphMap;
+  activeIcon: any;      // Hugeicons icon component (filled)
+  inactiveIcon: any;    // Hugeicons icon component (outline)
   label: string;
   active: boolean;
   onPress: () => void;
@@ -220,7 +229,11 @@ function TabItem({
 
   return (
     <Pressable style={styles.tabItem} onPress={onPress}>
-      <Ionicons name={active ? iconActive : icon} size={24} color={color} />
+      <HugeiconsIcon
+        icon={active ? activeIcon : inactiveIcon}
+        size={24}
+        color={color}
+      />
       <Text
         style={[
           styles.tabLabel,

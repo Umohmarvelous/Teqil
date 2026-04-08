@@ -12,6 +12,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { TripsStorage } from "@/src/services/storage";
 import { Colors } from "@/constants/colors";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import { CancelCircleIcon, Search01Icon } from "@hugeicons/core-free-icons";
 
 interface SearchResult {
   type: "trip" | "driver";
@@ -33,9 +35,9 @@ export default function SearchBar({ isDark = false, onSelect }: SearchBarProps) 
   const dropdownHeight = useRef(new Animated.Value(0)).current;
   const inputRef = useRef<TextInput>(null);
 
-  const bg = isDark ? "#1A1A2E" : "#F4F6FA";
+  const bg = isDark ? "#1A1A2E" : Colors.overlayLight;
   const textColor = isDark ? "#F0F0F0" : "#0D1B3E";
-  const placeholderColor = isDark ? "#6B7280" : "#9CA3AF";
+  const placeholderColor = isDark ? "#6B7280" : "#fff";
   const dropdownBg = isDark ? "#161B22" : "#FFFFFF";
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
@@ -93,13 +95,14 @@ export default function SearchBar({ isDark = false, onSelect }: SearchBarProps) 
 
   return (
     <View style={styles.wrapper}>
+      <HugeiconsIcon icon={Search01Icon} size={18} color={focused ? Colors.primary : '#fff'} />
       <View
         style={[
           styles.container,
-          { backgroundColor: bg, borderColor: focused ? Colors.primary : borderColor },
+          { backgroundColor: bg, borderColor: focused ? Colors.primary : "transparent" },
         ]}
       >
-        <Ionicons name="search-outline" size={18} color={focused ? Colors.primary : placeholderColor} />
+        {/* <Ionicons name="search-outline" size={18} color={focused ? Colors.primary : placeholderColor} /> */}
         <TextInput
           ref={inputRef}
           style={[styles.input, { color: textColor }]}
@@ -120,7 +123,7 @@ export default function SearchBar({ isDark = false, onSelect }: SearchBarProps) 
         />
         {query.length > 0 && (
           <Pressable onPress={handleClear} hitSlop={8}>
-            <Ionicons name="close-circle" size={22} color={placeholderColor} />
+            <HugeiconsIcon icon={CancelCircleIcon} size={22} color={placeholderColor} />
           </Pressable>
         )}
       </View>
@@ -214,11 +217,18 @@ const styles = StyleSheet.create({
   wrapper: {
     position: "relative",
     zIndex: 100,
+    flexDirection: 'row',
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginVertical: 10,
+    paddingHorizontal: 20,
+
   },
   container: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
     borderRadius: 66,
     paddingHorizontal: 14,
     paddingVertical: 11,
@@ -228,7 +238,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
-    padding: 0,
+    padding: 10,
   },
   dropdown: {
     position: "absolute",

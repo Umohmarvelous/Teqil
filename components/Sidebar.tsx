@@ -18,6 +18,9 @@ import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import Avatar from "@/components/Avatar";
 import { Colors } from "@/constants/colors";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import { Cancel, ChevronRight, Light,  Moon02Icon, MoreHorizontalCircleIcon } from "@hugeicons/core-free-icons";
+
 
 const SIDEBAR_WIDTH = 350;
 
@@ -160,11 +163,12 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
     : navItems;
 
   const isDark = theme === "dark";
-  const bg = isDark ? "#0D1117" : "#FFFFFF";
-  const textColor = isDark ? "#F0F0F0" : "#0D1B3E";
-  const subColor = isDark ? "#6B7280" : "#9CA3AF";
-  const itemBg = isDark ? "#161B22" : "#F4F6FA";
-  const dividerColor = isDark ? "rgba(255,255,255,0.06)" : "#E8ECF0";
+  const bg = isDark ? "#000e0a" : Colors.primary;
+  const container = isDark ? Colors.overlay : Colors.overlayLight
+  const textColor = isDark ? Colors.textInverse : Colors.text;
+  const subColor = isDark ? "#9CA3AF" : "#000";
+  const itemBg = isDark ? Colors.primaryDark : Colors.overlayLight;
+  const dividerColor = isDark ? "rgba(255,255,255,0.06)" : "#2A7B3E";
 
   if (!visible) return null;
 
@@ -199,11 +203,11 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
               size={54}
             />
             <View style={styles.drawerRightIcon}>
-              <Pressable style={styles.menuList}>
-                <Ionicons name="list-sharp" size={20} color={"#000"} />
+              <Pressable style={[styles.menuList]}>
+                <HugeiconsIcon icon={MoreHorizontalCircleIcon}  size={20} color={"#000"}  />
               </Pressable>
               <Pressable onPress={onClose} style={styles.closeBtn}>
-                <Ionicons name="close" size={20} color={"#000"} />
+                <HugeiconsIcon icon={Cancel}  size={20} color={"#000"}  />
               </Pressable>
             </View>
           </View>
@@ -223,15 +227,19 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
         <View style={[styles.divider, { backgroundColor: dividerColor }]} />
 
         {/* Dark mode toggle */}
-        <View style={[styles.darkModeRow, { backgroundColor: itemBg }]}>
+        <View style={[styles.darkModeRow,
+          { backgroundColor: itemBg }
+        ]}>
           <View style={styles.darkModeLeft}>
-            <Ionicons
+            {/* <Ionicons
               name={isDark ? "moon" : "sunny-outline"}
               size={18}
               color={isDark ? "#60A5FA" : Colors.gold}
-            />
+            /> */}
+            <HugeiconsIcon icon={isDark ? Moon02Icon : Light}  size={24}   color={isDark ? "#fff" : '#000'}/>
+
             <Text style={[styles.darkModeText, { color: textColor }]}>
-              Dark Mode
+              {isDark ? 'Dark Mode' : 'Light Mode'}
             </Text>
           </View>
           <Switch
@@ -240,8 +248,8 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setTheme(val ? "dark" : "light");
             }}
-            trackColor={{ false: "#E5E7EB", true: Colors.primary + "60" }}
-            thumbColor={isDark ? Colors.primary : "#fff"}
+            trackColor={{ false: "#E5E7EB", true: Colors.surface + "50" }}
+            thumbColor={isDark ? Colors.surface : "#000"}
           />
         </View>
 
@@ -278,6 +286,7 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
                     size={18}
                     color={item.danger ? "#EF4444" : Colors.primary}
                   />
+                
                 </View>
                 <Text
                   style={[
@@ -294,18 +303,17 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
                     <Text style={styles.badgeText}>{item.badge}</Text>
                   </View>
                 ) : (
-                  <Ionicons
-                    name="chevron-forward"
+                  <HugeiconsIcon
+                    icon={ChevronRight}
                     size={14}
                     color={subColor}
-                    style={styles.navChevron}
-                  />
+                    style={styles.navChevron} />
                 )}
               </Pressable>
             ))}
           </ScrollView>
         ) : (
-          <View style={styles.signInContainer}>
+          <View style={[styles.signInContainer, { backgroundColor: container }]}>
             <Text style={[styles.signInText, { color: textColor }]}>
               You are signed in as {user?.full_name || "User"}
             </Text>
@@ -315,7 +323,7 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
             <Pressable
               style={({ pressed }) => [
                 styles.signInButton,
-                { backgroundColor: Colors.primary },
+                { backgroundColor: 'transparent' },
                 pressed && { opacity: 0.8 },
               ]}
               onPress={() => {
@@ -358,6 +366,7 @@ const styles = StyleSheet.create({
     elevation: 20,
     borderTopRightRadius: 30,
     borderBottomRightRadius: 30,
+    paddingHorizontal: 10
   },
   drawerHeader: {
     paddingHorizontal: 20,
@@ -367,7 +376,7 @@ const styles = StyleSheet.create({
   headerTop: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     marginBottom: 10,
   },
   drawerRightIcon: {
@@ -399,15 +408,16 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     marginHorizontal: 20,
-    marginVertical: 8,
+    marginVertical: 15,
+    marginTop: 5
   },
   darkModeRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginHorizontal: 16,
-    borderRadius: 14,
-    paddingHorizontal: 14,
+    marginHorizontal: 20,
+    borderRadius: 24,
+    paddingHorizontal: 20,
     paddingVertical: 12,
     marginBottom: 8,
   },
@@ -466,14 +476,32 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_400Regular",
     fontSize: 11,
     textAlign: "center",
-    paddingBottom: 8,
+    // marginBottom: 38,
+    // marginHorizontal: 4,
+    justifyContent: 'flex-end',
+    alignSelf: 'center',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    // backgroundColor: Colors.overlayLight,
+    padding: 30,
+    // borderRadius: 20,
+    opacity: .42,
+    // borderWidth: 1,
+    // borderColor: Colors.textInverse
   },
   signInContainer: {
-    flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 24,
     paddingVertical: 32,
+    // backgroundColor: Colors.primary,
+    borderRadius: 20,
+    marginHorizontal: 20,
+    marginTop: 30,
+    borderWidth: .4,
+    borderColor: Colors.primaryLight
   },
   signInText: {
     fontFamily: "Poppins_600SemiBold",

@@ -455,7 +455,7 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.pageHeaderContainer}>
-          <Text style={styles.pageTitle}>Welcome back</Text>
+          <Text style={styles.pageTitle}>SignIn</Text>
           <Text style={styles.pageSubtitle}>Sign in to continue your journey</Text>
         </View>
 

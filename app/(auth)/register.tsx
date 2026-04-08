@@ -671,16 +671,16 @@ export default function RegisterScreen() {
     [role, router]
   );
 
-  const goBack = () => router.push('/(auth)/login');
+  // const goBack = () => router.push('/(auth)/login');
   const goToLogin = () => router.replace("/(auth)/login");
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={goBack} style={styles.backBtn} hitSlop={{ top: 100, bottom: 10, left: 10, right: 10 }}>
+        {/* <TouchableOpacity onPress={goBack} style={styles.backBtn} hitSlop={{ top: 100, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="arrow-back" size={22} color={Colors.primaryLight} />
           <Text style={styles.backText}>Back to Login</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
 
       <KeyboardAwareScrollViewCompat
