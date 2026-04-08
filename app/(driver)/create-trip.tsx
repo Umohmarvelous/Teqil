@@ -144,6 +144,13 @@ export default function CreateTripScreen() {
   };
 
   const handleCreate = async () => {
+    // Guard: user must be logged in
+    if (!user) {
+      Alert.alert("Not logged in", "Please sign in to create a trip.");
+      router.replace("/(auth)/login");
+      return;
+    }
+
     if (!validate()) return;
 
     btnScale.value = withSpring(0.95, { damping: 20 }, () => {
@@ -156,7 +163,7 @@ export default function CreateTripScreen() {
     const tripCode = generateTripCode();
     const trip: Trip = {
       id: generateId(),
-      driver_id: user!.id,
+      driver_id: user.id,               // user is guaranteed non‑null here
       trip_code: tripCode,
       origin: origin.trim(),
       destination: destination.trim(),
@@ -164,8 +171,6 @@ export default function CreateTripScreen() {
       capacity: Number(capacity),
       status: "active",
       created_at: new Date().toISOString(),
-      // Syncable fields – storage.save() will stamp these, but TypeScript
-      // requires them on the type so we provide safe defaults here.
       synced: false,
       updated_at: new Date().toISOString(),
     };
@@ -174,16 +179,29 @@ export default function CreateTripScreen() {
       await TripsStorage.save(trip);
       setActiveTrip(trip);
 
-      // Fire-and-forget sync; we don't block navigation on it.
+      // Fire‑and‑forget sync
       if (user) {
         syncAll({ id: user.id, role: user.role, park_name: user.park_name }).catch(
-          () => {/* device is offline – sync will retry when back online */}
+          (err) => console.warn("Sync failed (offline):", err)
         );
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.push(`/live-trip/${tripCode}`);
-    } catch {
+
+      // --- FIX: Safe navigation to live-trip/[code] ---
+      // Ensure the route exists. If not, the error will be caught.
+      try {
+        await router.push(`/live-trip-code/${tripCode}`);
+      } catch (navError) {
+        console.error("Navigation error:", navError);
+        Alert.alert(
+          "Navigation Error",
+          "Could not navigate to the live trip screen. The trip was created successfully.",
+          [{ text: "OK", onPress: () => router.back() }]
+        );
+      }
+    } catch (err) {
+      console.error("Trip creation error:", err);
       Alert.alert("Error", "Could not create trip. Please try again.");
     } finally {
       setIsLoading(false);
@@ -194,7 +212,7 @@ export default function CreateTripScreen() {
 
   return (
     <View style={styles.screen}>
-      {/* ── Header ── */}
+      {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={22} color="#000000" />
@@ -210,7 +228,7 @@ export default function CreateTripScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={pageStyle}>
-          {/* ── Hero label ── */}
+          {/* Hero label */}
           <View style={styles.heroRow}>
             <View style={styles.heroDot} />
             <Text style={styles.heroLabel}>
@@ -218,7 +236,7 @@ export default function CreateTripScreen() {
             </Text>
           </View>
 
-          {/* ── Route card ── */}
+          {/* Route card */}
           <View style={styles.card}>
             <Text style={styles.cardHeading}>Route</Text>
             <View style={styles.routeVisual}>
@@ -250,7 +268,7 @@ export default function CreateTripScreen() {
             </View>
           </View>
 
-          {/* ── Trip details card ── */}
+          {/* Trip details card */}
           <View style={[styles.card, styles.cardMt]}>
             <Text style={styles.cardHeading}>Trip Details</Text>
             <AnimatedInput
@@ -273,7 +291,7 @@ export default function CreateTripScreen() {
             />
           </View>
 
-          {/* ── Info banner ── */}
+          {/* Info banner */}
           <View style={styles.infoBanner}>
             <Ionicons name="information-circle" size={16} color={Colors.primary} />
             <Text style={styles.infoText}>
@@ -281,7 +299,7 @@ export default function CreateTripScreen() {
             </Text>
           </View>
 
-          {/* ── Submit button ── */}
+          {/* Submit button */}
           <Animated.View style={[styles.btnWrapper, btnStyle]}>
             <Pressable
               style={({ pressed }) => [
@@ -306,7 +324,7 @@ export default function CreateTripScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Styles (unchanged) ──────────────────────────────────────────────────────
 
 const INPUT_BG = "#2C2C2E";
 
