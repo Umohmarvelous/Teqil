@@ -14,7 +14,7 @@ export default function IndexScreen() {
       // First time or logged out — always go to login, not welcome
       // Welcome is only for brand new users (handled in login screen with a
       // "Don't have an account? Sign up" flow)
-      router.replace("/(main)");
+      router.replace("/_sitemap");
       return;
     }
 
@@ -23,7 +23,7 @@ export default function IndexScreen() {
     if (user.role === "driver" && !user.profile_complete) {
       router.replace("/(driver)");
     } else {
-      router.replace("/(main)");
+      router.replace("/_sitemap");
     }
   }, [isAuthenticated, user]);
 

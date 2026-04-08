@@ -179,7 +179,7 @@ export default function ProfileTab() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: bg }]}>
+    <ScrollView style={[styles.root, { backgroundColor: bg }]}>
       {/* Hero Section */}
       <View style={ [styles.profileHeader, { marginTop: topPadding + 16 }]}>
         <Pressable>
@@ -414,7 +414,7 @@ export default function ProfileTab() {
           </View>
         </View>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
