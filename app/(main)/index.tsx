@@ -22,8 +22,14 @@ import SearchBar from "@/components/SearchBar";
 import Avatar from "@/components/Avatar";
 import type { Trip } from "@/src/models/types";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { Car02Icon, CheckmarkCircle01Icon, CoinsSwapIcon, Menu02Icon, Navigation01Icon } from "@hugeicons/core-free-icons";
+import { Car02Icon, CheckmarkCircle01Icon, Menu02Icon, Navigation01Icon } from "@hugeicons/core-free-icons";
 import { StatusBar } from "expo-status-bar";
+import QuickTransferModal from "@/components/QuickTransferModal";
+import { Ionicons } from "@expo/vector-icons";
+import ActionTile from "@/components/ActionTile";
+import { FB } from "@/constants/fbPalette";
+import { LinearGradient } from "expo-linear-gradient";
+
 
 interface HomeTabProps {
   onOpenSidebar: () => void;
@@ -52,9 +58,44 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
   const [quickTransferVisible, setQuickTransferVisible] = useState(false);
 
-
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   // const coins = user?.points_balance || 0;
+
+  // Define actions
+  const ACTIONS = [
+  
+    { id: "pay",    icon: "swap-horizontal-outline" as const,       label: "Pay",   color: Colors.border },
+    { id: "find",    icon: "search-outline" as const,       label: "Find Trip",   color: Colors.border },
+    { id: "history", icon: "time-outline" as const,         label: "History",     color: Colors.border },
+    { id: "qr",      icon: "qr-code-outline" as const,      label: "Scan QR",     color: Colors.border },
+    { id: "share",   icon: "share-social-outline" as const, label: "Share Trip",  color: Colors.border },
+    { id: "sos",     icon: "warning-outline" as const,      label: "Emergency",   color: Colors.border   },
+  ];
+
+  const handleAction = (id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    switch (id) {
+      case "pay":
+        setQuickTransferVisible(true)
+        break;
+      case "find":
+        router.push("/(passenger)/find-trip");
+        break;
+      case "history":
+        router.push("/(passenger)/history");
+        break;
+      case "qr":
+        router.push("/(auth)/pay-fare");
+        break;
+      case "share":
+        Alert.alert("Share Trip", "Share your live trip link with family or friends from the live trip screen.");
+        break;
+      case "sos":
+        Alert.alert("Emergency SOS", "SOS is available during a live trip. Start or join a trip to activate it.");
+        break;
+    }
+  };
+
 
   const loadTrips = useCallback(async () => {
     if (!user?.id) return;
@@ -102,12 +143,12 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
   //   }
   // };
 
-  const quickActionLabel =
-    user?.role === "driver"
-      ? "Start Trip"
-      : user?.role === "passenger"
-      ? "Find Trip"
-      : "Broadcast";
+  // const quickActionLabel =
+  //   user?.role === "driver"
+  //     ? "Start Trip"
+  //     : user?.role === "passenger"
+  //     ? "Find Trip"
+  //     : "Broadcast";
 
   return (
     <View style={[styles.root, { backgroundColor: bg }]}>
@@ -160,13 +201,34 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
           />
         }
       >
+
+
+
+
         {/* Balance card (commented out in original, but we keep it optionally) */}
-          <Pressable
-            style={styles.notifBtn}
-            onPress={() => setQuickTransferVisible(true)}
-          >
-          <HugeiconsIcon icon={ CoinsSwapIcon} size={20} color="#fff" />
-          </Pressable>
+        {/* .../////////////////// */}
+
+        <View style={[styles.iconsContainer,
+          // { backgroundColor: borderColor }
+        ]}>
+          
+          {/* Actions Section */}
+          {ACTIONS.map((action) => (
+            <ActionTile
+              key={action.id}
+              icon={action.icon}
+              label={action.label}
+              color={action.color}
+              onPress={() => handleAction(action.id)}
+            />
+          ))}
+          
+        </View>
+
+        {/* { // ///////////////////} */}
+
+
+
 
         {/* Role-specific shortcuts */}
         {user?.role === "driver" && (
@@ -190,7 +252,7 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
                   }}
                 >
                   <View style={[styles.shortcutIcon, { backgroundColor: Colors.primaryLight }]}>
-                    {/* <HugeiconsIcon icon={item.icon as any} size={20} color={Colors.primary} /> */}
+                  
                   </View>
                   <Text style={[styles.shortcutLabel, { color: subTextColor }]}>
                     {item.label}
@@ -298,7 +360,8 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
           </View>
         )}
 
-        {/* Empty state */}
+        {
+        /* Empty state */}
         {recentTrips.length === 0 && (
           <View style={[styles.card, { backgroundColor: cardBg, borderColor, alignItems: "center", paddingVertical: 32 }]}>
             <HugeiconsIcon icon={Car02Icon} size={40} color={subTextColor} />
@@ -312,16 +375,29 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
             </Text>
           </View>
         )}
+        <View style={styles.promoBanner}>
+          <LinearGradient
+            colors={[FB.green, "#007A3D"]}
+            style={styles.promoGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <View style={styles.promoText}>
+              <Text style={styles.promoTitle}>Travel Safe, Always</Text>
+              <Text style={styles.promoSub}>
+                Add emergency contacts before joining a trip
+              </Text>
+            </View>
+            <Ionicons name="shield-checkmark" size={36} color="rgba(255,255,255,0.4)" />
+          </LinearGradient>
+        </View>
+          
       </ScrollView>
 
-
-
-        {/* Quick Transfer Modal */}
       <QuickTransferModal
         visible={quickTransferVisible}
         onClose={() => setQuickTransferVisible(false)}
       />
-
     </View>
   );
 }
@@ -359,15 +435,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   searchWrap: { zIndex: 100 },
-  scrollContent: { paddingHorizontal: 34, paddingTop: 24, gap: 14 },
-  notifBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    alignItems: "center",
-    justifyContent: "center",
+  scrollContent: { paddingHorizontal: 20, paddingTop: 24, gap: 14 },
+  iconsContainer: {
+    paddingVertical: 15,
+    paddingHorizontal: 35,
+    borderRadius: 30,
+    flexDirection: 'row', 
+    alignContent: 'center', 
+    justifyContent: 'space-between', 
+    gap: 40, 
+    flex:1,
+    flexWrap: 'wrap' 
   },
+
   card: {
     borderRadius: 30,
     paddingHorizontal: 48,
@@ -391,4 +471,20 @@ const styles = StyleSheet.create({
   divider: { height: 1, marginHorizontal: -18 },
   emptyText: { fontFamily: "Poppins_600SemiBold", fontSize: 16, marginTop: 10 },
   emptySub: { fontFamily: "Poppins_400Regular", fontSize: 13, textAlign: "center", marginTop: 4, lineHeight: 20 },
+  promoBanner: { marginHorizontal: 16, marginTop: 16, borderRadius: 18, overflow: "hidden" },
+  promoGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 20,
+    gap: 16,
+  },
+  promoText: { flex: 1 },
+  promoTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 15, color: "#fff" },
+  promoSub: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    color: "rgba(255,255,255,0.7)",
+    lineHeight: 18,
+    marginTop: 2,
+  },
 });

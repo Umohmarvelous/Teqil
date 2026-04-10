@@ -1,9 +1,9 @@
 // components/ActionTile.tsx
 import React, { useRef } from "react";
-import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
+import { View, Text, StyleSheet, Pressable, Animated,Dimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { FB } from "@/constants/fbPalette";
-import { Dimensions } from "react-native";
+import { Colors } from "@/constants/colors";
 
 const { width: W } = Dimensions.get("window");
 
@@ -36,7 +36,7 @@ export default function ActionTile({ icon, label, color, onPress }: ActionTilePr
   };
 
   return (
-    <Animated.View style={[styles.actionTile, { transform: [{ scale }] }]}>
+    <Animated.View style={styles.actionTile}>
       <Pressable
         onPress={onPress}
         onPressIn={animateIn}
@@ -44,7 +44,7 @@ export default function ActionTile({ icon, label, color, onPress }: ActionTilePr
         style={styles.actionTileInner}
       >
         <View style={[styles.actionIconWrap, { backgroundColor: color + "18" }]}>
-          <Ionicons name={icon} size={22} color={color} />
+          <Ionicons name={icon} size={26} color={color} />
         </View>
         <Text style={styles.actionLabel}>{label}</Text>
       </Pressable>
@@ -54,20 +54,27 @@ export default function ActionTile({ icon, label, color, onPress }: ActionTilePr
 
 const styles = StyleSheet.create({
   actionTile: {
-    width: (W - 32 - 36 - 24) / 3,
+    // width: (W - 32 - 36 - 24) / 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1
   },
-  actionTileInner: { alignItems: "center", gap: 8 },
+  actionTileInner: {
+    alignItems: "center",
+    justifyContent: 'center',
+    gap:6
+  },
   actionIconWrap: {
-    width: 54,
-    height: 54,
-    borderRadius: 16,
+    width: 55,
+    height: 55,
+    borderRadius: 56,
     alignItems: "center",
     justifyContent: "center",
   },
   actionLabel: {
     fontFamily: "Poppins_500Medium",
     fontSize: 11,
-    color: FB.textPrimary,
+    color: Colors.textWhite,
     textAlign: "center",
     lineHeight: 16,
   },

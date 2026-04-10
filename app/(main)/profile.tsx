@@ -42,6 +42,7 @@ import { StatusBar } from "expo-status-bar";
 import { ca } from "zod/v4/locales";
 import { text } from "drizzle-orm/mysql-core";
 import PassengerDashboard from "../(passenger)";
+import BalanceCard from "@/components/BalanceCard";
 
 // Reusable InfoRow with Hugeicons
 function InfoRow({
@@ -212,7 +213,14 @@ export default function ProfileTab() {
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <PassengerDashboard/>
+          <PassengerDashboard />
+          {/* <BalanceCard
+              coins={coins}
+              balanceHidden={balanceHidden}
+
+              onToggleHide={() => setBalanceHidden(v => !v)}
+              // onQuickTransferPress={() => setQuickTransferVisible(true)}
+          /> */}
           {/* Personal Information */}
           <Text style={[styles.cardTitle, { color: textColor }]}>Personal Information</Text>
           <View style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
