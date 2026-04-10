@@ -43,7 +43,7 @@ export default function MainLayout() {
 
   const isDark = theme === "dark";
   const totalUnread = conversations.reduce((s, c) => s + c.unreadCount, 0);
-  const tabBarBg = isDark ? "" : "#FFFFFF";
+  const tabBarBg = isDark ? Colors.primaryDarker : Colors.textWhite;
 
   const handleTabPress = (tab: Tab) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -70,13 +70,13 @@ export default function MainLayout() {
           styles.tabBar,
           {
             height: TAB_HEIGHT + Math.max(insets.bottom, 16),
-            backgroundColor: Platform.OS === "ios" ? "transparent" : tabBarBg,
+            backgroundColor: Platform.OS === "ios" ? tabBarBg : tabBarBg,
           },
         ]}
       >
         {Platform.OS === "ios" && (
           <BlurView
-            intensity={90}
+            intensity={0}
             tint={isDark ? "dark" : "light"}
             style={StyleSheet.absoluteFillObject}
           />
@@ -86,7 +86,7 @@ export default function MainLayout() {
         <View
           style={[
             styles.tabBarBorder,
-            { backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "#E8ECF0" },
+            // { backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "#E8ECF0" },
           ]}
         />
 

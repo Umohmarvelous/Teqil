@@ -22,36 +22,39 @@ import SearchBar from "@/components/SearchBar";
 import Avatar from "@/components/Avatar";
 import type { Trip } from "@/src/models/types";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { Car02Icon, Menu02Icon } from "@hugeicons/core-free-icons";
+import { Car02Icon, CheckmarkCircle01Icon, CoinsSwapIcon, Menu02Icon, Navigation01Icon } from "@hugeicons/core-free-icons";
+import { StatusBar } from "expo-status-bar";
 
 interface HomeTabProps {
   onOpenSidebar: () => void;
 }
 
-const GREETINGS = ["Good morning", "Good afternoon", "Good evening"];
-function getGreeting() {
-  const h = new Date().getHours();
-  if (h < 12) return GREETINGS[0];
-  if (h < 18) return GREETINGS[1];
-  return GREETINGS[2];
-}
+// const GREETINGS = ["Good morning", "Good afternoon", "Good evening"];
+// function getGreeting() {
+//   const h = new Date().getHours();
+//   if (h < 12) return GREETINGS[0];
+//   if (h < 18) return GREETINGS[1];
+//   return GREETINGS[2];
+// }
 
 export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
   const insets = useSafeAreaInsets();
-  const { user, updateUser } = useAuthStore();
+  const { user } = useAuthStore();
   const { theme } = useSettingsStore();
   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const isDark = theme === "dark";
-  const bg = isDark ? "#000" : Colors.surfaceSecondary;
-  const cardBg = isDark ? "#161B22" : "#FFFFFF";
-  const textColor = isDark ? Colors.textInverse : Colors.text;
-  const subColor = isDark ? "#9CA3AF" : "#000";
-  const borderColor = isDark ? "rgba(255,255,255,0.06)" : "#E8ECF0";
+  const bg = isDark ? Colors.background : Colors.border;
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+  const [quickTransferVisible, setQuickTransferVisible] = useState(false);
+
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
-  const coins = user?.points_balance || 0;
+  // const coins = user?.points_balance || 0;
 
   const loadTrips = useCallback(async () => {
     if (!user?.id) return;
@@ -80,24 +83,24 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
     setRefreshing(false);
   }, [loadTrips]);
 
-  const handleQuickAction = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    const role = user?.role;
-    if (role === "driver") {
-      if (!user?.profile_complete) {
-        Alert.alert("Profile Required", "Complete your driver profile first.", [
-          { text: "Complete Now", onPress: () => router.push("/(auth)/driver-profile") },
-          { text: "Cancel", style: "cancel" },
-        ]);
-        return;
-      }
-      router.push("/(driver)/create-trip");
-    } else if (role === "passenger") {
-      router.push("/(passenger)/find-trip");
-    } else if (role === "park_owner") {
-      Alert.alert("Broadcast", "Go to the Park Owner dashboard to send broadcasts.");
-    }
-  };
+  // const handleQuickAction = () => {
+  //   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  //   const role = user?.role;
+  //   if (role === "driver") {
+  //     if (!user?.profile_complete) {
+  //       Alert.alert("Profile Required", "Complete your driver profile first.", [
+  //         { text: "Complete Now", onPress: () => router.push("/(auth)/driver-profile") },
+  //         { text: "Cancel", style: "cancel" },
+  //       ]);
+  //       return;
+  //     }
+  //     router.push("/(driver)/create-trip");
+  //   } else if (role === "passenger") {
+  //     router.push("/(passenger)/find-trip");
+  //   } else if (role === "park_owner") {
+  //     Alert.alert("Broadcast", "Go to the Park Owner dashboard to send broadcasts.");
+  //   }
+  // };
 
   const quickActionLabel =
     user?.role === "driver"
@@ -108,19 +111,22 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
 
   return (
     <View style={[styles.root, { backgroundColor: bg }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'}  />
+
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header,  { backgroundColor: cardBg }]}>
         <View style={[styles.headerImage, { paddingTop: topPadding + 2 }]}>
 
           {/* Logo Image – now pressable to refresh */}
           <Pressable onPress={onOpenSidebar} style={styles.menuBtn}>
-            <HugeiconsIcon icon={Menu02Icon} size={22} color={"#fff"} />
+            <HugeiconsIcon icon={Menu02Icon} size={22} color={ textColor } />
           </Pressable>
           <Pressable onPress={onRefresh} style={styles.logoBtn}>
             <Image
-              source={require("@/assets/images/Black_logo_with_black_background_linkedIn00000024.png")}
+              source={require("@/assets/images/Black_logo_with_white_background.png")}
               style={styles.photoImg} 
-              resizeMode="contain"
+              resizeMode="cover"
+              width={140}
             />
           </Pressable>
 
@@ -155,7 +161,12 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
         }
       >
         {/* Balance card (commented out in original, but we keep it optionally) */}
-        {/* ... */}
+          <Pressable
+            style={styles.notifBtn}
+            onPress={() => setQuickTransferVisible(true)}
+          >
+          <HugeiconsIcon icon={ CoinsSwapIcon} size={20} color="#fff" />
+          </Pressable>
 
         {/* Role-specific shortcuts */}
         {user?.role === "driver" && (
@@ -179,9 +190,9 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
                   }}
                 >
                   <View style={[styles.shortcutIcon, { backgroundColor: Colors.primaryLight }]}>
-                    <HugeiconsIcon icon={item.icon as any} size={20} color={Colors.primary} />
+                    {/* <HugeiconsIcon icon={item.icon as any} size={20} color={Colors.primary} /> */}
                   </View>
-                  <Text style={[styles.shortcutLabel, { color: subColor }]}>
+                  <Text style={[styles.shortcutLabel, { color: subTextColor }]}>
                     {item.label}
                   </Text>
                 </Pressable>
@@ -214,7 +225,7 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
                   <View style={[styles.shortcutIcon, { backgroundColor: Colors.primaryLight }]}>
                     <HugeiconsIcon icon={item.icon as any} size={20} color={Colors.primary} />
                   </View>
-                  <Text style={[styles.shortcutLabel, { color: subColor }]}>
+                  <Text style={[styles.shortcutLabel, { color: subTextColor }]}>
                     {item.label}
                   </Text>
                 </Pressable>
@@ -244,7 +255,7 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
                     ]}
                   >
                     <HugeiconsIcon
-                      icon={trip.status === "completed" ? "checkmark-circle-outline" : "navigate-outline"}
+                      icon={trip.status === "completed" ? CheckmarkCircle01Icon : Navigation01Icon}
                       size={18}
                       color={trip.status === "completed" ? Colors.primary : Colors.gold}
                     />
@@ -253,7 +264,7 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
                     <Text style={[styles.tripRoute, { color: textColor }]} numberOfLines={1}>
                       {trip.origin} → {trip.destination}
                     </Text>
-                    <Text style={[styles.tripDate, { color: subColor }]}>
+                    <Text style={[styles.tripDate, { color: subTextColor }]}>
                       {formatDate(trip.created_at)} · {trip.trip_code}
                     </Text>
                   </View>
@@ -290,11 +301,11 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
         {/* Empty state */}
         {recentTrips.length === 0 && (
           <View style={[styles.card, { backgroundColor: cardBg, borderColor, alignItems: "center", paddingVertical: 32 }]}>
-            <HugeiconsIcon icon={Car02Icon} size={40} color={subColor} />
-            <Text style={[styles.emptyText, { color: subColor }]}>
+            <HugeiconsIcon icon={Car02Icon} size={40} color={subTextColor} />
+            <Text style={[styles.emptyText, { color: subTextColor }]}>
               No trips yet
             </Text>
-            <Text style={[styles.emptySub, { color: subColor }]}>
+            <Text style={[styles.emptySub, { color: subTextColor }]}>
               {user?.role === "driver"
                 ? "Tap 'Start Trip' to create your first trip"
                 : "Tap 'Find Trip' to join a trip"}
@@ -302,6 +313,15 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
           </View>
         )}
       </ScrollView>
+
+
+
+        {/* Quick Transfer Modal */}
+      <QuickTransferModal
+        visible={quickTransferVisible}
+        onClose={() => setQuickTransferVisible(false)}
+      />
+
     </View>
   );
 }
@@ -310,7 +330,6 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   header: {
     gap: 19,
-    backgroundColor: Colors.primary,
     paddingHorizontal: 20,
     paddingBottom: 20,
     flexDirection: 'column',
@@ -341,6 +360,14 @@ const styles = StyleSheet.create({
   },
   searchWrap: { zIndex: 100 },
   scrollContent: { paddingHorizontal: 34, paddingTop: 24, gap: 14 },
+  notifBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   card: {
     borderRadius: 30,
     paddingHorizontal: 48,

@@ -28,18 +28,20 @@ import {
   BuildingIcon,
   LocationIcon,
   LogoutIcon,
-  CameraIcon,
   AddCircleIcon,
   Edit,
   IdentityCardIcon,
   Close,
   Camera01Icon,
-  Camera02Icon,
   Search01Icon,
   QrCode01Icon,
+  Edit02Icon,
 } from "@hugeicons/core-free-icons";
 import type { EmergencyContact } from "@/src/models/types";
+import { StatusBar } from "expo-status-bar";
 import { ca } from "zod/v4/locales";
+import { text } from "drizzle-orm/mysql-core";
+import PassengerDashboard from "../(passenger)";
 
 // Reusable InfoRow with Hugeicons
 function InfoRow({
@@ -49,7 +51,7 @@ function InfoRow({
   editable,
   onEdit,
   textColor,
-  subColor,
+  subTextColor,
   borderColor,
 }: {
   icon: any;
@@ -58,23 +60,25 @@ function InfoRow({
   editable?: boolean;
   onEdit?: () => void;
   textColor: string;
-  subColor: string;
+  subTextColor: string;
   borderColor: string;
-}) {
+  }) {
+
+
   return (
     <View style={[infoStyles.row, { borderBottomColor: borderColor }]}>
       <View style={[infoStyles.iconBox]}>
-        <HugeiconsIcon icon={icon} size={20} color={Colors.primary} />
+        <HugeiconsIcon icon={icon} size={20} color={textColor} />
       </View>
       <View style={infoStyles.textBlock}>
-        <Text style={[infoStyles.label, { color: subColor }]}>{label}</Text>
-        <Text style={[infoStyles.value, { color: textColor }]} numberOfLines={1}>
+        <Text style={[infoStyles.label, { color: textColor }]}>{label}</Text>
+        <Text style={[infoStyles.value, { color: subTextColor }]} numberOfLines={1}>
           {value || "—"}
         </Text>
       </View>
       {editable && (
         <Pressable onPress={onEdit} hitSlop={8}>
-          <HugeiconsIcon icon={ Edit} size={18} color={Colors.primary} />
+          <HugeiconsIcon icon={ Edit02Icon } size={18} color={Colors.primary} />
         </Pressable>
       )}
     </View>
@@ -112,11 +116,11 @@ export default function ProfileTab() {
   const [newContactPhone, setNewContactPhone] = useState("");
 
   const isDark = theme === "dark";
-  const bg = isDark ? "#000" : "#F8F9FC";
-  const cardBg = isDark ? "#13131390" : "#FFFFFF";
-  const textColor = isDark ? Colors.primary : Colors.primaryDark;
-  const subColor = isDark ? "#9CA3AF" : "#6B7280";
-  const borderColor = isDark ? "rgba(255,255,255,0.06)" : "#E8ECF0";
+  const bg = isDark ? Colors.background : Colors.border;
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   const pickPhoto = async () => {
@@ -180,215 +184,220 @@ export default function ProfileTab() {
 
   return (
     <ScrollView style={[styles.root, { backgroundColor: bg }]}>
-      {/* Hero Section */}
-      <View style={ [styles.profileHeader, { marginTop: topPadding + 16 }]}>
-        <Pressable>
-          <HugeiconsIcon icon={Search01Icon} size={24} color={ Colors.primary } />
-        </Pressable>
-        <Pressable>
-          <HugeiconsIcon icon={QrCode01Icon} size={24} color={ Colors.primary } />
-        </Pressable>
-      </View>
-      <View style={[styles.hero]}>
-        <Pressable onPress={pickPhoto} style={styles.avatarWrap}>
-          <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={98} />
-          <View style={styles.cameraBtn}>
-            <HugeiconsIcon icon={Camera01Icon} size={14} color="#fff" />
-          </View>
-        </Pressable>
-        <Text style={[styles.heroName, {color: subColor} ]}>{user?.full_name || "Teqil User"}</Text>
-        <View style={styles.roleBadge}>
-          <Text style={styles.roleText}>
-            {user?.role === "driver" ? "Driver" : user?.role === "park_owner" ? "Park Owner" : "Passenger"}
-          </Text>
-        </View>
-      </View>
+      <StatusBar style={isDark ? 'light' : 'dark'}  />
+      <View style={ styles.mainContainer}>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Personal Information */}
-        <Text style={[styles.cardTitle, { color: textColor }]}>Personal Information</Text>
-        <View style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
-          <InfoRow
-            icon={UserIcon}
-            label="Full Name"
-            value={user?.full_name || ""}
-            editable
-            onEdit={() => startEdit("full_name", user?.full_name || "")}
-            textColor={textColor}
-            subColor={subColor}
-            borderColor={borderColor}
-          />
-          <InfoRow
-            icon={Mail01Icon}
-            label="Email"
-            value={user?.email || ""}
-            textColor={textColor}
-            subColor={subColor}
-            borderColor={borderColor}
-          />
-          <InfoRow
-            icon={CallIcon}
-            label="Phone"
-            value={user?.phone || ""}
-            editable
-            onEdit={() => startEdit("phone", user?.phone || "")}
-            textColor={textColor}
-            subColor={subColor}
-            borderColor={borderColor}
-          />
-          <InfoRow
-            icon={CalendarIcon}
-            label="Age"
-            value={user?.age?.toString() || ""}
-            textColor={textColor}
-            subColor={subColor}
-            borderColor="transparent"
-          />
+        {/* Hero Section */}
+        <View style={ [styles.profileHeader, { marginTop: topPadding + 16 }]}>
+          <Pressable>
+            <HugeiconsIcon icon={Search01Icon} size={24} color={textColor} />
+          </Pressable>
+          <Pressable>
+            <HugeiconsIcon icon={QrCode01Icon} size={24} color={textColor} />
+          </Pressable>
+        </View>
+        <View style={[styles.hero]}>
+          <Pressable onPress={pickPhoto} style={styles.avatarWrap}>
+            <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={98} />
+            <View style={styles.cameraBtn}>
+              <HugeiconsIcon icon={Camera01Icon} size={14} color="#fff" />
+            </View>
+          </Pressable>
+          <Text style={[styles.heroName, {color: textColor} ]}>{user?.full_name || "Teqil User"}</Text>
+          <View style={styles.roleBadge}>
+            <Text style={styles.roleText}>
+              {user?.role === "driver" ? "Driver" : user?.role === "park_owner" ? "Park Owner" : "Passenger"}
+            </Text>
+          </View>
         </View>
 
-        {/* Driver Details */}
-        {user?.role === "driver" && (
-          <View>
-            <Text style={[styles.cardTitle, { color: textColor }]}>Driver Details</Text>
-            <View style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
-              <InfoRow
-                icon={IdentityCardIcon}
-                label="Driver ID"
-                value={user?.driver_id || ""}
-                textColor={textColor}
-                subColor={subColor}
-                borderColor={borderColor}
-              />
-              <InfoRow
-                icon={CarIcon}
-                label="Vehicle"
-                value={user?.vehicle_details || ""}
-                editable
-                onEdit={() => startEdit("vehicle_details", user?.vehicle_details || "")}
-                textColor={textColor}
-                subColor={subColor}
-                borderColor={borderColor}
-              />
-              <InfoRow
-                icon={BuildingIcon}
-                label="Park Name"
-                value={user?.park_name || ""}
-                editable
-                onEdit={() => startEdit("park_name", user?.park_name || "")}
-                textColor={textColor}
-                subColor={subColor}
-                borderColor={borderColor}
-              />
-              <InfoRow
-                icon={LocationIcon}
-                label="Park Location"
-                value={user?.park_location || ""}
-                editable
-                onEdit={() => startEdit("park_location", user?.park_location || "")}
-                textColor={textColor}
-                subColor={subColor}
-                borderColor="transparent"
-              />
-            </View>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <PassengerDashboard/>
+          {/* Personal Information */}
+          <Text style={[styles.cardTitle, { color: textColor }]}>Personal Information</Text>
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
+            <InfoRow
+              icon={UserIcon}
+              label="Full Name"
+              value={user?.full_name || ""}
+              editable
+              onEdit={() => startEdit("full_name", user?.full_name || "")}
+              textColor={textColor}
+              subTextColor={subTextColor}
+              borderColor={borderColor}
+            />
+            <InfoRow
+              icon={Mail01Icon}
+              label="Email"
+              value={user?.email || ""}
+              textColor={textColor}
+              subTextColor={subTextColor}
+              borderColor={borderColor}
+            />
+            <InfoRow
+              icon={CallIcon}
+              label="Phone"
+              value={user?.phone || ""}
+              editable
+              onEdit={() => startEdit("phone", user?.phone || "")}
+              textColor={textColor}
+              subTextColor={subTextColor}
+              borderColor={borderColor}
+            />
+            <InfoRow
+              icon={CalendarIcon}
+              label="Age"
+              value={user?.age?.toString() || ""}
+              textColor={textColor}
+              subTextColor={subTextColor}
+              borderColor="transparent"
+            />
           </View>
-        )}
 
-        {/* Park Owner Details */}
-        {user?.role === "park_owner" && (
-          <View>
-            <Text style={[styles.cardTitle, { color: textColor }]}>Park Details</Text>
-            <View style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
-              <InfoRow
-                icon={BuildingIcon}
-                label="Park Name"
-                value={user?.park_name || ""}
-                editable
-                onEdit={() => startEdit("park_name", user?.park_name || "")}
-                textColor={textColor}
-                subColor={subColor}
-                borderColor={borderColor}
-              />
-              <InfoRow
-                icon={LocationIcon}
-                label="Park Location"
-                value={user?.park_location || ""}
-                editable
-                onEdit={() => startEdit("park_location", user?.park_location || "")}
-                textColor={textColor}
-                subColor={subColor}
-                borderColor="transparent"
-              />
-            </View>
-          </View>
-        )}
-
-        {/* Emergency Contacts (Passenger) */}
-        {user?.role === "passenger" && (
-          <View>
-            <Text style={[styles.cardTitle, { color: textColor }]}>Emergency Contacts</Text>
-            <View style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
-              {((user as any)?.emergency_contacts as EmergencyContact[] || []).map((c, idx) => (
-                <View key={idx} style={[styles.contactRow, { borderBottomColor: borderColor }]}>
-                  <View style={[styles.contactAvatar, { backgroundColor: Colors.primaryLight }]}>
-                    <Text style={[styles.contactInitial, { color: Colors.primary }]}>{c.name.charAt(0).toUpperCase()}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.contactName, { color: textColor }]}>{c.name}</Text>
-                    <Text style={[styles.contactPhone, { color: subColor }]}>{c.phone}</Text>
-                  </View>
-                  <Pressable onPress={() => removeContact(idx)} hitSlop={8}>
-                    <HugeiconsIcon icon={Close} size={20} color={Colors.error} />
-                  </Pressable>
-                </View>
-              ))}
-              <View style={styles.addContactRow}>
-                <TextInput
-                  style={[styles.addInput, { backgroundColor: isDark ? "#0D1117" : "#F4F6FA", color: textColor, borderColor }]}
-                  placeholder="Name"
-                  placeholderTextColor={subColor}
-                  value={newContactName}
-                  onChangeText={setNewContactName}
+          {/* Driver Details */}
+          {user?.role === "driver" && (
+            <View>
+              <Text style={[styles.cardTitle, { color: textColor }]}>Driver Details</Text>
+              <View style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
+                <InfoRow
+                  icon={IdentityCardIcon}
+                  label="Driver ID"
+                  value={user?.driver_id || ""}
+                  textColor={textColor}
+                  subTextColor={subTextColor}
+                  borderColor={borderColor}
                 />
-                <TextInput
-                  style={[styles.addInput, { flex: 1.5, backgroundColor: isDark ? "#0D1117" : "#F4F6FA", color: textColor, borderColor }]}
-                  placeholder="Phone"
-                  placeholderTextColor={subColor}
-                  keyboardType="phone-pad"
-                  value={newContactPhone}
-                  onChangeText={setNewContactPhone}
+                <InfoRow
+                  icon={CarIcon}
+                  label="Vehicle"
+                  value={user?.vehicle_details || ""}
+                  editable
+                  onEdit={() => startEdit("vehicle_details", user?.vehicle_details || "")}
+                  textColor={textColor}
+                  subTextColor={subTextColor}
+                  borderColor={borderColor}
                 />
-                <Pressable style={[styles.addBtn, { backgroundColor: Colors.primary }]} onPress={addEmergencyContact}>
-                  <HugeiconsIcon icon={AddCircleIcon} size={20} color="#fff" />
-                </Pressable>
+                <InfoRow
+                  icon={BuildingIcon}
+                  label="Park Name"
+                  value={user?.park_name || ""}
+                  editable
+                  onEdit={() => startEdit("park_name", user?.park_name || "")}
+                  textColor={textColor}
+                  subTextColor={subTextColor}
+                  borderColor={borderColor}
+                />
+                <InfoRow
+                  icon={LocationIcon}
+                  label="Park Location"
+                  value={user?.park_location || ""}
+                  editable
+                  onEdit={() => startEdit("park_location", user?.park_location || "")}
+                  textColor={textColor}
+                  subTextColor={subTextColor}
+                  borderColor="transparent"
+                />
               </View>
             </View>
-          </View>
-        )}
+          )}
 
-        {/* Sign Out Button */}
-        <Pressable
-          style={[styles.signOutBtn, { borderColor: "transparent" }]}
-          onPress={() => {
-            Alert.alert("Sign Out", "Are you sure?", [
-              { text: "Cancel", style: "cancel" },
-              {
-                text: "Sign Out",
-                style: "destructive",
-                onPress: async () => {
-                  const { signOut } = await import("@/src/services/supabase");
-                  const { logout } = useAuthStore.getState();
-                  await signOut();
-                  logout();
-                  router.replace("/(auth)/login");
+          {/* Park Owner Details */}
+          {user?.role === "park_owner" && (
+            <View>
+              <Text style={[styles.cardTitle, { color: textColor }]}>Park Details</Text>
+              <View style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
+                <InfoRow
+                  icon={BuildingIcon}
+                  label="Park Name"
+                  value={user?.park_name || ""}
+                  editable
+                  onEdit={() => startEdit("park_name", user?.park_name || "")}
+                  textColor={textColor}
+                  subTextColor={subTextColor}
+                  borderColor={borderColor}
+                />
+                <InfoRow
+                  icon={LocationIcon}
+                  label="Park Location"
+                  value={user?.park_location || ""}
+                  editable
+                  onEdit={() => startEdit("park_location", user?.park_location || "")}
+                  textColor={textColor}
+                  subTextColor={subTextColor}
+                  borderColor="transparent"
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Emergency Contacts (Passenger) */}
+          {user?.role === "passenger" && (
+            <View>
+              <Text style={[styles.cardTitle, { color: textColor }]}>Emergency Contacts</Text>
+              <View style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
+                {((user as any)?.emergency_contacts as EmergencyContact[] || []).map((c, idx) => (
+                  <View key={idx} style={[styles.contactRow, { borderBottomColor: borderColor }]}>
+                    <View style={[styles.contactAvatar, { backgroundColor: Colors.primaryLight }]}>
+                      <Text style={[styles.contactInitial, { color: Colors.primary }]}>{c.name.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.contactName, { color: textColor }]}>{c.name}</Text>
+                      <Text style={[styles.contactPhone, { color: subTextColor }]}>{c.phone}</Text>
+                    </View>
+                    <Pressable onPress={() => removeContact(idx)} hitSlop={8}>
+                      <HugeiconsIcon icon={Close} size={20} color={Colors.error} />
+                    </Pressable>
+                  </View>
+                ))}
+                <View style={styles.addContactRow}>
+                  <TextInput
+                    style={[styles.addInput, { backgroundColor: isDark ? "#0D1117" : "#F4F6FA", color: textColor, borderColor }]}
+                    placeholder="Name"
+                    placeholderTextColor={subTextColor}
+                    value={newContactName}
+                    onChangeText={setNewContactName}
+                  />
+                  <TextInput
+                    style={[styles.addInput, { flex: 1.5, backgroundColor: isDark ? "#0D1117" : "#F4F6FA", color: textColor, borderColor }]}
+                    placeholder="Phone"
+                    placeholderTextColor={subTextColor}
+                    keyboardType="phone-pad"
+                    value={newContactPhone}
+                    onChangeText={setNewContactPhone}
+                  />
+                  <Pressable style={[styles.addBtn, { backgroundColor: Colors.primary }]} onPress={addEmergencyContact}>
+                    <HugeiconsIcon icon={AddCircleIcon} size={20} color="#fff" />
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Sign Out Button */}
+          <Pressable
+            style={[styles.signOutBtn, { borderColor: "transparent" }]}
+            onPress={() => {
+              Alert.alert("Sign Out", "Are you sure?", [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Sign Out",
+                  style: "destructive",
+                  onPress: async () => {
+                    const { signOut } = await import("@/src/services/supabase");
+                    const { logout } = useAuthStore.getState();
+                    await signOut();
+                    logout();
+                    router.replace("/(auth)/login");
+                  },
                 },
-              },
-            ]);
-          }}
-        >
-          <HugeiconsIcon icon={LogoutIcon} size={18} color={Colors.error} />
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </Pressable>
-      </ScrollView>
+              ]);
+            }}
+          >
+            <HugeiconsIcon icon={LogoutIcon} size={18} color={Colors.error} />
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
 
       {/* Edit Modal */}
       {editField && (
@@ -397,7 +406,7 @@ export default function ProfileTab() {
           <View style={[styles.editSheet, { backgroundColor: cardBg }]}>
             <Text style={[styles.editTitle, { color: textColor }]}>Edit {editField.replace("_", " ")}</Text>
             <TextInput
-              style={[styles.editInput, { color: textColor, borderColor, backgroundColor: isDark ? "#0D1117" : "#F4F6FA" }]}
+              style={[styles.editInput, { color: textColor, borderColor, backgroundColor: cardBg }]}
               value={editValue}
               onChangeText={setEditValue}
               autoFocus
@@ -405,10 +414,10 @@ export default function ProfileTab() {
             />
             <View style={styles.editActions}>
               <Pressable style={[styles.editCancelBtn, { borderColor }]} onPress={() => setEditField(null)}>
-                <Text style={[styles.editCancelText, { color: subColor }]}>Cancel</Text>
+                <Text style={[styles.editCancelText, { color: textColor }]}>Cancel</Text>
               </Pressable>
-              <Pressable style={[styles.editSaveBtn, { backgroundColor: Colors.primary }]} onPress={saveEdit} disabled={saving}>
-                <Text style={styles.editSaveText}>{saving ? "Saving..." : "Save"}</Text>
+              <Pressable style={[styles.editSaveBtn, { backgroundColor: bg }]} onPress={saveEdit} disabled={saving}>
+                <Text style={[styles.editSaveText, { color: textColor }]}>{saving ? "Saving..." : "Save"}</Text>
               </Pressable>
             </View>
           </View>
@@ -419,7 +428,7 @@ export default function ProfileTab() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, paddingHorizontal: 10 },
+  root: { flex: 1 },
   profileHeader: {
     marginTop: 50,
     flexDirection: 'row',
@@ -427,9 +436,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 50
   },
+  mainContainer: {
+    paddingHorizontal: 10
+  },
   hero: {
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
     paddingBottom: 28,
     gap: 8,
     // backgroundColor: Colors.primary,
@@ -451,23 +463,16 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.overlayColored,
     alignItems: "center",
     justifyContent: "center",
-    // borderWidth: .5,
-    // borderColor: "#fff",
   },
   heroName: { fontFamily: "Poppins_700Bold", fontSize: 22, marginTop: 4 },
-  roleBadge: { backgroundColor: Colors.border, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5 },
-  roleText: { fontFamily: "Poppins_500Medium", fontSize: 13, color: Colors.text },
-  scrollContent: { padding: 16, gap: 14, paddingBottom: 32 },
+  roleBadge: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5,borderWidth: .5, borderColor: Colors.primary  },
+  roleText: { fontFamily: "Poppins_500Medium", fontSize: 13, color: Colors.primary, },
+  scrollContent: { padding: 10, paddingHorizontal: 25, gap: 14, paddingBottom: 32 },
   card: {
     borderRadius: 24,
     padding: 28,
     borderWidth: 1,
     borderColor: '#fff'
-    // shadowColor: "#000",
-    // shadowOffset: { width: 0, height: 2 },
-    // shadowOpacity: 0.05,
-    // shadowRadius: 8,
-    // elevation: 2,
   },
   cardTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, marginBottom: 4 },
   contactRow: {
@@ -487,12 +492,12 @@ const styles = StyleSheet.create({
   signOutBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1.5, borderRadius: 14, paddingVertical: 4, marginTop: 44 },
   signOutText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: Colors.error },
   editOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0 0 0 / 0.77)", justifyContent: "flex-end", zIndex: 200 },
-  editSheet: { borderTopLeftRadius: 54, borderTopRightRadius: 54, padding: 44, paddingBottom: 40, gap: 16 },
+  editSheet: { borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 34, paddingBottom: 40, gap: 16 },
   editTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 16, textTransform: "capitalize" },
   editInput: { borderWidth: 1.5, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, fontFamily: "Poppins_400Regular", fontSize: 15 },
   editActions: { flexDirection: "row", gap: 12 },
   editCancelBtn: { flex: 1, borderWidth: 1.5, borderRadius: 14, paddingVertical: 13, alignItems: "center" },
   editCancelText: { fontFamily: "Poppins_600SemiBold", fontSize: 14 },
   editSaveBtn: { flex: 2, borderRadius: 14, paddingVertical: 13, alignItems: "center" },
-  editSaveText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: "#fff" },
+  editSaveText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: Colors.primary },
 });

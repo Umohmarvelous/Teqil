@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "Teqil",
+    "name": "TEQIL",
     "slug": "teqil",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/Black_logo_with_black_background_linkedIn00000024.png",
+    "icon": "./assets/images/Black_logo_with_white_background.png",
     "scheme": "teqil",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "black",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
+      "image": "./assets/images/Black_logo_with_white_background.png",
+      "resizeMode": "cover",
       "backgroundColor": "#00A651"
     },
     "ios": {

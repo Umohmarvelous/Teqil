@@ -1,4 +1,4 @@
-# Keyboard Handling in Expo
+<!-- # Keyboard Handling in Expo
 
 Use `react-native-keyboard-controller` for all keyboard handling. It provides better control than React Native's built-in KeyboardAvoidingView and works consistently across iOS and Android.
 
@@ -315,4 +315,4 @@ If content is cut off or there's extra space:
 - **Input hidden behind tab bar**: Not accounting for tab bar → Use `insets.bottom` for input container padding
 - **Taps don't work with keyboard open**: Missing `keyboardShouldPersistTaps` → Add `keyboardShouldPersistTaps="handled"`
 - **Keyboard doesn't dismiss on scroll**: Missing `keyboardDismissMode` → Add `keyboardDismissMode="interactive"`
-- **Keyboard dismisses on send**: Input loses focus on button press → Use `inputRef.current?.focus()` after send
+- **Keyboard dismisses on send**: Input loses focus on button press → Use `inputRef.current?.focus()` after send -->

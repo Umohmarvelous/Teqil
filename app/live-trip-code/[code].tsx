@@ -80,7 +80,7 @@ import type { Trip, Passenger } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
 import RatingModal from "@/components/RatingModal";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import SwipeableModal from "@/components/Swipeablemodal";
+import { AiChat02Icon, Car01Icon, InformationCircleIcon } from "@hugeicons/core-free-icons";
 
 const { width, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const GMAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
@@ -376,34 +376,39 @@ function SOSModal({
   }));
   if (!visible) return null;
   return (
-    <>
-          {/* SOS Modal */}
-          <SwipeableModal visible={sosVisible} onClose={() => setSosVisible(false)} sheetHeight={420}>
-            <View style={styles.sosSheetContent}>
-              <View style={styles.sosIconRing}>
-                <Ionicons name="warning" size={36} color={Colors.error} />
+    <Modal transparent visible={visible} animationType="none">
+      <ReAnimated.View
+        style={[styles.modalOverlay, overlayStyle, { paddingBottom: 250 }]}
+      >
+        <ReAnimated.View style={[styles.sosSheet, sheetStyle]}>
+          <View style={styles.sosIconRing}>
+            <Ionicons name="warning" size={36} color={Colors.error} />
+          </View>
+          <Text style={styles.sosTitle}>Emergency SOS</Text>
+          <Text style={styles.sosDesc}>
+            This will immediately alert your emergency contacts and park owner
+            with your live location.
+          </Text>
+          <View style={styles.sosActions}>
+            <AnimatedPressable onPress={onCancel} style={styles.sosCancelBtn}>
+              <View style={styles.sosCancelInner}>
+                <Text style={styles.sosCancelText}>Cancel</Text>
               </View>
-              <Text style={styles.sosTitle}>Emergency SOS</Text>
-              <Text style={styles.sosDesc}>
-                This will immediately alert your emergency contacts and park owner
-                with your live location.
-              </Text>
-              <View style={styles.sosActions}>
-                <AnimatedPressable onPress={() => setSosVisible(false)} style={styles.sosCancelBtn}>
-                  <View style={styles.sosCancelInner}>
-                    <Text style={styles.sosCancelText}>Cancel</Text>
-                  </View>
-                </AnimatedPressable>
-                <AnimatedPressable onPress={handleSOSConfirm} style={styles.sosConfirmBtn} scaleValue={0.92}>
-                  <View style={styles.sosConfirmInner}>
-                    <Ionicons name="warning" size={18} color="#fff" />
-                    <Text style={styles.sosConfirmText}>Send SOS</Text>
-                  </View>
-                </AnimatedPressable>
+            </AnimatedPressable>
+            <AnimatedPressable
+              onPress={onConfirm}
+              style={styles.sosConfirmBtn}
+              scaleValue={0.92}
+            >
+              <View style={styles.sosConfirmInner}>
+                <Ionicons name="warning" size={18} color="#fff" />
+                <Text style={styles.sosConfirmText}>Send SOS</Text>
               </View>
-            </View>
-          </SwipeableModal>
-    </>
+            </AnimatedPressable>
+          </View>
+        </ReAnimated.View>
+      </ReAnimated.View>
+    </Modal>
   );
 }
 
@@ -437,7 +442,7 @@ function ActionSheetModal({
   onSOS: () => void;
   t: (key: string) => string;
 }) {
-  const SHEET_HEIGHT = Math.min(SCREEN_HEIGHT * 0.72, 560);
+  const SHEET_HEIGHT = Math.min(SCREEN_HEIGHT * 0.72, 360);
 
   // Use refs so the PanResponder closure is stable across renders
   const translateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
@@ -520,7 +525,7 @@ function ActionSheetModal({
       <Animated.View
         style={[
           StyleSheet.absoluteFillObject,
-          { backgroundColor: "rgba(0,0,0,0.7)", opacity: backdropOpacity },
+          { backgroundColor: "rgba(0,0,0,0.4)", opacity: backdropOpacity },
         ]}
       >
         <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
@@ -1574,7 +1579,8 @@ export default function LiveTripScreen() {
                 colors={[Colors.primary, Colors.primaryDark]}
                 style={mapStyles.driverMarkerGradient}
               >
-                <Ionicons name="car-sport" size={18} color="#fff" />
+                {/* <Ionicons name="car-sport" size={18} color="#fff" /> */}
+                <HugeiconsIcon icon={Car01Icon} fill={"#000"} size={18} color="#fff"/>
               </LinearGradient>
               <View style={mapStyles.driverPulse} />
             </View>
@@ -1726,36 +1732,28 @@ export default function LiveTripScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setAiVisible(true);
             }}
-            style={styles.aiFab}
-            scaleValue={0.88}
+            style={[styles.aiFab, ]}
+            // scaleValue={0.88}
           >
-            <LinearGradient
-              colors={["#2D2D2D", "#1A1A1A"]}
-              style={styles.aiFabGradient}
-            >
-              <Ionicons name="sparkles" size={22} color={Colors.gold} />
-            </LinearGradient>
+            <View style={styles.aiFabGradient} >
+              <HugeiconsIcon icon={AiChat02Icon} fill={"black"} color={'#fff'} size={30} />
+            </View>
           </AnimatedPressable>
         </ReAnimated.View>
 
         {/* Trip action sheet FAB */}
         <AnimatedPressable
           onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             setActionSheetVisible(true);
           }}
           style={styles.tripFab}
-          scaleValue={0.92}
+          // scaleValue={0.92}
         >
-          <LinearGradient
-            colors={[Colors.primary, Colors.primaryDark]}
-            style={styles.tripFabGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Ionicons name="list" size={22} color="#fff" />
-            <Text style={styles.tripFabText}>Trip</Text>
-          </LinearGradient>
+          <View style={styles.tripFabGradient}>
+            <HugeiconsIcon icon={InformationCircleIcon} color={'#D4AF0A'}  size={22} />
+            <Text style={styles.tripFabText}>About Trip</Text>
+          </View>
         </AnimatedPressable>
       </View>
 
@@ -1810,11 +1808,11 @@ const sheetStyles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "#111A14",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgb(7 7 7)",
+    borderTopLeftRadius: 48,
+    borderTopRightRadius: 48,
+    // borderTopWidth: 1,
+    // borderTopColor: "rgba(255,255,255,0.08)",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -8 },
     shadowOpacity: 0.5,
@@ -1827,8 +1825,8 @@ const sheetStyles = StyleSheet.create({
     alignItems: "center",
   },
   handle: {
-    width: 40,
-    height: 4,
+    width: 50,
+    height: 8,
     borderRadius: 2,
     backgroundColor: "rgba(255,255,255,0.2)",
   },
@@ -2274,33 +2272,43 @@ const styles = StyleSheet.create({
   // FAB group
   fabGroup: {
     position: "absolute",
-    right: 20,
+    right: 0,
+    left: 0,
+    bottom: 0,
     zIndex: 15,
     gap: 12,
     alignItems: "center",
+    // flex: 1,
+    justifyContent: 'space-between',
+    flexDirection: 'row-reverse',
+    marginHorizontal: 40,
+    marginBottom: 20
   },
   aiFab: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 50,
+    height: 50,
+    borderRadius: 50,
     overflow: "hidden",
     shadowColor: Colors.gold,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 12,
     elevation: 10,
+    borderWidth: .5,
+    borderColor: '#FFFFFF',
+    backgroundColor:Colors.background
   },
   aiFabGradient: { flex: 1, alignItems: "center", justifyContent: "center" },
   tripFab: {
-    width: 72,
-    height: 52,
-    borderRadius: 26,
+    // width: 152,
+    // height: 152,
+    // borderRadius: 26,
     overflow: "hidden",
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.5,
-    shadowRadius: 14,
-    elevation: 12,
+    // shadowColor: Colors.primary,
+    // shadowOffset: { width: 0, height: 6 },
+    // shadowOpacity: 0.5,
+    // shadowRadius: 14,
+    // elevation: 12,
   },
   tripFabGradient: {
     flex: 1,
@@ -2308,6 +2316,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
+  },
+  aiFabIcon: {
+    backgroundColor: Colors.primary,
+    width: 60,
+    height: 60,
+    padding: 10,
+    borderRadius: 50
   },
   tripFabText: {
     fontFamily: "Poppins_600SemiBold",

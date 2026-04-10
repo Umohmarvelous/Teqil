@@ -13,7 +13,7 @@ import * as Haptics from "expo-haptics";
 import { TripsStorage } from "@/src/services/storage";
 import { Colors } from "@/constants/colors";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { CancelCircleIcon, Search01Icon } from "@hugeicons/core-free-icons";
+import { CancelCircleIcon, Search01Icon, Search02Icon } from "@hugeicons/core-free-icons";
 
 interface SearchResult {
   type: "trip" | "driver";
@@ -35,10 +35,11 @@ export default function SearchBar({ isDark = false, onSelect }: SearchBarProps) 
   const dropdownHeight = useRef(new Animated.Value(0)).current;
   const inputRef = useRef<TextInput>(null);
 
-  const bg = isDark ? "#1A1A2E" : Colors.overlayLight;
-  const textColor = isDark ? "#F0F0F0" : "#0D1B3E";
-  const placeholderColor = isDark ? "#6B7280" : "#fff";
-  const dropdownBg = isDark ? "#161B22" : "#FFFFFF";
+  const placeholderColor = isDark ? Colors.background : Colors.textSecondary;
+  const dropdownBg = isDark ? "#161B22" : "#A2A1A1";
+  const bg = isDark ? Colors.background : Colors.border;
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
   const search = useCallback(async (text: string) => {
@@ -95,11 +96,14 @@ export default function SearchBar({ isDark = false, onSelect }: SearchBarProps) 
 
   return (
     <View style={styles.wrapper}>
-      <HugeiconsIcon icon={Search01Icon} size={18} color={focused ? Colors.primary : '#fff'} />
+      <View>
+        <HugeiconsIcon icon={Search02Icon} size={23} color={isDark ? '#fff' : '#6D6C6C'} />
+        
+      </View>
       <View
         style={[
           styles.container,
-          { backgroundColor: bg, borderColor: focused ? Colors.primary : "transparent" },
+          { backgroundColor: bg },
         ]}
       >
         {/* <Ionicons name="search-outline" size={18} color={focused ? Colors.primary : placeholderColor} /> */}
@@ -232,7 +236,6 @@ const styles = StyleSheet.create({
     borderRadius: 66,
     paddingHorizontal: 14,
     paddingVertical: 11,
-    borderWidth: 1.5,
   },
   input: {
     flex: 1,

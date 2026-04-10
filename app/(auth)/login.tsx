@@ -46,6 +46,8 @@ import {
 import { supabase } from "@/src/services/supabase";
 import { useTranslation } from "react-i18next";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import { Apple01Icon, AppleFinderIcon, AppleStocksIcon } from "@hugeicons/core-free-icons";
 
 // Required for OAuth redirect handling on web
 WebBrowser.maybeCompleteAuthSession();
@@ -206,14 +208,14 @@ function OrDivider() {
   return (
     <View style={divStyles.row}>
       <View style={divStyles.line} />
-      <Text style={divStyles.text}>or</Text>
+      <Text style={divStyles.text}>or continue with</Text>
       <View style={divStyles.line} />
     </View>
   );
 }
 
 const divStyles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", marginVertical: 20 },
+  row: { flexDirection: "row", alignItems: "center", marginVertical: 40 },
   line: { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.2)" },
   text: {
     fontFamily: "Poppins_400Regular",
@@ -244,10 +246,10 @@ function OAuthButton({
       <Ionicons
         name={isApple ? "logo-apple" : "logo-google"}
         size={20}
-        color={isApple ? "#fff" : "#DB4437"}
+        color={isApple ? "#fff" : "#fff"}
       />
       <Text style={[oauthStyles.text, isApple && oauthStyles.textApple]}>
-        {loading ? "Connecting..." : `Continue with ${isApple ? "Apple" : "Google"}`}
+        {loading ? "Connecting..." : `${isApple ? "Apple" : "Google"}`}
       </Text>
     </Pressable>
   );
@@ -264,11 +266,11 @@ const oauthStyles = StyleSheet.create({
     height: 52,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.2)",
-    marginBottom: 12,
+    flex: 1
   },
   btnApple: {
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderColor: "rgba(255,255,255,0.3)",
+    // backgroundColor: "rgba(0,0,0,0.5)",
+    // borderColor: "rgba(255,255,255,0.3)",
   },
   text: {
     fontFamily: "Poppins_500Medium",
@@ -455,7 +457,7 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.pageHeaderContainer}>
-          <Text style={styles.pageTitle}>SignIn</Text>
+          <Text style={styles.pageTitle}>Login</Text>
           <Text style={styles.pageSubtitle}>Sign in to continue your journey</Text>
         </View>
 
@@ -557,18 +559,20 @@ export default function LoginScreen() {
           <OrDivider />
 
           {/* OAuth */}
-          {Platform.OS === "ios" && (
+          <View style={styles.oauthContent}>
+            {Platform.OS === "ios" && (
+              <OAuthButton
+                provider="apple"
+                onPress={() => handleOAuth("apple")}
+                loading={oauthLoading === "apple"}
+              />
+            )}
             <OAuthButton
-              provider="apple"
-              onPress={() => handleOAuth("apple")}
-              loading={oauthLoading === "apple"}
+              provider="google"
+              onPress={() => handleOAuth("google")}
+              loading={oauthLoading === "google"}
             />
-          )}
-          <OAuthButton
-            provider="google"
-            onPress={() => handleOAuth("google")}
-            loading={oauthLoading === "google"}
-          />
+          </View>
 
           {/* Switch to register */}
           <Pressable style={styles.switchBtn} onPress={() => router.replace("/(auth)/register")}>
@@ -632,7 +636,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     elevation: 8,
-    marginTop: 50,
+    marginTop: 10,
   },
   submitBtnLoading: { opacity: 0.7 },
   submitBtnText: {
@@ -656,6 +660,12 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_500Medium",
     fontSize: 14,
     color: Colors.primaryLight,
+  },
+  oauthContent: {
+    gap:10,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 10
   },
   switchBtn: { alignItems: "center", marginTop: 24, paddingVertical: 8 },
   switchText: {

@@ -96,7 +96,7 @@ function RoleSelector({
 }) {
   return (
     <View style={roleStyles.container}>
-      <Text style={roleStyles.label}>I am a</Text>
+      <Text style={roleStyles.label}>Who Are You ?</Text>
       <View style={roleStyles.row}>
         {ROLES.map((role) => {
           const active = value === role.value;
@@ -133,18 +133,26 @@ const roleStyles = StyleSheet.create({
     color: Colors.primaryLight,
     marginBottom: 10,
     paddingLeft: 5,
+    fontWeight: "heavy"
   },
   row: { flexDirection: "row", gap: 10 },
   card: {
     flex: 1,
     alignItems: "center",
+    justifyContent: 'center',
     backgroundColor: Colors.overlayLight,
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 6,
+    borderRadius: 20,
+    paddingVertical: 24,
+    paddingHorizontal: 13,
+    
     gap: 6,
-    borderWidth: 1.5,
-    borderColor: "transparent",
+    // borderWidth: 0.5,
+    borderColor: Colors.textWhite,
+    shadowColor: Colors.text,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 6,
   },
   cardActive: {
     backgroundColor: Colors.primaryDark,
@@ -154,16 +162,23 @@ const roleStyles = StyleSheet.create({
     fontFamily: "Poppins_600SemiBold",
     fontSize: 12,
     color: Colors.primaryLight,
+    textAlign: 'center'
   },
-  cardLabelActive: { color: "#fff" },
+  cardLabelActive: {
+    color: Colors.primaryLight,
+    textAlign: 'center'
+ },
   cardDesc: {
     fontFamily: "Poppins_400Regular",
     fontSize: 10,
-    color: "rgba(255,255,255,0.5)",
+    color: Colors.primaryLight,
     textAlign: "center",
     lineHeight: 14,
   },
-  cardDescActive: { color: "rgba(255,255,255,0.75)" },
+  cardDescActive: {
+    color: Colors.primaryLight
+    
+   },
 });
 
 // ─── Password suggestion modal ────────────────────────────────────────────────
@@ -348,7 +363,7 @@ function OAuthButton({
         color={isApple ? "#fff" : "#DB4437"}
       />
       <Text style={oauthStyles.text}>
-        {loading ? "Connecting..." : `Continue with ${isApple ? "Apple" : "Google"}`}
+        {loading ? "Connecting..." : `${isApple ? "Apple" : "Google"}`}
       </Text>
     </Pressable>
   );
@@ -365,17 +380,18 @@ const oauthStyles = StyleSheet.create({
     height: 52,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.2)",
-    marginBottom: 10,
+    flex: 1
   },
   btnApple: {
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderColor: "rgba(255,255,255,0.3)",
+    // backgroundColor: "rgba(0,0,0,0.5)",
+    // borderColor: "rgba(255,255,255,0.3)",
   },
   text: {
     fontFamily: "Poppins_500Medium",
     fontSize: 15,
     color: "#fff",
   },
+  textApple: { color: "#fff" },
 });
 
 // ─── Field wrapper + input ────────────────────────────────────────────────────
@@ -847,11 +863,20 @@ export default function RegisterScreen() {
           <OrDivider />
 
           {/* OAuth */}
-          {Platform.OS === "ios" && (
-            <OAuthButton provider="apple" onPress={() => handleOAuth("apple")} loading={oauthLoading === "apple"} />
-          )}
-          <OAuthButton provider="google" onPress={() => handleOAuth("google")} loading={oauthLoading === "google"} />
-
+          <View style={styles.oauthContent}>
+            {Platform.OS === "ios" && (
+              <OAuthButton
+                provider="apple"
+                onPress={() => handleOAuth("apple")}
+                loading={oauthLoading === "apple"}
+              />
+            )}
+            <OAuthButton
+              provider="google"
+              onPress={() => handleOAuth("google")}
+              loading={oauthLoading === "google"}
+            />
+          </View>
           {/* Sign in link */}
           <View style={styles.signInRow}>
             <Text style={styles.signInText}>Already have an account? </Text>
@@ -929,5 +954,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.primaryLight,
     textDecorationLine: "underline",
+  },
+  oauthContent: {
+    gap:10,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 10
   },
 });
