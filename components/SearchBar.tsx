@@ -13,7 +13,7 @@ import * as Haptics from "expo-haptics";
 import { TripsStorage } from "@/src/services/storage";
 import { Colors } from "@/constants/colors";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { CancelCircleIcon, Search02Icon } from "@hugeicons/core-free-icons";
+import { CancelCircleIcon, Card, Search02Icon } from "@hugeicons/core-free-icons";
 
 interface SearchResult {
   type: "trip" | "driver";
@@ -36,7 +36,7 @@ export default function SearchBar({ isDark = false, onSelect }: SearchBarProps) 
   const inputRef = useRef<TextInput>(null);
 
   const placeholderColor = isDark ? Colors.background : Colors.textSecondary;
-  const dropdownBg = isDark ? "#161B22" : "#A2A1A1";
+  const dropdownBg = isDark ? "#161B22" : "#A2A1A14C";
   const bg = isDark ? Colors.background : Colors.border;
   const textColor = isDark ? Colors.textWhite : Colors.text;
 
@@ -96,19 +96,19 @@ export default function SearchBar({ isDark = false, onSelect }: SearchBarProps) 
 
   return (
     <View style={styles.wrapper}>
-      <HugeiconsIcon icon={Search02Icon} size={20} color={placeholderColor} />
+      <HugeiconsIcon icon={Search02Icon} size={20} color={isDark ? '#fff' : '#7E7E7E'} />
         
       <View
         style={[
           styles.container,
-          { backgroundColor: placeholderColor },
+          { backgroundColor: dropdownBg },
         ]}
       >
         <TextInput
           ref={inputRef}
-          style={[styles.input, { color: bg },]}
+          style={[styles.input, { color: textColor },]}
           placeholder="Search driver ID or trip code..."
-          placeholderTextColor={bg}
+          placeholderTextColor={textColor}
           value={query}
           onChangeText={search}
           onFocus={() => setFocused(true)}
@@ -123,7 +123,7 @@ export default function SearchBar({ isDark = false, onSelect }: SearchBarProps) 
         />
         {query.length > 0 && (
           <Pressable onPress={handleClear} hitSlop={8}>
-            <HugeiconsIcon icon={CancelCircleIcon} size={22} color={ '#fff'} />
+            <HugeiconsIcon icon={CancelCircleIcon} size={22} color={ textColor } />
           </Pressable>
         )}
       </View>
@@ -236,7 +236,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     padding: 10,
     paddingVertical: 10,
-    color: Colors.textWhite,
   },
   dropdown: {
     position: "absolute",

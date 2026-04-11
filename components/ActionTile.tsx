@@ -45,7 +45,7 @@ export default function ActionTile({ icon, label, color, onPress }: ActionTilePr
         <View style={[styles.actionIconWrap]}>
           <Ionicons name={icon} size={26} color={color} />
         </View>
-        <Text style={styles.actionLabel, { color: color }}>{label}</Text>
+        <Text style={[styles.actionLabel, { color: color }]}>{label}</Text>
       </Pressable>
     </Animated.View>
   );
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
   },
   actionTileInner: {
     alignItems: "center",
-    gap:3
+    gap: 3
   },
   actionIconWrap: {
     width: 55,
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   },
   actionLabel: {
     fontFamily: "Poppins_500Medium",
-    fontSize: 5,
+    fontSize: 11,
     textAlign: "center",
     lineHeight: 16,
   },

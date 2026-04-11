@@ -9,17 +9,17 @@ import { router } from "expo-router";
 import { useAuthStore } from "@/src/store/useStore";
 import { PassengersStorage, TripsStorage } from "@/src/services/storage";
 // import type { Trip } from "@/src/models/types";
-import { useTranslation } from "react-i18next";
+// import { useTranslation } from "react-i18next";
 
 // Import separated components
 import BalanceCard from "@/components/BalanceCard";
-const [quickTransferVisible, setQuickTransferVisible] = useState(false);
+// const [quickTransferVisible, setQuickTransferVisible] = useState(false);
 
 
 
 export default function PassengerDashboard() {
   const { user, logout } = useAuthStore();
-  const { t } = useTranslation();
+  // const { t } = useTranslation();
   const [balanceHidden, setBalanceHidden] = useState(false);
 
   const coins = user?.points_balance || 0;
@@ -70,7 +70,8 @@ export default function PassengerDashboard() {
         balanceHidden={balanceHidden}
 
         onToggleHide={() => setBalanceHidden(v => !v)}
-        onQuickTransferPress={() => setQuickTransferVisible(true)}
+        // onQuickTransferPress={() => setQuickTransferVisible(true)}
+        onQuickTransferPress={() => { }}
       />
     </View>
   );
@@ -78,7 +79,7 @@ export default function PassengerDashboard() {
 
 const styles = StyleSheet.create({
   hero: {
-    paddingBottom: 14,
+    // paddingBottom: 14,
   },
 
 })

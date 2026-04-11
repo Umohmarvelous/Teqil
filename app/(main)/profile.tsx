@@ -37,7 +37,6 @@ import {
   QrCode01Icon,
   Edit02Icon,
   IdentityCardFreeIcons,
-  Download01Icon,
 } from "@hugeicons/core-free-icons";
 import type { EmergencyContact, Trip } from "@/src/models/types";
 import { StatusBar } from "expo-status-bar";
@@ -220,41 +219,45 @@ export default function ProfileTab() {
 
         {/* Hero Section */}
         <View style={ [styles.profileHeader, { marginTop: topPadding + 16 }]}>
-          <Pressable>
-            <HugeiconsIcon icon={Search01Icon} size={24} color={textColor} />
-          </Pressable>
-          <Pressable onPress={() => setReceiveVisible(true)}>
-            <HugeiconsIcon icon={QrCode01Icon} size={24} color={textColor} />
-          </Pressable>
-        </View>
-        <View style={[styles.hero]}>
-          <Pressable onPress={pickPhoto} style={styles.avatarWrap}>
-            <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={98} />
-            <View style={styles.cameraBtn}>
-              <HugeiconsIcon icon={Camera01Icon} size={14} color="#fff" />
+          <View style={[styles.hero]}>
+            <Pressable onPress={pickPhoto} style={styles.avatarWrap}>
+              <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={58} />
+              <View style={styles.cameraBtn}>
+                <HugeiconsIcon icon={Camera01Icon} size={14} color="#fff" />
+              </View>
+            </Pressable>
+            <View style={{alignItems: 'flex-start', justifyContent: 'flex-start'}}>
+              <Text style={[styles.heroName, {color: textColor} ]}>{user?.full_name || "Teqil User"}</Text>
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleText}>
+                  {user?.role === "driver" ? "Driver" : user?.role === "park_owner" ? "Park Owner" : "Passenger"}
+                </Text>
+              </View>
+              <View>
+                {user?.driver_id && (
+                  <View style={styles.driverIdChip}>
+                    <HugeiconsIcon icon={IdentityCardFreeIcons} size={12} color={Colors.gold} />
+                    <Text style={styles.driverIdText}>{user.driver_id}</Text>
+                  </View>
+                )}
+              </View>
             </View>
-          </Pressable>
-          <Text style={[styles.heroName, {color: textColor} ]}>{user?.full_name || "Teqil User"}</Text>
-          <View style={styles.roleBadge}>
-            <Text style={styles.roleText}>
-              {user?.role === "driver" ? "Driver" : user?.role === "park_owner" ? "Park Owner" : "Passenger"}
-            </Text>
           </View>
-          <View>
 
-          {user?.driver_id && (
-            <View style={styles.driverIdChip}>
-              <HugeiconsIcon icon={IdentityCardFreeIcons} size={12} color={Colors.gold} />
-              <Text style={styles.driverIdText}>{user.driver_id}</Text>
-            </View>
-          )}
-
-
+          <View style={{ flexDirection: 'row-reverse', gap: 20}}>
+            <Pressable>
+              <HugeiconsIcon icon={Search01Icon} size={24} color={textColor} />
+            </Pressable>
+            
+            {user?.role === "driver" && (
+              <Pressable onPress={() => setReceiveVisible(true)}>
+                <HugeiconsIcon icon={QrCode01Icon} size={24} color={textColor} />
+              </Pressable>
+            )}
           </View>
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
           { user?.role === "driver" ?
             (
               <DriverDashboard />
@@ -262,7 +265,6 @@ export default function ProfileTab() {
             : (
               <PassengerDashboard />
           )}
-
 
           {/* ── Earnings summary strip ── */}
           <View style={styles.statsStrip}>
@@ -512,32 +514,28 @@ export default function ProfileTab() {
         onClose={() => setReceiveVisible(false)}
         driverId={user?.driver_id}
       />
-      
-      
     </ScrollView>
-
-
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
   profileHeader: {
-    marginTop: 50,
+    marginVertical: 50,
+    marginBottom: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginHorizontal: 20,
-    marginBottom: 50
   },
   mainContainer: {
     paddingHorizontal: 10
   },
   hero: {
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: "flex-start",
     paddingHorizontal: 0,
-    paddingBottom: 28,
+    // paddingBottom: 28,
     gap: 8,
-    // backgroundColor: Colors.primary,
   },
   avatarWrap: {
     position: "relative",
@@ -548,17 +546,17 @@ const styles = StyleSheet.create({
   },
   cameraBtn: {
     position: "absolute",
-    bottom: 0,
-    right: 0,
+    bottom: -1,
+    right: -3,
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: Colors.overlayColored,
+    backgroundColor: Colors.background,
     alignItems: "center",
     justifyContent: "center",
   },
-  heroName: { fontFamily: "Poppins_700Bold", fontSize: 22, marginTop: 4 },
-  roleBadge: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5,borderWidth: .5, borderColor: Colors.primary  },
+  heroName: { fontFamily: "Poppins_700Bold", fontSize: 22},
+  roleBadge: { borderRadius: 20, paddingHorizontal: 10, alignItems: 'center', marginTop: 2, paddingVertical: 3, borderWidth: .5, borderColor: Colors.primary  },
   roleText: { fontFamily: "Poppins_500Medium", fontSize: 13, color: Colors.primary, },
   driverIdChip: {
     flexDirection: "row",
@@ -636,3 +634,6 @@ const styles = StyleSheet.create({
   editSaveBtn: { flex: 2, borderRadius: 14, paddingVertical: 13, alignItems: "center" },
   editSaveText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: Colors.primary },
 });
+
+
+

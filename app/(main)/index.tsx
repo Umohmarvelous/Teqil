@@ -65,11 +65,11 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
   // Define actions
   const ACTIONS = [
   
-    { id: "pay", icon: "swap-horizontal-outline" as const, label: "Pay", color: textColor },
-    { id: "find", icon: "search-outline" as const, label: "Find Trip",   color: textColor },
-    { id: "qr", icon: "qr-code-outline" as const, label: "Scan QR",      color: textColor },
-    { id: "share", icon: "share-social-outline" as const, label: "Share Trip",  color: textColor },
-    { id: "sos", icon: "warning-outline" as const, label: "Emergency",   color: textColor   },
+    { id: "pay", icon: "swap-horizontal" as const, label: "Pay", color: subTextColor },
+    { id: "find", icon: "search" as const, label: "Find Trip",   color: subTextColor },
+    { id: "qr", icon: "qr-code" as const, label: "Scan QR",      color: subTextColor },
+    { id: "share", icon: "share-social" as const, label: "Share Trip",  color: subTextColor },
+    { id: "sos", icon: "warning" as const, label: "Emergency",   color: subTextColor   },
   ];
 
   const handleAction = (id: string) => {
@@ -207,8 +207,8 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
 
 
         {/* Role-specific shortcuts */}
-        <Text style={[styles.sectionTitle, { color: textColor }]}>{isAuthenticated ? 'Quick Actions' : 'Quick Actions'}
-        </Text>
+        {/* <Text style={[styles.sectionTitle, { color: textColor }]}>{isAuthenticated ? 'Quick Actions' : 'Quick Actions'}
+        </Text> */}
 
 
           {isAuthenticated || user?.role === "driver" ?  (
@@ -216,8 +216,8 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
             {/* <Text>Hey...</Text> */}
           </>
         ) : (
-            <View style={[styles.card, styles.iconsContainer, { backgroundColor: cardBg, borderColor }]} >
-              {ACTIONS.map((action) => (
+            <View style={[styles.card, styles.iconsContainer, {borderWidth: .5}, { backgroundColor: cardBg, borderColor }]} >
+            {ACTIONS.map((action) => (
               <ActionTile
                 key={action.id}
                 icon={action.icon}
@@ -421,9 +421,9 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
 
 
         
-        <View style={styles.promoBanner}>
+        <View style={[styles.promoBanner]}>
           <View
-            style={[styles.promoGradient, {backgroundColor: cardBg}]}  >
+            style={[styles.promoGradient, styles.card, {backgroundColor: cardBg, borderColor}]}  >
             <HugeiconsIcon icon={ShieldCheck} size={36} color={Colors.primary} />
             <View style={styles.promoText}>
               <Text style={[styles.promoTitle, {color: textColor}]}>Travel Safe, Always</Text>
@@ -495,7 +495,6 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
     borderWidth: 1,
     gap: 20,
-    borderColor: Colors.gold,
   },
   sectionTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, marginBottom: 5 },
   shortcutRow: { flexDirection: "row", justifyContent: "space-between" },
@@ -516,8 +515,6 @@ const styles = StyleSheet.create({
   promoGradient: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 20,
-    gap: 16,
   },
   promoText: { flex: 1 },
   promoTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 15, color: "#fff" },
