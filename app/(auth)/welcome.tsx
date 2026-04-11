@@ -300,8 +300,8 @@ function RoleSlide({ scrollX }: { scrollX: Animated.Value }) {
         ]}
       >
         {/* Header */}
-        {/* <View style={roleSlideStyles.container}>
-          <View style={roleSlideStyles.header}>
+        <View style={roleSlideStyles.container}> 
+        {/* {/*   <View style={roleSlideStyles.header}>
             <View style={roleSlideStyles.teqilBadge}>
               <Ionicons name="navigate" size={18} color={Colors.primary} />
               <Text style={roleSlideStyles.teqilText}>TEQIL</Text>
@@ -327,7 +327,7 @@ function RoleSlide({ scrollX }: { scrollX: Animated.Value }) {
               />
             ))}
           </View> */}
-        {/* </View> */}
+        </View>
 
         {/* Continue button */}
         <View style={roleSlideStyles.footer}>
@@ -340,21 +340,16 @@ function RoleSlide({ scrollX }: { scrollX: Animated.Value }) {
             onPress={handleContinue}
             // disabled={!localRole}
           >
-            <LinearGradient
-              colors={localRole ? [Colors.primary, Colors.primaryDark] : ["#2A2A2A", "#222"]}
-              style={roleSlideStyles.continueBtnGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
+            <View style={[roleSlideStyles.continueBtnGradient, { backgroundColor: Colors.primary}]}>
               <Text style={[roleSlideStyles.continueBtnText, !localRole && roleSlideStyles.continueBtnTextDisabled]}>
-                {localRole ? "Continue" : "Select a role"}
+                {localRole ? "Continue" : "Get Started"}
               </Text>
               {localRole && <Ionicons name="arrow-forward" size={18} color="#fff" />}
-            </LinearGradient>
+            </View>
           </Pressable>
 
           {/* Already have account */}
-          {/* <Pressable
+          <Pressable
             style={roleSlideStyles.signinLink}
             onPress={() => router.push("/(auth)/login")}
           >
@@ -362,7 +357,7 @@ function RoleSlide({ scrollX }: { scrollX: Animated.Value }) {
               Already have an account?{" "}
               <Text style={roleSlideStyles.signinLinkHighlight}>Sign In</Text>
             </Text>
-          </Pressable> */}
+          </Pressable>
         </View>
       </View>
     </Animated.View>

@@ -16,15 +16,12 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  Platform,
   Alert,
   Dimensions,
   Modal,
-  TextInput,
   Animated,
 } from "react-native";
 import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
@@ -33,14 +30,12 @@ import { Colors } from "@/constants/colors";
 import { TripsStorage } from "@/src/services/storage";
 import {
   formatCoins,
-  formatDate,
   formatNaira,
   coinsToNaira,
 } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
 
-const { width: W } = Dimensions.get("window");
 
 const FB = {
   navy: "#00205B",
@@ -55,13 +50,6 @@ const FB = {
   surface: "#FFFFFF",
 };
 
-// ─── Quick actions row ────────────────────────────────────────────────────────
-const QUICK_ACTIONS = [
-  { id: "create",  icon: "add-circle-outline" as const,   label: "New Trip",   color: FB.green },
-  { id: "history", icon: "time-outline" as const,          label: "History",    color: "#7C3AED" },
-  { id: "profile", icon: "person-circle-outline" as const, label: "Profile",    color: "#0891B2" },
-  { id: "msgs",    icon: "megaphone-outline" as const,     label: "Messages",   color: "#D97706" },
-] as const;
 
 // ─── Quick Receive Modal (driver's equivalent of quick transfer) ───────────────
 function QuickReceiveModal({
@@ -145,44 +133,19 @@ function StatPill({
   );
 }
 
-// ─── Trip row ──────────────────────────────────────────────────────────────────
-function TripRow({ trip, index }: { trip: Trip; index: number }) {
-  const isDone = trip.status === "completed";
-  return (
-    <View style={styles.tripRow}>
-      <View style={[styles.tripIconBox, { backgroundColor: isDone ? FB.green + "15" : FB.gold + "15" }]}>
-        <Ionicons
-          name={isDone ? "checkmark-circle-outline" : "navigate-outline"}
-          size={20}
-          color={isDone ? FB.green : FB.gold}
-        />
-      </View>
-      <View style={styles.tripInfo}>
-        <Text style={styles.tripRoute} numberOfLines={1}>
-          {trip.origin} → {trip.destination}
-        </Text>
-        <Text style={styles.tripDate}>{formatDate(trip.created_at)}</Text>
-      </View>
-      <View style={[styles.tripStatusPill, isDone ? styles.pillDone : styles.pillActive]}>
-        <Text style={[styles.pillText, isDone ? styles.pillTextDone : styles.pillTextActive]}>
-          {isDone ? "Done" : "Active"}
-        </Text>
-      </View>
-    </View>
-  );
-}
+
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function DriverDashboard() {
-  const insets = useSafeAreaInsets();
-  const { user, logout } = useAuthStore();
+  // const insets = useSafeAreaInsets();
+  const { user, logout, isAuthenticated } = useAuthStore();
   const { t } = useTranslation();
   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
   const [balanceHidden, setBalanceHidden] = useState(false);
   const [receiveVisible, setReceiveVisible] = useState(false);
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
-  const displayName = user?.full_name?.split(" ")[0] || "Driver";
+  // const topPadding = Platform.OS === "web" ? 67 : insets.top;
+  // const displayName = user?.full_name?.split(" ")[0] || "Driver";
   const coins = user?.points_balance || 0;
   const completedTrips = recentTrips.filter((t) => t.status === "completed").length;
 
@@ -237,42 +200,11 @@ export default function DriverDashboard() {
         style={styles.scroll}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom, 24) + 100 },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header (FirstBank navy) ── */}
-        <LinearGradient
-          colors={[FB.navy, FB.navyDark]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.hero, { paddingTop: topPadding + 14 }]}
-        >
-          {/* Top bar */}
-          <View style={styles.heroTopBar}>
-            <View>
-              <Text style={styles.heroGreet}>Good day,</Text>
-              <Text style={styles.heroName}>{displayName}</Text>
-            </View>
-            <View style={styles.heroTopRight}>
-              {user?.driver_id && (
-                <View style={styles.driverIdChip}>
-                  <Ionicons name="id-card-outline" size={12} color={FB.gold} />
-                  <Text style={styles.driverIdText}>{user.driver_id}</Text>
-                </View>
-              )}
-              <Pressable onPress={() => setReceiveVisible(true)} style={styles.notifBtn}>
-                <Ionicons name="download-outline" size={20} color="#fff" />
-              </Pressable>
-              <Pressable onPress={handleLogout} style={styles.avatarBtn}>
-                <View style={styles.avatarCircle}>
-                  <Text style={styles.avatarInitial}>
-                    {displayName.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-              </Pressable>
-            </View>
-          </View>
+        <View style={[styles.hero]}  >
+
 
           {/* Balance card */}
           <View style={styles.balanceCard}>
@@ -295,13 +227,12 @@ export default function DriverDashboard() {
                   ≈ {formatNaira(coinsToNaira(coins))} value
                 </Text>
               </View>
-              <Ionicons name="star" size={36} color={FB.gold} />
             </View>
 
             {/* Online indicator row */}
             <View style={styles.onlineRow}>
               <View style={styles.onlineDot} />
-              <Text style={styles.onlineText}>Online · Ready to drive</Text>
+              <Text style={styles.onlineText}>Online · {isAuthenticated ? 'Quick Actions' : 'Quick Actions'} Ready to drive</Text>
             </View>
           </View>
 
@@ -318,7 +249,7 @@ export default function DriverDashboard() {
               <Ionicons name="chevron-forward" size={14} color={FB.gold} />
             </Pressable>
           )}
-        </LinearGradient>
+        </View>
 
         {/* ── Earnings summary strip ── */}
         <View style={styles.statsStrip}>
@@ -370,7 +301,7 @@ export default function DriverDashboard() {
           </Text>
         </View>
 
-        {/* ── Quick actions ── */}
+        {/* ── Quick actions ──
         <View style={styles.sectionCard}>
           <Text style={styles.sectionHeading}>Quick Actions</Text>
           <View style={styles.quickActionsRow}>
@@ -395,7 +326,7 @@ export default function DriverDashboard() {
           </View>
         </View>
 
-        {/* ── Recent trips ── */}
+        ── Recent trips ──
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionHeading}>Recent Trips</Text>
@@ -424,8 +355,8 @@ export default function DriverDashboard() {
               </React.Fragment>
             ))
           )}
-        </View>
-      </ScrollView>
+        </View>*/}
+      </ScrollView> 
 
       {/* Quick Receive modal */}
       <QuickReceiveModal
@@ -521,14 +452,13 @@ const qr = StyleSheet.create({
 
 // ─── Main Styles ──────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: FB.offWhite },
+  root: { flex: 1,},
   scroll: { flex: 1 },
   scrollContent: { gap: 0 },
 
   // Hero
   hero: {
-    paddingHorizontal: 20,
-    paddingBottom: 24,
+
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },
@@ -550,23 +480,7 @@ const styles = StyleSheet.create({
     lineHeight: 30,
   },
   heroTopRight: { flexDirection: "row", alignItems: "center", gap: 8 },
-  driverIdChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "rgba(245,166,35,0.15)",
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: "rgba(245,166,35,0.3)",
-  },
-  driverIdText: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 10,
-    color: FB.gold,
-    letterSpacing: 1.2,
-  },
+
   notifBtn: {
     width: 36,
     height: 36,
@@ -588,7 +502,7 @@ const styles = StyleSheet.create({
 
   // Balance
   balanceCard: {
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: Colors.primaryDarker,
     borderRadius: 20,
     padding: 18,
     borderWidth: 1,

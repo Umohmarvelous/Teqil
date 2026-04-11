@@ -22,7 +22,7 @@ import { HugeiconsIcon } from "@hugeicons/react-native";
 import { Cancel, ChevronRight, Light,  Moon02Icon, MoreHorizontalCircleIcon, Warning } from "@hugeicons/core-free-icons";
 
 
-const SIDEBAR_WIDTH = 350;
+const SIDEBAR_WIDTH = 310;
 
 interface SidebarItem {
   id: string;
@@ -174,174 +174,189 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
   return (
     <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
       {/* Backdrop */}
+        
       <Animated.View
         style={[styles.backdrop, { opacity: backdropOpacity }]}
         pointerEvents="auto"
       >
         <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
       </Animated.View>
+      <View style={[styles.drawerTop, {
+        backgroundColor: bg,
+        paddingTop: insets.top + 0,
+        paddingBottom: Math.max(insets.bottom, 0)
+      }]}>
 
-      {/* Drawer */}
-      <Animated.View
-        style={[
-          styles.drawer,
-          {
-            backgroundColor: bg,
-            paddingTop: insets.top + 16,
-            paddingBottom: Math.max(insets.bottom, 24),
-            transform: [{ translateX }],
-          },
-        ]}
-      >
-        {/* Header */}
-        <View style={[styles.drawerHeader, {}, {backgroundColor: cardBg}]}>
-          <View style={styles.headerTop}>
-            <Avatar
-              name={user?.full_name || "User"}
-              photoUri={user?.profile_photo}
-              size={54}
-            />
-            <View style={styles.drawerRightIcon}>
-              <Pressable style={[styles.menuList]}>
-                <HugeiconsIcon icon={MoreHorizontalCircleIcon}  size={20} color={textColor}  />
-              </Pressable>
-              <Pressable onPress={onClose} style={styles.closeBtn}>
-                <HugeiconsIcon icon={Cancel}  size={20} color={textColor}  />
-              </Pressable>
+        {/* Drawer */}
+        <Animated.View style={[styles.drawer,{ transform: [{ translateX }] }]}>
+          {/* Header */}
+          <View style={[styles.drawerHeader, {}, {backgroundColor: cardBg}]}>
+            <View style={styles.headerTop}>
+              <Avatar
+                name={user?.full_name || "User"}
+                photoUri={user?.profile_photo}
+                size={54}
+              />
+              <View style={styles.drawerRightIcon}>
+                <Pressable style={[styles.menuList]}>
+                  <HugeiconsIcon icon={MoreHorizontalCircleIcon}  size={20} color={textColor}  />
+                </Pressable>
+                <Pressable onPress={onClose} style={styles.closeBtn}>
+                  <HugeiconsIcon icon={Cancel}  size={20} color={textColor}  />
+                </Pressable>
+              </View>
             </View>
-          </View>
-          <Text style={[styles.userName, { color: textColor }]} numberOfLines={1}>
-            {user?.full_name || "Teqil User"}
-          </Text>
-          <Text style={[styles.userRole, { color: Colors.primary }]}>
-            {user?.role === "driver"
-              ? "Driver"
-              : user?.role === "park_owner"
-              ? "Park Owner"
-              : "Passenger"}
-            {user?.driver_id ? ` · ${user.driver_id}` : ""}
-          </Text>
-        </View>
-
-        {/* <View style={[styles.divider, { backgroundColor: dividerColor }]} /> */}
-
-        {/* Dark mode toggle */}
-        <View style={[styles.darkModeRow,
-          { backgroundColor: cardBg }
-        ]}>
-          <View style={styles.darkModeLeft}>
-            <HugeiconsIcon icon={isDark ? Moon02Icon : Light}  size={24} fill={isDark ? "#fff" : '#000'}   color={isDark ? "#fff" : '#000'}/>
-            <Text style={[styles.darkModeText, { color: textColor }]}>
-              {isDark ? 'Dark Mode' : 'Light Mode'}
+            <Text style={[styles.userName, { color: textColor }]} numberOfLines={1}>
+              {user?.full_name || "Teqil User"}
+            </Text>
+            <Text style={[styles.userRole, { color: Colors.primary }]}>
+              {user?.role === "driver"
+                ? "Driver"
+                : user?.role === "park_owner"
+                ? "Park Owner"
+                : "Passenger"}
+              {user?.driver_id ? ` · ${user.driver_id}` : ""}
             </Text>
           </View>
-          <Switch
-            value={isDark}
-            onValueChange={(val) => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setTheme(val ? "dark" : "light");
-            }}
-            trackColor={{ false: "#E5E7EB", true: Colors.surface + "50" }}
-            thumbColor={isDark ? Colors.surface : "#000"}
-          />
-        </View>
 
-        {/* Conditional Content: Show buttons when NOT authenticated, else show Sign In button */}
-        {/* <View style={[styles.navListcontainer, { backgroundColor: cardBg }]}> */}
-          {isAuthenticated ? (
-            <ScrollView
-              style={[styles.navList,
-                // { backgroundColor: cardBg }
-              ]}
-              showsVerticalScrollIndicator={false}
-            >
-              {filteredNavItems.map((item) => (
+          {/* <View style={[styles.divider, { backgroundColor: dividerColor }]} /> */}
+
+          {/* Dark mode toggle */}
+          <View style={[styles.darkModeRow,
+            { backgroundColor: cardBg }
+          ]}>
+            <View style={styles.darkModeLeft}>
+              <HugeiconsIcon icon={isDark ? Moon02Icon : Light}  size={24} fill={isDark ? "#fff" : '#000'}   color={isDark ? "#fff" : '#000'}/>
+              <Text style={[styles.darkModeText, { color: textColor }]}>
+                {isDark ? 'Dark Mode' : 'Light Mode'}
+              </Text>
+            </View>
+            <Switch
+              value={isDark}
+              onValueChange={(val) => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setTheme(val ? "dark" : "light");
+              }}
+              trackColor={{ false: "#E5E7EB", true: Colors.surface + "50" }}
+              thumbColor={isDark ? Colors.surface : "#000"}
+            />
+          </View>
+
+          {/* Conditional Content: Show buttons when NOT authenticated, else show Sign In button */}
+          <ScrollView style={[]}>
+            {/* || user?.role === "passenger"  */}
+            {isAuthenticated ? (
+              <ScrollView
+                style={[styles.navList,
+                  styles.navListcontainer, { backgroundColor: cardBg }
+                  // { backgroundColor: cardBg }
+                ]}>
+                {filteredNavItems.map((item) => (
+                  <Pressable
+                    key={item.id}
+                    style={({ pressed }) => [
+                      styles.navItem,
+                      pressed && { backgroundColor: cardBg },
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      item.onPress();
+                    }}
+                  >
+                    <View
+                      style={[
+                        styles.navIconBox,
+                        {
+                          backgroundColor: item.danger
+                            ? "rgba(239,68,68,0.1)"
+                            : cardBg,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={item.icon}
+                        size={18}
+                        color={item.danger ? "#EF4444" : Colors.primary}
+                      />
+                    
+                    </View>
+                    <Text
+                      style={[
+                        styles.navLabel,
+                        {
+                          color: item.danger ? "#EF4444" : textColor,
+                        },
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                    {item.badge ? (
+                      <View style={styles.badge}>
+                        <Text style={styles.badgeText}>{item.badge}</Text>
+                      </View>
+                    ) : (
+                      <HugeiconsIcon
+                        icon={ChevronRight}
+                        size={14}
+                        color={subTextColor}
+                        style={styles.navChevron} />
+                    )}
+                  </Pressable>
+                ))}
+              </ScrollView>
+            ) : (
                 <Pressable
-                  key={item.id}
+                  style={[styles.signInContainer, { backgroundColor: 'rgba(255 149 0 / 0.28)' }]}
+                    onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onClose();
+                    router.push("/(auth)/login");
+                  }}
+                >
+                <HugeiconsIcon icon={Warning} size={45} color={Colors.gold} />
+                <View style={ styles.signInTextContent}>
+                  <Text style={[styles.signInText, { color: textColor }]}>
+                    You are signed in as {user?.full_name || "User"}
+                  </Text>
+                  <Text style={[styles.signInSubText, { color: subTextColor }]}>
+                    Sign in with a different account
+                  </Text>
+                </View>
+                <Pressable
                   style={({ pressed }) => [
-                    styles.navItem,
-                    pressed && { backgroundColor: cardBg },
+                    styles.signInButton,
+                    { backgroundColor: 'transparent' },
+                    pressed && { opacity: 0.8 },
                   ]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    item.onPress();
+                    onClose();
+                    router.push("/(auth)/login");
                   }}
                 >
-                  <View
-                    style={[
-                      styles.navIconBox,
-                      {
-                        backgroundColor: item.danger
-                          ? "rgba(239,68,68,0.1)"
-                          : cardBg,
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={item.icon}
-                      size={18}
-                      color={item.danger ? "#EF4444" : Colors.primary}
-                    />
-                  
-                  </View>
-                  <Text
-                    style={[
-                      styles.navLabel,
-                      {
-                        color: item.danger ? "#EF4444" : textColor,
-                      },
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
-                  {item.badge ? (
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeText}>{item.badge}</Text>
-                    </View>
-                  ) : (
-                    <HugeiconsIcon
-                      icon={ChevronRight}
-                      size={14}
-                      color={subTextColor}
-                      style={styles.navChevron} />
-                  )}
+                  <Text style={styles.signInButtonText}>Sign In</Text>
                 </Pressable>
-              ))}
-            </ScrollView>
-          ) : (
-            <View style={[styles.signInContainer, { backgroundColor: bg }]}>
-              <HugeiconsIcon icon={Warning} size={45} color={Colors.gold} />
-              <View style={ styles.signInTextContent}>
-                <Text style={[styles.signInText, { color: textColor }]}>
-                  You are signed in as {user?.full_name || "User"}
-                </Text>
-                <Text style={[styles.signInSubText, { color: subTextColor }]}>
-                  Sign in with a different account
-                </Text>
-              </View>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.signInButton,
-                  { backgroundColor: 'transparent' },
-                  pressed && { opacity: 0.8 },
-                ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onClose();
-                  router.push("/(auth)/login");
-                }}
-              >
-                <Text style={styles.signInButtonText}>Sign In</Text>
               </Pressable>
-            </View>
-          )}
-        {/* </View> */}
+            )}
 
-        {/* Footer */}
-        <Text style={[styles.version, { color: textColor }]}>
+
+
+
+
+
+
+
+
+
+
+          </ScrollView>
+
+          {/* Footer */}
+        </Animated.View>
+        <Text style={[styles.version,  { color: textColor }]}>
           Teqil v1.0.0
         </Text>
-      </Animated.View>
+      </View>
     </Modal>
   );
 }
@@ -349,25 +364,29 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0, 0.55)",
+    backgroundColor: "rgba(0 0 0 / 0.4)45)",
     zIndex: 1,
+
   },
-  drawer: {
+  drawerTop: {
+    flex:1,
+    width: SIDEBAR_WIDTH,
     position: "absolute",
     left: 0,
     top: 0,
-    bottom: 0,
-    width: SIDEBAR_WIDTH,
+    bottom:0,
     zIndex: 2,
+    borderTopRightRadius: 30,
+    borderBottomRightRadius: 30,
+    paddingHorizontal: 7,
     shadowColor: "#000",
     shadowOffset: { width: 6, height: 0 },
     shadowOpacity: 0.2,
     shadowRadius: 20,
     elevation: 20,
-    borderTopRightRadius: 30,
-    borderBottomRightRadius: 30,
-    paddingHorizontal: 10,
-    paddingTop: 10
+  },
+  drawer: {
+    zIndex: 2,
   },
   drawerHeader: {
     paddingHorizontal: 20,
@@ -434,11 +453,10 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_500Medium",
     fontSize: 14,
   },
-  // navListcontainer: {
-  //   borderRadius: 30,
-  //   marginVertical: 8,
-  //   padding: 10
-  // },
+  navListcontainer: {
+    borderRadius: 30,
+    padding: 10
+  },
   navList: {
     paddingHorizontal: 10,
     flex: 1,
@@ -485,8 +503,9 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_400Regular",
     fontSize: 11,
     textAlign: "center",
-    marginBottom: 38,
-    marginHorizontal: 4,
+    marginBottom: 18,
+    marginHorizontal:10,
+    borderRadius: 30,
     justifyContent: 'flex-end',
     alignSelf: 'center',
     position: 'absolute',
@@ -494,7 +513,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 30,
-    opacity: .42,
+    // opacity: .42,
+
   },
   signInContainer: {
     justifyContent: "center",

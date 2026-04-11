@@ -13,7 +13,7 @@ import * as Haptics from "expo-haptics";
 import { TripsStorage } from "@/src/services/storage";
 import { Colors } from "@/constants/colors";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { CancelCircleIcon, Search01Icon, Search02Icon } from "@hugeicons/core-free-icons";
+import { CancelCircleIcon, Search02Icon } from "@hugeicons/core-free-icons";
 
 interface SearchResult {
   type: "trip" | "driver";
@@ -96,22 +96,19 @@ export default function SearchBar({ isDark = false, onSelect }: SearchBarProps) 
 
   return (
     <View style={styles.wrapper}>
-      <View>
-        <HugeiconsIcon icon={Search02Icon} size={23} color={isDark ? '#fff' : '#6D6C6C'} />
+      <HugeiconsIcon icon={Search02Icon} size={20} color={placeholderColor} />
         
-      </View>
       <View
         style={[
           styles.container,
-          { backgroundColor: bg },
+          { backgroundColor: placeholderColor },
         ]}
       >
-        {/* <Ionicons name="search-outline" size={18} color={focused ? Colors.primary : placeholderColor} /> */}
         <TextInput
           ref={inputRef}
-          style={[styles.input, { color: textColor }]}
+          style={[styles.input, { color: bg },]}
           placeholder="Search driver ID or trip code..."
-          placeholderTextColor={placeholderColor}
+          placeholderTextColor={bg}
           value={query}
           onChangeText={search}
           onFocus={() => setFocused(true)}
@@ -121,13 +118,12 @@ export default function SearchBar({ isDark = false, onSelect }: SearchBarProps) 
               Animated.timing(dropdownHeight, { toValue: 0, duration: 150, useNativeDriver: false }).start();
             }
           }}
-          autoCapitalize="characters"
           autoCorrect={false}
           returnKeyType="search"
         />
         {query.length > 0 && (
           <Pressable onPress={handleClear} hitSlop={8}>
-            <HugeiconsIcon icon={CancelCircleIcon} size={22} color={placeholderColor} />
+            <HugeiconsIcon icon={CancelCircleIcon} size={22} color={ '#fff'} />
           </Pressable>
         )}
       </View>
@@ -220,28 +216,27 @@ export default function SearchBar({ isDark = false, onSelect }: SearchBarProps) 
 const styles = StyleSheet.create({
   wrapper: {
     position: "relative",
-    zIndex: 100,
     flexDirection: 'row',
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    marginVertical: 10,
+    flex: 1,
     paddingHorizontal: 20,
-
+    
   },
   container: {
     flexDirection: "row",
     alignItems: "center",
     borderRadius: 66,
     paddingHorizontal: 14,
-    paddingVertical: 11,
   },
   input: {
     flex: 1,
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
     padding: 10,
+    paddingVertical: 10,
+    color: Colors.textWhite,
   },
   dropdown: {
     position: "absolute",

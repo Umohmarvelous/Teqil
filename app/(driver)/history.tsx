@@ -16,6 +16,8 @@ import { TripsStorage, PassengersStorage } from "@/src/services/storage";
 import { formatDate, formatDuration, formatCoins, formatNaira, coinsToNaira } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import { BarcodeScanIcon, Calendar, Star, Time01Icon } from "@hugeicons/core-free-icons";
 
 type FilterTab = "all" | "active" | "completed";
 
@@ -118,7 +120,7 @@ function TripCard({ trip }: { trip: TripWithPassengerCount }) {
       {/* Header row */}
       <View style={styles.tripCardHeader}>
         <View style={styles.tripCodeBadge}>
-          <Ionicons name="barcode-outline" size={13} color={Colors.textSecondary} />
+          <HugeiconsIcon icon={BarcodeScanIcon} size={13} color={Colors.textSecondary} />
           <Text style={styles.tripCodeText}>{trip.trip_code}</Text>
         </View>
         <View style={[styles.statusBadge, isActive ? styles.statusBadgeLive : styles.statusBadgeDone]}>
@@ -151,7 +153,7 @@ function TripCard({ trip }: { trip: TripWithPassengerCount }) {
       {/* Footer stats */}
       <View style={styles.tripCardFooter}>
         <View style={styles.footerItem}>
-          <Ionicons name="calendar-outline" size={13} color={Colors.textTertiary} />
+          <HugeiconsIcon icon={Calendar} size={13} color={Colors.textTertiary} />
           <Text style={styles.footerText}>{formatDate(trip.created_at)}</Text>
         </View>
         <View style={styles.footerItem}>
@@ -162,13 +164,13 @@ function TripCard({ trip }: { trip: TripWithPassengerCount }) {
         </View>
         {durationSeconds !== null && durationSeconds > 0 && (
           <View style={styles.footerItem}>
-            <Ionicons name="time-outline" size={13} color={Colors.textTertiary} />
+            <HugeiconsIcon icon={Time01Icon} size={13} color={Colors.textTertiary} />
             <Text style={styles.footerText}>{formatDuration(durationSeconds)}</Text>
           </View>
         )}
         {trip.status === "completed" && trip.estimatedCoins > 0 && (
           <View style={[styles.footerItem, styles.footerEarnings]}>
-            <Ionicons name="star" size={13} color={Colors.gold} />
+            <HugeiconsIcon icon={Star} size={13} color={Colors.gold} />
             <Text style={styles.footerEarningsText}>
               {formatCoins(trip.estimatedCoins)}
             </Text>
@@ -315,7 +317,7 @@ export default function DriverHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1 , backgroundColor: Colors.border},
 
   header: {
     paddingHorizontal: 24,

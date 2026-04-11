@@ -13,15 +13,8 @@ import { syncAll } from "@/src/services/sync";
 import { generateId } from "@/src/utils/helpers";
 import type { Trip, Passenger, EmergencyContact } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
+import { Colors } from "@/constants/colors";
 
-// ─── Design tokens ─────────────────────────────────────────────────────────────
-const C = {
-  bg: "#0A0A0A", surface: "#111111", card: "#161616", border: "#252525",
-  borderLight: "#2A2A2A", primary: "#00A651", primaryDark: "#007A3D",
-  primaryGlow: "rgba(0,166,81,0.18)", gold: "#F5A623", error: "#EF4444",
-  text: "#F0F0F0", textSub: "#888888", textMuted: "#555555", white: "#FFFFFF",
-  chip: "#1E1E1E", chipBorder: "#2E2E2E",
-};
 
 // ─── Entrance animation hook ───────────────────────────────────────────────────
 function useEntrance(delay = 0) {
@@ -46,7 +39,7 @@ function JoinButton({ onPress, label, loading }: { onPress: () => void; label: s
       <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}
         disabled={loading} style={[styles.joinBtn, loading && styles.joinBtnDisabled]}>
         <View style={styles.joinBtnGlow} />
-        <Ionicons name="car" size={20} color={C.white} />
+        <Ionicons name="car" size={20} color={Colors.textWhite} />
         <Text style={styles.joinBtnText}>{label}</Text>
       </Pressable>
     </Animated.View>
@@ -65,7 +58,7 @@ function ContactChip({ contact, onRemove }: { contact: EmergencyContact; onRemov
         <Text style={styles.chipPhone} numberOfLines={1}>{contact.phone}</Text>
       </View>
       <Pressable onPress={onRemove} hitSlop={8} style={styles.chipRemove}>
-        <Ionicons name="close" size={14} color={C.textMuted} />
+        <Ionicons name="close" size={14} color={Colors.textSecondary} />
       </Pressable>
     </View>
   );
@@ -153,7 +146,7 @@ export default function FindTripScreen() {
       );
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.push(`/live-trip/${foundTrip.trip_code}`);
+      router.push(`/live-trip-code/${foundTrip.trip_code}`);
     } catch {
       Alert.alert("Error", "Could not join trip. Please try again.");
     } finally {
@@ -169,12 +162,12 @@ export default function FindTripScreen() {
       <View style={[styles.header, { paddingTop: topPadding + 32 }]}>
         {step === "details" ? (
           <Pressable style={styles.backBtn} onPress={() => { setStep("search"); setFoundTrip(null); }}>
-            <Ionicons name="arrow-back" size={20} color={C.primary} />
+            <Ionicons name="arrow-back" size={20} color={Colors.primary} />
           </Pressable>
         ) : (
             <View style={{ width: 40 }} />
           // <Pressable style={styles.backBtn} onPress={() => { setStep("search"); setFoundTrip(null); }}>
-          //   <Ionicons name="arrow-back" size={20} color={C.primary} />
+          //   <Ionicons name="arrow-back" size={20} color={Colors.primary} />
           // </Pressable>
         )}
         <Text style={styles.headerTitle}>
@@ -195,7 +188,7 @@ export default function FindTripScreen() {
             <Animated.View style={searchAnim}>
               <View style={styles.heroRow}>
                 {/* <View style={styles.heroIcon}>
-                  <Ionicons name="search" size={28} color={C.primary} />
+                  <Ionicons name="search" size={28} color={Colors.primary} />
                 </View> */}
                 <View style={{ flex: 1 }}>
                   <Text style={styles.heroTitle}>Find Your Trip</Text>
@@ -208,7 +201,7 @@ export default function FindTripScreen() {
                 <TextInput
                   style={styles.codeInput}
                   placeholder="A B C 1 2 3"
-                  placeholderTextColor={C.textMuted}
+                  placeholderTextColor={Colors.textSecondary}
                   value={code}
                   onChangeText={(v) => setCode(v.toUpperCase())}
                   autoCapitalize="characters"
@@ -232,7 +225,7 @@ export default function FindTripScreen() {
                   <Text style={styles.searchBtnText}>Searching...</Text>
                 ) : (
                   <>
-                    <Ionicons name="search" size={18} color={C.white} />
+                    <Ionicons name="search" size={18} color={Colors.textWhite} />
                     <Text style={styles.searchBtnText}>Find Trip</Text>
                   </>
                 )}
@@ -247,7 +240,7 @@ export default function FindTripScreen() {
               <View style={styles.tripCard}>
                 <View style={styles.tripCardTop}>
                   <View style={styles.codePill}>
-                    <Ionicons name="checkmark-circle" size={14} color={C.primary} />
+                    <Ionicons name="checkmark-circle" size={14} color={Colors.primary} />
                     <Text style={styles.codePillText}>{foundTrip.trip_code}</Text>
                   </View>
                   <View style={styles.livePill}>
@@ -276,7 +269,7 @@ export default function FindTripScreen() {
 
                 <View style={styles.tripMeta}>
                   <View style={styles.tripMetaItem}>
-                    <Ionicons name="people-outline" size={14} color={C.textSub} />
+                    <Ionicons name="people-outline" size={14} color={Colors.textSecondary} />
                     <Text style={styles.tripMetaText}>{foundTrip.capacity} seats</Text>
                   </View>
                 </View>
@@ -286,11 +279,11 @@ export default function FindTripScreen() {
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>{t("passenger.yourDestination")}</Text>
                 <View style={styles.inputRow}>
-                  <Ionicons name="location-outline" size={18} color={C.textSub} />
+                  <Ionicons name="location-outline" size={18} color={Colors.textSecondary} />
                   <TextInput
                     style={styles.input}
                     placeholder={t("passenger.yourDestinationPlaceholder")}
-                    placeholderTextColor={C.textMuted}
+                    placeholderTextColor={Colors.textSecondary}
                     value={destination}
                     onChangeText={setDestination}
                   />
@@ -314,7 +307,7 @@ export default function FindTripScreen() {
                   <TextInput
                     style={styles.addInput}
                     placeholder={t("passenger.contactName")}
-                    placeholderTextColor={C.textMuted}
+                    placeholderTextColor={Colors.textSecondary}
                     value={contactName}
                     onChangeText={setContactName}
                   />
@@ -322,13 +315,13 @@ export default function FindTripScreen() {
                   <TextInput
                     style={[styles.addInput, { flex: 1.4 }]}
                     placeholder="+234 ..."
-                    placeholderTextColor={C.textMuted}
+                    placeholderTextColor={Colors.textSecondary}
                     keyboardType="phone-pad"
                     value={contactPhone}
                     onChangeText={setContactPhone}
                   />
                   <Pressable style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.75 }]} onPress={addContact}>
-                    <Ionicons name="add" size={20} color={C.white} />
+                    <Ionicons name="add" size={20} color={Colors.textWhite} />
                   </Pressable>
                 </View>
               </View>
@@ -351,65 +344,65 @@ export default function FindTripScreen() {
 
 // ─── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.bg },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: C.border },
-  backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 16, color: C.text, letterSpacing: 0.2 },
+  root: { flex: 1, backgroundColor: Colors.background },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, alignItems: "center", justifyContent: "center" },
+  headerTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 16, color: Colors.text, letterSpacing: 0.2 },
   scroll: { flex: 1, },
   scrollContent: { padding: 20, gap: 0, flex:1, alignItems: 'center', justifyContent: 'center' },
   heroRow: { flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 28 },
-  heroIcon: { width: 56, height: 56, borderRadius: 16, backgroundColor: C.primaryGlow, borderWidth: 1, borderColor: "rgba(0,166,81,0.25)", alignItems: "center", justifyContent: "center" },
-  heroTitle: { fontFamily: "Poppins_700Bold", fontSize: 22, color: C.text, textAlign: 'center' },
-  heroSub: { fontFamily: "Poppins_400Regular", fontSize: 13, color: C.textSub, marginTop: 2, lineHeight: 20, textAlign: 'center' },
-  codeCard: { backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.border, padding: 28, alignItems: "center", marginBottom: 16 },
-  codeLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 10, color: C.textMuted, letterSpacing: 3, marginBottom: 16 },
-  codeInput: { fontFamily: "Poppins_700Bold", fontSize: 36, color: C.primary, letterSpacing: 16, textAlign: "center", paddingHorizontal: 8, minWidth: 200 },
+  heroIcon: { width: 56, height: 56, borderRadius: 16, backgroundColor: Colors.primaryDark, borderWidth: 1, borderColor: "rgba(0,166,81,0.25)", alignItems: "center", justifyContent: "center" },
+  heroTitle: { fontFamily: "Poppins_700Bold", fontSize: 22, color: Colors.text, textAlign: 'center' },
+  heroSub: { fontFamily: "Poppins_400Regular", fontSize: 13, color: Colors.textSecondary, marginTop: 2, lineHeight: 20, textAlign: 'center' },
+  codeCard: { backgroundColor: Colors.text, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 28, alignItems: "center", marginBottom: 16 },
+  codeLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 10, color: Colors.textSecondary, letterSpacing: 3, marginBottom: 16 },
+  codeInput: { fontFamily: "Poppins_700Bold", fontSize: 36, color: Colors.primary, letterSpacing: 16, textAlign: "center", paddingHorizontal: 8, minWidth: 200 },
   codeDots: { flexDirection: "row", gap: 8, marginTop: 16 },
-  codeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.border },
-  codeDotFilled: { backgroundColor: C.primary },
-  searchBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: C.primary, borderRadius: 16, height: 56, marginBottom: 14, },
+  codeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.border },
+  codeDotFilled: { backgroundColor: Colors.primary },
+  searchBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: Colors.primary, borderRadius: 16, height: 56, marginBottom: 14, },
   searchBtnDisabled: { opacity: 0.6 },
-  searchBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 16, color: C.white },
-  hint: { fontFamily: "Poppins_400Regular", fontSize: 12, color: C.textMuted, textAlign: "center", lineHeight: 18 },
-  tripCard: { backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.border, padding: 20, marginBottom: 16, overflow: "hidden" },
+  searchBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 16, color: Colors.textWhite },
+  hint: { fontFamily: "Poppins_400Regular", fontSize: 12, color: Colors.textSecondary, textAlign: "center", lineHeight: 18 },
+  tripCard: { backgroundColor: Colors.text, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 20, marginBottom: 16, overflow: "hidden" },
   tripCardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
   codePill: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(0,166,81,0.1)", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: "rgba(0,166,81,0.2)" },
-  codePillText: { fontFamily: "Poppins_700Bold", fontSize: 14, color: C.primary, letterSpacing: 2 },
-  livePill: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: C.surface, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: C.border },
-  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.error },
-  livePillText: { fontFamily: "Poppins_700Bold", fontSize: 10, color: C.error, letterSpacing: 1.5 },
+  codePillText: { fontFamily: "Poppins_700Bold", fontSize: 14, color: Colors.primary, letterSpacing: 2 },
+  livePill: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: Colors.surface, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.error },
+  livePillText: { fontFamily: "Poppins_700Bold", fontSize: 10, color: Colors.error, letterSpacing: 1.5 },
   routeContainer: { flexDirection: "row", gap: 14, marginBottom: 18 },
   routeLine: { alignItems: "center", paddingTop: 20, gap: 0 },
-  routeDotGreen: { width: 12, height: 12, borderRadius: 6, backgroundColor: C.primary, borderWidth: 2, borderColor: "rgba(0,166,81,0.3)" },
-  routeConnector: { width: 2, height: 32, backgroundColor: C.border, marginVertical: 3 },
-  routeDotRed: { width: 12, height: 12, borderRadius: 6, backgroundColor: C.error, borderWidth: 2, borderColor: "rgba(239,68,68,0.3)" },
+  routeDotGreen: { width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.primary, borderWidth: 2, borderColor: "rgba(0,166,81,0.3)" },
+  routeConnector: { width: 2, height: 32, backgroundColor: Colors.border, marginVertical: 3 },
+  routeDotRed: { width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.error, borderWidth: 2, borderColor: "rgba(239,68,68,0.3)" },
   routeLabels: { flex: 1 },
   routeStop: {},
-  routeStopLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 9, color: C.textMuted, letterSpacing: 2, marginBottom: 2 },
-  routeStopValue: { fontFamily: "Poppins_600SemiBold", fontSize: 15, color: C.text, lineHeight: 22 },
-  tripMeta: { flexDirection: "row", gap: 20, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.borderLight },
+  routeStopLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 9, color: Colors.textSecondary, letterSpacing: 2, marginBottom: 2 },
+  routeStopValue: { fontFamily: "Poppins_600SemiBold", fontSize: 15, color: Colors.text, lineHeight: 22 },
+  tripMeta: { flexDirection: "row", gap: 20, paddingTop: 14, borderTopWidth: 1, borderTopColor: Colors.borderLight },
   tripMetaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  tripMetaText: { fontFamily: "Poppins_400Regular", fontSize: 13, color: C.textSub },
+  tripMetaText: { fontFamily: "Poppins_400Regular", fontSize: 13, color: Colors.textSecondary },
   section: { marginBottom: 20 },
-  sectionTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: C.text, marginBottom: 4, letterSpacing: 0.2 },
-  sectionSub: { fontFamily: "Poppins_400Regular", fontSize: 12, color: C.textMuted, lineHeight: 18, marginBottom: 12 },
-  inputRow: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.border, paddingHorizontal: 16, paddingVertical: 14 },
-  input: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 14, color: C.text },
+  sectionTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: Colors.text, marginBottom: 4, letterSpacing: 0.2 },
+  sectionSub: { fontFamily: "Poppins_400Regular", fontSize: 12, color: Colors.textSecondary, lineHeight: 18, marginBottom: 12 },
+  inputRow: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: Colors.text, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 16, paddingVertical: 14 },
+  input: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 14, color: Colors.text },
   chipList: { gap: 8, marginBottom: 12 },
-  chip: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: C.chip, borderRadius: 12, borderWidth: 1, borderColor: C.chipBorder, paddingHorizontal: 12, paddingVertical: 10 },
+  chip: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: Colors.text, borderRadius: 12, borderWidth: 1, borderColor: Colors.text, paddingHorizontal: 12, paddingVertical: 10 },
   chipAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(0,166,81,0.15)", borderWidth: 1, borderColor: "rgba(0,166,81,0.25)", alignItems: "center", justifyContent: "center" },
-  chipAvatarText: { fontFamily: "Poppins_700Bold", fontSize: 13, color: C.primary },
+  chipAvatarText: { fontFamily: "Poppins_700Bold", fontSize: 13, color: Colors.primary },
   chipInfo: { flex: 1 },
-  chipName: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: C.text },
-  chipPhone: { fontFamily: "Poppins_400Regular", fontSize: 11, color: C.textSub, marginTop: 1 },
-  chipRemove: { width: 24, height: 24, borderRadius: 12, backgroundColor: C.border, alignItems: "center", justifyContent: "center" },
-  addContactCard: { flexDirection: "row", alignItems: "center", backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.border, overflow: "hidden", paddingLeft: 14 },
-  addInput: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 13, color: C.text, paddingVertical: 13, minWidth: 0 },
-  addDivider: { width: 1, height: 28, backgroundColor: C.border, marginHorizontal: 10 },
-  addBtn: { width: 46, height: 46, backgroundColor: C.primary, alignItems: "center", justifyContent: "center", margin: 4, borderRadius: 10 },
+  chipName: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: Colors.text },
+  chipPhone: { fontFamily: "Poppins_400Regular", fontSize: 11, color: Colors.textSecondary, marginTop: 1 },
+  chipRemove: { width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.border, alignItems: "center", justifyContent: "center" },
+  addContactCard: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.text, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, overflow: "hidden", paddingLeft: 14 },
+  addInput: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 13, color: Colors.text, paddingVertical: 13, minWidth: 0 },
+  addDivider: { width: 1, height: 28, backgroundColor: Colors.border, marginHorizontal: 10 },
+  addBtn: { width: 46, height: 46, backgroundColor: Colors.primary, alignItems: "center", justifyContent: "center", margin: 4, borderRadius: 10 },
   joinSection: { marginTop: 8 },
-  joinBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: C.primary, borderRadius: 18, height: 60, overflow: "hidden", shadowColor: C.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 10 },
+  joinBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: Colors.primary, borderRadius: 18, height: 60, overflow: "hidden", shadowColor: Colors.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 10 },
   joinBtnDisabled: { opacity: 0.55 },
   joinBtnGlow: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(255,255,255,0.06)" },
-  joinBtnText: { fontFamily: "Poppins_700Bold", fontSize: 17, color: C.white, letterSpacing: 0.5 },
+  joinBtnText: { fontFamily: "Poppins_700Bold", fontSize: 17, color: Colors.textWhite, letterSpacing: 0.5 },
 });

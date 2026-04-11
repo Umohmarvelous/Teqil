@@ -5,6 +5,7 @@ import {
   Pressable,
   Text,
   Platform,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
@@ -28,6 +29,7 @@ import {
   MessageIcon,
   Message01Icon,
 } from "@hugeicons/core-free-icons";
+import { router } from "expo-router";
 
 type Tab = "home" | "profile" | "messages" | "settings";
 
@@ -48,12 +50,34 @@ export default function MainLayout() {
   const handleTabPress = (tab: Tab) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tab);
+    
   };
+
+  // const handleQuickAction = () => {
+  //   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  //   const role = user?.role;
+  //   if (role === "driver") {
+  //     if (!user?.profile_complete) {
+  //       Alert.alert("Profile Required", "Complete your driver profile first.", [
+  //         { text: "Complete Now", onPress: () => router.push("/(auth)/driver-profile") },
+  //         { text: "Cancel", style: "cancel" },
+  //       ]);
+  //       return;
+  //     }
+  //     router.push("/(driver)/create-trip");
+  //   } else if (role === "passenger") {
+  //     router.push("/(passenger)/find-trip");
+  //   } else if (role === "park_owner") {
+  //     Alert.alert("Broadcast", "Go to the Park Owner dashboard to send broadcasts.");
+  //   }
+  //   router.push('/(main)/profile')
+  // };
+
 
   const renderContent = () => {
     switch (activeTab) {
       case "home": return <HomeTab onOpenSidebar={() => setSidebarOpen(true)} />;
-      case "profile": return <ProfileTab />;
+      case "profile":  return <ProfileTab />
       case "messages": return <MessagesTab />;
       case "settings": return <SettingsTab />;
     }

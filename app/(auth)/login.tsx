@@ -67,10 +67,14 @@ function routeByRole(
   profileComplete: boolean | undefined
 ) {
   if (role === "driver") {
-    return profileComplete ? "/(driver)" : "/(auth)/driver-profile";
+    // return profileComplete ? "/(driver)" : "/(auth)/driver-profile";
+    return profileComplete ? "/(main)" : "/(auth)/driver-profile";
+
   }
-  if (role === "park_owner") return "/(park-owner)";
-  return "/(passenger)";
+  if (role === "park_owner") return "/(main)";
+  return "/(main)";
+  // if (role === "park_owner") return "/(park-owner)";
+  // return "/(passenger)";
 }
 
 // ─── Animated pressable ───────────────────────────────────────────────────────

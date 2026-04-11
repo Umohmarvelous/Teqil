@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { supabase } from "@/src/services/supabase";
 import { Colors } from "@/constants/colors";
 import Avatar from "@/components/Avatar";
 import { HugeiconsIcon } from "@hugeicons/react-native";
+import { TripsStorage } from "@/src/services/storage";
 import {
   UserIcon,
   Mail01Icon,
@@ -29,20 +30,27 @@ import {
   LocationIcon,
   LogoutIcon,
   AddCircleIcon,
-  Edit,
   IdentityCardIcon,
   Close,
   Camera01Icon,
   Search01Icon,
   QrCode01Icon,
   Edit02Icon,
+  IdentityCardFreeIcons,
+  Download01Icon,
 } from "@hugeicons/core-free-icons";
-import type { EmergencyContact } from "@/src/models/types";
+import type { EmergencyContact, Trip } from "@/src/models/types";
 import { StatusBar } from "expo-status-bar";
-import { ca } from "zod/v4/locales";
-import { text } from "drizzle-orm/mysql-core";
 import PassengerDashboard from "../(passenger)";
-import BalanceCard from "@/components/BalanceCard";
+import DriverDashboard from "../(driver)";
+import QuickReceiveModal from "@/components/quickrecieveModal";
+import StatPill from "@/components/StatPill";
+
+import {
+
+  formatNaira,
+  coinsToNaira,
+} from "@/src/utils/helpers";
 
 // Reusable InfoRow with Hugeicons
 function InfoRow({
@@ -102,8 +110,17 @@ const infoStyles = StyleSheet.create({
     justifyContent: "center",
   },
   textBlock: { flex: 1 },
-  label: { fontFamily: "Poppins_400Regular", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 },
-  value: { fontFamily: "Poppins_500Medium", fontSize: 14, marginTop: 1 },
+  label: { 
+    fontFamily: "Poppins_400Regular", 
+    fontSize: 11, 
+    textTransform: "uppercase", 
+    letterSpacing: 0.5
+  },
+  value: { 
+    fontFamily: "Poppins_500Medium", 
+    fontSize: 14, 
+    marginTop: 1 
+  },
 });
 
 export default function ProfileTab() {
@@ -123,6 +140,19 @@ export default function ProfileTab() {
   const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
+  const [receiveVisible, setReceiveVisible] = useState(false);
+  const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
+
+  
+  const completedTrips = recentTrips.filter((t) => t.status === "completed").length;
+  const coins = user?.points_balance || 0;
+
+  useEffect(() => {
+    if (!user?.id) return;
+    TripsStorage.getByDriverId(user.id).then((trips) =>
+      setRecentTrips(trips.slice(-5).reverse())
+    );
+  }, [user?.id]);
 
   const pickPhoto = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -193,7 +223,7 @@ export default function ProfileTab() {
           <Pressable>
             <HugeiconsIcon icon={Search01Icon} size={24} color={textColor} />
           </Pressable>
-          <Pressable>
+          <Pressable onPress={() => setReceiveVisible(true)}>
             <HugeiconsIcon icon={QrCode01Icon} size={24} color={textColor} />
           </Pressable>
         </View>
@@ -210,17 +240,61 @@ export default function ProfileTab() {
               {user?.role === "driver" ? "Driver" : user?.role === "park_owner" ? "Park Owner" : "Passenger"}
             </Text>
           </View>
+          <View>
+
+          {user?.driver_id && (
+            <View style={styles.driverIdChip}>
+              <HugeiconsIcon icon={IdentityCardFreeIcons} size={12} color={Colors.gold} />
+              <Text style={styles.driverIdText}>{user.driver_id}</Text>
+            </View>
+          )}
+
+
+          </View>
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <PassengerDashboard />
-          {/* <BalanceCard
-              coins={coins}
-              balanceHidden={balanceHidden}
 
-              onToggleHide={() => setBalanceHidden(v => !v)}
-              // onQuickTransferPress={() => setQuickTransferVisible(true)}
-          /> */}
+          { user?.role === "driver" ?
+            (
+              <DriverDashboard />
+            )
+            : (
+              <PassengerDashboard />
+          )}
+
+
+          {/* ── Earnings summary strip ── */}
+          <View style={styles.statsStrip}>
+            <StatPill
+              icon="checkmark-circle-outline"
+              label="Trips"
+              value={recentTrips.length.toString()}
+              color={Colors.primary}
+            />
+            <View style={styles.statsDivider} />
+            <StatPill
+              icon="trophy-outline"
+              label="Completed"
+              value={completedTrips.toString()}
+              color="#7C3AED"
+            />
+            <View style={styles.statsDivider} />
+            <StatPill
+              icon="wallet-outline"
+              label="Earned"
+              value={formatNaira(coinsToNaira(coins))}
+              color={Colors.gold}
+            />
+            <View style={styles.statsDivider} />
+            <StatPill
+              icon="star-outline"
+              label="Rating"
+              value={user?.avg_rating ? user.avg_rating.toFixed(1) : "—"}
+              color="#0891B2"
+            />
+          </View>
+        
           {/* Personal Information */}
           <Text style={[styles.cardTitle, { color: textColor }]}>Personal Information</Text>
           <View style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
@@ -431,7 +505,18 @@ export default function ProfileTab() {
           </View>
         </View>
       )}
+
+      {/* Quick Receive modal */}
+      <QuickReceiveModal
+        visible={receiveVisible}
+        onClose={() => setReceiveVisible(false)}
+        driverId={user?.driver_id}
+      />
+      
+      
     </ScrollView>
+
+
   );
 }
 
@@ -475,7 +560,49 @@ const styles = StyleSheet.create({
   heroName: { fontFamily: "Poppins_700Bold", fontSize: 22, marginTop: 4 },
   roleBadge: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5,borderWidth: .5, borderColor: Colors.primary  },
   roleText: { fontFamily: "Poppins_500Medium", fontSize: 13, color: Colors.primary, },
-  scrollContent: { padding: 10, paddingHorizontal: 25, gap: 14, paddingBottom: 32 },
+  driverIdChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(245,166,35,0.15)",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: "rgba(245,166,35,0.3)",
+  },
+  driverIdText: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 10,
+    color: Colors.gold,
+    letterSpacing: 1.2,
+  },
+
+  scrollContent: {
+    padding: 10, 
+    paddingHorizontal: 25, 
+    gap: 14, 
+    paddingBottom: 32
+  },
+
+  statsStrip: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    marginHorizontal: 16,
+    marginTop: 14,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+
+  statsDivider: { width: 1, height: 32, backgroundColor: Colors.border },
+
   card: {
     borderRadius: 24,
     padding: 28,

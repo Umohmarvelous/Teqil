@@ -30,7 +30,7 @@ export function formatNaira(amount: number): string {
 }
 
 export function formatCoins(coins: number): string {
-  return `${coins.toLocaleString()} coins`;
+  return `${coins.toLocaleString()} `;
 }
 
 export function coinsToNaira(coins: number): number {

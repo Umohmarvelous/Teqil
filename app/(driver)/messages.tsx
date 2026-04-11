@@ -14,6 +14,8 @@ import { BroadcastsStorage } from "@/src/services/storage";
 import { formatDateTime } from "@/src/utils/helpers";
 import type { Broadcast } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import { Notification01Icon, Notification03Icon } from "@hugeicons/core-free-icons";
 
 function MessageCard({ broadcast }: { broadcast: Broadcast }) {
   return (
@@ -82,11 +84,8 @@ export default function MessagesScreen() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <View style={styles.emptyIconBg}>
-              <Ionicons
-                name="notifications-outline"
-                size={40}
-                color={Colors.primary}
-              />
+            
+              <HugeiconsIcon icon={Notification01Icon} size={40}  color={Colors.primary}/>
             </View>
             <Text style={styles.emptyTitle}>No messages yet</Text>
             <Text style={styles.emptySubtitle}>
@@ -108,7 +107,7 @@ export default function MessagesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1 , backgroundColor: Colors.border},
 
   // Header
   header: {
@@ -186,7 +185,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 24,
-    backgroundColor: Colors.primaryLight,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 4,

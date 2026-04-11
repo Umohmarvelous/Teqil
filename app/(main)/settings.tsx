@@ -20,6 +20,7 @@ import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { Colors } from "@/constants/colors";
 import { supabase } from "@/src/services/supabase";
 import type { MapStyle, FontSize, HistoryRetention } from "@/src/store/useSettingsStore";
+import { StatusBar } from "expo-status-bar";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -234,11 +235,14 @@ export default function SettingsTab() {
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
 
   const isDark = settings.theme === "dark";
-  const bg = isDark ? "#0D1117" : "#F4F6FA";
-  const cardBg = isDark ? "#161B22" : "#FFFFFF";
   const textColor = isDark ? "#F0F0F0" : "#0D1B3E";
   const subColor = isDark ? "#6B7280" : "#9CA3AF";
-  const borderColor = isDark ? "rgba(255,255,255,0.06)" : "#E8ECF0";
+
+  const bg = isDark ? Colors.background : Colors.border;
+  // const textColor = isDark ? Colors.textWhite : Colors.text;
+  // const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
 //   const toggle = (setter: (v: boolean) => void, current: boolean) => {
@@ -291,6 +295,9 @@ export default function SettingsTab() {
 
   return (
     <View style={[styles.root, { backgroundColor: bg }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'}  />
+
+
       {/* Header */}
       <View
         style={[

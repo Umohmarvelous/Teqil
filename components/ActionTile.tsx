@@ -2,7 +2,6 @@
 import React, { useRef } from "react";
 import { View, Text, StyleSheet, Pressable, Animated,Dimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { FB } from "@/constants/fbPalette";
 import { Colors } from "@/constants/colors";
 
 const { width: W } = Dimensions.get("window");
@@ -43,10 +42,10 @@ export default function ActionTile({ icon, label, color, onPress }: ActionTilePr
         onPressOut={animateOut}
         style={styles.actionTileInner}
       >
-        <View style={[styles.actionIconWrap, { backgroundColor: color + "18" }]}>
+        <View style={[styles.actionIconWrap]}>
           <Ionicons name={icon} size={26} color={color} />
         </View>
-        <Text style={styles.actionLabel}>{label}</Text>
+        <Text style={styles.actionLabel, { color: color }}>{label}</Text>
       </Pressable>
     </Animated.View>
   );
@@ -57,12 +56,10 @@ const styles = StyleSheet.create({
     // width: (W - 32 - 36 - 24) / 3,
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1
   },
   actionTileInner: {
     alignItems: "center",
-    justifyContent: 'center',
-    gap:6
+    gap:3
   },
   actionIconWrap: {
     width: 55,
@@ -73,8 +70,7 @@ const styles = StyleSheet.create({
   },
   actionLabel: {
     fontFamily: "Poppins_500Medium",
-    fontSize: 11,
-    color: Colors.textWhite,
+    fontSize: 5,
     textAlign: "center",
     lineHeight: 16,
   },

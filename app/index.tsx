@@ -21,7 +21,7 @@ export default function IndexScreen() {
     // Authenticated: drivers need profile completion first, everyone else
     // goes to the unified (main) dashboard
     if (user.role === "driver" && !user.profile_complete) {
-      router.replace("/(driver)");
+      router.replace("/(main)");
     } else {
       router.replace("/(main)");
     }
