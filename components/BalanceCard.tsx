@@ -5,7 +5,7 @@ import { formatCoins, formatNaira } from "@/src/utils/helpers";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { Colors } from "@/constants/colors";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { EyeIcon, EyeOff } from "@hugeicons/core-free-icons";
+import { EyeIcon, EyeOff, Hidden } from "@hugeicons/core-free-icons";
 
 interface BalanceCardProps {
   coins: number;
@@ -24,36 +24,29 @@ export default function BalanceCard({
   const { theme } = useSettingsStore();
 
   const isDark = theme === "dark";
-  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
   const textColor = isDark ? Colors.textWhite : Colors.text;
 
-  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
   return (
     <>
-      <View style={ styles.balanceLabelContainer}>
-        <Text style={[styles.balanceLabel, {color: textColor}]}>Coin Balance</Text>
-        <Pressable onPress={onToggleHide} hitSlop={8}>
-          <HugeiconsIcon
-            icon={balanceHidden ? EyeOff : EyeIcon}
-            size={18}
-            color={textColor}
-          />
-        </Pressable>
-      </View>
-      <View style={[styles.balanceCard, { backgroundColor: cardBg, borderColor }]}>
-        <View style={styles.balanceCardInner}>
-          <View style={styles.balanceLeft}>
-            <View style={styles.balanceRow}>
-              <Text style={styles.balanceValue}>
-                {balanceHidden ? "****" : formatCoins(coins)}
-                {/* <Text style={{fontFamily: "Helvetica", fontSize: 18, color: '#AFAFAF', fontWeight: '700'}}>{ formatCoins < 1 ? " Coins" : " Coin" }</Text> */}
-              </Text>
-              <Text style={styles.balanceEquiv}>
-                 ≈ {` `} {formatNaira(coins * 0.7)}
-              </Text>
-            </View>
-          </View>
+      <View style={styles.balanceLabelContainer}>
+        <View style={{flexDirection: 'row', gap: 10}}>
+          <Text style={[styles.balanceLabel, {color: textColor}]}>Coin Balance</Text>
+          <Pressable onPress={onToggleHide} hitSlop={8}>
+            <HugeiconsIcon
+              icon={balanceHidden ? EyeOff : EyeIcon}
+              size={18}
+              color={textColor}
+            />
+          </Pressable>
+        </View>
+        <View style={styles.balanceRow}>
+          <Text style={styles.balanceValue}>
+            {balanceHidden ? "****" : formatCoins(coins)}
+          </Text>
+          <Text style={styles.balanceEquiv}>
+              ≈ {` `} {formatNaira(coins * 0.7)}
+          </Text>
         </View>
       </View>
     </>
@@ -61,27 +54,11 @@ export default function BalanceCard({
 }
 
 const styles = StyleSheet.create({
-  balanceCard: {
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 24,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    alignItems: 'flex-start',
-  },
-  balanceCardInner: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginVertical: 10,
-  },
-  balanceLeft: {
-    flex: 1,
-  },
+
   balanceLabelContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     justifyContent: 'flex-start',
-    gap: 15,
+    gap: 25, 
     textAlign: 'center',
   },
   balanceLabel: {

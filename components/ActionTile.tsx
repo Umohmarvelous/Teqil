@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
   },
   actionTileInner: {
     alignItems: "center",
-    gap: 3
+    gap: 0
   },
   actionIconWrap: {
     width: 55,

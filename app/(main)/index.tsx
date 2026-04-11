@@ -211,7 +211,7 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
         </Text> */}
 
 
-          {isAuthenticated || user?.role === "driver" ?  (
+          {isAuthenticated && user?.role === "driver" ?  (
           <>
             {/* <Text>Hey...</Text> */}
           </>
@@ -482,8 +482,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     alignContent: 'center', 
     justifyContent: 'space-between', 
-    gap: 12, 
-    flex:1,
+    gap: 6, 
+    flex: 1,
     flexWrap: 'wrap',
   },
 

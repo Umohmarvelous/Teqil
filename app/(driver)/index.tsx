@@ -183,8 +183,6 @@ const styles = StyleSheet.create({
   // Balance
   balanceCard: {
     backgroundColor: Colors.primaryDarker,
-    borderRadius: 20,
-    padding: 18,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.12)",
     gap: 12,

@@ -37,6 +37,10 @@ import {
   QrCode01Icon,
   Edit02Icon,
   IdentityCardFreeIcons,
+  CheckmarkBadge01Icon,
+  Trophy,
+  Wallet,
+  Star,
 } from "@hugeicons/core-free-icons";
 import type { EmergencyContact, Trip } from "@/src/models/types";
 import { StatusBar } from "expo-status-bar";
@@ -260,42 +264,57 @@ export default function ProfileTab() {
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           { user?.role === "driver" ?
             (
-              <DriverDashboard />
+              <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderColor }]}>
+                  <DriverDashboard />
+              </View>
             )
-            : (
-              <PassengerDashboard />
+            : user?.role === "passenger" ? (
+                <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderColor }]}>
+                    <PassengerDashboard />
+                </View>
+            ) : (
+                <>
+                  {/* <Text>HI again...</Text> */}
+                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderColor }]}>
+                    <DriverDashboard />
+                  </View>
+                </>
           )}
 
           {/* ── Earnings summary strip ── */}
-          <View style={styles.statsStrip}>
-            <StatPill
-              icon="checkmark-circle-outline"
-              label="Trips"
-              value={recentTrips.length.toString()}
-              color={Colors.primary}
-            />
-            <View style={styles.statsDivider} />
-            <StatPill
-              icon="trophy-outline"
-              label="Completed"
-              value={completedTrips.toString()}
-              color="#7C3AED"
-            />
-            <View style={styles.statsDivider} />
-            <StatPill
-              icon="wallet-outline"
-              label="Earned"
-              value={formatNaira(coinsToNaira(coins))}
-              color={Colors.gold}
-            />
-            <View style={styles.statsDivider} />
-            <StatPill
-              icon="star-outline"
-              label="Rating"
-              value={user?.avg_rating ? user.avg_rating.toFixed(1) : "—"}
-              color="#0891B2"
-            />
-          </View>
+          {user?.role === "driver" && (
+            <View style={styles.statsStrip}>
+              <View style={ styles.statInner}>
+                <StatPill
+                  iconName={CheckmarkBadge01Icon}
+                  label="Trips"
+                  value={recentTrips.length.toString()}
+                  color={Colors.primary}
+                />
+                <StatPill
+                  iconName={Trophy}
+                  label="Completed"
+                  value={completedTrips.toString()}
+                  color="#7C3AED"
+                />
+              </View>
+
+              <View style={ styles.statInner}>
+                <StatPill
+                  iconName={ Wallet}
+                  label="Earned"
+                  value={formatNaira(coinsToNaira(coins))}
+                  color={Colors.gold}
+                />
+                <StatPill
+                  iconName={Star}
+                  label="Rating"
+                  value={user?.avg_rating ? user.avg_rating.toFixed(1) : "—"}
+                  color="#0891B2"
+                />
+              </View>
+            </View>
+          )}
         
           {/* Personal Information */}
           <Text style={[styles.cardTitle, { color: textColor }]}>Personal Information</Text>
@@ -582,24 +601,40 @@ const styles = StyleSheet.create({
     gap: 14, 
     paddingBottom: 32
   },
-
+  coinbalanceSection: {
+  borderWidth: 1,
+    padding: 30,
+    borderRadius: 30,
+  },
   statsStrip: {
+    flex: 1,
     flexDirection: "row",
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
-    marginTop: 14,
+    alignItems: "center",
+    justifyContent: 'space-between',
+    gap: 10,
+    // marginTop: 14,
     borderRadius: 18,
     paddingVertical: 14,
     paddingHorizontal: 8,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    flexWrap: 'wrap',
+    // shadowColor: "#000",
+    // shadowOffset: { width: 0, height: 2 },
+    // shadowOpacity: 0.06,
+    // shadowRadius: 8,
+    // elevation: 3,
+  },
+  statInner: {
+    flex: 1,
+    // borderWidth: 2, borderColor: 'red',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 20,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 10
   },
 
-  statsDivider: { width: 1, height: 32, backgroundColor: Colors.border },
+  statsDivider: { width: 12, height: 32, padding:30, backgroundColor: Colors.primary },
 
   card: {
     borderRadius: 24,
