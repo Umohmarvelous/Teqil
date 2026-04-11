@@ -8,8 +8,6 @@ import {
 import { router } from "expo-router";
 import { useAuthStore } from "@/src/store/useStore";
 import { PassengersStorage, TripsStorage } from "@/src/services/storage";
-// import type { Trip } from "@/src/models/types";
-// import { useTranslation } from "react-i18next";
 
 // Import separated components
 import BalanceCard from "@/components/BalanceCard";
@@ -44,23 +42,7 @@ export default function PassengerDashboard() {
     loadTrips();
   }, [user?.id]);
 
-  
 
-  const handleLogout = () => {
-    Alert.alert("Sign Out", "Are you really sure about this ?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: async () => {
-          const { signOut } = await import("@/src/services/supabase");
-          await signOut();
-          logout();
-          router.replace("/(auth)/welcome");
-        },
-      },
-    ]);
-  };
 
   return (
     <View style={[styles.hero, ]}>
@@ -79,7 +61,6 @@ export default function PassengerDashboard() {
 
 const styles = StyleSheet.create({
   hero: {
-    // paddingBottom: 14,
   },
 
 })

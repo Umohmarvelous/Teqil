@@ -29,11 +29,10 @@ import {
   MessageIcon,
   Message01Icon,
 } from "@hugeicons/core-free-icons";
-import { router } from "expo-router";
 
 type Tab = "home" | "profile" | "messages" | "settings";
 
-const TAB_HEIGHT = 72;
+const TAB_HEIGHT = 60;
 
 export default function MainLayout() {
   const insets = useSafeAreaInsets();

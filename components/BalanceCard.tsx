@@ -1,11 +1,16 @@
 // components/BalanceCard.tsx
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
-import { formatCoins, formatNaira } from "@/src/utils/helpers";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { Colors } from "@/constants/colors";
-import { HugeiconsIcon } from "@hugeicons/react-native";
-import { EyeIcon, EyeOff, Hidden } from "@hugeicons/core-free-icons";
+import { Ionicons } from "@expo/vector-icons";
+import { useAuthStore } from "@/src/store/useStore";
+
+import {
+  formatCoins,
+  formatNaira,
+  coinsToNaira,
+} from "@/src/utils/helpers";
 
 interface BalanceCardProps {
   coins: number;
@@ -15,13 +20,18 @@ interface BalanceCardProps {
 }
 
 export default function BalanceCard({
-  coins,
-  balanceHidden,
+  // coins,
+  // balanceHidden,
   onToggleHide,
   onQuickTransferPress,
 }: BalanceCardProps) {
   
   const { theme } = useSettingsStore();
+  const { user } = useAuthStore();
+  
+  const coins = user?.points_balance || 0;
+  const [balanceHidden, setBalanceHidden] = useState(false);
+
 
   const isDark = theme === "dark";
   const textColor = isDark ? Colors.textWhite : Colors.text;
@@ -29,61 +39,64 @@ export default function BalanceCard({
 
   return (
     <>
-      <View style={styles.balanceLabelContainer}>
-        <View style={{flexDirection: 'row', gap: 10}}>
-          <Text style={[styles.balanceLabel, {color: textColor}]}>Coin Balance</Text>
-          <Pressable onPress={onToggleHide} hitSlop={8}>
-            <HugeiconsIcon
-              icon={balanceHidden ? EyeOff : EyeIcon}
-              size={18}
-              color={textColor}
-            />
-          </Pressable>
-        </View>
+      <View style={styles.balanceCard}>
+        {/* <Text style={styles.balanceLabel}>Coin Balance</Text> */}
+
+        {/* Balance card */}
+        <Pressable style={styles.balanceIcon} onPress={() => setBalanceHidden((v) => !v)} hitSlop={8}>
+          <Ionicons
+            name={balanceHidden ? "eye-off" : "eye"}
+            size={22} 
+            color= {textColor}
+          />
+        </Pressable>
         <View style={styles.balanceRow}>
-          <Text style={styles.balanceValue}>
-            {balanceHidden ? "****" : formatCoins(coins)}
-          </Text>
-          <Text style={styles.balanceEquiv}>
-              ≈ {` `} {formatNaira(coins * 0.7)}
+          <Text style={[styles.balanceValue, {color: textColor}]}>
+            {balanceHidden ? "* * * * *" : formatCoins(coins)}
           </Text>
         </View>
+        <Text style={styles.balanceEquiv}>
+          ≈ {formatNaira(coinsToNaira(coins))}
+        </Text>
+
       </View>
     </>
   );
 }
 
+
+// ─── Main Styles ──────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
 
-  balanceLabelContainer: {
-    flexDirection: 'column',
-    justifyContent: 'flex-start',
-    gap: 25, 
-    textAlign: 'center',
+  balanceCard: {
+    flexDirection: "column",
+    gap: 22,
+    alignItems: "center",
+    flex: 1,   
+
   },
   balanceLabel: {
-  fontFamily: "Poppins_600SemiBold",
-  fontSize: 14,
-  marginBottom: 12,
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    color: Colors.background,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
-  balanceRow: {
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: 'center', 
-    // gap: 37, 
-    flex:1
+  balanceRow: { 
   },
   balanceValue: {
-    fontFamily: "mono",
-    fontSize: 30,
-    color: Colors.warning,
-    letterSpacing: -0.5,
+    fontFamily: "Poppins_700Bold",
+    fontSize: 26,
+    color: Colors.background,
+    letterSpacing: -0.5, 
+  },
+  balanceIcon: {
+    alignSelf: 'flex-end',
   },
   balanceEquiv: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    color: Colors.textTertiary,
-    marginTop: 2,
+    // alignSelf: 'flex-start',
+    fontFamily: "Poppins_700Bold",
+    fontSize: 12,    
+    color: Colors.gold,
   },
-
 });

@@ -276,7 +276,7 @@ export default function ProfileTab() {
                 <>
                   {/* <Text>HI again...</Text> */}
                   <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderColor }]}>
-                    <DriverDashboard />
+                    <PassengerDashboard />
                   </View>
                 </>
           )}
@@ -541,7 +541,7 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   profileHeader: {
     marginVertical: 50,
-    marginBottom: 0,
+    marginBottom: 15,
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginHorizontal: 20,
@@ -597,14 +597,20 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     padding: 10, 
-    paddingHorizontal: 25, 
-    gap: 14, 
+    paddingHorizontal: 10, 
+    // gap: 14,
     paddingBottom: 32
   },
   coinbalanceSection: {
-  borderWidth: 1,
-    padding: 30,
+    borderWidth: 1,
+    padding: 20,
     borderRadius: 30,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 1, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 0,
+    elevation: 2,
   },
   statsStrip: {
     flex: 1,
@@ -613,19 +619,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
     // marginTop: 14,
-    borderRadius: 18,
+    borderRadius: 30,
     paddingVertical: 14,
     paddingHorizontal: 8,
     flexWrap: 'wrap',
-    // shadowColor: "#000",
-    // shadowOffset: { width: 0, height: 2 },
-    // shadowOpacity: 0.06,
-    // shadowRadius: 8,
-    // elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 1, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 0,
+    elevation: 2,
   },
   statInner: {
     flex: 1,
-    // borderWidth: 2, borderColor: 'red',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 20,
@@ -637,12 +642,22 @@ const styles = StyleSheet.create({
   statsDivider: { width: 12, height: 32, padding:30, backgroundColor: Colors.primary },
 
   card: {
-    borderRadius: 24,
+    borderRadius: 30,
     padding: 28,
     borderWidth: 1,
-    borderColor: '#fff'
+    borderColor: '#fff',
+    shadowColor: "#000",
+    shadowOffset: { width: 1, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 0,
+    elevation: 2,
   },
-  cardTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, marginBottom: 4 },
+  cardTitle: { 
+    fontFamily: "Poppins_600SemiBold", 
+    fontSize: 14, 
+    marginBottom: 10,
+    textAlign:'left' 
+  },
   contactRow: {
     flexDirection: "row",
     alignItems: "center",
