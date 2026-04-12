@@ -1,3 +1,4 @@
+
 // components/BalanceCard.tsx
 import React, { useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
@@ -14,15 +15,15 @@ import {
 
 interface BalanceCardProps {
   coins: number;
-  balanceHidden: boolean;
-  onToggleHide: () => void;
+  // balanceHidden: boolean;
+  // onToggleHide: () => void;
   onQuickTransferPress: () => void;
 }
 
 export default function BalanceCard({
   // coins,
   // balanceHidden,
-  onToggleHide,
+  // onToggleHide,
   onQuickTransferPress,
 }: BalanceCardProps) {
   

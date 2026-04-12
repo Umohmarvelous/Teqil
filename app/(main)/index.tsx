@@ -25,8 +25,8 @@ import { HugeiconsIcon } from "@hugeicons/react-native";
 import { Car02Icon, CheckmarkCircle01Icon, Menu02Icon, Navigation01Icon,  ShieldCheck } from "@hugeicons/core-free-icons";
 import { StatusBar } from "expo-status-bar";
 import QuickTransferModal from "@/components/QuickTransferModal";
-import ActionTile from "@/components/ActionTile";
 import { Ionicons } from "@expo/vector-icons";
+import ActionTile from "@/components/ActionTile";
 
 
 
@@ -63,14 +63,14 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
   // const coins = user?.points_balance || 0;
 
   // Define actions
+
   const ACTIONS = [
-  
-    { id: "pay", icon: "swap-horizontal" as const, label: "Pay", color: subTextColor },
-    { id: "find", icon: "search" as const, label: "Find Trip",   color: subTextColor },
-    { id: "qr", icon: "qr-code" as const, label: "Scan QR",      color: subTextColor },
-    { id: "share", icon: "share-social" as const, label: "Share Trip",  color: subTextColor },
-    { id: "sos", icon: "warning" as const, label: "Emergency",   color: subTextColor   },
-  ];
+    { id: "pay", icon: 'wallet' as const , label: "Pay", color: textColor },
+    { id: "find", icon: 'search' as const , label: "Find Trip",   color: textColor },
+    { id: "qr", icon: 'qr-code' as const , label: "Scan QR",      color: textColor },
+    { id: "share", icon: 'share' as const , label: "Share Trip",  color: textColor },
+    { id: "sos", icon: 'warning' as const , label: "Emergency",   color: textColor   },
+  ] ;
 
   const handleAction = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -143,12 +143,12 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
     }
   };
 
-  const quickActionLabel =
-    user?.role === "driver"
-      ? "Start Trip"
-      : user?.role === "passenger"
-      ? "Find Trip"
-        : "Broadcast";
+  // const quickActionLabel =
+  //   user?.role === "driver"
+  //     ? "Start Trip"
+  //     : user?.role === "passenger"
+  //     ? "Find Trip"
+  //       : "Broadcast";
 
   
   return (
@@ -213,19 +213,21 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
 
           {isAuthenticated && user?.role === "driver" ?  (
           <>
-            {/* <Text>Hey...</Text> */}
+            <Text style={{color: '#fff'}}>Hey...</Text>
+            
           </>
         ) : (
             <View style={[styles.card, styles.iconsContainer, {borderWidth: .5}, { backgroundColor: cardBg, borderColor }]} >
-            {ACTIONS.map((action) => (
-              <ActionTile
-                key={action.id}
-                icon={action.icon}
-                label={action.label}
-                color={action.color}
-                onPress={() => handleAction(action.id)}
-              />
-            ))}
+          
+              {ACTIONS.map((action) => (
+                <ActionTile
+                    key={action.id}
+                    icon={action.icon}
+                    label={action.label}
+                    color={action.color}
+                    onPress={() => handleAction(action.id)}
+                />
+              ))}
             </View>
         )}
 
@@ -233,17 +235,6 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
         {user?.role === "driver" && (
           <>
               <View style={[styles.card, { backgroundColor: cardBg, borderColor }]} >
-              {/* <View style={[styles.iconsContainer]}>
-                {ACTIONS.map((action) => (
-                  <ActionTile
-                    key={action.id}
-                    icon={action.icon}
-                    label={action.label}
-                    color={action.color}
-                    onPress={() => handleAction(action.id)}
-                  />
-                ))}
-              </View> */}
               <View style={styles.shortcutRow}>
                 {[
                   { icon: "add-circle-outline", label: "New Trip", onPress: () => handleQuickAction() },

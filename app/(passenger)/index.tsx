@@ -1,11 +1,9 @@
 // app/(passenger)/index.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import {
   View,
   StyleSheet,
-  Alert,
 } from "react-native";
-import { router } from "expo-router";
 import { useAuthStore } from "@/src/store/useStore";
 import { PassengersStorage, TripsStorage } from "@/src/services/storage";
 
@@ -16,9 +14,8 @@ import BalanceCard from "@/components/BalanceCard";
 
 
 export default function PassengerDashboard() {
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
   // const { t } = useTranslation();
-  const [balanceHidden, setBalanceHidden] = useState(false);
 
   const coins = user?.points_balance || 0;
 
@@ -49,9 +46,6 @@ export default function PassengerDashboard() {
       {/* Hero Header */}
       <BalanceCard
         coins={coins}
-        balanceHidden={balanceHidden}
-
-        onToggleHide={() => setBalanceHidden(v => !v)}
         // onQuickTransferPress={() => setQuickTransferVisible(true)}
         onQuickTransferPress={() => { }}
       />

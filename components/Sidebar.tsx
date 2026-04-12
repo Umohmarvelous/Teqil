@@ -214,7 +214,10 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
                 ? "Driver"
                 : user?.role === "park_owner"
                 ? "Park Owner"
-                : "Passenger"}
+                : user?.role 
+                ? "Passenger" 
+                : "No role"
+              }
               {user?.driver_id ? ` · ${user.driver_id}` : ""}
             </Text>
           </View>
