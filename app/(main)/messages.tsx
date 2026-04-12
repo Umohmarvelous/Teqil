@@ -346,8 +346,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1 },
   headerTitle: { fontFamily: "Poppins_700Bold", fontSize: 24 },
   newChatBtn: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  listContent: { padding: 16, gap: 10 },
-  convItem: { flexDirection: "row", alignItems: "center", gap: 14, borderRadius: 18, padding: 14, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
+  listContent: { paddingHorizontal: 16, gap: 20, paddingVertical: 25 },
+  convItem: { flexDirection: "row", alignItems: "center", gap: 17, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
   convText: { flex: 1, gap: 4, paddingBottom: 6 },
   convTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   convName: { fontFamily: "Poppins_600SemiBold", fontSize: 15, flex: 1 },
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
 });
 
 const chatStyles = StyleSheet.create({
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 22, gap: 12, borderBottomWidth: 1 },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 0, paddingVertical: 22, gap: 12, borderBottomWidth: 1 },
   backBtn: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   headerText: { flex: 1 },
   headerName: { fontFamily: "Poppins_600SemiBold", fontSize: 15 },

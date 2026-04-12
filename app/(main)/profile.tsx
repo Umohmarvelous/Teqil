@@ -224,19 +224,19 @@ export default function ProfileTab() {
 
   return (
     <ScrollView style={[styles.root, { backgroundColor: bg }]}>
-      <StatusBar style={isDark ? 'light' : 'dark'}  />
+      <StatusBar style={isDark ? 'light' : 'dark'} animated />
       <View style={ styles.mainContainer}>
 
         {/* Hero Section */}
-        <View style={ [styles.profileHeader, { marginTop: topPadding + 40 }]}>
+        <View style={ [styles.profileHeader, { marginTop: topPadding + 25 },  ]}>
           <View style={[styles.hero]}>
             <Pressable onPress={pickPhoto} style={styles.avatarWrap}>
               <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={58} />
               <View style={styles.cameraBtn}>
-                <HugeiconsIcon icon={Camera01Icon} size={14} color="#fff" />
+                <HugeiconsIcon icon={Camera01Icon} size={17} color="#fff" />
               </View>
             </Pressable>
-            <View style={{alignItems: 'flex-start', justifyContent: 'flex-start'}}>
+            <View style={{alignItems: 'flex-start', justifyContent: 'flex-start', gap: 3 }}>
               <Text style={[styles.heroName, {color: textColor} ]}>{user?.full_name || "Teqil User"}</Text>
               <View style={styles.roleBadge}>
                 <Text style={styles.roleText}>
@@ -252,25 +252,48 @@ export default function ProfileTab() {
                   ) : user?.role === "park_owner" ? "Park Owner" : "Passenger"}
                 </Text>
               </View>
-              <View>
-                {/* {user?.driver_id && ( */}
+              {/* <View>
+                {user?.driver_id && (
                   <View style={styles.driverIdChip}>
-                    <HugeiconsIcon icon={IdentityCardFreeIcons} size={12} color={Colors.gold} />
+                    <HugeiconsIcon icon={IdentityCardFreeIcons} size={15} color={Colors.gold} />
                     <Text style={styles.driverIdText}>{user.driver_id}</Text>
                   </View>
-                {/* )} */}
-              </View>
+                )}
+              </View> */}
             </View>
           </View>
 
-          <View style={{ flexDirection: 'row-reverse', gap: 20}}>
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'flex-start', justifyContent:'center', gap: 15, marginTop: 7}}>
+            {/* Sign Out Button */}
+            <Pressable
+              style={[styles.signOutBtn, { borderColor: "transparent" }]}
+              onPress={() => {
+                Alert.alert("Sign Out", "Are you sure?", [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Sign Out",
+                    style: "destructive",
+                    onPress: async () => {
+                      const { signOut } = await import("@/src/services/supabase");
+                      const { logout } = useAuthStore.getState();
+                      await signOut();
+                      logout();
+                      router.replace("/(auth)/login");
+                    },
+                  },
+                ]);
+              }}>
+              <HugeiconsIcon icon={LogoutIcon} size={23} color={Colors.gold} />
+              {/* <Text style={styles.signOutText}>Sign Out</Text> */}
+            </Pressable>
+
             <Pressable>
-              <HugeiconsIcon icon={Search02Icon} size={24} color={textColor} />
+              <HugeiconsIcon icon={Search02Icon} size={23} color={textColor} />
             </Pressable>
             
             {user?.role === "driver" && (
               <Pressable onPress={() => setReceiveVisible(true)}>
-                <HugeiconsIcon icon={QrCode01Icon} size={24} color={textColor} />
+                <HugeiconsIcon icon={QrCode01Icon} size={23} color={textColor} />
               </Pressable>
             )}
           </View>
@@ -546,29 +569,7 @@ export default function ProfileTab() {
             </View>
           )}
 
-          {/* Sign Out Button */}
-          <Pressable
-            style={[styles.signOutBtn, { borderColor: "transparent" }]}
-            onPress={() => {
-              Alert.alert("Sign Out", "Are you sure?", [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Sign Out",
-                  style: "destructive",
-                  onPress: async () => {
-                    const { signOut } = await import("@/src/services/supabase");
-                    const { logout } = useAuthStore.getState();
-                    await signOut();
-                    logout();
-                    router.replace("/(auth)/login");
-                  },
-                },
-              ]);
-            }}
-          >
-            <HugeiconsIcon icon={LogoutIcon} size={18} color={Colors.error} />
-            <Text style={styles.signOutText}>Sign Out</Text>
-          </Pressable>
+
         </ScrollView>
       </View>
 
@@ -609,33 +610,31 @@ export default function ProfileTab() {
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1
+    flex: 1,
   },
   profileHeader: {
-    marginVertical: 50,
-    marginBottom: 15,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    // marginHorizontal: 20,
-
-    marginHorizontal: 10,
-    borderWidth: .5,
-    // borderColor: Colors.textSecondary,
-    backgroundColor: Colors.primaryDarker,
-    flex: 1,
-    padding: 15,
-    paddingRight: 25,
-    borderRadius: 80
+    marginHorizontal: 20,
+    marginBottom: 50,
+    
+    
+    // backgroundColor: Colors.primaryDarker,
+    // marginHorizontal: 10,
+    // borderWidth: .5,
+    // flex: 1,
+    // padding: 15,
+    // paddingRight: 25,
+    // borderRadius: 80
   },
   mainContainer: {
-    paddingHorizontal: 10
+    paddingHorizontal: 10,
+    justifyContent: 'space-between'
   },
   hero: {
     flexDirection: 'row',
-    alignItems: "flex-start",
     paddingHorizontal: 0,
-    // paddingBottom: 28,
-    gap: 8,
+    gap: 5,
   },
   avatarWrap: {
     position: "relative",
@@ -648,8 +647,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: -1,
     right: -3,
-    width: 26,
-    height: 26,
+    width: 28,
+    height: 28,
     borderRadius: 13,
     backgroundColor: Colors.background,
     alignItems: "center",
@@ -657,7 +656,8 @@ const styles = StyleSheet.create({
   },
   heroName: { 
     fontFamily: "Poppins_700Bold", 
-    fontSize: 22
+    fontSize: 22,
+    alignSelf:'flex-start'
   },
   roleBadge: { 
     borderRadius: 20, 
@@ -665,36 +665,37 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     marginTop: 2, 
     paddingVertical: 3, 
-    borderWidth: .5, 
-    borderColor: Colors.textSecondary  
+    // borderWidth: .5, 
+    borderColor: Colors.textSecondary,  
+    backgroundColor: Colors.overlay,
   },
-  roleText: { fontFamily: "Poppins_500Medium", 
+  roleText: {
+    fontFamily: "Poppins_500Medium", 
     fontSize: 13, 
-    color: Colors.textSecondary,
+    color: Colors.gold,
   },
   driverIdChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(245,166,35,0.15)",
+    backgroundColor: Colors.overlay,
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: "rgba(245,166,35,0.3)",
+    // borderWidth: .5,
+    marginVertical: 2,
+    borderColor: Colors.textSecondary,
   },
   driverIdText: {
     fontFamily: "Poppins_600SemiBold",
-    fontSize: 10,
+    fontSize: 12,
     color: Colors.gold,
     letterSpacing: 1.2,
   },
 
   scrollContent: {
-    padding: 10, 
-    paddingHorizontal: 10, 
-    // gap: 14,
-    paddingBottom: 32
+    paddingBottom: 32,
+    flex: 1,
   },
   coinbalanceSection: {
     borderWidth: 1,
@@ -771,7 +772,7 @@ const styles = StyleSheet.create({
   addContactRow: { flexDirection: "row", gap: 8, marginTop: 12, alignItems: "center" },
   addInput: { flex: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontFamily: "Poppins_400Regular", fontSize: 13, borderWidth: 1 },
   addBtn: { width: 42, height: 42, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  signOutBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1.5, borderRadius: 14, paddingVertical: 4, marginTop: 44 },
+  signOutBtn: { flexDirection: "row", alignItems: "center", justifyContent: "space-between",},
   signOutText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: Colors.error },
   editOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0 0 0 / 0.77)", justifyContent: "flex-end", zIndex: 200 },
   editSheet: { borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 34, paddingBottom: 40, gap: 16 },

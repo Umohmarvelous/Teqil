@@ -83,11 +83,9 @@
 
 
 import React, { useRef } from "react";
-import { View, Text, StyleSheet, Pressable, Animated,Dimensions } from "react-native";
+import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/colors";
 
-const { width: W } = Dimensions.get("window");
 
 interface ActionTileProps {
   icon: keyof typeof Ionicons.glyphMap;

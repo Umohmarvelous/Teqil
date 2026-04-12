@@ -27,6 +27,7 @@ import { StatusBar } from "expo-status-bar";
 import QuickTransferModal from "@/components/QuickTransferModal";
 import { Ionicons } from "@expo/vector-icons";
 import ActionTile from "@/components/ActionTile";
+import QRScannerModal from "@/components/QRScannerModal";
 
 
 
@@ -58,6 +59,19 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
   const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
   const [quickTransferVisible, setQuickTransferVisible] = useState(false);
+  const [scannerVisible, setScannerVisible] = useState(false);
+
+  // const [driverRef, setDriverRef] = useState("");
+
+  const handleQRScan = useCallback((data: string) => {
+    // QR codes from drivers contain their driver ID or trip code
+    // Format expected: "TEQIL:DRV-XXXXXX" or "TEQIL:TRIPCODE"
+    const parsed = data.replace("TEQIL:", "").trim();
+    // setDriverRef(parsed);
+    Alert.alert("QR Scanned Successfully ", ` ${parsed}`);
+  }, []);
+
+
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   // const coins = user?.points_balance || 0;
@@ -85,7 +99,8 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
         router.push("/(passenger)/history");
         break;
       case "qr":
-        router.push("/(auth)/pay-fare");
+        // router.push("/(auth)/pay-fare");
+        setScannerVisible(true)
         break;
       case "share":
         Alert.alert("Share Trip", "Share your live trip link with family or friends from the live trip screen.");
@@ -431,6 +446,12 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
         visible={quickTransferVisible}
         onClose={() => setQuickTransferVisible(false)}
       />
+
+      <QRScannerModal
+        visible={scannerVisible}
+        onClose={() => setScannerVisible(false)}
+        onScan={handleQRScan}
+      />
     </View>
   );
 }
@@ -467,8 +488,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  searchWrap: { zIndex: 100, flexDirection:'row', },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 15, gap: 15 },
+  searchWrap: { zIndex: 100, flexDirection:'row', 
+
+  },
+  scrollContent: { 
+    paddingHorizontal: 10,
+    paddingTop: 15, 
+    gap: 15 
+  },
   iconsContainer: {
     flexDirection: 'row', 
     alignContent: 'center', 

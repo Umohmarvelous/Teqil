@@ -16,7 +16,7 @@
  * - Unused variable 'W' removed
  * - Duplicate QRScannerModal render in PayFareScreen removed
  * - Unescaped apostrophe in JSX replaced with &apos;
- */
+*/
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
@@ -49,7 +49,6 @@ let CameraView: React.ComponentType<any> | null = null;
 let _useCameraPermissions: (() => [any, () => Promise<any>]) | null = null;
 
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const cam = require("expo-camera");
   CameraView = cam.CameraView ?? null;
   _useCameraPermissions = cam.useCameraPermissions ?? null;
@@ -58,6 +57,7 @@ try {
 }
 
 const QUICK_AMOUNTS = [500, 1000, 2000, 5000];
+// // const QUICK_AMOUNTS = [100, 250, 300, 500, 1000, 2000, 4000];
 
 // ─── Success overlay ──────────────────────────────────────────────────────────
 function SuccessOverlay({
@@ -143,7 +143,7 @@ function QRScannerModal({
   // _useCameraPermissions is null so we fall back to a no-op.
   // This satisfies Rules of Hooks — the hook call itself never moves.
   const cameraHookResult = _useCameraPermissions
-    ? // eslint-disable-next-line react-hooks/rules-of-hooks
+    ? 
       _useCameraPermissions()
     : ([null, async () => {}] as const);
 
