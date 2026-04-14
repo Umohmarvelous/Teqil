@@ -38,7 +38,7 @@ app/
 ```
 
 ## User Roles
-1. **Driver** - Earns coins on trips, must complete profile first, gets permanent Driver ID (DRV-XXXXXX)
+1. **Driver** - Earns coins on trips, must Submit Details first, gets permanent Driver ID (DRV-XXXXXX)
 2. **Passenger** - Joins trips via 6-char code, shares live location with emergency contacts
 3. **Park Owner** - Monitors park drivers, sends broadcasts, sees emergency alerts
 

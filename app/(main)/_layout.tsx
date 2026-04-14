@@ -16,7 +16,6 @@ import { useMessagesStore } from "@/src/store/useMessagesStore";
 import { Colors } from "@/constants/colors";
 import Avatar from "@/components/Avatar";
 import Sidebar from "@/components/Sidebar";
-import HomeTab from "./index";
 import ProfileTab from "./profile";
 import MessagesTab from "./messages";
 import SettingsTab from "./settings";
@@ -29,7 +28,8 @@ import {
   MessageIcon,
   Message01Icon,
 } from "@hugeicons/core-free-icons";
-import { BackgroundColors } from "node:util";
+// import { BackgroundColors } from "node:util";
+import HomeTab from "./index";
 
 type Tab = "home" | "profile" | "messages" | "settings";
 

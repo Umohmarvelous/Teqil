@@ -184,17 +184,17 @@ function TripCard({ trip }: { trip: TripWithPassengerCount }) {
 function EmptyState({ filter }: { filter: FilterTab }) {
   const messages: Record<FilterTab, { icon: keyof typeof Ionicons.glyphMap; title: string; sub: string }> = {
     all: {
-      icon: "time-outline",
+      icon: "time",
       title: "No trips yet",
       sub: "Your completed and active trips will appear here",
     },
     active: {
-      icon: "navigate-circle-outline",
+      icon: "navigate-circle",
       title: "No active trips",
       sub: "Start a trip from the dashboard to see it here",
     },
     completed: {
-      icon: "checkmark-circle-outline",
+      icon: "checkmark-circle",
       title: "No completed trips",
       sub: "Finished trips will be shown here",
     },
@@ -203,7 +203,7 @@ function EmptyState({ filter }: { filter: FilterTab }) {
   return (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconBg}>
-        <Ionicons name={msg.icon} size={40} color={Colors.primary} />
+        <Ionicons name={msg.icon} size={60} color={Colors.textSecondary} />
       </View>
       <Text style={styles.emptyTitle}>{msg.title}</Text>
       <Text style={styles.emptySubtitle}>{msg.sub}</Text>
@@ -277,37 +277,46 @@ export default function DriverHistoryScreen() {
       <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
         <Text style={styles.headerTitle}>{t("history.title")}</Text>
         <Text style={styles.headerSubtitle}>
-          {allTrips.length} {allTrips.length === 1 ? "trip" : "trips"} total
+          {allTrips.length} {allTrips.length === 1 ? "trip" : "trips"} so far
         </Text>
       </View>
+
 
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <TripCard trip={item} />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        renderItem={({ item }) =>
+          <View style={styles.scrollContent}>
+            <TripCard trip={item} />
+          </View>
+        }
+        //     paddingHorizontal: 20,  borderWidth: 1.5, borderColor: Colors.error,
+
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={Colors.primary}
-            colors={[Colors.primary]}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={Colors.primary}
+          colors={[Colors.primary]}
           />
         }
         ListHeaderComponent={
-          <>
-            {allTrips.length > 0 && (
+          <View style={ styles.FilterTabHolder}>
+            {/* {allTrips.length > 0 && (
               <StatSummary
-                totalTrips={allTrips.length}
-                completedTrips={counts.completed}
-                totalCoins={totalCoins}
+              totalTrips={allTrips.length}
+              completedTrips={counts.completed}
+              totalCoins={totalCoins}
               />
-            )}
+            )} */}
             <FilterTabs active={filter} onChange={setFilter} counts={counts} />
-          </>
+          </View>
         }
-        ListEmptyComponent={<EmptyState filter={filter} />}
+        ListEmptyComponent={
+          <EmptyState filter={filter} />
+        }
         ListFooterComponent={
           <View style={{ height: 100 + (Platform.OS === "web" ? 34 : 0) }} />
         }
@@ -317,14 +326,14 @@ export default function DriverHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 , backgroundColor: Colors.border},
+  container: { flex: 1 , backgroundColor: Colors.textWhite},
 
   header: {
     paddingHorizontal: 24,
     paddingBottom: 16,
     backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    // borderBottomWidth: 1,
+    // borderBottomColor: Colors.borderLight,
   },
   headerTitle: {
     fontFamily: "Poppins_700Bold",
@@ -341,24 +350,29 @@ const styles = StyleSheet.create({
   // Summary cards
   summaryRow: {
     flexDirection: "row",
-    gap: 10,
-    marginBottom: 4,
+    gap: 20,
+    // marginBottom: 4,
+    padding: 20,
+    paddingTop: 0,
+    justifyContent: 'center',
+    backgroundColor: Colors.borderLight,
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.borderLight,
     borderRadius: 14,
-    padding: 14,
+    padding: 10,
     alignItems: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.10,
+    shadowRadius: 5,
+    // marginBottom: 10,
+    elevation: 1
   },
   summaryCardMiddle: {
     borderWidth: 1.5,
-    borderColor: Colors.primaryLight,
+    borderColor: Colors.error,
   },
   summaryValue: {
     fontFamily: "Poppins_700Bold",
@@ -369,30 +383,33 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_400Regular",
     fontSize: 11,
     color: Colors.textSecondary,
-    marginTop: 2,
-    textAlign: "center",
+    // marginTop: 2,
+    textAlign: "center",  
   },
 
   // Filter tabs
+  FilterTabHolder: {
+    backgroundColor: Colors.surface,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.10,
+    shadowRadius: 5,
+    elevation: 1, borderBottomColor: Colors.text, borderBottomWidth:.2
+  },
   filterRow: {
     flexDirection: "row",
     gap: 8,
-    marginTop: 12,
-    marginBottom: 4,
+    paddingHorizontal: 10,
   },
   filterTab: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
+    gap: 5,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
   },
   filterTabActive: {
-    backgroundColor: Colors.primary,
+    borderBottomWidth: 2,
     borderColor: Colors.primary,
   },
   filterTabText: {
@@ -401,46 +418,53 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   filterTabTextActive: {
-    color: Colors.surface,
+    color: Colors.primary,
   },
   filterBadge: {
-    backgroundColor: Colors.borderLight,
-    borderRadius: 10,
-    minWidth: 20,
+    backgroundColor: Colors.error,
+    borderRadius: 50,
+    minWidth: 15,
     paddingHorizontal: 5,
     paddingVertical: 1,
     alignItems: "center",
+    bottom: 7
   },
   filterBadgeActive: {
-    backgroundColor: "rgba(255,255,255,0.25)",
+    backgroundColor: Colors.error,
   },
   filterBadgeText: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 10,
-    color: Colors.textSecondary,
+    color: Colors.textWhite,
   },
   filterBadgeTextActive: {
     color: Colors.surface,
   },
 
-  listContent: { padding: 20, gap: 12 },
+  listContent: {
+    // gap: 12,    
+  },
 
+  scrollContent: {
+    paddingHorizontal: 0,
+      // marginTop: 20
+  },
   // Trip card
   tripCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 18,
-    padding: 18,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 14,
+    backgroundColor: Colors.border,
+    padding: 30,
+    paddingBottom: 0,
+        borderBottomWidth: 1,
+    borderBottomColor: Colors.overlayLight,
+    gap: 14,     
+
+    marginBottom: 5
   },
   tripCardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "center", 
+    
   },
   tripCodeBadge: {
     flexDirection: "row",
@@ -483,6 +507,36 @@ const styles = StyleSheet.create({
   },
   statusTextLive: { color: Colors.primary },
   statusTextDone: { color: "#16A34A" },
+  
+  // Footer
+  tripCardFooter: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    paddingBottom: 12,
+  },
+  footerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  footerText: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  footerEarnings: {
+    marginLeft: "auto" as any,
+    backgroundColor: Colors.goldLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  footerEarningsText: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 12,
+    color: "#92400E",
+  },
 
   // Route
   routeRow: {
@@ -538,65 +592,33 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
 
-  // Footer
-  tripCardFooter: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-  },
-  footerItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-  footerText: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12,
-    color: Colors.textSecondary,
-  },
-  footerEarnings: {
-    marginLeft: "auto" as any,
-    backgroundColor: Colors.goldLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  footerEarningsText: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 12,
-    color: "#92400E",
-  },
-
   // Empty state
   emptyState: {
     alignItems: "center",
-    paddingTop: 60,
+    paddingTop: 130,
     gap: 12,
     paddingHorizontal: 40,
+    justifyContent: 'center',
   },
   emptyIconBg: {
     width: 88,
     height: 88,
     borderRadius: 28,
-    backgroundColor: Colors.primaryLight,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 4,
   },
   emptyTitle: {
     fontFamily: "Poppins_600SemiBold",
-    fontSize: 18,
-    color: Colors.text,
+    fontSize: 17,
+    color: Colors.primary,
     textAlign: "center",
   },
   emptySubtitle: {
     fontFamily: "Poppins_400Regular",
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.textSecondary,
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 15,
   },
 });

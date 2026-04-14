@@ -42,7 +42,7 @@ import {
   Star,
   ChevronDown,
   Search02Icon,
-  ChevronUp,
+  ChevronRight,
 
 } from "@hugeicons/core-free-icons";
 import type { EmergencyContact, Trip } from "@/src/models/types";
@@ -230,10 +230,12 @@ export default function ProfileTab() {
         {/* Hero Section */}
         <View style={ [styles.profileHeader, { marginTop: topPadding + 25 },  ]}>
           <View style={[styles.hero]}>
-            <Pressable onPress={pickPhoto} style={styles.avatarWrap}>
-              <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={58} />
+            <Pressable onPress={pickPhoto} >
+              <View style={styles.avatarWrap}>
+                <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={58} />
+              </View>
               <View style={styles.cameraBtn}>
-                <HugeiconsIcon icon={Camera01Icon} size={17} color="#fff" />
+                <HugeiconsIcon icon={Camera01Icon} size={14} color="#fff" />
               </View>
             </Pressable>
             <View style={{alignItems: 'flex-start', justifyContent: 'flex-start', gap: 3 }}>
@@ -244,7 +246,7 @@ export default function ProfileTab() {
                     <View>
                       {user?.driver_id && (
                         <View style={styles.driverIdChip}>
-                          <HugeiconsIcon icon={IdentityCardFreeIcons} size={12} color={Colors.gold} />
+                          <HugeiconsIcon icon={IdentityCardFreeIcons} size={12} color={Colors.primary} />
                           <Text style={styles.driverIdText}>{user.driver_id}</Text>
                         </View>
                       )}
@@ -252,14 +254,6 @@ export default function ProfileTab() {
                   ) : user?.role === "park_owner" ? "Park Owner" : "Passenger"}
                 </Text>
               </View>
-              {/* <View>
-                {user?.driver_id && (
-                  <View style={styles.driverIdChip}>
-                    <HugeiconsIcon icon={IdentityCardFreeIcons} size={15} color={Colors.gold} />
-                    <Text style={styles.driverIdText}>{user.driver_id}</Text>
-                  </View>
-                )}
-              </View> */}
             </View>
           </View>
 
@@ -283,7 +277,7 @@ export default function ProfileTab() {
                   },
                 ]);
               }}>
-              <HugeiconsIcon icon={LogoutIcon} size={23} color={Colors.gold} />
+              <HugeiconsIcon icon={LogoutIcon} size={23} color={Colors.textWhite} />
               {/* <Text style={styles.signOutText}>Sign Out</Text> */}
             </Pressable>
 
@@ -308,7 +302,7 @@ export default function ProfileTab() {
             )
             : user?.role === "passenger" ? (
                 <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderColor }]}>
-                    <PassengerDashboard />
+                  <PassengerDashboard />
                 </View>
             ) : (
                 <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderColor }]}>
@@ -323,7 +317,7 @@ export default function ProfileTab() {
           {/* ── Earnings summary strip ── */}
           {user?.role === "driver" && (
             <View style={styles.statsStrip}>
-              <View style={[ styles.statInner,  { backgroundColor: cardBg, borderColor }]}>
+              <View style={[ styles.statInner ]}>
                 <StatPill
                   iconName={CheckmarkBadge01Icon}
                   label="Trips"
@@ -338,7 +332,7 @@ export default function ProfileTab() {
                 />
               </View>
 
-              <View style={[ styles.statInner,  { backgroundColor: cardBg, borderColor }]}>
+              <View style={[ styles.statInner ]}>
                 <StatPill
                   iconName={ Wallet}
                   label="Earned"
@@ -367,7 +361,7 @@ export default function ProfileTab() {
               onPress={() => setReview((v) => !v)} hitSlop={8}
             >
               <Text style={[styles.cardTitle, { color: textColor }]}>Personal Information</Text>
-              <HugeiconsIcon icon={review ? ChevronUp : ChevronDown} size={22} color={'#fff'}/>
+              <HugeiconsIcon icon={review ? ChevronRight : ChevronDown} size={22} color={textColor}/>
             </Pressable>
 
             {review ? (
@@ -428,7 +422,7 @@ export default function ProfileTab() {
                   onPress={() => setReview((v) => !v)} hitSlop={8}
                 >
                   <Text style={[styles.cardTitle, { color: textColor }]}>Driver Details</Text>
-                  <HugeiconsIcon icon={review ? ChevronUp : ChevronDown} size={22} color={'#fff'}/>
+                  <HugeiconsIcon icon={review ? ChevronRight : ChevronDown} size={22} color={textColor}/>
                 </Pressable>
 
                 {review ? (
@@ -493,7 +487,7 @@ export default function ProfileTab() {
                   onPress={() => setReview((v) => !v)} hitSlop={8}
                 > 
                   <Text style={[styles.cardTitle, { color: textColor }]}>Park Details</Text>
-                  <HugeiconsIcon icon={review ? ChevronUp : ChevronDown} size={22} color={'#fff'}/>
+                  <HugeiconsIcon icon={review ? ChevronRight : ChevronDown} size={22} color={textColor}/>
                 </Pressable>
 
                 {review ? (
@@ -628,7 +622,7 @@ const styles = StyleSheet.create({
     // borderRadius: 80
   },
   mainContainer: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 5,
     justifyContent: 'space-between'
   },
   hero: {
@@ -645,10 +639,10 @@ const styles = StyleSheet.create({
   },
   cameraBtn: {
     position: "absolute",
-    bottom: -1,
-    right: -3,
-    width: 28,
-    height: 28,
+    bottom: 5,
+    right: 1,
+    width: 23,
+    height: 23,
     borderRadius: 13,
     backgroundColor: Colors.background,
     alignItems: "center",
@@ -661,24 +655,20 @@ const styles = StyleSheet.create({
   },
   roleBadge: { 
     borderRadius: 20, 
-    paddingHorizontal: 10, 
     alignItems: 'center', 
     marginTop: 2, 
-    paddingVertical: 3, 
-    // borderWidth: .5, 
-    borderColor: Colors.textSecondary,  
-    backgroundColor: Colors.overlay,
+    backgroundColor: Colors.primaryDarker,
   },
   roleText: {
     fontFamily: "Poppins_500Medium", 
     fontSize: 13, 
-    color: Colors.gold,
+    color: Colors.textWhite,
+    paddingHorizontal: 5
   },
   driverIdChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: Colors.overlay,
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -695,13 +685,14 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     paddingBottom: 32,
+    paddingHorizontal: 15,
     flex: 1,
   },
   coinbalanceSection: {
     borderWidth: 1,
     padding: 20,
     borderRadius: 30,
-    marginBottom: 20,
+    // marginBottom: 20,
     shadowColor: "#000",
     shadowOffset: { width: 1, height: 1 },
     shadowOpacity: 0.04,
@@ -714,7 +705,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: 'space-between',
     gap: 10,
-    marginBottom: 14,
+    // marginBottom: 14,
     borderRadius: 30,
     paddingVertical: 14,
     // paddingHorizontal: 8,
@@ -729,9 +720,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 20,
+    gap: 25,
     borderRadius: 30,
-    padding: 10
+    padding: 20
   },
 
   statsDivider: { width: 12, height: 32, padding:30, backgroundColor: Colors.primary },

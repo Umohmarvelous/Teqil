@@ -9,7 +9,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { signUp as supabaseSignUp, signIn as supabaseSignIn } from "./supabase";
 import type { User } from "../models/types";
-import * as LocalAuthentication from "expo-local-authentication";
+// import * as LocalAuthentication from "expo-local-authentication";
 
 const BIOMETRIC_EMAIL_KEY = "teqil_biometric_email";
 const BIOMETRIC_PW_KEY    = "teqil_biometric_pw"; // use expo-secure-store in production

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   View, Text, StyleSheet, Pressable, TextInput, ScrollView,
   Platform, Alert, Animated, Easing, KeyboardAvoidingView,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,6 +15,8 @@ import { generateId } from "@/src/utils/helpers";
 import type { Trip, Passenger, EmergencyContact } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
 import { Colors } from "@/constants/colors";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import { ChevronLeft } from "@hugeicons/core-free-icons";
 
 
 // ─── Entrance animation hook ───────────────────────────────────────────────────
@@ -162,13 +165,15 @@ export default function FindTripScreen() {
       <View style={[styles.header, { paddingTop: topPadding + 32 }]}>
         {step === "details" ? (
           <Pressable style={styles.backBtn} onPress={() => { setStep("search"); setFoundTrip(null); }}>
-            <Ionicons name="arrow-back" size={20} color={Colors.primary} />
+            <HugeiconsIcon icon={ChevronLeft} size={20} color={Colors.text} />
           </Pressable>
         ) : (
+          <>
             <View style={{ width: 40 }} />
-          // <Pressable style={styles.backBtn} onPress={() => { setStep("search"); setFoundTrip(null); }}>
-          //   <Ionicons name="arrow-back" size={20} color={Colors.primary} />
-          // </Pressable>
+            {/* <Pressable style={styles.backBtn} onPress={() => { setStep("search"); setFoundTrip(null); }}>
+              <HugeiconsIcon icon={ChevronLeft} size={20} color={Colors.text} />
+            </Pressable> */}
+          </>
         )}
         <Text style={styles.headerTitle}>
           {step === "search" ? t("passenger.enterCode") : "Join Trip"}
@@ -186,22 +191,14 @@ export default function FindTripScreen() {
           {/* ── STEP 1: Search ── */}
           {step === "search" && (
             <Animated.View style={searchAnim}>
-              <View style={styles.heroRow}>
-                {/* <View style={styles.heroIcon}>
-                  <Ionicons name="search" size={28} color={Colors.primary} />
-                </View> */}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.heroTitle}>Find Your Trip</Text>
-                  <Text style={styles.heroSub}>Ask your driver for the 6-character code</Text>
-                </View>
-              </View>
+
 
               <View style={styles.codeCard}>
                 <Text style={styles.codeLabel}>TRIP CODE</Text>
                 <TextInput
                   style={styles.codeInput}
-                  placeholder="A B C 1 2 3"
-                  placeholderTextColor={Colors.textSecondary}
+                  placeholder="ABC123"
+                  placeholderTextColor={Colors.overlayLight}
                   value={code}
                   onChangeText={(v) => setCode(v.toUpperCase())}
                   autoCapitalize="characters"
@@ -209,27 +206,31 @@ export default function FindTripScreen() {
                   maxLength={6}
                   textAlign="center"
                 />
-                <View style={styles.codeDots}>
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <View key={i} style={[styles.codeDot, i < code.length && styles.codeDotFilled]} />
-                  ))}
+                <View style={{flexDirection: 'row', marginTop: 6, flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 70}}>
+                  <View style={styles.codeDots}>
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <View key={i} style={[styles.codeDot, i < code.length && styles.codeDotFilled]} />
+                    ))}
+                  </View>
+
+                  <Pressable
+                    style={({ pressed }) => [styles.searchBtn, pressed && { opacity: 0.85 }, isSearching && styles.searchBtnDisabled]}
+                    onPress={handleSearch}
+                    disabled={isSearching}
+                  >
+                    {isSearching ? (
+                      // <Text style={styles.searchBtnText}>Searching...</Text>
+                      <ActivityIndicator size="small" color={Colors.primaryLight} />
+                    ) : (
+                      <>
+                        <Ionicons name="search" size={18} color={Colors.textWhite} />
+                        {/* <Text style={styles.searchBtnText}></Text> */}
+                      </>
+                    )}
+                  </Pressable>
                 </View>
               </View>
 
-              <Pressable
-                style={({ pressed }) => [styles.searchBtn, pressed && { opacity: 0.85 }, isSearching && styles.searchBtnDisabled]}
-                onPress={handleSearch}
-                disabled={isSearching}
-              >
-                {isSearching ? (
-                  <Text style={styles.searchBtnText}>Searching...</Text>
-                ) : (
-                  <>
-                    <Ionicons name="search" size={18} color={Colors.textWhite} />
-                    <Text style={styles.searchBtnText}>Find Trip</Text>
-                  </>
-                )}
-              </Pressable>
               <Text style={styles.hint}>Codes are 6 characters — letters & numbers</Text>
             </Animated.View>
           )}
@@ -344,26 +345,43 @@ export default function FindTripScreen() {
 
 // ─── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, alignItems: "center", justifyContent: "center" },
+  root: { flex: 1 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 14 },
+  backBtn: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   headerTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 16, color: Colors.text, letterSpacing: 0.2 },
   scroll: { flex: 1, },
-  scrollContent: { padding: 20, gap: 0, flex:1, alignItems: 'center', justifyContent: 'center' },
+  scrollContent: { padding: 60, gap: 0,  alignItems: 'center', justifyContent: 'center' },
   heroRow: { flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 28 },
   heroIcon: { width: 56, height: 56, borderRadius: 16, backgroundColor: Colors.primaryDark, borderWidth: 1, borderColor: "rgba(0,166,81,0.25)", alignItems: "center", justifyContent: "center" },
   heroTitle: { fontFamily: "Poppins_700Bold", fontSize: 22, color: Colors.text, textAlign: 'center' },
   heroSub: { fontFamily: "Poppins_400Regular", fontSize: 13, color: Colors.textSecondary, marginTop: 2, lineHeight: 20, textAlign: 'center' },
-  codeCard: { backgroundColor: Colors.text, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 28, alignItems: "center", marginBottom: 16 },
-  codeLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 10, color: Colors.textSecondary, letterSpacing: 3, marginBottom: 16 },
-  codeInput: { fontFamily: "Poppins_700Bold", fontSize: 36, color: Colors.primary, letterSpacing: 16, textAlign: "center", paddingHorizontal: 8, minWidth: 200 },
-  codeDots: { flexDirection: "row", gap: 8, marginTop: 16 },
-  codeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.border },
-  codeDotFilled: { backgroundColor: Colors.primary },
-  searchBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: Colors.primary, borderRadius: 16, height: 56, marginBottom: 14, },
-  searchBtnDisabled: { opacity: 0.6 },
-  searchBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 16, color: Colors.textWhite },
-  hint: { fontFamily: "Poppins_400Regular", fontSize: 12, color: Colors.textSecondary, textAlign: "center", lineHeight: 18 },
+  codeCard: { borderRadius: 30, borderWidth: 1.5, borderColor: Colors.overlayLight, padding: 28,  marginBottom: 16, flexDirection: 'column', flex: 1},
+  codeLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 10, color: Colors.textSecondary, letterSpacing: 3, marginBottom: 30, alignSelf: 'center' },
+  codeInput: { 
+    fontFamily: "Poppins_700Bold", fontSize: 36, color: Colors.primary, letterSpacing: 16, textAlign: "center", paddingHorizontal: 1, minWidth: 300 
+  },
+  codeDots: { 
+    flexDirection: "row", gap: 8, 
+  },
+  codeDot: { 
+    width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.overlay
+  },
+  codeDotFilled: { 
+    backgroundColor: Colors.primary 
+  },
+  searchBtn: {
+   backgroundColor: Colors.primary, borderRadius: 176, padding: 15, position: 'relative', top: 20, left: 20 
+  },
+  searchBtnDisabled: {
+    opacity: 0.6,
+    backgroundColor: Colors.primary, borderRadius: 176, padding: 15, position: 'relative', top: 20, left: 20 
+  },
+  searchBtnText: {
+    fontFamily: "Poppins_600SemiBold", fontSize: 16, color: Colors.textWhite 
+  },
+  hint: {
+    fontFamily: "Poppins_400Regular", fontSize: 12, color: Colors.textSecondary, textAlign: "center", lineHeight: 18 
+  },
   tripCard: { backgroundColor: Colors.text, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, padding: 20, marginBottom: 16, overflow: "hidden" },
   tripCardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
   codePill: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(0,166,81,0.1)", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: "rgba(0,166,81,0.2)" },

@@ -28,6 +28,8 @@ import QuickTransferModal from "@/components/QuickTransferModal";
 import { Ionicons } from "@expo/vector-icons";
 import ActionTile from "@/components/ActionTile";
 import QRScannerModal from "@/components/QRScannerModal";
+import QuickReceiveModal from "@/components/quickrecieveModal";
+
 
 
 
@@ -60,8 +62,9 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
   const [quickTransferVisible, setQuickTransferVisible] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
+  const [receiveVisible, setReceiveVisible] = useState(false);
+  const [createTrip, setCreateTrip]= useState(false)
 
-  // const [driverRef, setDriverRef] = useState("");
 
   const handleQRScan = useCallback((data: string) => {
     // QR codes from drivers contain their driver ID or trip code
@@ -77,17 +80,34 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
   // const coins = user?.points_balance || 0;
 
   // Define actions
-
-  const ACTIONS = [
+  const MINIACTIONS = [
+    // { id: "find", icon: 'search' as const , label: "Find Trip",   color: textColor },
+    // { id: "history", icon: 'time' as const, label: "History", color: textColor },
     { id: "pay", icon: 'wallet' as const , label: "Pay", color: textColor },
-    { id: "find", icon: 'search' as const , label: "Find Trip",   color: textColor },
     { id: "qr", icon: 'qr-code' as const , label: "Scan QR",      color: textColor },
     { id: "share", icon: 'share' as const , label: "Share Trip",  color: textColor },
-    { id: "sos", icon: 'warning' as const , label: "Emergency",   color: textColor   },
+    // { id: "sos", icon: 'warning' as const, label: "Emergency", color: textColor },
+  ] ;
+  const PASSENGERSACTIONSBUTTON = [
+    { id: "find", icon: 'search' as const , label: "Find Trip",   color: textColor },
+    { id: "history", icon: 'time' as const, label: "History", color: textColor },
+    // { id: "pay", icon: 'wallet' as const , label: "Pay", color: textColor },
+    // { id: "qr", icon: 'qr-code' as const , label: "Scan QR",      color: textColor },
+    // { id: "share", icon: 'share' as const , label: "Share Trip",  color: textColor },
+    { id: "sos", icon: 'warning' as const, label: "Emergency", color: textColor },
+    
+  ] ;
+  const DRIVERSACTIONSBUTTON = [
+    { id: "add", icon: "add-circle" as const, label: "New Trip", color: textColor},
+    { id: "megaphone", icon: "megaphone" as const, label: "Messages", color: textColor},
+    { id: "time", icon: "time" as const, label: "History", color: textColor},
+    { id: "scan", icon: "scan" as const, label: "Scan Code", color: textColor},
   ] ;
 
+  // const TOG = [{`PASSENGERSACTIONSBUTTON`} && {`MINIACTIONS`}]
+
   const handleAction = (id: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
     switch (id) {
       case "pay":
         setQuickTransferVisible(true)
@@ -95,18 +115,34 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
       case "find":
         router.push("/(passenger)/find-trip");
         break;
+      case "qr":
+        setScannerVisible(true)
+        break;
       case "history":
         router.push("/(passenger)/history");
-        break;
-      case "qr":
-        // router.push("/(auth)/pay-fare");
-        setScannerVisible(true)
         break;
       case "share":
         Alert.alert("Share Trip", "Share your live trip link with family or friends from the live trip screen.");
         break;
       case "sos":
         Alert.alert("Emergency SOS", "SOS is available during a live trip. Start or join a trip to activate it.");
+        break;
+
+      // Driver's Actions
+      case "add":
+        handleQuickAction()
+        // createTrip()
+        // route: "/app/(driver)/create-trip",
+        break;
+      case "megaphone":
+        router.push ("/(driver)/messages");
+        break;
+        case "time":
+        router.push ("/(driver)/history");
+        break;
+        case "scan":
+        setReceiveVisible(true);
+          // router.push ("/(auth)/driver-profile");
         break;
     }
   };
@@ -140,6 +176,7 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
   }, [loadTrips]);
 
   const handleQuickAction = () => {
+    setCreateTrip(true)
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     const role = user?.role;
     if (role === "driver") {
@@ -150,12 +187,13 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
         ]);
         return;
       }
-      router.push("/(driver)/create-trip");
-    } else if (role === "passenger") {
-      router.push("/(passenger)/find-trip");
-    } else if (role === "park_owner") {
-      Alert.alert("Broadcast", "Go to the Park Owner dashboard to send broadcasts.");
-    }
+      // router.push("/(driver)/create-trip");
+    } 
+    // else if (role === "passenger") {
+    //   router.push("/(passenger)/find-trip");
+    // } else if (role === "park_owner") {
+    //   Alert.alert("Broadcast", "Go to the Park Owner dashboard to send broadcasts.");
+    // }
   };
 
   // const quickActionLabel =
@@ -178,27 +216,27 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
           <Pressable onPress={onOpenSidebar} style={styles.menuBtn}>
             <HugeiconsIcon icon={Menu02Icon} size={22} color={ textColor } />
           </Pressable>
-          <Pressable onPress={onRefresh} style={styles.logoBtn}>
+          <Pressable
+            onPress={onRefresh}
+            style={styles.logoBtn}>
             <Image
               source={isDark ? require("@/assets/images/Logo_with_transparent_background.png") : require("@/assets/images/Black_logo_with_white_background.png")}
               style={styles.photoImg} 
               resizeMode="cover"
-              width={130}
+              width={120}
             />
           </Pressable>
 
           <Pressable
             onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push("/(main)/profile")
-              }}>
+                // Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}>
               <Avatar
                 name={user?.full_name || "U"}
                 photoUri={user?.profile_photo}
                 size={38}
               />
           </Pressable>
-
         </View>
 
         <View style={styles.searchWrap}>
@@ -219,65 +257,66 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
         }
       >
 
-
-
         {/* Role-specific shortcuts */}
-        {/* <Text style={[styles.sectionTitle, { color: textColor }]}>{isAuthenticated ? 'Quick Actions' : 'Quick Actions'}
-        </Text> */}
 
+        <View style={ [styles.card, styles.shortcutRow, { backgroundColor: cardBg, borderColor }]}>
+        <Text style={[styles.sectionTitle, { color: textColor }]}>{!user ? 'Quick Transfer' : 'Quick Actions'}
+        </Text>
+          {/* {user?.role === "passenger" ? ( */}
+          {!(user?.role === "driver" && "passenger")  && (
+            <>
+              {/* <Text>Not a User!</Text> */}
+              <View style={ styles.shortcut}>
+                {MINIACTIONS.map((action) => (
+                  <View key={action.id}>
+                    <ActionTile
+                        icon={action.icon}
+                        label={action.label}
+                        color={action.color}
+                        onPress={() => handleAction(action.id)}
+                        />
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
 
-          {isAuthenticated && user?.role === "driver" ?  (
-          <>
-            <Text style={{color: '#fff'}}>Hey...</Text>
-            
-          </>
-        ) : (
-            <View style={[styles.card, styles.iconsContainer, {borderWidth: .5}, { backgroundColor: cardBg, borderColor }]} >
-          
-              {ACTIONS.map((action) => (
-                <ActionTile
-                    key={action.id}
+          {user?.role === "passenger" && (
+            <View style={[styles.shortcut]}>
+              {/* <Text>is passenger</Text> */}
+              {PASSENGERSACTIONSBUTTON.map((action) => (
+                <View key={action.id}>
+                  <ActionTile
                     icon={action.icon}
                     label={action.label}
                     color={action.color}
                     onPress={() => handleAction(action.id)}
-                />
+                  />
+                </View>
               ))}
             </View>
-        )}
-
-
-        {user?.role === "driver" && (
-          <>
-              <View style={[styles.card, { backgroundColor: cardBg, borderColor }]} >
-              <View style={styles.shortcutRow}>
-                {[
-                  { icon: "add-circle-outline", label: "New Trip", onPress: () => handleQuickAction() },
-                  { icon: "megaphone-outline", label: "Messages", route: "/(driver)/messages" },
-                  { icon: "time-outline", label: "History", route: "/(driver)/history", },
-                  { icon: "person-outline", label: "Profile", onPress: () => handleQuickAction() },
-                ].map((item) => (
-                  <Pressable
-                    key={item.label}
-                    style={styles.shortcut}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      if (item.onPress) { item.onPress(); return; }
-                      if (item.route) router.push(item.route as any);
-                    }}
-                  >
-                    <View style={[styles.shortcutIcon,]}>
-                      <Ionicons name={item.icon as any} size={30} color={ textColor }/>
-                    </View>
-                    <Text style={[styles.shortcutLabel, { color: textColor }]}>
-                      {item.label}
-                    </Text>
-                  </Pressable>
+          )}
+          {/* ) : user?.role === "driver" ? ( */}
+          {user?.role === "driver" && (
+            <>
+              {/* <Text>is Driver</Text> */}
+              <View style={styles.shortcut}>
+                {DRIVERSACTIONSBUTTON.map((action) => (
+                  <View key={action.id} >
+                    <ActionTile
+                      icon={action.icon}
+                      label={action.label}
+                      color={action.color}
+                      onPress={() => handleAction(action.id)}
+                    />
+                  </View>
                 ))}
               </View>
-            </View>
-          </>
-        )}
+            </>
+          )}
+          {/* ) : ( */}
+          
+        </View>
 
 
         {/* <View >
@@ -297,9 +336,8 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
             Create a trip and share the code with passengers
           </Text>
         </View> */}
-        
 
-        {user?.role === "passenger" && (
+        {/* {user?.role === "passenger" && (
           <View style={[styles.card, { backgroundColor: cardBg, borderColor }]} >
             
             <View style={[styles.iconsContainer]}>
@@ -315,10 +353,10 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
             </View>
             <View style={styles.shortcutRow}>
               {[
-                { icon: "search-outline", label: "Find Trip", route: "/(passenger)/find-trip" },
-                { icon: "time-outline", label: "History", route: "/(passenger)/history" },
-                { icon: "send-outline", label: "Pay Fare", route: "/(auth)/pay-fare" },
-                { icon: "shield-checkmark-outline", label: "Safety", onPress: () => Alert.alert("Safety", "SOS is available during a live trip.") },
+                { icon: "search", label: "Find Trip", route: "/(passenger)/find-trip" },
+                { icon: "time", label: "History", route: "/(passenger)/history" },
+                { icon: "send", label: "Pay Fare", route: "/(auth)/pay-fare" },
+                { icon: "shield-checkmark", label: "Safety", onPress: () => Alert.alert("Safety", "SOS is available during a live trip.") },
               ].map((item) => (
                 <Pressable
                   key={item.label}
@@ -339,7 +377,7 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
               ))}
             </View>
           </View>
-        )}
+        )} */}
         {/* </View> */}
 
 
@@ -439,7 +477,6 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
             </View>
           </View>
         </View>
-          
       </ScrollView>
 
       <QuickTransferModal
@@ -451,6 +488,13 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
         visible={scannerVisible}
         onClose={() => setScannerVisible(false)}
         onScan={handleQRScan}
+      />
+
+      {/* Quick Receive modal */}
+      <QuickReceiveModal
+        visible={receiveVisible}
+        onClose={() => setReceiveVisible(false)}
+        driverId={user?.driver_id}
       />
     </View>
   );
@@ -492,34 +536,26 @@ const styles = StyleSheet.create({
 
   },
   scrollContent: { 
-    paddingHorizontal: 10,
+    paddingHorizontal: 20,
     paddingTop: 15, 
-    gap: 15 
-  },
-  iconsContainer: {
-    flexDirection: 'row', 
-    alignContent: 'center', 
-    justifyContent: 'space-between', 
-    gap: 6, 
-    flex: 1,
-    flexWrap: 'wrap',
+    gap: 15, 
   },
 
   card: {
     justifyContent: 'space-between', 
     borderRadius: 30,
-    paddingHorizontal: 18,
+    // paddingHorizontal: 18,
     paddingVertical: 18,
     paddingBottom: 18,
-    borderWidth: 1,
+    // borderWidth: 1,
     gap: 20,
   },
-  sectionTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, marginBottom: 5 },
-  shortcutRow: { flexDirection: "row", justifyContent: "space-between" },
-  shortcut: { alignItems: "center", gap: 1, flex: 1 },
-  shortcutIcon: { width: 50, height: 50, borderRadius: 15, alignItems: "center", justifyContent: "center" },
-  shortcutLabel: { fontFamily: "Poppins_400Regular", fontSize: 11, textAlign: "center" },
-  tripRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10 },
+  sectionTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, marginTop: 10, marginBottom: 0 },
+  shortcutRow: { flexDirection: "column", justifyContent: "space-between", flex: 1, padding: 30 },
+  shortcut: { alignItems: "center", gap: 20, flex: 1, flexDirection: "row", justifyContent:'space-between', flexWrap:'wrap'  },
+  shortcutIcon: { width: 60, height: 60, borderRadius: 15, gap: 5, alignItems: "center", justifyContent: "center" },
+  shortcutLabel: { fontFamily: "Poppins_500Medium", fontSize: 10, textAlign: "center", color: "#000", },
+  tripRow: { flexDirection: "row", alignItems: "center", gap: 12,  },
   tripIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   tripInfo: { flex: 1 },
   tripRoute: { fontFamily: "Poppins_500Medium", fontSize: 13 },
@@ -529,10 +565,14 @@ const styles = StyleSheet.create({
   divider: { height: 1, marginHorizontal: -18 },
   emptyText: { fontFamily: "Poppins_600SemiBold", fontSize: 16, marginTop: 10 },
   emptySub: { fontFamily: "Poppins_400Regular", fontSize: 13, textAlign: "center", marginTop: 4, lineHeight: 20 },
-  promoBanner: {  borderRadius: 30, overflow: "hidden" },
+  promoBanner: {
+    borderRadius: 30,
+    overflow: "hidden", 
+  },
   promoGradient: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "center",    paddingHorizontal: 20
+
   },
   promoText: { flex: 1 },
   promoTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 15, color: "#fff" },

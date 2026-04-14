@@ -608,9 +608,9 @@ export default function RegisterScreen() {
         if (role === "driver") {
           router.replace("/(auth)/driver-profile");
         } else if (role === "park_owner") {
-          router.replace("/(park-owner)");
+          router.replace("/(main)");
         } else {
-          router.replace("/(passenger)");
+          router.replace("/(main)");
         }
       } catch (err) {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -671,9 +671,9 @@ export default function RegisterScreen() {
               if (role === "driver") {
                 router.replace("/(auth)/driver-profile");
               } else if (role === "park_owner") {
-                router.replace("/(park-owner)");
+                router.replace("/(main)");
               } else {
-                router.replace("/(passenger)");
+                router.replace("/(main)");
               }
             }
           }

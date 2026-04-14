@@ -407,9 +407,9 @@ export default function PayFareScreen() {
 
   const handleSuccessDone = useCallback(() => {
     if (user?.id) {
-      router.replace("/(passenger)");
+      router.replace("/(main)");
     } else {
-      router.replace("/(auth)/login");
+      router.replace("/(main)");
     }
   }, [user?.id]);
 

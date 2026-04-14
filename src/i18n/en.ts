@@ -67,7 +67,7 @@ export const en = {
     driverAge: "Age",
     addPhoto: "Add Photo",
     changePhoto: "Change Photo",
-    completeProfile: "Complete Profile",
+    submitDetails: "Submit Details",
     completing: "Saving...",
     driverId: "Your Driver ID",
     driverIdDesc: "Show this to passengers for trust",
@@ -86,7 +86,7 @@ export const en = {
     noTrips: "No trips yet. Start your first trip!",
     online: "Online",
     offline: "Offline",
-    completeProfile: "Complete your profile to start trips",
+    submitDetails: "Complete your profile to start trips",
     driverId: "Driver ID",
   },
   trip: {

@@ -10,8 +10,8 @@ import {
   Alert,
   Image,
   Animated,
-  // Dimensions,
   KeyboardAvoidingView,
+  ActivityIndicator
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -354,7 +354,7 @@ export default function DriverProfileScreen() {
       await supabase.auth.updateUser({ data: updates });
       updateUser(updates);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace("/(driver)");
+      router.replace("/(main)");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Could not save profile";
       Alert.alert("Error", msg);
@@ -379,13 +379,13 @@ export default function DriverProfileScreen() {
         style={[
           styles.floatingHeader,
           {
-            paddingTop: topPadding + 8,
+            // paddingTop: topPadding + 8,
             opacity: headerOpacity,
             transform: [{ translateY: headerAnim }],
           },
         ]}
       >
-        <View style={styles.backBtnContainer}>
+        {/* <View style={styles.backBtnContainer}>
           <Pressable
             style={styles.backBtn}
             onPress={() => {
@@ -396,7 +396,7 @@ export default function DriverProfileScreen() {
             <Ionicons name="arrow-back" size={20} color={Colors.text} />
             <Text>Back</Text>
           </Pressable>
-        </View>
+        </View> */}
 
         <View style={styles.headerCenterContainer}>
           <View style={styles.headerCenter}>
@@ -430,8 +430,8 @@ export default function DriverProfileScreen() {
           contentContainerStyle={[
             styles.scrollContent,
             {
-              paddingTop: topPadding + 80,
-              paddingBottom: bottomPadding + 110,
+              paddingTop: topPadding + 50,
+              paddingBottom: bottomPadding + 40,
             },
           ]}
           showsVerticalScrollIndicator={false}
@@ -447,76 +447,77 @@ export default function DriverProfileScreen() {
               },
             ]}
           >
-            <View style={styles.idCardLeft}>
-              <View style={styles.idBadge}>
-                <Ionicons name="id-card" size={14} color={Colors.gold} />
+
+            <View style={ styles.idCardHolder }>
+              <View style={styles.idCardLeft}>
+                <View style={styles.idBadge}>
+                  <Ionicons name="id-card" size={14} color={ Colors.primary} />
+                </View>
+                <View>
+                  <Text style={styles.idLabel}>Your Driver ID</Text>
+                  <Text style={styles.idValue}>{driverId}</Text>
+                </View>
               </View>
-              <View>
-                <Text style={styles.idLabel}>Your Driver ID</Text>
-                <Text style={styles.idValue}>{driverId}</Text>
+              <View style={styles.verifiedBadge}>
+                <Ionicons
+                  name="shield-checkmark"
+                  size={12}
+                  color={Colors.primary}
+                />
+                <Text style={styles.verifiedText}>Pending</Text>
               </View>
             </View>
-            <View style={styles.verifiedBadge}>
-              <Ionicons
-                name="shield-checkmark"
-                size={12}
-                color={Colors.primary}
-              />
-              <Text style={styles.verifiedText}>Pending</Text>
-            </View>
+
+            {/* ── Photo picker ─────────────────────────────────────────── */}
+            <Pressable
+            onPress={pickPhoto}
+              style={
+                styles.photoSection
+              }>
+              <View style={styles.photoBtn} >
+                {photo ? (
+                  <Image source={{ uri: photo }} style={styles.photoImg} />
+                ) : (
+                  <View style={styles.photoPlaceholder}>
+                    <Ionicons
+                      name="person-add-outline"
+                      size={30}
+                      color={Colors.primary}
+                    />
+                  </View>
+                )}
+                <View style={styles.cameraOverlay}>
+                  <Ionicons name="camera" size={14} color={Colors.text} />
+                </View>
+              </View>
+
+              <View style={styles.photoInfo}>
+                <Text style={styles.photoTitle}>
+                  {photo
+                    ? t("driverProfile.changePhoto")
+                    : t("driverProfile.addPhoto")}
+                </Text>
+                <Text style={styles.photoHint}>
+                  Clear photo helps passengers trust you
+                </Text>
+                {photo && (
+                  <View style={styles.photoCheck}>
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={13}
+                      color={Colors.primary}
+                    />
+                    <Text style={styles.photoCheckText}>Photo added</Text>
+                  </View>
+                )}
+              </View>
+            </Pressable>
           </Animated.View>
+
 
           {/* ── Subtitle ─────────────────────────────────────────────── */}
           <Text style={styles.subtitle}>{t("driverProfile.subtitle")}</Text>
 
-          {/* ── Photo picker ─────────────────────────────────────────── */}
-          <Animated.View
-            style={[
-              styles.photoSection,
-              {
-                opacity: photoAnim,
-                transform: [{ scale: photoScale }],
-              },
-            ]}
-          >
-            <Pressable style={styles.photoBtn} onPress={pickPhoto}>
-              {photo ? (
-                <Image source={{ uri: photo }} style={styles.photoImg} />
-              ) : (
-                <View style={styles.photoPlaceholder}>
-                  <Ionicons
-                    name="person-add-outline"
-                    size={30}
-                    color={Colors.primary}
-                  />
-                </View>
-              )}
-              <View style={styles.cameraOverlay}>
-                <Ionicons name="camera" size={14} color={Colors.surface} />
-              </View>
-            </Pressable>
-
-            <View style={styles.photoInfo}>
-              <Text style={styles.photoTitle}>
-                {photo
-                  ? t("driverProfile.changePhoto")
-                  : t("driverProfile.addPhoto")}
-              </Text>
-              <Text style={styles.photoHint}>
-                Clear photo helps passengers trust you
-              </Text>
-              {photo && (
-                <View style={styles.photoCheck}>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={13}
-                    color={Colors.primary}
-                  />
-                  <Text style={styles.photoCheckText}>Photo added</Text>
-                </View>
-              )}
-            </View>
-          </Animated.View>
 
           {/* ── Form fields ───────────────────────────────────────────── */}
           <View style={styles.form}>
@@ -557,18 +558,18 @@ export default function DriverProfileScreen() {
         style={[
           styles.floatingNavbar,
           {
-            bottom: bottomPadding + 16,
+            bottom: bottomPadding + 35,
             opacity: navbarOpacity,
             transform: [{ translateY: navbarAnim }],
           },
         ]}
       >
         {/* Thin progress bar along top edge of navbar */}
-        <View style={styles.navProgressTrack}>
+        {/* <View style={styles.navProgressTrack}>
           <View
             style={[styles.navProgressFill, { width: `${progressPct}%` }]}
           />
-        </View>
+        </View> */}
 
         <View style={styles.navbarContent}>
           {/* Step dots + label */}
@@ -585,7 +586,7 @@ export default function DriverProfileScreen() {
             ))}
             <Text style={styles.navStepLabel}>
               {filledCount === totalCount
-                ? "Ready!"
+                ? "You're all Set!"
                 : `${totalCount - filledCount} left`}
             </Text>
           </View>
@@ -600,13 +601,15 @@ export default function DriverProfileScreen() {
               onPress={handleSave}
               disabled={isLoading}
             >
-              {!isLoading && (
-                <Ionicons name="navigate" size={17} color={Colors.surface} />
+              {isLoading && (
+                <>
+                  <ActivityIndicator size="small" color={Colors.surface} />
+                </>
               )}
               <Text style={styles.ctaBtnText}>
                 {isLoading
-                  ? t("driverProfile.completing")
-                  : t("driverProfile.completeProfile")}
+                  ? (t("driverProfile.completing"))
+                  : t("driverProfile.submitDetails")}
               </Text>
             </Pressable>
           </Animated.View>
@@ -630,29 +633,28 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 50,
-    // flex: 1,
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: 'space-between',
+    // justifyContent: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    // paddingBottom: 12,
+    paddingVertical: 20,
     backgroundColor: Colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.16,
     shadowRadius: 8,
     // elevation: 4,
-    // gap:90
+    // gap: 90,
   },
   backBtnContainer: {
-    width: 'auto',
     alignSelf: 'flex-start',
     justifyContent: 'flex-start'
   },
   backBtn: {
-    borderRadius: 11,
     alignItems: "center",
     justifyContent: "space-between",
     gap: 5,
@@ -662,7 +664,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    alignSelf: 'center'
+    alignSelf: 'center',
+    textAlign: 'center'
   },
   headerCenter: {
     alignItems: "center",
@@ -674,13 +677,14 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   progressPill: {
-    height: 16,
-    width: 130,
-    backgroundColor: Colors.borderLight,
-    borderRadius: 8,
+    height: 22,
+    width: 120,
+    backgroundColor: Colors.border,
+    borderRadius: 18,
     overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
+    // paddingVertical: 5
   },
   progressFill: {
     position: "absolute",
@@ -692,14 +696,15 @@ const styles = StyleSheet.create({
   },
   progressLabel: {
     fontFamily: "Poppins_500Medium",
-    fontSize: 10,
+    fontSize: 11,
     color: Colors.primaryDark,
     zIndex: 1,
   },
 
   headerRight: {
-    width: 38,
     alignItems: "center",
+    alignSelf: 'center',
+    justifyContent: 'flex-end',  
   },
   stepDot: {
     width: 14,
@@ -722,19 +727,29 @@ const styles = StyleSheet.create({
 
   // ── Scroll ────────────────────────────────────────────────────────────────
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     gap: 16,
+    // borderWidth: 2, borderColor: 'red',
+    backgroundColor: Colors.textInverse
     
   },
 
   // ── Driver ID card ────────────────────────────────────────────────────────
   idCard: {
+    flexDirection: "column",
+    // alignItems: "center",
+    backgroundColor: Colors.background,
+    borderRadius: 30,
+    paddingVertical: 12,
+    gap: 10,
+    flex: 1
+  },
+  idCardHolder: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#1A1A1A",
-    borderRadius: 18,
     padding: 20,
+    flex: 1
   },
   idCardLeft: {
     flexDirection: "row",
@@ -745,7 +760,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: "rgba(245,166,35,0.15)",
+    backgroundColor: "rgba(0,166,81,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(0,166,81,0.25)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -757,17 +774,17 @@ const styles = StyleSheet.create({
   idValue: {
     fontFamily: "Poppins_700Bold",
     fontSize: 19,
-    color: Colors.gold,
+    color: Colors.textWhite,
     letterSpacing: 2.5,
   },
   verifiedBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(0,166,81,0.15)",
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 5,
+    backgroundColor: "rgba(0,166,81,0.15)",
     borderWidth: 1,
     borderColor: "rgba(0,166,81,0.25)",
   },
@@ -791,37 +808,41 @@ const styles = StyleSheet.create({
   photoSection: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.surface,
-    borderRadius: 18,
-    padding: 16,
+    backgroundColor: 'rgba(68 67 67 / 0.33)',
+    borderRadius: 30,
+    padding: 10,
     gap: 16,
-    borderWidth: 1.5,
-    borderColor: Colors.borderLight,
+    borderWidth: .5,
+    borderColor: Colors.overlayLight,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
+    marginHorizontal: 15
   },
   photoBtn: {
     position: "relative",
+
   },
   photoImg: {
     width: 68,
     height: 68,
     borderRadius: 34,
     backgroundColor: Colors.border,
+    
   },
   photoPlaceholder: {
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: Colors.primaryDark,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
     borderStyle: "dashed",
     borderColor: Colors.primary,
+    
   },
   cameraOverlay: {
     position: "absolute",
@@ -830,11 +851,11 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.textWhite,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: Colors.surface,
+    // borderWidth: 2,
+    // borderColor: Colors.surface,
   },
   photoInfo: {
     flex: 1,
@@ -843,7 +864,7 @@ const styles = StyleSheet.create({
   photoTitle: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 14,
-    color: Colors.text,
+    color: Colors.textWhite,
   },
   photoHint: {
     fontFamily: "Poppins_400Regular",
@@ -865,7 +886,8 @@ const styles = StyleSheet.create({
 
   // ── Form fields ───────────────────────────────────────────────────────────
   form: {
-    gap: 0,
+    gap: 8,
+    marginHorizontal: 10
   },
   fieldWrapper: {
     marginBottom: 14,
@@ -883,9 +905,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.surface,
-    borderRadius: 14,
+    borderRadius: 30,
     paddingHorizontal: 14,
-    paddingVertical: 13,
+    paddingVertical: 15,
     borderWidth: 1.5,
     borderColor: Colors.border,
     gap: 10,
@@ -942,23 +964,28 @@ const styles = StyleSheet.create({
   },
 
   // ── Floating bottom navbar ────────────────────────────────────────────────
+
   floatingNavbar: {
     position: "absolute",
     left: 16,
     right: 16,
-    backgroundColor: Colors.surface,
-    borderRadius: 22,
+    backgroundColor: Colors.background,
+    borderRadius: 26,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.14,
+    shadowColor: "red",
+    shadowOffset: { width: 18, height: 18 },
+    shadowOpacity: 0,
     shadowRadius: 20,
     elevation: 16,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
+    // borderWidth: .5,
+    // borderColor: Colors.text,
   },
   navProgressTrack: {
+    marginTop: 12,
+    marginHorizontal: 15,
+    borderRadius: 50,
     height: 3,
+    width: 'auto',
     backgroundColor: Colors.borderLight,
   },
   navProgressFill: {
@@ -983,14 +1010,14 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: Colors.border,
+    backgroundColor: Colors.textSecondary,
   },
   navStepDotActive: {
-    width: 9,
-    height: 9,
-    backgroundColor: Colors.primaryLight,
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
+    width: 9.5,
+    height: 9.5,
+    backgroundColor: Colors.primary,
+    borderWidth: .5,
+    borderColor: Colors.primaryLight,
     borderRadius: 5,
   },
   navStepDotDone: {
@@ -999,7 +1026,7 @@ const styles = StyleSheet.create({
   navStepLabel: {
     fontFamily: "Poppins_500Medium",
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: Colors.textWhite,
     marginLeft: 4,
   },
   ctaBtn: {
@@ -1010,11 +1037,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 20,
     paddingVertical: 13,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 6,
   },
   ctaBtnLoading: {
     opacity: 0.72,

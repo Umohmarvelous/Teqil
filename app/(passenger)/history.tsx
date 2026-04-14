@@ -15,6 +15,8 @@ import { PassengersStorage, TripsStorage } from "@/src/services/storage";
 import { formatDate } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import { Time02Icon } from "@hugeicons/core-free-icons";
 
 interface TripCardProps {
   trip: Trip;
@@ -173,10 +175,11 @@ export default function PassengerHistoryScreen() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <View style={styles.emptyIconWrap}>
-              <Ionicons
-                name="time-outline"
-                size={40}
-                color={Colors.primary}
+              <HugeiconsIcon
+                icon={Time02Icon}
+                size={80}
+                color={Colors.textWhite}
+                fill={Colors.textSecondary}
               />
             </View>
             <Text style={styles.emptyTitle}>{t("history.noHistory")}</Text>
@@ -198,7 +201,7 @@ export default function PassengerHistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.border,
   },
 
   // ── Header ──────────────────────────────────────────────
@@ -357,15 +360,11 @@ const styles = StyleSheet.create({
   // ── Empty State ─────────────────────────────────────────
   emptyState: {
     alignItems: "center",
-    paddingTop: 80,
+    paddingTop: 160,
     gap: 12,
     paddingHorizontal: 40,
   },
   emptyIconWrap: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    backgroundColor: Colors.primaryLight,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 4,
