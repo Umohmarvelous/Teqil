@@ -22,14 +22,13 @@ import SearchBar from "@/components/SearchBar";
 import Avatar from "@/components/Avatar";
 import type { Trip } from "@/src/models/types";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { Car02Icon, CheckmarkCircle01Icon, History, Menu02Icon, Message01Icon, Navigation01Icon,  Plus,  QrCode01Icon,  QrCodeIcon,  Search,  Share01Icon,  ShieldCheck, Wallet01Icon, Warning } from "@hugeicons/core-free-icons";
+import { Car02Icon, CheckmarkCircle01Icon, ChevronRight, History, Menu02Icon, Message01Icon, Message02Icon, Navigation01Icon,  Plus,  QrCodeIcon,  Search,  Share01Icon,  ShieldCheck, Wallet01Icon, Warning } from "@hugeicons/core-free-icons";
 import { StatusBar } from "expo-status-bar";
 import QuickTransferModal from "@/components/QuickTransferModal";
-import { Ionicons } from "@expo/vector-icons";
 import ActionTile from "@/components/ActionTile";
 import QRScannerModal from "@/components/QRScannerModal";
 import QuickReceiveModal from "@/components/quickrecieveModal";
-
+import { useMessagesStore } from "@/src/store/useMessagesStore";
 
 
 
@@ -51,8 +50,19 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
   const { theme } = useSettingsStore();
   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const { isAuthenticated, user } = useAuthStore();
+  const { user } = useAuthStore();
 
+  const { conversations } = useMessagesStore();
+  const userUnreadCount = conversations
+    .filter(c => {
+      if (user?.role === "driver") {
+        return c.participantId === user.id || c.participantDriverId === user.driver_id;
+      } else if (user?.role === "passenger") {
+        return c.participantRole === "driver" || c.participantId === user.id;
+      }
+      return false;
+    })
+    .reduce((sum, c) => sum + c.unreadCount, 0);
 
   const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.border;
@@ -63,7 +73,7 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
   const [quickTransferVisible, setQuickTransferVisible] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
   const [receiveVisible, setReceiveVisible] = useState(false);
-  const [createTrip, setCreateTrip]= useState(false)
+  // const [createTrip, setCreateTrip]= useState(false)
 
 
   const handleQRScan = useCallback((data: string) => {
@@ -376,6 +386,29 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
         )} */}
         {/* </View> */}
 
+
+        {userUnreadCount > 0 && (
+          <Pressable
+            style={[styles.card, { backgroundColor: cardBg, borderColor }]}
+            onPress={() => {
+              // Navigate to messages tab
+              // You may need to pass a setActiveTab function from parent or use navigation
+              // Since HomeTab doesn't have direct tab navigation, you can emit an event or use a context.
+              // For simplicity, we'll use a prop from parent (you'll need to pass setActiveTab down).
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{ backgroundColor: Colors.primaryLight, padding: 12, borderRadius: 20 }}>
+                <HugeiconsIcon icon={Message02Icon} size={24} color={Colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.sectionTitle, { color: textColor }]}>New Messages</Text>
+                <Text style={{ color: subTextColor }}>You have {userUnreadCount} unread message{userUnreadCount > 1 ? 's' : ''}</Text>
+              </View>
+              <HugeiconsIcon icon={ChevronRight} size={20} color={subTextColor} />
+            </View>
+          </Pressable>
+        )}
 
 
         {/* Recent trips */}

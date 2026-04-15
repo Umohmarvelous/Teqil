@@ -82,7 +82,6 @@
 import React, { useRef } from "react";
 import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import * as Icons from "@hugeicons/core-free-icons"; // we'll import specific icons where used
 
 // We'll pass the icon component directly instead of name string
 interface ActionTileProps {
@@ -122,7 +121,7 @@ export default function ActionTile({ icon: IconComponent, label, color, onPress 
         style={styles.actionTileInner}
       >
         <View style={[styles.actionIconWrap]}>
-          <HugeiconsIcon icon={IconComponent as any} size={25} color={color} />
+          <HugeiconsIcon icon={IconComponent as any} fill={color} fillOpacity={.1} size={25} color={color} />
           <Text style={[styles.actionLabel, { color }]}>{label}</Text>
         </View>
       </Pressable>

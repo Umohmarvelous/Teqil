@@ -82,7 +82,7 @@ import RatingModal from "@/components/RatingModal";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { AiChat02Icon, Car01Icon, InformationCircleIcon } from "@hugeicons/core-free-icons";
 
-const { width, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const GMAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
 // ─── Types ────────────────────────────────────────────────────────────────────

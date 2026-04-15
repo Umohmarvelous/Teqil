@@ -13,7 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/src/store/useStore";
 import { Colors } from "@/constants/colors";
 import { TripsStorage, PassengersStorage } from "@/src/services/storage";
-import { formatDate, formatDuration, formatCoins, formatNaira, coinsToNaira } from "@/src/utils/helpers";
+import { formatDate, formatDuration, formatCoins, } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react-native";
@@ -26,34 +26,34 @@ interface TripWithPassengerCount extends Trip {
   estimatedCoins: number;
 }
 
-function StatSummary({
-  totalTrips,
-  completedTrips,
-  totalCoins,
-}: {
-  totalTrips: number;
-  completedTrips: number;
-  totalCoins: number;
-}) {
-  return (
-    <View style={styles.summaryRow}>
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryValue}>{totalTrips}</Text>
-        <Text style={styles.summaryLabel}>Total Trips</Text>
-      </View>
-      <View style={[styles.summaryCard, styles.summaryCardMiddle]}>
-        <Text style={styles.summaryValue}>{completedTrips}</Text>
-        <Text style={styles.summaryLabel}>Completed</Text>
-      </View>
-      <View style={styles.summaryCard}>
-        <Text style={[styles.summaryValue, { color: Colors.gold }]}>
-          {formatNaira(Math.round(coinsToNaira(totalCoins)))}
-        </Text>
-        <Text style={styles.summaryLabel}>Est. Earned</Text>
-      </View>
-    </View>
-  );
-}
+// function StatSummary({
+//   totalTrips,
+//   completedTrips,
+//   totalCoins,
+// }: {
+//   totalTrips: number;
+//   completedTrips: number;
+//   totalCoins: number;
+// }) {
+//   return (
+//     <View style={styles.summaryRow}>
+//       <View style={styles.summaryCard}>
+//         <Text style={styles.summaryValue}>{totalTrips}</Text>
+//         <Text style={styles.summaryLabel}>Total Trips</Text>
+//       </View>
+//       <View style={[styles.summaryCard, styles.summaryCardMiddle]}>
+//         <Text style={styles.summaryValue}>{completedTrips}</Text>
+//         <Text style={styles.summaryLabel}>Completed</Text>
+//       </View>
+//       <View style={styles.summaryCard}>
+//         <Text style={[styles.summaryValue, { color: Colors.gold }]}>
+//           {formatNaira(Math.round(coinsToNaira(totalCoins)))}
+//         </Text>
+//         <Text style={styles.summaryLabel}>Est. Earned</Text>
+//       </View>
+//     </View>
+//   );
+// }
 
 function FilterTabs({
   active,
@@ -267,7 +267,7 @@ export default function DriverHistoryScreen() {
     completed: allTrips.filter((t) => t.status === "completed").length,
   };
 
-  const totalCoins = allTrips.reduce((sum, t) => sum + t.estimatedCoins, 0);
+  // const totalCoins = allTrips.reduce((sum, t) => sum + t.estimatedCoins, 0);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 

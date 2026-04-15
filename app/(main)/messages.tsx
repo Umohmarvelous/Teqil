@@ -400,7 +400,6 @@
 
 
 
-
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
@@ -442,6 +441,10 @@ import {
   Delete01Icon,
   MoreVerticalIcon,
   Copy01Icon,
+  Microphone,
+  Reply,
+  TaskDone01Icon,
+  Checkmark,
 } from "@hugeicons/core-free-icons";
 import { StatusBar } from "expo-status-bar";
 import Swipeable from "react-native-gesture-handler/Swipeable";
@@ -467,49 +470,54 @@ function ContactInfoModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={modalStyles.backdrop} onPress={onClose} />
-      <View style={[modalStyles.sheet, { backgroundColor: cardBg }]}>
-        <View style={modalStyles.handle} />
-        <View style={modalStyles.headerRow}>
-          <Text style={[modalStyles.title, { color: textColor }]}>Contact Info</Text>
-          <Pressable onPress={onClose}>
-            <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={textColor} />
-          </Pressable>
-        </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1, justifyContent: "flex-end" }}
+      >
+        <Pressable style={modalStyles.backdrop} onPress={onClose} />
+        <View style={[modalStyles.sheet, { backgroundColor: cardBg }]}>
+          <View style={modalStyles.handle} />
+          <View style={modalStyles.headerRow}>
+            <Text style={[modalStyles.title, { color: textColor }]}>Contact Info</Text>
+            <Pressable onPress={onClose}>
+              <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={textColor} />
+            </Pressable>
+          </View>
 
-        <View style={modalStyles.avatarCenter}>
-          <Avatar name={conversation.participantName} size={80} />
-          <Text style={[modalStyles.contactName, { color: textColor }]}>
-            {conversation.participantName}
-          </Text>
-          <Text style={[modalStyles.contactRole, { color: subTextColor }]}>
-            {conversation.participantRole}
-            {conversation.participantDriverId && ` · ${conversation.participantDriverId}`}
-          </Text>
-        </View>
+          <View style={modalStyles.avatarCenter}>
+            <Avatar name={conversation.participant_name || "User"} size={38} />
+            <Text style={[modalStyles.contactName, { color: textColor }]}>
+              {conversation.participantName}
+            </Text>
+            <Text style={[modalStyles.contactRole, { color: subTextColor }]}>
+              {conversation.participantRole}
+              {conversation.participantDriverId && ` · ${conversation.participantDriverId}`}
+            </Text>
+          </View>
 
-        <View style={modalStyles.infoSection}>
-          {conversation.participantRole === "driver" && (
-            <>
-              <InfoRow icon={Car01Icon} label="Vehicle" value={conversation.participantVehicle || "Not specified"} />
-              <InfoRow icon={Location01Icon} label="Park" value={conversation.participantParkName || "Not specified"} />
-            </>
-          )}
-          <InfoRow icon={CallIcon} label="Phone" value="+234 123 456 7890" />
-          <InfoRow icon={Mail01Icon} label="Email" value="driver@teqil.com" />
-        </View>
+          <View style={modalStyles.infoSection}>
+            {conversation.participantRole === "driver" && (
+              <>
+                <InfoRow icon={Car01Icon} label="Vehicle" value={conversation.participantVehicle || "Not specified"} />
+                <InfoRow icon={Location01Icon} label="Park" value={conversation.participantParkName || "Not specified"} />
+              </>
+            )}
+            <InfoRow icon={CallIcon} label="Phone" value="+234 123 456 7890" />
+            <InfoRow icon={Mail01Icon} label="Email" value="driver@teqil.com" />
+          </View>
 
-        <View style={modalStyles.actionRow}>
-          <Pressable style={[modalStyles.actionBtn, { backgroundColor: Colors.primary }]}>
-            <HugeiconsIcon icon={Message02Icon} size={20} color="#fff" />
-            <Text style={modalStyles.actionBtnText}>Message</Text>
-          </Pressable>
-          <Pressable style={[modalStyles.actionBtn, { backgroundColor: Colors.gold }]}>
-            <HugeiconsIcon icon={CallIcon} size={20} color="#fff" />
-            <Text style={modalStyles.actionBtnText}>Call</Text>
-          </Pressable>
+          <View style={modalStyles.actionRow}>
+            <Pressable style={[modalStyles.actionBtn, { backgroundColor: Colors.primary }]}>
+              <HugeiconsIcon icon={Message02Icon} size={20} color="#fff" />
+              <Text style={modalStyles.actionBtnText}>Message</Text>
+            </Pressable>
+            <Pressable style={[modalStyles.actionBtn, { backgroundColor: Colors.gold }]}>
+              <HugeiconsIcon icon={CallIcon} size={20} color="#fff" />
+              <Text style={modalStyles.actionBtnText}>Call</Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -534,7 +542,7 @@ function VoiceRecorder({ onSend, isDark }: { onSend: (uri: string, duration: num
   const [isPlaying, setIsPlaying] = useState(false);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [duration, setDuration] = useState(0);
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startRecording = async () => {
     try {
@@ -551,14 +559,14 @@ function VoiceRecorder({ onSend, isDark }: { onSend: (uri: string, duration: num
       intervalRef.current = setInterval(() => {
         setDuration((d) => d + 1);
       }, 1000);
-    } catch (err) {
+    } catch {
       Alert.alert("Error", "Could not start recording");
     }
   };
 
   const stopRecording = async () => {
     if (!recording) return;
-    clearInterval(intervalRef.current);
+    if (intervalRef.current) clearInterval(intervalRef.current);
     setIsRecording(false);
     await recording.stopAndUnloadAsync();
     const uri = recording.getURI();
@@ -627,7 +635,7 @@ function VoiceRecorder({ onSend, isDark }: { onSend: (uri: string, duration: num
       onPressOut={stopRecording}
       style={[voiceStyles.recordButton, isRecording && voiceStyles.recordingActive]}
     >
-      <HugeiconsIcon icon={Microphone01Icon} size={24} color={isRecording ? Colors.error : textColor} />
+      <HugeiconsIcon icon={Microphone} size={24} color={isRecording ? Colors.error : textColor} />
       {isRecording && <Text style={voiceStyles.recordingText}>Recording... {duration}s</Text>}
     </Pressable>
   );
@@ -711,7 +719,7 @@ function MessageBubble({
   const renderRightActions = () => (
     <View style={bubbleStyles.swipeActions}>
       <Pressable onPress={onReply} style={[bubbleStyles.swipeAction, { backgroundColor: Colors.gold }]}>
-        <HugeiconsIcon icon={ReplyIcon} size={18} color="#fff" />
+        <HugeiconsIcon icon={Reply} size={18} color="#fff" />
       </Pressable>
       <Pressable onPress={onCopy} style={[bubbleStyles.swipeAction, { backgroundColor: Colors.primary }]}>
         <HugeiconsIcon icon={Copy01Icon} size={18} color="#fff" />
@@ -725,7 +733,7 @@ function MessageBubble({
   const renderLeftActions = () => (
     <View style={bubbleStyles.swipeActions}>
       <Pressable onPress={onReply} style={[bubbleStyles.swipeAction, { backgroundColor: Colors.gold }]}>
-        <HugeiconsIcon icon={ReplyIcon} size={18} color="#fff" />
+        <HugeiconsIcon icon={Reply} size={18} color="#fff" />
       </Pressable>
       <Pressable onPress={onDelete} style={[bubbleStyles.swipeAction, { backgroundColor: Colors.error }]}>
         <HugeiconsIcon icon={Delete01Icon} size={18} color="#fff" />
@@ -758,12 +766,16 @@ function MessageBubble({
             </Text>
           )}
           <View style={bubbleStyles.meta}>
-            <Text style={[bubbleStyles.time, { color: isMe ? "rgba(255,255,255,0.6)" : subTextColor }]}>
+            {/* <Text style={[bubbleStyles.time, { color: isMe ? "rgba(255,255,255,0.6)" : subTextColor }]}>
               {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              
+            </Text> */}
+            <Text style={[bubbleStyles.time, { color: isMe ? "rgba(255,255,255,0.6)" : subTextColor }]}>
+              {message.created_at ? new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
             </Text>
             {isMe && (
               <HugeiconsIcon
-                icon={message.status === "read" ? CheckmarkDone01Icon : CheckmarkIcon}
+                icon={message.status === "read" ? TaskDone01Icon : Checkmark}
                 size={14}
                 color={message.status === "read" ? "#34B7F1" : "rgba(255,255,255,0.5)"}
               />
@@ -815,7 +827,7 @@ function ChatScreen({
   const [isTyping, setIsTyping] = useState(false);
   const [contactModalVisible, setContactModalVisible] = useState(false);
   const listRef = useRef<FlatList>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const bg = isDark ? Colors.background : Colors.border;
   const textColor = isDark ? Colors.textWhite : Colors.text;
@@ -830,7 +842,7 @@ function ChatScreen({
 
   useEffect(() => {
     markRead(conversation.id);
-  }, [conversation.id]);
+  }, [conversation.id, markRead]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -838,13 +850,19 @@ function ChatScreen({
     }
   }, [messages.length]);
 
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, []);
+
   const handleTyping = (value: string) => {
     setText(value);
     if (!isTyping) {
       setIsTyping(true);
       setTyping(conversation.id, true);
     }
-    clearTimeout(typingTimeoutRef.current);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
       setTyping(conversation.id, false);
@@ -856,12 +874,12 @@ function ChatScreen({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const msg: Message = {
       id: generateId(),
-      conversationId: conversation.id,
-      senderId: user.id,
-      senderName: user.full_name || "Me",
+      conversation_id: conversation.id,
+      sender_id: user.id,
+      sender_name: user.full_name || "Me",
       text: content ? undefined : text.trim(),
-      audioUri: content?.uri,
-      createdAt: new Date().toISOString(),
+      audio_uri: content?.uri,
+      created_at: new Date().toISOString(),
       read: false,
       status: "sent",
     };
@@ -869,7 +887,10 @@ function ChatScreen({
     setText("");
     setTyping(conversation.id, false);
     setIsTyping(false);
-    clearTimeout(typingTimeoutRef.current);
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
   };
 
   const handleSend = () => {
@@ -919,7 +940,7 @@ function ChatScreen({
           <HugeiconsIcon icon={ArrowLeft01Icon} size={25} color={textColor} />
         </Pressable>
         <Pressable onPress={() => setContactModalVisible(true)} style={chatStyles.headerInfo}>
-          <Avatar name={conversation.participantName} size={38} />
+          <Avatar name={conversation.participant_name || "User"} size={38} />
           <View style={chatStyles.headerText}>
             <Text style={[chatStyles.headerName, { color: textColor }]}>
               {conversation.participantName}
@@ -946,7 +967,8 @@ function ChatScreen({
         contentContainerStyle={chatStyles.messageList}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => {
-          const isMe = item.senderId === user?.id;
+          // const isMe = item.senderId === user?.id;
+          const isMe = item.sender_id === user?.id;
           return (
             <MessageBubble
               message={item}
@@ -1034,13 +1056,13 @@ function NewChatModal({
       if (trip) {
         const conv: Conversation = {
           id: generateId(),
-          participantId: trip.driver_id,
-          participantName: "Driver",
-          participantRole: "driver",
-          participantDriverId: trip.driver_id,
-          lastMessage: "",
-          lastMessageAt: new Date().toISOString(),
-          unreadCount: 0,
+          participant_id: trip.driver_id,
+          participant_name: "Driver",
+          participant_role: "driver",
+          participant_driver_id: trip.driver_id,
+          last_message: "",
+          last_message_at: new Date().toISOString(),
+          unread_count: 0,
         };
         onStart(conv);
         setDriverRef("");
@@ -1048,13 +1070,13 @@ function NewChatModal({
       } else {
         const conv: Conversation = {
           id: generateId(),
-          participantId: driverRef.trim(),
-          participantName: driverRef.trim(),
-          participantRole: "driver",
-          participantDriverId: driverRef.trim(),
-          lastMessage: "",
-          lastMessageAt: new Date().toISOString(),
-          unreadCount: 0,
+          participant_id: driverRef.trim(),
+          participant_name: driverRef.trim(),
+          participant_role: "driver",
+          participant_driver_id: driverRef.trim(),
+          last_message: "",
+          last_message_at: new Date().toISOString(),
+          unread_count: 0,
         };
         onStart(conv);
         setDriverRef("");
@@ -1129,21 +1151,20 @@ export default function MessagesTab() {
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
-  // Filter conversations based on user role
   const conversations = allConversations.filter((c) => {
     if (!user) return false;
     if (user.role === "driver") {
-      return c.participantRole !== "driver" || c.participantId === user.id;
+      return c.participant_id === user.id || c.participant_driver_id === user.driver_id;
     }
     if (user.role === "passenger") {
-      return c.participantRole === "driver" || c.participantId === user.id;
+      return c.participant_role === "driver" || c.participant_id === user.id;
     }
     return true;
   });
 
+  
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Here you could sync with Supabase or just simulate
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setRefreshing(false);
   }, []);
@@ -1200,29 +1221,24 @@ export default function MessagesTab() {
                 setActiveConv(item);
               }}
             >
-              <Avatar name={item.participantName} size={48} />
-              <View style={styles.convText}>
-                <View style={styles.convTopRow}>
-                  <Text style={[styles.convName, { color: textColor }]} numberOfLines={1}>
-                    {item.participantName}
-                  </Text>
-                  <Text style={[styles.convTime, { color: Colors.error }]}>
-                    {item.lastMessageAt
-                      ? new Date(item.lastMessageAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                      : ""}
-                  </Text>
+              <Avatar name={item.participant_name || "User"} size={48} />
+              <Text style={[styles.convName, { color: textColor }]} numberOfLines={1}>
+                {item.participant_name}
+              </Text>
+              <Text style={[styles.convTime, { color: Colors.error }]}>
+                {item.last_message_at
+                  ? new Date(item.last_message_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                  : ""}
+              </Text>
+              <Text style={[styles.convLastMsg, { color: subTextColor }]} numberOfLines={1}>
+                {item.last_message || "No message..."}
+              </Text>
+              {item.unread_count > 0 && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadText}>{item.unread_count}</Text>
                 </View>
-                <View style={styles.convBottomRow}>
-                  <Text style={[styles.convLastMsg, { color: subTextColor }]} numberOfLines={1}>
-                    {item.lastMessage || "No message..."}
-                  </Text>
-                  {item.unreadCount > 0 && (
-                    <View style={styles.unreadBadge}>
-                      <Text style={styles.unreadText}>{item.unreadCount}</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
+              )}
+                
             </Pressable>
           </Swipeable>
         )}
@@ -1382,7 +1398,6 @@ const modalStyles = StyleSheet.create({
   startBtn: { borderRadius: 14, paddingVertical: 14, alignItems: "center" },
   startBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
 
-  // Contact info modal
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   avatarCenter: { alignItems: "center", marginVertical: 16 },
   contactName: { fontFamily: "Poppins_700Bold", fontSize: 20, marginTop: 8 },

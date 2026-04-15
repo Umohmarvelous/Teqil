@@ -29,7 +29,7 @@ export default function SwipeableSidebar({ children, onOpen, onClose }: Swipeabl
   const openDrawer = () => {
     setIsVisible(true);
     translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
-    backdropOpacity.value = withSpring(1, { damping: 20, stiffness: 200 });
+    backdropOpacity.value = withSpring(1, { damping: 20, stiffness: 100 });
     onOpen?.();
   };
 

@@ -1,4 +1,3 @@
-
 // app/_layout.tsx
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
@@ -18,6 +17,7 @@ import {
 import { useFonts } from "expo-font";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
+import { useMessagesStore } from "@/src/store/useMessagesStore"; // ✅ Added import
 import { supabase } from "@/src/services/supabase";
 import { syncAll, startConnectivityListener, SyncUser } from "@/src/services/sync";
 import i18n from "@/src/i18n";
@@ -25,17 +25,15 @@ import { StatusBar } from "expo-status-bar";
 
 SplashScreen.preventAutoHideAsync();
 
-// Component to sync theme with system appearance
 function ThemeSync() {
-  const systemTheme = useColorScheme(); // "light" or "dark"
+  const systemTheme = useColorScheme();
   const { theme, setTheme } = useSettingsStore();
 
   useEffect(() => {
-    // Only sync if the system theme is defined and different from current
     if (systemTheme && systemTheme !== theme) {
       setTheme(systemTheme);
     }
-  }, [systemTheme]);
+  }, [systemTheme, theme, setTheme]); // ✅ Added dependencies
 
   return null;
 }
@@ -83,9 +81,10 @@ export default function RootLayout() {
     Poppins_700Bold,
   });
 
-  const { setUser, setIsAuthenticated, setIsLoading, user, language } =
-    useAuthStore();
+  const { setUser, setIsAuthenticated, setIsLoading, user, language } = useAuthStore();
   const { theme } = useSettingsStore();
+  const subscribeToRealtime = useMessagesStore((state) => state.subscribeToRealtime);
+  const unsubscribeRealtime = useMessagesStore((state) => state.unsubscribeRealtime);
 
   const userRef = useRef<SyncUser | null>(null);
   useEffect(() => {
@@ -117,7 +116,7 @@ export default function RootLayout() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [setIsAuthenticated, setIsLoading, setUser]); // ✅ Added dependencies
 
   const prevUserIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -129,6 +128,32 @@ export default function RootLayout() {
       (err) => console.warn("[Layout] initial sync error", err)
     );
   }, [user]);
+
+  // ✅ Realtime subscription for messages
+  useEffect(() => {
+    if (user?.id) {
+      const unsubscribe = subscribeToRealtime(user.id);
+      return () => {
+        unsubscribe?.();
+        unsubscribeRealtime();
+      };
+    }
+  }, [user?.id, subscribeToRealtime, unsubscribeRealtime]);
+
+
+
+  
+  useEffect(() => {
+  if (user?.id) {
+    const unsubscribe = useMessagesStore.getState().subscribeToRealtime(user.id);
+    return () => {
+      unsubscribe?.();
+    };
+  }
+  }, [user?.id]);
+
+
+
 
   useEffect(() => {
     const unsubscribe = startConnectivityListener(() => userRef.current);

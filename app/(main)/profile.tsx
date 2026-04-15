@@ -139,7 +139,12 @@ export default function ProfileTab() {
   const [saving, setSaving] = useState(false);
   const [newContactName, setNewContactName] = useState("");
   const [newContactPhone, setNewContactPhone] = useState("");
-  const [review, setReview] = useState(false)
+  const [parkExpanded, setParkExpanded] = useState(false)
+  const [showPersonalInfo, setShowPersonalInfo] = useState(false);
+  const [showDriverDetails, setShowDriverDetails] = useState(false);
+
+const [totalEarnedCoins, setTotalEarnedCoins] = useState(0);
+
 
   const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.border;
@@ -151,16 +156,36 @@ export default function ProfileTab() {
   const [receiveVisible, setReceiveVisible] = useState(false);
   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
 
-  
+  useEffect(() => {
+  if (!user?.id || user.role !== "driver") return;
+  const loadEarnings = async () => {
+    const trips = await TripsStorage.getByDriverId(user.id);
+    const completed = trips.filter(t => t.status === "completed");
+    // Calculate coins earned (using same logic as in driver history)
+    const earned = completed.reduce((sum, trip) => {
+      // Estimate coins: 5 base + 2 per passenger + duration bonus
+      const passengerCount = 0; // We don't have passenger count here easily; you could fetch
+      const durationMinutes = trip.end_time
+        ? (new Date(trip.end_time).getTime() - new Date(trip.start_time).getTime()) / 60000
+        : 0;
+      return sum + Math.round(5 + passengerCount * 2 + Math.floor(durationMinutes / 30));
+    }, 0);
+    setTotalEarnedCoins(earned);
+  };
+  loadEarnings();
+  }, [user]);
+
   const completedTrips = recentTrips.filter((t) => t.status === "completed").length;
-  const coins = user?.points_balance || 0;
+  // const coins = user?.points_balance || 0;
 
   useEffect(() => {
     if (!user?.id) return;
     TripsStorage.getByDriverId(user.id).then((trips) =>
       setRecentTrips(trips.slice(-5).reverse())
     );
+    
   }, [user?.id]);
+
 
   const pickPhoto = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -307,7 +332,7 @@ export default function ProfileTab() {
             ) : (
                 <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderColor }]}>
                   <BalanceCard
-                    coins={coins}
+                    coins={totalEarnedCoins}
                     // onQuickTransferPress={() => setQuickTransferVisible(true)}
                     onQuickTransferPress={() => { }}
                   />
@@ -336,7 +361,7 @@ export default function ProfileTab() {
                 <StatPill
                   iconName={ Wallet}
                   label="Earned"
-                  value={formatNaira(coinsToNaira(coins))}
+                  value={formatNaira(coinsToNaira(totalEarnedCoins))}
                   color={textColor}
                 />
                 <StatPill
@@ -358,13 +383,14 @@ export default function ProfileTab() {
               justifyContent: 'space-between'
 
             }} 
-              onPress={() => setReview((v) => !v)} hitSlop={8}
+              onPress={() =>  setShowPersonalInfo(v => !v)} hitSlop={8}
+              
             >
               <Text style={[styles.cardTitle, { color: textColor }]}>Personal Information</Text>
-              <HugeiconsIcon icon={review ? ChevronRight : ChevronDown} size={22} color={textColor}/>
+              <HugeiconsIcon icon={showPersonalInfo ? ChevronRight : ChevronDown} size={22} color={textColor}/>
             </Pressable>
 
-            {review ? (
+            {showPersonalInfo && (
               <View>
                 <InfoRow
                   icon={UserIcon}
@@ -403,8 +429,6 @@ export default function ProfileTab() {
                   borderColor="transparent"
                 />
               </View>
-            ) : (
-              <></>
             )}
           </View>
 
@@ -419,13 +443,13 @@ export default function ProfileTab() {
                   justifyContent: 'space-between'
 
                 }} 
-                  onPress={() => setReview((v) => !v)} hitSlop={8}
+                  onPress={() => setShowDriverDetails(v => !v)} hitSlop={8}
                 >
                   <Text style={[styles.cardTitle, { color: textColor }]}>Driver Details</Text>
-                  <HugeiconsIcon icon={review ? ChevronRight : ChevronDown} size={22} color={textColor}/>
+                  <HugeiconsIcon icon={showDriverDetails ? ChevronRight : ChevronDown} size={22} color={textColor}/>
                 </Pressable>
 
-                {review ? (
+                {showDriverDetails && (
                   <View>
                     <InfoRow
                       icon={IdentityCardIcon}
@@ -466,9 +490,7 @@ export default function ProfileTab() {
                       borderColor="transparent"
                     />
                   </View>
-                    ) : (
-                  <></>
-                )}
+                  )}
               </View>
             </View>
           )}
@@ -484,13 +506,13 @@ export default function ProfileTab() {
                   justifyContent: 'space-between'
 
                 }} 
-                  onPress={() => setReview((v) => !v)} hitSlop={8}
+                  onPress={() => setParkExpanded((v) => !v)} hitSlop={8}
                 > 
                   <Text style={[styles.cardTitle, { color: textColor }]}>Park Details</Text>
-                  <HugeiconsIcon icon={review ? ChevronRight : ChevronDown} size={22} color={textColor}/>
+                  <HugeiconsIcon icon={parkExpanded ? ChevronRight : ChevronDown} size={22} color={textColor}/>
                 </Pressable>
 
-                {review ? (
+                {parkExpanded ? (
                   <View>
                     <InfoRow
                       icon={BuildingIcon}
@@ -660,10 +682,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryDarker,
   },
   roleText: {
-    fontFamily: "Poppins_500Medium", 
-    fontSize: 13, 
-    color: Colors.textWhite,
-    paddingHorizontal: 5
+    fontFamily: "Poppins_600SemiBold", 
+    fontSize: 12, 
+    color: Colors.gold,
+    paddingHorizontal: 8,
+    paddingVertical: 3
   },
   driverIdChip: {
     flexDirection: "row",
