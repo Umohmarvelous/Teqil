@@ -326,10 +326,10 @@ export default function CreateTripScreen() {
 
 // ─── Styles (unchanged) ──────────────────────────────────────────────────────
 
-const INPUT_BG = "#2C2C2E";
+// const INPUT_BG = "#2C2C2E";
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.background },
+  screen: { flex: 1, backgroundColor: Colors.border },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingBottom: 14, backgroundColor: Colors.borderLight, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.06)" },
   backBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(55 54 54 / 0.08)", alignItems: "center", justifyContent: "center" },
   headerTitle: { flex: 1, textAlign: "center", fontFamily: "Poppins_600SemiBold", fontSize: 16, color: "#000000" },

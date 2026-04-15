@@ -9,6 +9,8 @@ import {
   TextInput,
   Alert,
   Animated,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -75,80 +77,86 @@ export default function QuickTransferModal({ visible, onClose }: QuickTransferMo
 
   return (
     <Modal transparent visible animationType="none" onRequestClose={onClose}>
-      <Animated.View style={[styles.backdrop, { opacity: backdropOp }]}>
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
-      </Animated.View>
-      <Animated.View style={[styles.sheet, { transform: [{ translateY: slideY }] }]}>
-        <View style={styles.handle} />
-        <Text style={styles.title}>Quick Transfer</Text>
-        <Text style={styles.sub}>Send fare to a driver instantly</Text>
+    <KeyboardAvoidingView
+    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    style={{ flex: 1, justifyContent: 'flex-end' }}
+      >
+    
+        <Animated.View style={[styles.backdrop, { opacity: backdropOp }]}>
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
+        </Animated.View>
+        <Animated.View style={[styles.sheet, { transform: [{ translateY: slideY }] }]}>
+          <View style={styles.handle} />
+          <Text style={styles.title}>Quick Transfer</Text>
+          <Text style={styles.sub}>Send fare to a driver instantly</Text>
 
-        <View style={styles.fieldWrap}>
-          <Text style={styles.label}>Driver ID / Trip Code</Text>
-          <View style={styles.inputRow}>
-            <Ionicons name="id-card-outline" size={18} color={FB.navy} />
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. DRV-A3X9KL or ABC123"
-              placeholderTextColor={FB.textSec}
-              value={driverRef}
-              onChangeText={setDriverRef}
-              autoCapitalize="characters"
-            />
+          <View style={styles.fieldWrap}>
+            <Text style={styles.label}>Driver ID / Trip Code</Text>
+            <View style={styles.inputRow}>
+              <Ionicons name="id-card-outline" size={18} color={FB.navy} />
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. DRV-A3X9KL or ABC123"
+                placeholderTextColor={FB.textSec}
+                value={driverRef}
+                onChangeText={setDriverRef}
+                autoCapitalize="characters"
+              />
+            </View>
           </View>
-        </View>
 
-        <View style={styles.fieldWrap}>
-          <Text style={styles.label}>Amount (₦)</Text>
-          <View style={styles.inputRow}>
-            <Text style={styles.nairaSymbol}>₦</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="0.00"
-              placeholderTextColor={FB.textSec}
-              value={amount}
-              onChangeText={(v) => setAmount(v.replace(/[^0-9.]/g, ""))}
-              keyboardType="decimal-pad"
-            />
+          <View style={styles.fieldWrap}>
+            <Text style={styles.label}>Amount (₦)</Text>
+            <View style={styles.inputRow}>
+              <Text style={styles.nairaSymbol}>₦</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="0.00"
+                placeholderTextColor={FB.textSec}
+                value={amount}
+                onChangeText={(v) => setAmount(v.replace(/[^0-9.]/g, ""))}
+                keyboardType="decimal-pad"
+              />
+            </View>
           </View>
-        </View>
 
-        <View style={styles.quickRow}>
-          {[500, 1000, 2000, 5000].map((v) => (
+          <View style={styles.quickRow}>
+            {[500, 1000, 2000, 5000].map((v) => (
+              <Pressable
+                key={v}
+                style={[styles.quickChip, amount === v.toString() && styles.quickChipActive]}
+                onPress={() => {
+                  setAmount(v.toString());
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+              >
+                <Text style={[styles.quickChipText, amount === v.toString() && styles.quickChipTextActive]}>
+                  ₦{v.toLocaleString()}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <View style={styles.actions}>
             <Pressable
-              key={v}
-              style={[styles.quickChip, amount === v.toString() && styles.quickChipActive]}
+              style={styles.scanBtn}
               onPress={() => {
-                setAmount(v.toString());
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onClose();
+                router.push("/(auth)/pay-fare");
               }}
             >
-              <Text style={[styles.quickChipText, amount === v.toString() && styles.quickChipTextActive]}>
-                ₦{v.toLocaleString()}
-              </Text>
+              <Ionicons name="qr-code-outline" size={18} color={FB.navy} />
+              <Text style={styles.scanBtnText}>Scan QR</Text>
             </Pressable>
-          ))}
-        </View>
-
-        <View style={styles.actions}>
-          <Pressable
-            style={styles.scanBtn}
-            onPress={() => {
-              onClose();
-              router.push("/(auth)/pay-fare");
-            }}
-          >
-            <Ionicons name="qr-code-outline" size={18} color={FB.navy} />
-            <Text style={styles.scanBtnText}>Scan QR</Text>
-          </Pressable>
-          <Pressable style={styles.sendBtn} onPress={handleSend}>
-            <LinearGradient colors={[FB.green, "#007A3D"]} style={styles.sendBtnGradient}>
-              <Ionicons name="send" size={16} color="#fff" />
-              <Text style={styles.sendBtnText}>Send</Text>
-            </LinearGradient>
-          </Pressable>
-        </View>
-      </Animated.View>
+            <Pressable style={styles.sendBtn} onPress={handleSend}>
+              <LinearGradient colors={[FB.green, "#007A3D"]} style={styles.sendBtnGradient}>
+                <Ionicons name="send" size={16} color="#fff" />
+                <Text style={styles.sendBtnText}>Send</Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </Animated.View>
+    </KeyboardAvoidingView>
     </Modal>
   );
 }

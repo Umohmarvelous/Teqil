@@ -22,7 +22,7 @@ import SearchBar from "@/components/SearchBar";
 import Avatar from "@/components/Avatar";
 import type { Trip } from "@/src/models/types";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { Car02Icon, CheckmarkCircle01Icon, Menu02Icon, Navigation01Icon,  ShieldCheck } from "@hugeicons/core-free-icons";
+import { Car02Icon, CheckmarkCircle01Icon, History, Menu02Icon, Message01Icon, Navigation01Icon,  Plus,  QrCode01Icon,  QrCodeIcon,  Search,  Share01Icon,  ShieldCheck, Wallet01Icon, Warning } from "@hugeicons/core-free-icons";
 import { StatusBar } from "expo-status-bar";
 import QuickTransferModal from "@/components/QuickTransferModal";
 import { Ionicons } from "@expo/vector-icons";
@@ -83,25 +83,25 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
   const MINIACTIONS = [
     // { id: "find", icon: 'search' as const , label: "Find Trip",   color: textColor },
     // { id: "history", icon: 'time' as const, label: "History", color: textColor },
-    { id: "pay", icon: 'wallet' as const , label: "Pay", color: textColor },
-    { id: "qr", icon: 'qr-code' as const , label: "Scan QR",      color: textColor },
-    { id: "share", icon: 'share' as const , label: "Share Trip",  color: textColor },
+    { id: "pay", icon: Wallet01Icon , label: "Pay", color: textColor },
+    { id: "qr", icon: QrCodeIcon , label: "Scan QR",      color: textColor },
+    { id: "share", icon: Share01Icon , label: "Share Trip",  color: textColor },
     // { id: "sos", icon: 'warning' as const, label: "Emergency", color: textColor },
   ] ;
   const PASSENGERSACTIONSBUTTON = [
-    { id: "find", icon: 'search' as const , label: "Find Trip",   color: textColor },
-    { id: "history", icon: 'time' as const, label: "History", color: textColor },
+    { id: "find", icon: Search , label: "Find Trip",   color: textColor },
+    { id: "history", icon: History, label: "History", color: textColor },
     // { id: "pay", icon: 'wallet' as const , label: "Pay", color: textColor },
     // { id: "qr", icon: 'qr-code' as const , label: "Scan QR",      color: textColor },
     // { id: "share", icon: 'share' as const , label: "Share Trip",  color: textColor },
-    { id: "sos", icon: 'warning' as const, label: "Emergency", color: textColor },
+    { id: "sos", icon: Warning, label: "Emergency", color: textColor },
     
   ] ;
   const DRIVERSACTIONSBUTTON = [
-    { id: "add", icon: "add-circle" as const, label: "New Trip", color: textColor},
-    { id: "megaphone", icon: "megaphone" as const, label: "Messages", color: textColor},
-    { id: "time", icon: "time" as const, label: "History", color: textColor},
-    { id: "scan", icon: "scan" as const, label: "Scan Code", color: textColor},
+    { id: "add", icon: Plus, label: "New Trip", color: textColor},
+    { id: "megaphone", icon: Message01Icon, label: "Messages", color: textColor},
+    { id: "time", icon: History, label: "History", color: textColor},
+    { id: "scan", icon: QrCodeIcon, label: "Scan Code", color: textColor},
   ] ;
 
   // const TOG = [{`PASSENGERSACTIONSBUTTON`} && {`MINIACTIONS`}]
@@ -130,9 +130,9 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
 
       // Driver's Actions
       case "add":
-        handleQuickAction()
+        // handleQuickAction()
         // createTrip()
-        // route: "/app/(driver)/create-trip",
+        router.push("/(driver)/create-trip");
         break;
       case "megaphone":
         router.push ("/(driver)/messages");
@@ -258,11 +258,9 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
       >
 
         {/* Role-specific shortcuts */}
-
         <View style={ [styles.card, styles.shortcutRow, { backgroundColor: cardBg, borderColor }]}>
         <Text style={[styles.sectionTitle, { color: textColor }]}>{!user ? 'Quick Transfer' : 'Quick Actions'}
         </Text>
-          {/* {user?.role === "passenger" ? ( */}
           {!(user?.role === "driver" && "passenger")  && (
             <>
               {/* <Text>Not a User!</Text> */}
@@ -270,7 +268,7 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
                 {MINIACTIONS.map((action) => (
                   <View key={action.id}>
                     <ActionTile
-                        icon={action.icon}
+                        icon={action.icon as any}
                         label={action.label}
                         color={action.color}
                         onPress={() => handleAction(action.id)}
@@ -287,7 +285,7 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
               {PASSENGERSACTIONSBUTTON.map((action) => (
                 <View key={action.id}>
                   <ActionTile
-                    icon={action.icon}
+                    icon={action.icon as any}
                     label={action.label}
                     color={action.color}
                     onPress={() => handleAction(action.id)}
@@ -296,7 +294,6 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
               ))}
             </View>
           )}
-          {/* ) : user?.role === "driver" ? ( */}
           {user?.role === "driver" && (
             <>
               {/* <Text>is Driver</Text> */}
@@ -304,7 +301,7 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
                 {DRIVERSACTIONSBUTTON.map((action) => (
                   <View key={action.id} >
                     <ActionTile
-                      icon={action.icon}
+                      icon={action.icon as any}
                       label={action.label}
                       color={action.color}
                       onPress={() => handleAction(action.id)}
@@ -314,7 +311,6 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
               </View>
             </>
           )}
-          {/* ) : ( */}
           
         </View>
 
@@ -384,7 +380,7 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
 
         {/* Recent trips */}
         {recentTrips.length > 0 && (
-          <View style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
+          <View style={[styles.card, {paddingHorizontal: 20}, { backgroundColor: cardBg, borderColor }]}>
             <Text style={[styles.sectionTitle, { color: textColor }]}>
               Recent Trips
             </Text>
@@ -394,14 +390,7 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
                 <View style={styles.tripRow}>
                   <View
                     style={[
-                      styles.tripIcon,
-                      {
-                        backgroundColor:
-                          trip.status === "completed"
-                            ? Colors.primaryLight
-                            : Colors.goldLight,
-                      },
-                    ]}
+                      styles.tripIcon]}
                   >
                     <HugeiconsIcon
                       icon={trip.status === "completed" ? CheckmarkCircle01Icon : Navigation01Icon}

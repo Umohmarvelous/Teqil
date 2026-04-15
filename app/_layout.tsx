@@ -1,7 +1,10 @@
+
+// app/_layout.tsx
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useCallback, useRef } from "react";
+import { useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -14,6 +17,7 @@ import {
 } from "@expo-google-fonts/poppins";
 import { useFonts } from "expo-font";
 import { useAuthStore } from "@/src/store/useStore";
+import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { supabase } from "@/src/services/supabase";
 import { syncAll, startConnectivityListener, SyncUser } from "@/src/services/sync";
 import i18n from "@/src/i18n";
@@ -21,37 +25,53 @@ import { StatusBar } from "expo-status-bar";
 
 SplashScreen.preventAutoHideAsync();
 
+// Component to sync theme with system appearance
+function ThemeSync() {
+  const systemTheme = useColorScheme(); // "light" or "dark"
+  const { theme, setTheme } = useSettingsStore();
+
+  useEffect(() => {
+    // Only sync if the system theme is defined and different from current
+    if (systemTheme && systemTheme !== theme) {
+      setTheme(systemTheme);
+    }
+  }, [systemTheme]);
+
+  return null;
+}
+
 function RootLayoutNav() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen
-        name="(auth)"
-        options={{
-          presentation: "modal",
-          headerShown: false,
-          animation: "slide_from_bottom",
-        }}
-      />
-      {/* New unified main dashboard */}
-      <Stack.Screen name="(main)" options={{ headerShown: false, animation: "fade" }} />
-      {/* Legacy role-specific routes kept for deep links from live-trip etc */}
-      <Stack.Screen name="(driver)" options={{ headerShown: false }} />
-      <Stack.Screen name="(passenger)" options={{ headerShown: false }} />
-      <Stack.Screen name="(park-owner)" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="live-trip/[code]"
-        options={{ headerShown: false, animation: "fade" }}
-      />
-      <Stack.Screen
-        name="live-trip-code/[code]"
-        options={{ headerShown: false, animation: "fade" }}
-      />
-      <Stack.Screen
-        name="rating"
-        options={{ headerShown: false, presentation: "modal" }}
-      />
-    </Stack>
+    <>
+      <ThemeSync />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen
+          name="(auth)"
+          options={{
+            presentation: "modal",
+            headerShown: false,
+            animation: "slide_from_bottom",
+          }}
+        />
+        <Stack.Screen name="(main)" options={{ headerShown: false, animation: "fade" }} />
+        <Stack.Screen name="(driver)" options={{ headerShown: false }} />
+        <Stack.Screen name="(passenger)" options={{ headerShown: false }} />
+        <Stack.Screen name="(park-owner)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="live-trip/[code]"
+          options={{ headerShown: false, animation: "fade" }}
+        />
+        <Stack.Screen
+          name="live-trip-code/[code]"
+          options={{ headerShown: false, animation: "fade" }}
+        />
+        <Stack.Screen
+          name="rating"
+          options={{ headerShown: false, presentation: "modal" }}
+        />
+      </Stack>
+    </>
   );
 }
 
@@ -65,6 +85,7 @@ export default function RootLayout() {
 
   const { setUser, setIsAuthenticated, setIsLoading, user, language } =
     useAuthStore();
+  const { theme } = useSettingsStore();
 
   const userRef = useRef<SyncUser | null>(null);
   useEffect(() => {
@@ -125,7 +146,7 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
           <KeyboardProvider>
-            <StatusBar style="inverted" backgroundColor="transparent" animated />
+            <StatusBar style={theme === "dark" ? "light" : "dark"} backgroundColor="transparent" animated />
             <RootLayoutNav />
           </KeyboardProvider>
         </GestureHandlerRootView>

@@ -20,6 +20,8 @@ import ProfileTab from "./profile";
 import MessagesTab from "./messages";
 import SettingsTab from "./settings";
 import { HugeiconsIcon } from "@hugeicons/react-native";
+import SwipeableSidebar from '@/components/SwipeableSidebar';
+
 import {
   HomeIcon,
   Home01Icon,
@@ -84,146 +86,149 @@ export default function MainLayout() {
   };
 
   return (
-    <View style={styles.root}>
-      {/* Content */}
-      <View style={styles.content}>{renderContent()}</View>
+    <SwipeableSidebar>
+      <View style={styles.root}>
+        {/* Content */}
+        <View style={styles.content}>{renderContent()}</View>
 
-      {/* Tab bar */}
-      <View
-        style={[
-          styles.tabBar,
-          {
-            height: TAB_HEIGHT + Math.max(insets.bottom, 16),
-            backgroundColor: Platform.OS === "ios" ? tabBarBg : tabBarBg,
-          },
-        ]}
-      >
-        {Platform.OS === "ios" && (
-          <BlurView
-            intensity={0}
-            tint={isDark ? "dark" : "light"}
-            style={StyleSheet.absoluteFillObject}
-          />
-        )}
-
-        {/* Border top */}
+        {/* Tab bar */}
         <View
           style={[
-            styles.tabBarBorder,
-            // { backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "#E8ECF0" },
+            styles.tabBar,
+            {
+              height: TAB_HEIGHT + Math.max(insets.bottom, 16),
+              backgroundColor: Platform.OS === "ios" ? tabBarBg : tabBarBg,
+            },
           ]}
-        />
+        >
+          {Platform.OS === "ios" && (
+            <BlurView
+              intensity={0}
+              tint={isDark ? "dark" : "light"}
+              style={StyleSheet.absoluteFillObject}
+            />
+          )}
 
-        <View style={styles.tabBarInner}>
-          {/* Home */}
-          <TabItem
-            id="home"
-            activeIcon={HomeIcon}
-            inactiveIcon={Home01Icon}
-            label="Home"
-            active={activeTab === "home"}
-            onPress={() => handleTabPress("home")}
-            isDark={isDark}
+          {/* Border top */}
+          <View
+            style={[
+              styles.tabBarBorder,
+              // { backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "#E8ECF0" },
+            ]}
           />
 
-          {/* Profile — shows avatar */}
-          <Pressable
-            style={styles.tabItem}
-            onPress={() => handleTabPress("profile")}
-          >
-            <View style={activeTab === "profile" ? styles.avatarActive : styles.avatarInactive}>
-              <Avatar
-                name={user?.full_name || "U"}
-                photoUri={user?.profile_photo}
-                size={28}
-              />
-            </View>
-            <Text
-              style={[
-                styles.tabLabel,
-                {
-                  color:
-                    activeTab === "profile"
-                      ? Colors.primary
-                      : isDark
-                      ? "#6B7280"
-                      : "#9CA3AF",
-                  fontFamily:
-                    activeTab === "profile"
-                      ? "Poppins_600SemiBold"
-                      : "Poppins_400Regular",
-                },
-              ]}
-            >
-              You
-            </Text>
-          </Pressable>
+          <View style={styles.tabBarInner}>
+            {/* Home */}
+            <TabItem
+              id="home"
+              activeIcon={HomeIcon}
+              inactiveIcon={Home01Icon}
+              label="Home"
+              active={activeTab === "home"}
+              onPress={() => handleTabPress("home")}
+              isDark={isDark}
+            />
 
-          {/* Messages */}
-          <Pressable
-            style={styles.tabItem}
-            onPress={() => handleTabPress("messages")}
-          >
-            <View style={{ position: "relative" }}>
-              <HugeiconsIcon
-                icon={activeTab === "messages" ? MessageIcon : Message01Icon}
-                size={24}
-                color={
-                  activeTab === "messages"
-                    ? Colors.primary
-                    : isDark
-                    ? "#6B7280"
-                    : "#9CA3AF"
-                }
-              />
-              {totalUnread > 0 && (
-                <View style={styles.unreadBadge}>
-                  <Text style={styles.unreadBadgeText}>
-                    {totalUnread > 9 ? "9+" : totalUnread}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <Text
-              style={[
-                styles.tabLabel,
-                {
-                  color:
+            {/* Profile — shows avatar */}
+            <Pressable
+              style={styles.tabItem}
+              onPress={() => handleTabPress("profile")}
+            >
+              <View style={activeTab === "profile" ? styles.avatarActive : styles.avatarInactive}>
+                <Avatar
+                  name={user?.full_name || "U"}
+                  photoUri={user?.profile_photo}
+                  size={28}
+                />
+              </View>
+              <Text
+                style={[
+                  styles.tabLabel,
+                  {
+                    color:
+                      activeTab === "profile"
+                        ? Colors.primary
+                        : isDark
+                        ? "#6B7280"
+                        : "#9CA3AF",
+                    fontFamily:
+                      activeTab === "profile"
+                        ? "Poppins_600SemiBold"
+                        : "Poppins_400Regular",
+                  },
+                ]}
+              >
+                You
+              </Text>
+            </Pressable>
+
+            {/* Messages */}
+            <Pressable
+              style={styles.tabItem}
+              onPress={() => handleTabPress("messages")}
+            >
+              <View style={{ position: "relative" }}>
+                <HugeiconsIcon
+                  icon={activeTab === "messages" ? MessageIcon : Message01Icon}
+                  size={24}
+                  color={
                     activeTab === "messages"
                       ? Colors.primary
                       : isDark
                       ? "#6B7280"
-                      : "#9CA3AF",
-                  fontFamily:
-                    activeTab === "messages"
-                      ? "Poppins_600SemiBold"
-                      : "Poppins_400Regular",
-                },
-              ]}
-            >
-              Messages
-            </Text>
-          </Pressable>
+                      : "#9CA3AF"
+                  }
+                />
+                {totalUnread > 0 && (
+                  <View style={styles.unreadBadge}>
+                    <Text style={styles.unreadBadgeText}>
+                      {totalUnread > 9 ? "9+" : totalUnread}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <Text
+                style={[
+                  styles.tabLabel,
+                  {
+                    color:
+                      activeTab === "messages"
+                        ? Colors.primary
+                        : isDark
+                        ? "#6B7280"
+                        : "#9CA3AF",
+                    fontFamily:
+                      activeTab === "messages"
+                        ? "Poppins_600SemiBold"
+                        : "Poppins_400Regular",
+                  },
+                ]}
+              >
+                Messages
+              </Text>
+            </Pressable>
 
-          {/* Settings */}
-          <TabItem
-            id="settings"
-            activeIcon={SettingsIcon}
-            inactiveIcon={Settings01Icon}
-            label="Settings"
-            active={activeTab === "settings"}
-            onPress={() => handleTabPress("settings")}
-            isDark={isDark}
-          />
+            {/* Settings */}
+            <TabItem
+              id="settings"
+              activeIcon={SettingsIcon}
+              inactiveIcon={Settings01Icon}
+              label="Settings"
+              active={activeTab === "settings"}
+              onPress={() => handleTabPress("settings")}
+              isDark={isDark}
+            />
+          </View>
         </View>
-      </View>
 
-      {/* Sidebar */}
-      <Sidebar
-        visible={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
-    </View>
+        {/* Sidebar */}
+        <Sidebar
+          visible={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+        />
+      </View>
+    </SwipeableSidebar>
+
   );
 }
 

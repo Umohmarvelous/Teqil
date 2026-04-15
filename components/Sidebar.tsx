@@ -1,3 +1,8 @@
+
+
+
+
+// components/Sidebar.tsx
 import React, { useEffect, useRef } from "react";
 import {
   View,
@@ -11,7 +16,6 @@ import {
   Alert,
 } from "react-native";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useAuthStore } from "@/src/store/useStore";
@@ -19,14 +23,28 @@ import { useSettingsStore } from "@/src/store/useSettingsStore";
 import Avatar from "@/components/Avatar";
 import { Colors } from "@/constants/colors";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { Cancel, ChevronRight, Light,  Moon02Icon, MoreHorizontalCircleIcon, Warning } from "@hugeicons/core-free-icons";
-
+import {
+  Cancel01Icon,
+  Sun01Icon,
+  Moon02Icon,
+  MoreHorizontalCircleIcon,
+  Alert01Icon,
+  Home01Icon,
+  UserIcon,
+  Message02Icon,
+  Navigation01Icon,
+  Settings01Icon,
+  GiftIcon,
+  HelpCircleIcon,
+  Logout01Icon,
+  ChevronRight,
+} from "@hugeicons/core-free-icons";
 
 const SIDEBAR_WIDTH = 310;
 
 interface SidebarItem {
   id: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: React.ComponentType<any>;
   label: string;
   badge?: number;
   onPress: () => void;
@@ -97,25 +115,25 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
   const navItems: SidebarItem[] = [
     {
       id: "home",
-      icon: "home-outline",
+      icon: Home01Icon as any,
       label: "Home",
       onPress: () => { onClose(); },
     },
     {
       id: "profile",
-      icon: "person-outline",
+      icon: UserIcon as any,
       label: "My Profile",
       onPress: () => { onClose(); },
     },
     {
       id: "messages",
-      icon: "chatbubbles-outline",
+      icon: Message02Icon as any,
       label: "Messages",
       onPress: () => { onClose(); },
     },
     {
       id: "trips",
-      icon: "navigate-outline",
+      icon: Navigation01Icon as any,
       label: "Trip History",
       onPress: () => {
         onClose();
@@ -126,13 +144,13 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
     },
     {
       id: "settings",
-      icon: "settings-outline",
+      icon: Settings01Icon as any,
       label: "Settings",
       onPress: () => { onClose(); },
     },
     {
       id: "referral",
-      icon: "gift-outline",
+      icon: GiftIcon as any,
       label: "Refer a Friend",
       onPress: () => {
         onClose();
@@ -141,7 +159,7 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
     },
     {
       id: "help",
-      icon: "help-circle-outline",
+      icon: HelpCircleIcon as any,
       label: "Help Centre",
       onPress: () => {
         onClose();
@@ -150,31 +168,27 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
     },
     {
       id: "logout",
-      icon: "log-out-outline",
+      icon: Logout01Icon as any,
       label: "Sign Out",
       danger: true,
       onPress: handleLogout,
     },
   ];
 
-  // Filter out logout item when user is not authenticated
   const filteredNavItems = !isAuthenticated 
     ? navItems.filter(item => item.id !== 'logout')
     : navItems;
 
   const isDark = theme === "dark";
-  const bg = isDark ? Colors.background : Colors.border;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
   const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
-
+  const bg = isDark ? Colors.background : Colors.border;
 
   if (!visible) return null;
 
   return (
     <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
-      {/* Backdrop */}
-        
       <Animated.View
         style={[styles.backdrop, { opacity: backdropOpacity }]}
         pointerEvents="auto"
@@ -186,11 +200,8 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
         paddingTop: insets.top + 0,
         paddingBottom: Math.max(insets.bottom, 0)
       }]}>
-
-        {/* Drawer */}
         <Animated.View style={[styles.drawer,{ transform: [{ translateX }] }]}>
-          {/* Header */}
-          <View style={[styles.drawerHeader, {}, {backgroundColor: cardBg}]}>
+          <View style={[styles.drawerHeader, {backgroundColor: cardBg}]}>
             <View style={styles.headerTop}>
               <Avatar
                 name={user?.full_name || "User"}
@@ -199,10 +210,10 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
               />
               <View style={styles.drawerRightIcon}>
                 <Pressable style={[styles.menuList]}>
-                  <HugeiconsIcon icon={MoreHorizontalCircleIcon}  size={20} color={textColor}  />
+                  <HugeiconsIcon icon={MoreHorizontalCircleIcon} size={20} color={textColor} />
                 </Pressable>
                 <Pressable onPress={onClose} style={styles.closeBtn}>
-                  <HugeiconsIcon icon={Cancel}  size={20} color={textColor}  />
+                  <HugeiconsIcon icon={Cancel01Icon} size={20} color={textColor} />
                 </Pressable>
               </View>
             </View>
@@ -222,14 +233,9 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
             </Text>
           </View>
 
-          {/* <View style={[styles.divider, { backgroundColor: dividerColor }]} /> */}
-
-          {/* Dark mode toggle */}
-          <View style={[styles.darkModeRow,
-            { backgroundColor: cardBg }
-          ]}>
+          <View style={[styles.darkModeRow, { backgroundColor: cardBg }]}>
             <View style={styles.darkModeLeft}>
-              <HugeiconsIcon icon={isDark ? Moon02Icon : Light}  size={24} fill={isDark ? "#fff" : '#000'}   color={isDark ? "#fff" : '#000'}/>
+              <HugeiconsIcon icon={isDark ? Moon02Icon : Sun01Icon} size={24} color={textColor} />
               <Text style={[styles.darkModeText, { color: textColor }]}>
                 {isDark ? 'Dark Mode' : 'Light Mode'}
               </Text>
@@ -245,15 +251,10 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
             />
           </View>
 
-          {/* Conditional Content: Show buttons when NOT authenticated, else show Sign In button */}
           <ScrollView style={[]}>
-            {/* || user?.role === "passenger"  */}
             {isAuthenticated ? (
               <ScrollView
-                style={[styles.navList,
-                  styles.navListcontainer, { backgroundColor: cardBg }
-                  // { backgroundColor: cardBg }
-                ]}>
+                style={[styles.navList, styles.navListcontainer, { backgroundColor: cardBg }]}>
                 {filteredNavItems.map((item) => (
                   <Pressable
                     key={item.id}
@@ -276,12 +277,11 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
                         },
                       ]}
                     >
-                      <Ionicons
-                        name={item.icon}
+                      <HugeiconsIcon
+                        icon={item.icon as any}
                         size={18}
                         color={item.danger ? "#EF4444" : Colors.primary}
                       />
-                    
                     </View>
                     <Text
                       style={[
@@ -308,16 +308,16 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
                 ))}
               </ScrollView>
             ) : (
-                <Pressable
-                  style={[styles.signInContainer, { backgroundColor: 'rgba(255 149 0 / 0.28)' }]}
-                    onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onClose();
-                    router.push("/(auth)/login");
-                  }}
-                >
-                <HugeiconsIcon icon={Warning} size={45} color={Colors.gold} />
-                <View style={ styles.signInTextContent}>
+              <Pressable
+                style={[styles.signInContainer, { backgroundColor: 'rgba(255 149 0 / 0.28)' }]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onClose();
+                  router.push("/(auth)/login");
+                }}
+              >
+                <HugeiconsIcon icon={Alert01Icon} size={45} color={Colors.gold} />
+                <View style={styles.signInTextContent}>
                   <Text style={[styles.signInText, { color: textColor }]}>
                     You are signed in as {user?.full_name || "User"}
                   </Text>
@@ -341,22 +341,9 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
                 </Pressable>
               </Pressable>
             )}
-
-
-
-
-
-
-
-
-
-
-
           </ScrollView>
-
-          {/* Footer */}
         </Animated.View>
-        <Text style={[styles.version,  { color: textColor }]}>
+        <Text style={[styles.version, { color: textColor }]}>
           Teqil v1.0.0
         </Text>
       </View>
@@ -367,9 +354,8 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0 0 0 / 0.4)45)",
+    backgroundColor: "rgba(0 0 0 / 0.45)",
     zIndex: 1,
-
   },
   drawerTop: {
     flex:1,
@@ -396,7 +382,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     marginBottom: 15,
     gap: 6,
-    // backgroundColor: 'silver',
     borderRadius: 30,
   },
   headerTop: {
@@ -431,17 +416,10 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_400Regular",
     fontSize: 13,
   },
-  divider: {
-    height: 1,
-    marginHorizontal: 20,
-    marginVertical: 15,
-    marginTop: 15
-  },
   darkModeRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    // marginHorizontal: 20,
     borderRadius: 23,
     paddingHorizontal: 20,
     paddingVertical: 12,
@@ -516,8 +494,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 30,
-    // opacity: .42,
-
   },
   signInContainer: {
     justifyContent: "center",
@@ -544,7 +520,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   signInButton: {
-    // paddingVertical: 12,
     borderRadius: 30,
     width: "100%",
     alignItems: "center",

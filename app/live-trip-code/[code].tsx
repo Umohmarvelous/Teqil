@@ -1407,7 +1407,7 @@ export default function LiveTripScreen() {
               raterRole: "driver",
             });
           } else {
-            router.replace("/(driver)");
+            router.replace("/(main)");
           }
         },
       },
@@ -1467,7 +1467,7 @@ export default function LiveTripScreen() {
               raterRole: "passenger",
             });
           } else {
-            router.replace("/(passenger)");
+            router.replace("/rating");
           }
         },
       },
@@ -1505,9 +1505,9 @@ export default function LiveTripScreen() {
     const role = ratingContext?.raterRole;
     setRatingContext(null);
     if (role === "driver") {
-      router.replace("/(driver)");
+      router.replace("/(main)");
     } else {
-      router.replace("/(passenger)");
+      router.replace("/(main)");
     }
   }, [ratingContext?.raterRole]);
 
