@@ -22,7 +22,7 @@ import SearchBar from "@/components/SearchBar";
 import Avatar from "@/components/Avatar";
 import type { Trip } from "@/src/models/types";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { Car02Icon, CheckmarkCircle01Icon, ChevronRight, History, Menu02Icon, Message01Icon, Message02Icon, Navigation01Icon,  Plus,  QrCodeIcon,  Search,  Share01Icon,  ShieldCheck, Wallet01Icon, Warning } from "@hugeicons/core-free-icons";
+import { Car02Icon, CheckmarkCircle01Icon, ChevronRight, History, Message01Icon, Message02Icon, Navigation01Icon,  Plus,  QrCodeIcon,  Search,  Share01Icon,  ShieldCheck, Wallet01Icon, Warning } from "@hugeicons/core-free-icons";
 import { StatusBar } from "expo-status-bar";
 import QuickTransferModal from "@/components/QuickTransferModal";
 import ActionTile from "@/components/ActionTile";
@@ -32,21 +32,8 @@ import { useMessagesStore } from "@/src/store/useMessagesStore";
 
 
 
-interface HomeTabProps {
-  onOpenSidebar: () => void;
-}
 
-// const GREETINGS = ["Good morning", "Good afternoon", "Good evening"];
-// function getGreeting() {
-//   const h = new Date().getHours();
-//   if (h < 12) return GREETINGS[0];
-//   if (h < 18) return GREETINGS[1];
-//   return GREETINGS[2];
-// }
-
-export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
-  const insets = useSafeAreaInsets();
-  // const { user } = useAuthStore();
+export default function HomeTab() {
   const { theme } = useSettingsStore();
   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,13 +43,13 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
   const userUnreadCount = conversations
     .filter(c => {
       if (user?.role === "driver") {
-        return c.participantId === user.id || c.participantDriverId === user.driver_id;
+        return c.participant_id === user.id || c.participant_driver_id === user.driver_id;
       } else if (user?.role === "passenger") {
-        return c.participantRole === "driver" || c.participantId === user.id;
+        return c.participant_role === "driver" || c.participant_id === user.id;
       }
       return false;
     })
-    .reduce((sum, c) => sum + c.unreadCount, 0);
+    .reduce((sum, c) => sum + c.unread_count, 0);
 
   const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.border;
@@ -86,24 +73,16 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
 
 
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
-  // const coins = user?.points_balance || 0;
 
   // Define actions
   const MINIACTIONS = [
-    // { id: "find", icon: 'search' as const , label: "Find Trip",   color: textColor },
-    // { id: "history", icon: 'time' as const, label: "History", color: textColor },
     { id: "pay", icon: Wallet01Icon , label: "Pay", color: textColor },
     { id: "qr", icon: QrCodeIcon , label: "Scan QR",      color: textColor },
     { id: "share", icon: Share01Icon , label: "Share Trip",  color: textColor },
-    // { id: "sos", icon: 'warning' as const, label: "Emergency", color: textColor },
   ] ;
   const PASSENGERSACTIONSBUTTON = [
     { id: "find", icon: Search , label: "Find Trip",   color: textColor },
     { id: "history", icon: History, label: "History", color: textColor },
-    // { id: "pay", icon: 'wallet' as const , label: "Pay", color: textColor },
-    // { id: "qr", icon: 'qr-code' as const , label: "Scan QR",      color: textColor },
-    // { id: "share", icon: 'share' as const , label: "Share Trip",  color: textColor },
     { id: "sos", icon: Warning, label: "Emergency", color: textColor },
     
   ] ;
@@ -114,7 +93,6 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
     { id: "scan", icon: QrCodeIcon, label: "Scan Code", color: textColor},
   ] ;
 
-  // const TOG = [{`PASSENGERSACTIONSBUTTON`} && {`MINIACTIONS`}]
 
   const handleAction = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
@@ -186,7 +164,7 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
   }, [loadTrips]);
 
   const handleQuickAction = () => {
-    setCreateTrip(true)
+    // setCreateTrip(true)
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     const role = user?.role;
     if (role === "driver") {
@@ -215,45 +193,11 @@ export default function HomeTab({ onOpenSidebar }: HomeTabProps) {
 
   
   return (
-    <View style={[styles.root, { backgroundColor: bg }]}>
+    <View style={[styles.root, styles.header, { backgroundColor: bg }]}>
       <StatusBar style={isDark ? 'light' : 'dark'}  />
 
       {/* Header */}
-      <View style={[styles.header,  { backgroundColor: cardBg }]}>
-        <View style={[styles.headerImage, { paddingTop: topPadding + 2 }]}>
-
-          {/* Logo Image – now pressable to refresh */}
-          <Pressable onPress={onOpenSidebar} style={styles.menuBtn}>
-            <HugeiconsIcon icon={Menu02Icon} size={22} color={ textColor } />
-          </Pressable>
-          <Pressable
-            onPress={onRefresh}
-            style={styles.logoBtn}>
-            <Image
-              source={isDark ? require("@/assets/images/Logo_with_transparent_background.png") : require("@/assets/images/Black_logo_with_white_background.png")}
-              style={styles.photoImg} 
-              resizeMode="cover"
-              width={120}
-            />
-          </Pressable>
-
-          <Pressable
-            onPress={() => {
-                // Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}>
-              <Avatar
-                name={user?.full_name || "U"}
-                photoUri={user?.profile_photo}
-                size={38}
-              />
-          </Pressable>
-        </View>
-
-        <View style={styles.searchWrap}>
-          <SearchBar isDark={false} />
-        </View>
-      </View>
-
+    
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 12}]}
         showsVerticalScrollIndicator={false}
@@ -526,7 +470,7 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   header: {
     gap: 10,
-    paddingHorizontal: 27,
+    paddingHorizontal: 0,
     paddingBottom: 10,
     flexDirection: 'column',
   },
@@ -558,7 +502,7 @@ const styles = StyleSheet.create({
 
   },
   scrollContent: { 
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
     paddingTop: 15, 
     gap: 15, 
   },

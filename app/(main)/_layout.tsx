@@ -1,11 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   StyleSheet,
   Pressable,
   Text,
   Platform,
-  Alert,
+  Animated,
+  Dimensions,
+  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
@@ -19,9 +21,8 @@ import Sidebar from "@/components/Sidebar";
 import ProfileTab from "./profile";
 import MessagesTab from "./messages";
 import SettingsTab from "./settings";
+import DiscoverTab from "./discover";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import SwipeableSidebar from '@/components/SwipeableSidebar';
-
 import {
   HomeIcon,
   Home01Icon,
@@ -29,69 +30,194 @@ import {
   Settings01Icon,
   MessageIcon,
   Message01Icon,
+  Menu02Icon,
 } from "@hugeicons/core-free-icons";
-// import { BackgroundColors } from "node:util";
 import HomeTab from "./index";
+import SwipeableSidebar from "@/components/SwipeSidebar";
+import FeedScreen from "./feed";
 
 type Tab = "home" | "profile" | "messages" | "settings";
+type TopTab = "home" | "discover";
 
 const TAB_HEIGHT = 60;
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-export default function MainLayout() {
+
+interface MainLayoutProps {
+  onOpenSidebar: () => void;
+}
+
+
+export default function MainLayout({ onOpenSidebar }: MainLayoutProps) {
   const insets = useSafeAreaInsets();
+  const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const { user } = useAuthStore();
   const { theme } = useSettingsStore();
   const { conversations } = useMessagesStore();
   const [activeTab, setActiveTab] = useState<Tab>("home");
+  const [activeTopTab, setActiveTopTab] = useState<TopTab>("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const isDark = theme === "dark";
-  const totalUnread = conversations.reduce((s, c) => s + c.unreadCount, 0);
-  const tabBarBg = isDark ? Colors.primaryDarker : Colors.textWhite;
+  const indicatorAnim = useRef(new Animated.Value(0)).current;
 
+  const isDark = theme === "dark";
+  
+  const totalUnread = conversations.reduce((s, c) => s + (c.unread_count ?? c.unreadCount ?? 0), 0);
+  const tabBarBg = isDark ? Colors.primaryDarker : Colors.textWhite;
+  
   const handleTabPress = (tab: Tab) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tab);
-    
+  };
+  
+  const handleTopTabPress = (tab: TopTab) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveTopTab(tab);
+    Animated.spring(indicatorAnim, {
+      toValue: tab === "home" ? 0 : 1,
+      useNativeDriver: false,
+      damping: 20,
+      stiffness: 200,
+    }).start();
   };
 
-  // const handleQuickAction = () => {
-  //   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-  //   const role = user?.role;
-  //   if (role === "driver") {
-  //     if (!user?.profile_complete) {
-  //       Alert.alert("Profile Required", "Complete your driver profile first.", [
-  //         { text: "Complete Now", onPress: () => router.push("/(auth)/driver-profile") },
-  //         { text: "Cancel", style: "cancel" },
-  //       ]);
-  //       return;
-  //     }
-  //     router.push("/(driver)/create-trip");
-  //   } else if (role === "passenger") {
-  //     router.push("/(passenger)/find-trip");
-  //   } else if (role === "park_owner") {
-  //     Alert.alert("Broadcast", "Go to the Park Owner dashboard to send broadcasts.");
-  //   }
-  //   router.push('/(main)/profile')
-  // };
+  const indicatorLeft = indicatorAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, SCREEN_WIDTH / 2],
+  });
+  
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
+  const topTabTextColor = isDark ? Colors.textWhite : Colors.text;
+  const topTabBg = isDark ? Colors.primaryDarker : Colors.textWhite;
+  const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E8ECF0";
 
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case "home": return <HomeTab onOpenSidebar={() => setSidebarOpen(true)} />;
-      case "profile":  return <ProfileTab />
-      case "messages": return <MessagesTab />;
-      case "settings": return <SettingsTab />;
+  const renderMainContent = () => {
+    if (activeTab !== "home") {
+      switch (activeTab) {
+        case "profile":
+          return <ProfileTab />;
+        case "messages":
+          return <MessagesTab />;
+        case "settings":
+          return <SettingsTab />;
+        default:
+          return null;
+      }
     }
+
+    // Home tab respects top tab selection
+    return activeTopTab === "home"
+      ? <HomeTab /> 
+      : <DiscoverTab /> 
+      // : <FeedScreen/>
   };
 
   return (
     <SwipeableSidebar>
-      <View style={styles.root}>
-        {/* Content */}
-        <View style={styles.content}>{renderContent()}</View>
+        {/* Top Tab Bar — only visible when bottom tab is "home" */}
+        {/* Header */}
+      <View style={[styles.root, { backgroundColor: cardBg }]}>
+        
+        {activeTab === "home" && (
+          <View style={[styles.header, { paddingTop: topPadding + 2 }]}>
+          {/* Logo Image – now pressable to refresh */}
+            <Pressable onPress={onOpenSidebar} style={styles.menuBtn}>
+              <HugeiconsIcon icon={Menu02Icon} size={22} color={textColor} />
+            </Pressable>
+            <Pressable
+              // onPress={onRefresh}
+              style={styles.logoBtn}>
+              <Image
+                source={isDark ? require("@/assets/images/Logo_with_transparent_background.png") : require("@/assets/images/Black_logo_with_white_background.png")}
+                style={styles.photoImg} 
+                resizeMode="cover"
+                width={120}
+              />
+            </Pressable>
 
-        {/* Tab bar */}
+            <Pressable
+              onPress={() => {
+                  }}>
+                <Avatar
+                  name={user?.full_name || "U"}
+                  photoUri={user?.profile_photo}
+                  size={38}
+                />
+            </Pressable>
+          </View>
+        )}
+
+
+        {activeTab === "home" && (
+          <View
+            style={[
+              styles.topTabBar,
+              {
+                backgroundColor: topTabBg,
+                borderBottomColor: borderColor,
+              },
+            ]}
+          >
+            <Pressable
+              style={styles.topTabItem}
+              onPress={() => handleTopTabPress("home")}
+            >
+              <Text
+                style={[
+                  styles.topTabText,
+                  {
+                    color: topTabTextColor,
+                    fontFamily:
+                      activeTopTab === "home"
+                        ? "Poppins_700Bold"
+                        : "Poppins_400Medium",
+                    opacity: activeTopTab === "home" ? 1 : 0.45,
+                  },
+                ]}
+              >
+                Home
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.topTabItem}
+              onPress={() => handleTopTabPress("discover")}
+            >
+              <Text
+                style={[
+                  styles.topTabText,
+                  {
+                    color: topTabTextColor,
+                    fontFamily:
+                      activeTopTab === "discover"
+                        ? "Poppins_700Bold"
+                        : "Poppins_400Medium",
+                    opacity: activeTopTab === "discover" ? 1 : 0.45,
+                  },
+                ]}
+              >
+                For You
+              </Text>
+            </Pressable>
+
+            {/* Sliding indicator */}
+            <Animated.View
+              style={[
+                styles.topTabIndicator,
+                {
+                  left: indicatorLeft,
+                  backgroundColor: Colors.primary,
+                },
+              ]}
+            />
+          </View>
+        )}
+
+        {/* Content */}
+        <View style={styles.content}>{renderMainContent()}</View>
+
+        {/* Bottom Tab Bar */}
         <View
           style={[
             styles.tabBar,
@@ -109,11 +235,10 @@ export default function MainLayout() {
             />
           )}
 
-          {/* Border top */}
           <View
             style={[
               styles.tabBarBorder,
-              // { backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "#E8ECF0" },
+              { backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "#E8ECF0" },
             ]}
           />
 
@@ -129,12 +254,18 @@ export default function MainLayout() {
               isDark={isDark}
             />
 
-            {/* Profile — shows avatar */}
+            {/* Profile */}
             <Pressable
               style={styles.tabItem}
               onPress={() => handleTabPress("profile")}
             >
-              <View style={activeTab === "profile" ? styles.avatarActive : styles.avatarInactive}>
+              <View
+                style={
+                  activeTab === "profile"
+                    ? styles.avatarActive
+                    : styles.avatarInactive
+                }
+              >
                 <Avatar
                   name={user?.full_name || "U"}
                   photoUri={user?.profile_photo}
@@ -222,19 +353,13 @@ export default function MainLayout() {
         </View>
 
         {/* Sidebar */}
-        <Sidebar
-          visible={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
-        />
+        <Sidebar visible={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       </View>
     </SwipeableSidebar>
-
   );
 }
 
-// Refactored TabItem to use Hugeicons components
 function TabItem({
-  id,
   activeIcon,
   inactiveIcon,
   label,
@@ -243,8 +368,8 @@ function TabItem({
   isDark,
 }: {
   id: string;
-  activeIcon: any;      // Hugeicons icon component (filled)
-  inactiveIcon: any;    // Hugeicons icon component (outline)
+  activeIcon: any;
+  inactiveIcon: any;
   label: string;
   active: boolean;
   onPress: () => void;
@@ -281,6 +406,76 @@ function TabItem({
 const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { flex: 1 },
+
+  header: {
+    gap: 10,
+    paddingHorizontal: 37,
+    // paddingBottom: 10,
+    flexDirection: 'row',
+    alignItems: "center",
+    justifyContent: 'space-between'
+  },
+
+  photoImg: {
+    width: 50,
+    height: 50,
+    alignSelf: 'center',
+  },
+  menuBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "flex-start",
+    justifyContent: "center",
+  },
+  logoBtn: {
+    width: 25,
+    height: 25,
+    marginVertical: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+
+  // Top tab bar
+  topTabBar: {
+    flexDirection: "row",
+    paddingBottom: 0,
+    borderBottomWidth: 1,
+    position: "relative",
+    paddingTop: 20
+  },
+  topTabItem: {
+    flex: 1,
+    alignItems: "center",
+    // paddingVertical: 12,
+    paddingBottom: 14,
+  },
+  topTabText: {
+    fontSize: 16,
+    letterSpacing: 0,
+  },
+  topTabIndicatorContainer: {
+    borderWidth: 1, borderColor: 'red',
+    // flex: 1,
+    // position: 'absolute',
+    // right: 0,
+    // left: 0,
+    // alignItems: 'center'
+  },
+  topTabIndicator: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    marginLeft: 90,
+    // flex: 1,
+    height: 3.5,
+    width: "10%",
+    borderRadius: 2,
+  },
+
+  // Bottom tab bar
   tabBar: {
     position: "relative",
     overflow: "hidden",

@@ -13,7 +13,6 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
@@ -21,34 +20,42 @@ import { Colors } from "@/constants/colors";
 import { supabase } from "@/src/services/supabase";
 import type { MapStyle, FontSize, HistoryRetention } from "@/src/store/useSettingsStore";
 import { StatusBar } from "expo-status-bar";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import { Analytics, Car02Icon, Checkmark, CheckmarkCircle03FreeIcons, ColorPickerIcon, DatabaseSyncIcon,  DeleteThrowIcon, Download, Eye, Fingerprint, Font, Gift, Languages, Location, Mail, MapsIcon, Megaphone, Money04Icon, Moon02Icon, Navigator01Icon, Notification, ShieldCheck, SmsCodeIcon,  Time02Icon, Trash2 } from "@hugeicons/core-free-icons";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const settings = useSettingsStore();
+
+  const isDark = settings.theme === "dark";
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+
   return (
     <View style={sectionStyles.wrap}>
-      <Text style={sectionStyles.title}>{title.toUpperCase()}</Text>
+      <Text style={[sectionStyles.title, {color: textColor}]}>{title.toUpperCase()}</Text>
       <View style={sectionStyles.inner}>{children}</View>
     </View>
   );
 }
 
 const sectionStyles = StyleSheet.create({
-  wrap: { marginBottom: 8 },
+  wrap: { marginBottom: 23 },
   title: {
     fontFamily: "Poppins_500Medium",
-    fontSize: 11,
+    fontSize: 12,
     letterSpacing: 1,
     paddingHorizontal: 4,
-    marginBottom: 6,
+    marginVertical: 12,
   },
   inner: {
-    borderRadius: 18,
+    borderRadius: 30,
     overflow: "hidden",
   },
 });
 
 interface SettingRowProps {
-  icon: keyof typeof Ionicons.glyphMap;
+  // icon: keyof typeof Ionicons.glyphMap;
+  iconName: React.ComponentType<any>;
   iconColor: string;
   label: string;
   description?: string;
@@ -58,12 +65,12 @@ interface SettingRowProps {
   isDark?: boolean;
   cardBg?: string;
   textColor?: string;
-  subColor?: string;
+  subTextColor?: string;
   borderColor?: string;
 }
 
 function SettingRow({
-  icon,
+  iconName,
   iconColor,
   label,
   description,
@@ -73,7 +80,7 @@ function SettingRow({
   isDark,
   cardBg,
   textColor,
-  subColor,
+  subTextColor,
   borderColor,
 }: SettingRowProps) {
   return (
@@ -82,7 +89,8 @@ function SettingRow({
         rowStyles.row,
         {
           backgroundColor: cardBg,
-          borderBottomColor: borderColor,
+          // borderBottomColor: borderColor,
+          borderBottomColor: isDark ? '#3E3E3E' : '#CDCDCD',
           opacity: pressed && onPress ? 0.85 : 1,
         },
       ]}
@@ -90,23 +98,30 @@ function SettingRow({
       disabled={!onPress}
     >
       <View
-        style={[rowStyles.iconBox, { backgroundColor: iconColor + "18" }]}
-      >
-        <Ionicons name={icon} size={17} color={danger ? Colors.error : iconColor} />
+      // DFDEDE
+        style={[rowStyles.ScrollCard]}>
+
+          <View
+            style={[rowStyles.iconBox,
+              // { backgroundColor: iconColor + "18" }
+            ]}
+          >
+            <HugeiconsIcon icon={iconName as any} size={22} color={danger ? Colors.error : iconColor} />
+          </View>
+          <View style={rowStyles.textBlock}>
+            <Text style={[rowStyles.label, { color: danger ? Colors.error : textColor }]}>
+              {label}
+            </Text>
+            {description ? (
+              <Text style={[rowStyles.description, { color: subTextColor }]}>
+                {description}
+              </Text>
+            ) : null}
+          </View>
+          {rightElement ?? (onPress ? (
+          <HugeiconsIcon icon={iconName as any} size={20} color={subTextColor} />
+          ) : null)}
       </View>
-      <View style={rowStyles.textBlock}>
-        <Text style={[rowStyles.label, { color: danger ? Colors.error : textColor }]}>
-          {label}
-        </Text>
-        {description ? (
-          <Text style={[rowStyles.description, { color: subColor }]}>
-            {description}
-          </Text>
-        ) : null}
-      </View>
-      {rightElement ?? (onPress ? (
-        <Ionicons name="chevron-forward" size={16} color={subColor} />
-      ) : null)}
     </Pressable>
   );
 }
@@ -115,10 +130,16 @@ const rowStyles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 13,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 14,
+    gap: 19,
+  },
+  ScrollCard: {
+    paddingVertical: 10,
+    gap: 15,
+    flex: 1,
+    flexDirection: 'row',
   },
   iconBox: {
     width: 34,
@@ -176,7 +197,7 @@ function AccentColorPicker({
                 }}
               >
                 {current === c && (
-                  <Ionicons name="checkmark" size={20} color="#fff" />
+                  <HugeiconsIcon icon={ Checkmark } size={20} color="#fff" />
                 )}
               </Pressable>
             ))}
@@ -235,12 +256,9 @@ export default function SettingsTab() {
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
 
   const isDark = settings.theme === "dark";
-  const textColor = isDark ? "#F0F0F0" : "#0D1B3E";
-  const subColor = isDark ? "#6B7280" : "#9CA3AF";
-
   const bg = isDark ? Colors.background : Colors.border;
-  // const textColor = isDark ? Colors.textWhite : Colors.text;
-  // const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
   const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
@@ -291,7 +309,7 @@ export default function SettingsTab() {
     Alert.alert("Clear Cache", "Local cached data cleared.", [{ text: "OK" }]);
   };
 
-  const props = { isDark, cardBg, textColor, subColor, borderColor };
+  const props = { isDark, cardBg, textColor, subTextColor, borderColor };
 
   return (
     <View style={[styles.root, { backgroundColor: bg }]}>
@@ -317,17 +335,18 @@ export default function SettingsTab() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── GENERAL ── */}
-        <Section title="General">
+        <Section title="General" >
           <SettingRow
-            icon="moon-outline"
-            iconColor="#60A5FA"
+            iconName={Moon02Icon as any}
+            iconColor={textColor}
             label="Dark Mode"
             description="Switch between light and dark themes"
             rightElement={switchEl(isDark, (v) => settings.setTheme(v ? "dark" : "light"))}
             {...props}
           />
           <SettingRow
-            icon="color-palette-outline"
+            // icon="color-palette-outline"
+            iconName={ColorPickerIcon as any}
             iconColor={settings.accentColor}
             label="Accent Color"
             description={`Current: ${settings.accentColor}`}
@@ -340,8 +359,8 @@ export default function SettingsTab() {
             {...props}
           />
           <SettingRow
-            icon="text-outline"
-            iconColor="#F5A623"
+            iconName={Font as any}
+            iconColor={ textColor }
             label="Font Size"
             description={`Currently: ${settings.fontSize}`}
             onPress={() => {
@@ -360,8 +379,8 @@ export default function SettingsTab() {
             {...props}
           />
           <SettingRow
-            icon="language-outline"
-            iconColor="#8B5CF6"
+            iconName={Languages as any}            
+            iconColor={ textColor }
             label="Language"
             description="English or Nigerian Pidgin"
             onPress={() => {
@@ -379,8 +398,8 @@ export default function SettingsTab() {
             {...props}
           />
           <SettingRow
-            icon="map-outline"
-            iconColor="#0891B2"
+            iconName={MapsIcon as any}            
+            iconColor={ textColor }
             label="Map Style"
             description="Standard, satellite, or terrain view"
             onPress={() => {
@@ -403,8 +422,8 @@ export default function SettingsTab() {
         {/* ── NOTIFICATIONS ── */}
         <Section title="Notifications">
           <SettingRow
-            icon="notifications-outline"
-            iconColor="#EC4899"
+            iconName={Notification as any}            
+            iconColor={ textColor }
             label="Push Notifications"
             description="Receive alerts on your device"
             rightElement={switchEl(
@@ -414,8 +433,8 @@ export default function SettingsTab() {
             {...props}
           />
           <SettingRow
-            icon="mail-outline"
-            iconColor="#F59E0B"
+            iconName={Mail as any}            
+            iconColor={ textColor }
             label="Email Notifications"
             description="Trip summaries and receipts via email"
             rightElement={switchEl(
@@ -425,8 +444,8 @@ export default function SettingsTab() {
             {...props}
           />
           <SettingRow
-            icon="chatbubble-outline"
-            iconColor="#10B981"
+            iconName={SmsCodeIcon as any}            
+            iconColor={ textColor }
             label="SMS Notifications"
             description="Important alerts via text message"
             rightElement={switchEl(
@@ -436,8 +455,8 @@ export default function SettingsTab() {
             {...props}
           />
           <SettingRow
-            icon="navigate-outline"
-            iconColor="#3B82F6"
+            iconName={Navigator01Icon as any}            
+            iconColor={ textColor }
             label="Trip Alerts"
             description="Notifications for trip events"
             rightElement={switchEl(
@@ -447,8 +466,8 @@ export default function SettingsTab() {
             {...props}
           />
           <SettingRow
-            icon="megaphone-outline"
-            iconColor="#8B5CF6"
+            iconName={Megaphone as any}            
+            iconColor={ textColor }
             label="Park Broadcasts"
             description="Messages from park owners"
             rightElement={switchEl(
@@ -462,8 +481,8 @@ export default function SettingsTab() {
         {/* ── PRIVACY & SECURITY ── */}
         <Section title="Privacy & Security">
           <SettingRow
-            icon="finger-print-outline"
-            iconColor="#0891B2"
+            iconName={Fingerprint as any}            
+            iconColor={ textColor }
             label="Biometric Lock"
             description="Use Face ID / fingerprint to unlock"
             rightElement={switchEl(
@@ -473,8 +492,8 @@ export default function SettingsTab() {
             {...props}
           />
           <SettingRow
-            icon="shield-checkmark-outline"
-            iconColor="#10B981"
+            iconName={ShieldCheck as any}            
+            iconColor={ textColor }
             label="Two-Factor Authentication"
             description="Add an extra layer of security"
             rightElement={switchEl(
@@ -484,12 +503,12 @@ export default function SettingsTab() {
             {...props}
           />
           <SettingRow
-            icon="eye-outline"
-            iconColor="#6B7280"
+            iconName={Eye as any}            
+            iconColor={ textColor }
             label="Profile Visibility"
             description={`Visible to: ${settings.privacy.showProfile.replace("_", " ")}`}
             onPress={() => {
-              const options: Array <"everyone" | "drivers_only" | "nobody"> = [
+              const options: T["everyone" | "drivers_only" | "nobody"] = [
                 "everyone",
                 "drivers_only",
                 "nobody",
@@ -501,8 +520,8 @@ export default function SettingsTab() {
             {...props}
           />
           <SettingRow
-            icon="location-outline"
-            iconColor="#F59E0B"
+            iconName={Location as any}            
+            iconColor={ textColor }
             label="Share Location"
             description="Allow location sharing during trips"
             rightElement={switchEl(
@@ -512,8 +531,9 @@ export default function SettingsTab() {
             {...props}
           />
           <SettingRow
-            icon="stats-chart-outline"
-            iconColor="#8B5CF6"
+            // icon="stats-chart-outline"
+            iconName={Analytics as any}            
+            iconColor={ textColor }
             label="Analytics & Crash Reports"
             description="Help improve Teqil"
             rightElement={switchEl(
@@ -527,16 +547,17 @@ export default function SettingsTab() {
         {/* ── DATA & STORAGE ── */}
         <Section title="Data & Storage">
           <SettingRow
-            icon="cellular-outline"
-            iconColor="#0891B2"
+            // icon="cellular-outline"
+            iconName={DatabaseSyncIcon as any}            
+            iconColor={ textColor }
             label="Data Saver"
             description="Reduce data usage for images and maps"
             rightElement={switchEl(settings.dataSaver, (v) => settings.setDataSaver(v))}
             {...props}
           />
           <SettingRow
-            icon="time-outline"
-            iconColor="#F59E0B"
+            iconName={Time02Icon as any}            
+            iconColor={ textColor }
             label="Trip History Retention"
             description={`Keep trips for: ${settings.historyRetention === "forever" ? "Forever" : settings.historyRetention + " days"}`}
             onPress={() => {
@@ -548,16 +569,16 @@ export default function SettingsTab() {
             {...props}
           />
           <SettingRow
-            icon="trash-outline"
-            iconColor="#EF4444"
+            iconName={Trash2 as any}            
+            iconColor={ textColor }
             label="Clear Cache"
             description="Free up storage space"
             onPress={handleClearCache}
             {...props}
           />
           <SettingRow
-            icon="download-outline"
-            iconColor="#10B981"
+            iconName={Download as any}            
+            iconColor={ textColor }
             label="Export My Data"
             description="Download all your data (GDPR)"
             onPress={handleExportData}
@@ -568,7 +589,7 @@ export default function SettingsTab() {
         {/* ── REFERRALS ── */}
         <Section title="Referrals">
           <SettingRow
-            icon="gift-outline"
+            iconName={Gift as any}            
             iconColor="#EC4899"
             label="My Referral Code"
             description={settings.referralCode}
@@ -592,8 +613,8 @@ export default function SettingsTab() {
         {user?.role === "driver" && (
           <Section title="Driver Settings">
             <SettingRow
-              icon="car-outline"
-              iconColor={Colors.primary}
+              iconName={Car02Icon as any}              
+              iconColor={ textColor }
               label="Default Vehicle"
               description={settings.driverSettings.defaultVehicle || "Not set"}
               onPress={() => {
@@ -615,8 +636,9 @@ export default function SettingsTab() {
               {...props}
             />
             <SettingRow
-              icon="checkmark-circle-outline"
-              iconColor="#10B981"
+              // icon="checkmark-circle-outline"
+              iconName={CheckmarkCircle03FreeIcons as any}              
+              iconColor={ textColor }
               label="Auto-accept Trips"
               description="Automatically accept passenger requests"
               rightElement={switchEl(
@@ -626,8 +648,8 @@ export default function SettingsTab() {
               {...props}
             />
             <SettingRow
-              icon="people-outline"
-              iconColor="#3B82F6"
+              iconName={Money04Icon as any}              
+              iconColor={ textColor }
               label="Show Earnings"
               description="Display earnings on the dashboard"
               rightElement={switchEl(
@@ -642,7 +664,7 @@ export default function SettingsTab() {
         {/* ── ACCOUNT ── */}
         <Section title="Account">
           <SettingRow
-            icon="person-remove-outline"
+            iconName={DeleteThrowIcon as any}            
             iconColor={Colors.error}
             label="Delete Account"
             description="Permanently remove your account"
@@ -652,7 +674,7 @@ export default function SettingsTab() {
           />
         </Section>
 
-        <Text style={[styles.version, { color: subColor }]}>
+        <Text style={[styles.version, { color: subTextColor }]}>
           Teqil v1.0.0 · Made in Nigeria 🇳🇬
         </Text>
       </ScrollView>
@@ -684,13 +706,16 @@ const styles = StyleSheet.create({
     borderColor: "rgba(0,0,0,0.1)",
   },
   pill: {
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 0,
+    padding: 0, margin: 0,
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   pillText: {
     fontFamily: "Poppins_500Medium",
-    fontSize: 12,
+    fontSize: 13, letterSpacing: 3
   },
   version: {
     fontFamily: "Poppins_400Regular",

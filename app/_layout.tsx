@@ -17,13 +17,25 @@ import {
 import { useFonts } from "expo-font";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
-import { useMessagesStore } from "@/src/store/useMessagesStore"; // ✅ Added import
+import { useMessagesStore } from "@/src/store/useMessagesStore";
 import { supabase } from "@/src/services/supabase";
 import { syncAll, startConnectivityListener, SyncUser } from "@/src/services/sync";
 import i18n from "@/src/i18n";
 import { StatusBar } from "expo-status-bar";
+import * as Notifications from "expo-notifications";
 
 SplashScreen.preventAutoHideAsync();
+
+// Configure notification handler globally so foreground notifications show
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 function ThemeSync() {
   const systemTheme = useColorScheme();
@@ -33,7 +45,7 @@ function ThemeSync() {
     if (systemTheme && systemTheme !== theme) {
       setTheme(systemTheme);
     }
-  }, [systemTheme, theme, setTheme]); // ✅ Added dependencies
+  }, [systemTheme]);
 
   return null;
 }
@@ -83,8 +95,8 @@ export default function RootLayout() {
 
   const { setUser, setIsAuthenticated, setIsLoading, user, language } = useAuthStore();
   const { theme } = useSettingsStore();
-  const subscribeToRealtime = useMessagesStore((state) => state.subscribeToRealtime);
-  const unsubscribeRealtime = useMessagesStore((state) => state.unsubscribeRealtime);
+  // const subscribeToRealtime = useMessagesStore((state) => state.subscribeToRealtime);
+  // const unsubscribeRealtime = useMessagesStore((state) => state.unsubscribeRealtime);
 
   const userRef = useRef<SyncUser | null>(null);
   useEffect(() => {
@@ -93,19 +105,29 @@ export default function RootLayout() {
       : null;
   }, [user]);
 
+  // Sync language preference
   useEffect(() => {
     if (language) i18n.changeLanguage(language);
   }, [language]);
 
+  // Request notification permissions on startup
+  useEffect(() => {
+    (async () => {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== "granted") {
+        await Notifications.requestPermissionsAsync();
+      }
+    })();
+  }, []);
+
+  // Supabase auth state
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsAuthenticated(!!session?.user);
       setIsLoading(false);
     });
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setIsAuthenticated(true);
       } else {
@@ -116,8 +138,19 @@ export default function RootLayout() {
     });
 
     return () => subscription.unsubscribe();
-  }, [setIsAuthenticated, setIsLoading, setUser]); // ✅ Added dependencies
+  }, []);
 
+  // Realtime messages subscription — subscribe when user is known, unsubscribe on logout
+  // useEffect(() => {
+  //   if (!user?.id) return;
+
+  //   const unsubscribe = subscribeToRealtime(user.id);
+  //   return () => {
+  //     unsubscribe?.();
+  //   };
+  // }, [user?.id]);
+
+  // Initial sync when user logs in
   const prevUserIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!user) return;
@@ -125,36 +158,11 @@ export default function RootLayout() {
     prevUserIdRef.current = user.id;
 
     syncAll({ id: user.id, role: user.role, park_name: user.park_name }).catch(
-      (err) => console.warn("[Layout] initial sync error", err)
+      (err) => console.warn("[Layout] initial sync error:", err)
     );
   }, [user]);
 
-  // ✅ Realtime subscription for messages
-  useEffect(() => {
-    if (user?.id) {
-      const unsubscribe = subscribeToRealtime(user.id);
-      return () => {
-        unsubscribe?.();
-        unsubscribeRealtime();
-      };
-    }
-  }, [user?.id, subscribeToRealtime, unsubscribeRealtime]);
-
-
-
-  
-  useEffect(() => {
-  if (user?.id) {
-    const unsubscribe = useMessagesStore.getState().subscribeToRealtime(user.id);
-    return () => {
-      unsubscribe?.();
-    };
-  }
-  }, [user?.id]);
-
-
-
-
+  // Connectivity-triggered sync
   useEffect(() => {
     const unsubscribe = startConnectivityListener(() => userRef.current);
     return unsubscribe;

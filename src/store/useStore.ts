@@ -70,6 +70,9 @@ export const useAuthStore = create<AuthStore>()(
   )
 );
 
+// Alias used by splash-screen-controller
+export const useAuthContext = useAuthStore;
+
 export const useTripStore = create<TripStore>((set) => ({
   activeTrip: null,
   activeTripPassengers: [],

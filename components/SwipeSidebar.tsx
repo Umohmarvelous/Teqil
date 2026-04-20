@@ -1,6 +1,6 @@
 // components/SwipeableSidebar.tsx
-import React, { useRef, useState } from 'react';
-import { Dimensions, StyleSheet, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Pressable } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
@@ -10,7 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Sidebar from './Sidebar';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+// const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = 310;
 const SWIPE_THRESHOLD = DRAWER_WIDTH * 0.3;
 
