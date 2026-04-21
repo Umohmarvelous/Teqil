@@ -468,10 +468,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    marginLeft: 90,
+    marginLeft: 70,
     // flex: 1,
     height: 3.5,
-    width: "10%",
+    width: "15%",
     borderRadius: 2,
   },
 

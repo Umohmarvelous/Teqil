@@ -39,6 +39,15 @@ export default function HomeTab() {
   const [refreshing, setRefreshing] = useState(false);
   const { user } = useAuthStore();
 
+
+  const handlePayAction = () => {
+    if (user?.role === 'passenger') {
+      router.push('/(passenger)/scan-pay');
+    } else {
+      router.push('/(driver)/qr-receive');
+    }
+  };
+
   const { conversations } = useMessagesStore();
   const userUnreadCount = conversations
     .filter(c => {
@@ -98,7 +107,8 @@ export default function HomeTab() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
     switch (id) {
       case "pay":
-        setQuickTransferVisible(true)
+        // setQuickTransferVisible(true)
+        handlePayAction();
         break;
       case "find":
         router.push("/(passenger)/find-trip");

@@ -19,7 +19,7 @@ import { Colors } from '@/constants/colors';
 import Avatar from '@/components/Avatar';
 import ChatScreen from '@/components/ChatScreen'; // We'll create a reusable chat component
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import { PlusSignIcon, Search02Icon } from '@hugeicons/core-free-icons';
+import { PlusSignIcon } from '@hugeicons/core-free-icons';
 import { supabase } from '@/src/services/supabase';
 
 export default function PassengerMessagesScreen() {
@@ -145,13 +145,13 @@ export default function PassengerMessagesScreen() {
                   style={{
                     fontFamily: 'Poppins_400Regular',
                     fontSize: 14,
-                    color: item.unread_count_passenger > 0 ? textColor : subTextColor,
+                    color: item.unread_count > 0 ? textColor : subTextColor,
                     flex: 1,
                   }}
                 >
                   {item.last_message || 'Start a conversation'}
                 </Text>
-                {item.unread_count_passenger > 0 && (
+                {item.unread_count > 0 && (
                   <View style={{
                     backgroundColor: Colors.primary,
                     borderRadius: 12,
@@ -162,7 +162,7 @@ export default function PassengerMessagesScreen() {
                     paddingHorizontal: 8,
                   }}>
                     <Text style={{ color: '#fff', fontFamily: 'Poppins_700Bold', fontSize: 12 }}>
-                      {item.unread_count_passenger}
+                      {item.unread_count}
                     </Text>
                   </View>
                 )}
@@ -195,7 +195,7 @@ export default function PassengerMessagesScreen() {
   );
 }
 
-function SearchDriverModal({ visible, onClose, onSearch, loading, isDark }) {
+function SearchDriverModal({ visible, onClose, onSearch, loading, isDark }:any) {
   const [driverId, setDriverId] = useState('');
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const bgColor = isDark ? Colors.primaryDarker : '#fff';
