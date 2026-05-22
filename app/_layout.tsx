@@ -69,10 +69,6 @@ function RootLayoutNav() {
         <Stack.Screen name="(passenger)" options={{ headerShown: false }} />
         <Stack.Screen name="(park-owner)" options={{ headerShown: false }} />
         <Stack.Screen
-          name="live-trip/[code]"
-          options={{ headerShown: false, animation: "fade" }}
-        />
-        <Stack.Screen
           name="live-trip-code/[code]"
           options={{ headerShown: false, animation: "fade" }}
         />

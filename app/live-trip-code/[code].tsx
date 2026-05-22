@@ -1106,7 +1106,7 @@ export default function LiveTripScreen() {
     boolean | null
   >(null);
 
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<React.ElementRef<typeof MapView>>(null);
   const locationWatcher = useRef<Location.LocationSubscription | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const topBarHeight = useSharedValue(1);
@@ -1524,7 +1524,14 @@ export default function LiveTripScreen() {
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFillObject}
-        provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+        provider={
+          Platform.OS === "android" || Platform.OS === "web"
+            ? PROVIDER_GOOGLE
+            : undefined
+        }
+        {...(Platform.OS === "web"
+          ? { googleMapsApiKey: GMAPS_KEY || undefined }
+          : {})}
         initialRegion={initialRegion}
         customMapStyle={DARK_MAP_STYLE}
         showsUserLocation={false}

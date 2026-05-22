@@ -2,7 +2,7 @@
 
 - When fixing errors, patch the files named in the request first, then only closely related files in the same navigation/sidebar flow—not unrelated repo-wide TypeScript errors unless asked to continue.
 - Remote testers in other locations should use Expo Go with a shareable QR workflow rather than LAN-only dev URLs.
-- The Discover tab should show skeleton placeholders while loading (`renderSkeletonItem`) and mount `SearchOverlay` at the top of the screen.
+- The Discover tab should show skeleton placeholders while loading via `FeedSkeletonList` from `ShimmerSkeleton.tsx`.
 
 ## Learned Workspace Facts
 
