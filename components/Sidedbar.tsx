@@ -1,19 +1,16 @@
 
 
-
-
 // components/Sidebar.tsx
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
-  Animated,
-  Modal,
   Switch,
   ScrollView,
   Alert,
+  Dimensions,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -40,7 +37,7 @@ import {
   ChevronRight,
 } from "@hugeicons/core-free-icons";
 
-const SIDEBAR_WIDTH = 310;
+const SIDEBAR_WIDTH = 330;
 
 interface SidebarItem {
   id: string;
@@ -51,49 +48,17 @@ interface SidebarItem {
   danger?: boolean;
 }
 
-interface SidebarProps {
-  visible: boolean;
-  onClose: () => void;
-}
 
-export default function Sidebar({ visible, onClose }: SidebarProps) {
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+
+export default function SidedBar() {
   const { isAuthenticated, user, logout } = useAuthStore();
   const insets = useSafeAreaInsets();
   const { theme, setTheme } = useSettingsStore();
 
-  const translateX = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.spring(translateX, {
-          toValue: 0,
-          damping: 24,
-          stiffness: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(backdropOpacity, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(translateX, {
-          toValue: -SIDEBAR_WIDTH,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-        Animated.timing(backdropOpacity, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [visible]);
 
   const handleLogout = () => {
     Alert.alert("Sign Out", "Are you sure?", [
@@ -105,7 +70,6 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
           const { signOut } = await import("@/src/services/supabase");
           await signOut();
           logout();
-          onClose();
           router.replace("/(auth)/login");
         },
       },
@@ -117,26 +81,25 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
       id: "home",
       icon: Home01Icon as any,
       label: "Home",
-      onPress: () => { onClose(); },
+      onPress: () => { },
     },
     {
       id: "profile",
       icon: UserIcon as any,
       label: "My Profile",
-      onPress: () => { onClose(); },
+      onPress: () => { },
     },
     {
       id: "messages",
       icon: Message02Icon as any,
       label: "Messages",
-      onPress: () => { onClose(); },
+      onPress: () => { },
     },
     {
       id: "trips",
       icon: Navigation01Icon as any,
       label: "Trip History",
       onPress: () => {
-        onClose();
         const role = user?.role;
         if (role === "driver") router.push("/(driver)/history");
         else if (role === "passenger") router.push("/(passenger)/history");
@@ -146,14 +109,13 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
       id: "settings",
       icon: Settings01Icon as any,
       label: "Settings",
-      onPress: () => { onClose(); },
+      onPress: () => { },
     },
     {
       id: "referral",
       icon: GiftIcon as any,
       label: "Refer a Friend",
       onPress: () => {
-        onClose();
         Alert.alert("Refer a Friend", "Share Teqil with friends and earn coins!");
       },
     },
@@ -162,7 +124,6 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
       icon: HelpCircleIcon as any,
       label: "Help Centre",
       onPress: () => {
-        onClose();
         Alert.alert("Help", "Support coming soon.");
       },
     },
@@ -185,23 +146,26 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
   const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
   const bg = isDark ? Colors.background : Colors.border;
 
-  if (!visible) return null;
 
   return (
-    <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
-      <Animated.View
-        style={[styles.backdrop, { opacity: backdropOpacity }]}
+    <View style={[{flex: 1},{width: SCREEN_WIDTH / 1.33}, styles.backdrop, {height: SCREEN_HEIGHT}]}>
+
+      <View
+        style={[
+        ]}
         pointerEvents="auto"
       >
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
-      </Animated.View>
+          <Pressable style={StyleSheet.absoluteFillObject}
+          />
+      </View>
       <View style={[styles.drawerTop, {
         backgroundColor: bg,
         paddingTop: insets.top + 0,
         paddingBottom: Math.max(insets.bottom, 0)
       }]}>
-        <Animated.View style={[styles.drawer,{ transform: [{ translateX }] }]}>
-          <View style={[styles.drawerHeader, {backgroundColor: cardBg}]}>
+        <View style={[styles.drawer,]}>
+          <View style={[styles.drawerHeader,
+          ]}>
             <View style={styles.headerTop}>
               <Avatar
                 name={user?.full_name || "User"}
@@ -212,7 +176,9 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
                 <Pressable style={[styles.menuList]}>
                   <HugeiconsIcon icon={MoreHorizontalCircleIcon} size={20} color={textColor} />
                 </Pressable>
-                <Pressable onPress={onClose} style={styles.closeBtn}>
+                  <Pressable
+                    style={styles.closeBtn}
+                  >
                   <HugeiconsIcon icon={Cancel01Icon} size={20} color={textColor} />
                 </Pressable>
               </View>
@@ -233,7 +199,7 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
             </Text>
           </View>
 
-          <View style={[styles.darkModeRow, { backgroundColor: cardBg }]}>
+          <View style={[styles.darkModeRow]}>
             <View style={styles.darkModeLeft}>
               <HugeiconsIcon icon={isDark ? Moon02Icon : Sun01Icon} size={24} color={textColor} />
               <Text style={[styles.darkModeText, { color: textColor }]}>
@@ -309,10 +275,10 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
               </ScrollView>
             ) : (
               <Pressable
-                style={[styles.signInContainer, { backgroundColor: 'rgba(255 149 0 / 0.28)' }]}
+                  style={[styles.signInContainer,
+                ]}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onClose();
                   router.push("/(auth)/login");
                 }}
               >
@@ -333,7 +299,6 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
                   ]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onClose();
                     router.push("/(auth)/login");
                   }}
                 >
@@ -342,37 +307,30 @@ export default function Sidebar({ visible, onClose }: SidebarProps) {
               </Pressable>
             )}
           </ScrollView>
-        </Animated.View>
+        </View>
         <Text style={[styles.version, { color: textColor }]}>
           Teqil v1.0.0
         </Text>
       </View>
-    </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0 0 0 / 0.45)",
+    // ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0 0 0 / 0.5)",
     zIndex: 1,
   },
   drawerTop: {
-    flex:1,
+    flex: 1,
     width: SIDEBAR_WIDTH,
     position: "absolute",
     left: 0,
     top: 0,
     bottom:0,
     zIndex: 2,
-    borderTopRightRadius: 30,
-    borderBottomRightRadius: 30,
     paddingHorizontal: 7,
-    shadowColor: "#000",
-    shadowOffset: { width: 6, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 20,
   },
   drawer: {
     zIndex: 2,
@@ -501,8 +459,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 32,
     borderRadius: 20,
-    borderWidth: .4,
-    borderColor: Colors.gold,
     gap: 20
   },
   signInTextContent: {

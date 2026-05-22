@@ -12,6 +12,7 @@
     "server:prod": "NODE_ENV=production node server_dist/index.js",
     "db:push": "drizzle-kit push",
     "start": "npx expo start",
+    "expo:remote": "node scripts/start-remote.js",
     "lint": "npx expo lint",
     "lint:fix": "npx expo lint --fix"
   },

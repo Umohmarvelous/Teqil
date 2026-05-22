@@ -34,7 +34,12 @@ function setupCors(app: express.Application) {
       origin?.startsWith("http://localhost:") ||
       origin?.startsWith("http://127.0.0.1:");
 
-    if (origin && (origins.has(origin) || isLocalhost)) {
+    const isDevTunnel =
+      process.env.NODE_ENV === "development" &&
+      (origin?.endsWith(".trycloudflare.com") ||
+        origin?.endsWith(".exp.direct"));
+
+    if (origin && (origins.has(origin) || isLocalhost || isDevTunnel)) {
       res.header("Access-Control-Allow-Origin", origin);
       res.header(
         "Access-Control-Allow-Methods",

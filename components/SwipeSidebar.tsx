@@ -1,76 +1,232 @@
+// // components/SwipeableSidebar.tsx
+// import React, { useState } from 'react';
+// import { StyleSheet, Pressable } from 'react-native';
+// import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+// import Animated, {
+//   runOnJS,
+//   useAnimatedStyle,
+//   useSharedValue,
+//   withSpring,
+// } from 'react-native-reanimated';
+// import Sidebar from './Sidebar';
+
+// // const { width: SCREEN_WIDTH } = Dimensions.get('window');
+// const DRAWER_WIDTH = 310;
+// const SWIPE_THRESHOLD = DRAWER_WIDTH * 0.3;
+
+// interface SwipeableSidebarProps {
+//   children: React.ReactNode;
+//   onOpen?: () => void;
+//   onClose?: () => void;
+// }
+
+// export default function SwipeableSidebar({ children, onOpen, onClose }: SwipeableSidebarProps) {
+//   const [isVisible, setIsVisible] = useState(false);
+//   const translateX = useSharedValue(-DRAWER_WIDTH);
+//   const backdropOpacity = useSharedValue(0);
+//   const startX = useSharedValue(0);
+
+//   const openDrawer = () => {
+//     setIsVisible(true);
+//     translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
+//     backdropOpacity.value = withSpring(1, { damping: 20, stiffness: 100 });
+//     onOpen?.();
+//   };
+
+//   const closeDrawer = () => {
+//     translateX.value = withSpring(-DRAWER_WIDTH, { damping: 20, stiffness: 200 }, () => {
+//       runOnJS(setIsVisible)(false);
+//     });
+//     backdropOpacity.value = withSpring(0, { damping: 20, stiffness: 200 });
+//     onClose?.();
+//   };
+
+//   const panGesture = Gesture.Pan()
+//     .onStart(() => {
+//       startX.value = translateX.value;
+//       if (!isVisible) {
+//         runOnJS(setIsVisible)(true);
+//       }
+//     })
+//     .onUpdate((event) => {
+//       const newX = startX.value + event.translationX;
+//       translateX.value = Math.min(0, Math.max(-DRAWER_WIDTH, newX));
+//       backdropOpacity.value = 1 - Math.abs(translateX.value / DRAWER_WIDTH);
+//     })
+//     .onEnd((event) => {
+//       const velocity = event.velocityX;
+//       if (event.translationX > SWIPE_THRESHOLD || velocity > 500) {
+//         runOnJS(openDrawer)();
+//       } else if (event.translationX < -SWIPE_THRESHOLD || velocity < -500) {
+//         runOnJS(closeDrawer)();
+//       } else {
+//         if (isVisible) {
+//           translateX.value = withSpring(0);
+//           backdropOpacity.value = withSpring(1);
+//         } else {
+//           translateX.value = withSpring(-DRAWER_WIDTH);
+//           backdropOpacity.value = withSpring(0);
+//         }
+//       }
+//     });
+
+//   const drawerStyle = useAnimatedStyle(() => ({
+//     transform: [{ translateX: translateX.value }],
+//   }));
+
+//   const backdropStyle = useAnimatedStyle(() => ({
+//     opacity: backdropOpacity.value,
+//     backgroundColor: 'rgba(0,0,0,0.5)',
+//   }));
+
+//   return (
+//     <GestureHandlerRootView style={{ flex: 1 }}>
+//       <GestureDetector gesture={panGesture}>
+//         <Animated.View style={{ flex: 1 }}>
+//           {children}
+//         </Animated.View>
+//       </GestureDetector>
+
+//       {isVisible && (
+//         <>
+//           <Animated.View
+//             style={[StyleSheet.absoluteFill, backdropStyle]}
+//             pointerEvents="box-none"
+//           >
+//             <Pressable style={{ flex: 1 }} onPress={closeDrawer} />
+//           </Animated.View>
+//           <Animated.View style={[styles.drawer, drawerStyle]}>
+//             <Sidebar visible={isVisible} onClose={closeDrawer}  />
+//           </Animated.View>
+//         </>
+//       )}
+//     </GestureHandlerRootView>
+//   );
+// }
+
+// const styles = StyleSheet.create({
+//   drawer: {
+//     position: 'absolute',
+//     left: 0,
+//     top: 0,
+//     bottom: 0,
+//     width: DRAWER_WIDTH,
+//     zIndex: 10,
+//   },
+// });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // components/SwipeableSidebar.tsx
-import React, { useState } from 'react';
-import { StyleSheet, Pressable } from 'react-native';
-import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
-import Sidebar from './Sidebar';
 
-// const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const DRAWER_WIDTH = 310;
-const SWIPE_THRESHOLD = DRAWER_WIDTH * 0.3;
+const DRAWER_WIDTH = 330;
 
 interface SwipeableSidebarProps {
   children: React.ReactNode;
-  onOpen?: () => void;
-  onClose?: () => void;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
-export default function SwipeableSidebar({ children, onOpen, onClose }: SwipeableSidebarProps) {
-  const [isVisible, setIsVisible] = useState(false);
-  const translateX = useSharedValue(-DRAWER_WIDTH);
-  const backdropOpacity = useSharedValue(0);
+export default function SwipeableSidebar({ children, isOpen, onClose }: SwipeableSidebarProps) {
+    const [isVisible, setIsVisible] = useState(false);
+
+  const translateX = useSharedValue(isOpen ? DRAWER_WIDTH : 0);
+  const backdropOpacity = useSharedValue(isOpen ? 1 : 0);
   const startX = useSharedValue(0);
 
+  // Sync external isOpen state with animation
+  useEffect(() => {
+    if (isOpen) {
+      translateX.value = withSpring(DRAWER_WIDTH, 
+      );
+    } else {
+      translateX.value = withSpring(0, 
+      );
+    }
+  }, [isOpen, translateX, backdropOpacity]);
+
   const openDrawer = () => {
-    setIsVisible(true);
-    translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
-    backdropOpacity.value = withSpring(1, { damping: 20, stiffness: 100 });
-    onOpen?.();
+    setIsVisible(true)
+    translateX.value = withSpring(DRAWER_WIDTH, 
+    );
+    backdropOpacity.value = withTiming(1, { duration: 200 });
   };
 
   const closeDrawer = () => {
-    translateX.value = withSpring(-DRAWER_WIDTH, { damping: 20, stiffness: 200 }, () => {
-      runOnJS(setIsVisible)(false);
-    });
-    backdropOpacity.value = withSpring(0, { damping: 20, stiffness: 200 });
-    onClose?.();
+    translateX.value = withSpring(0, 
+    );
+    backdropOpacity.value = withTiming(0, { duration: 200 });
+    runOnJS(setIsVisible)(false);
+
   };
+
 
   const panGesture = Gesture.Pan()
     .onStart(() => {
       startX.value = translateX.value;
-      if (!isVisible) {
-        runOnJS(setIsVisible)(true);
-      }
     })
     .onUpdate((event) => {
       const newX = startX.value + event.translationX;
-      translateX.value = Math.min(0, Math.max(-DRAWER_WIDTH, newX));
-      backdropOpacity.value = 1 - Math.abs(translateX.value / DRAWER_WIDTH);
+      // Clamp between 0 and DRAWER_WIDTH
+      translateX.value = Math.min(DRAWER_WIDTH, Math.max(0, newX));
+      backdropOpacity.value = translateX.value / DRAWER_WIDTH;
     })
     .onEnd((event) => {
       const velocity = event.velocityX;
-      if (event.translationX > SWIPE_THRESHOLD || velocity > 500) {
+      const currentX = translateX.value;
+
+      if (currentX > DRAWER_WIDTH * 0.5 || velocity > 500) {
         runOnJS(openDrawer)();
-      } else if (event.translationX < -SWIPE_THRESHOLD || velocity < -500) {
-        runOnJS(closeDrawer)();
       } else {
-        if (isVisible) {
-          translateX.value = withSpring(0);
-          backdropOpacity.value = withSpring(1);
-        } else {
-          translateX.value = withSpring(-DRAWER_WIDTH);
-          backdropOpacity.value = withSpring(0);
-        }
+        runOnJS(closeDrawer)();
       }
     });
 
-  const drawerStyle = useAnimatedStyle(() => ({
+  const contentStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
   }));
 
@@ -80,37 +236,39 @@ export default function SwipeableSidebar({ children, onOpen, onClose }: Swipeabl
   }));
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <GestureDetector gesture={panGesture}>
-        <Animated.View style={{ flex: 1 }}>
+    <GestureDetector gesture={panGesture}>
+      <Animated.View style={styles.container}>
+
+
+        {/* Main content that slides right */}
+        <Animated.View style={[styles.content, contentStyle]}>
           {children}
         </Animated.View>
-      </GestureDetector>
 
-      {isVisible && (
-        <>
-          <Animated.View
-            style={[StyleSheet.absoluteFill, backdropStyle]}
-            pointerEvents="box-none"
-          >
-            <Pressable style={{ flex: 1 }} onPress={closeDrawer} />
-          </Animated.View>
-          <Animated.View style={[styles.drawer, drawerStyle]}>
-            <Sidebar visible={isVisible} onClose={closeDrawer} />
-          </Animated.View>
-        </>
-      )}
-    </GestureHandlerRootView>
+        {/* Backdrop that appears when content is shifted (tap to close) */}
+        <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]} pointerEvents={isOpen ? 'auto' : 'none'}>
+
+        </Animated.View>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 
 const styles = StyleSheet.create({
-  drawer: {
+  container: {
+    flex: 1,
+  },
+  sidebarContainer: {
     position: 'absolute',
     left: 0,
     top: 0,
     bottom: 0,
     width: DRAWER_WIDTH,
-    zIndex: 10,
+    zIndex: 0,
+  },
+  content: {
+    flex: 1,
+    zIndex: 1,
+    backgroundColor: 'white', // must be opaque to hide sidebar when closed
   },
 });
