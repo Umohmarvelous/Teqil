@@ -233,7 +233,7 @@ export default function HomeTab() {
 
         {/* Role-specific shortcuts */}
         <View style={ [styles.card, styles.shortcutRow, { backgroundColor: cardBg, borderColor }]}>
-        <Text style={[styles.sectionTitle, { color: textColor }]}>{!user ? 'Quick Transfer' : 'Quick Actions'}
+        <Text style={[styles.sectionTitle, { color: textColor }]}>{!user ? 'Quixxck Transfer' : 'Quick Actions'}
         </Text>
           {!(user?.role === "driver" && "passenger")  && (
             <>

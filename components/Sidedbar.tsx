@@ -148,7 +148,7 @@ export default function SidedBar() {
 
 
   return (
-    <View style={[{flex: 1},{width: SCREEN_WIDTH / 1.33}, styles.backdrop, {height: SCREEN_HEIGHT}]}>
+    <View style={[{flex: 1},{width: SCREEN_WIDTH / 1.33}, {height: SCREEN_HEIGHT}]}>
 
       <View
         style={[
@@ -317,11 +317,11 @@ export default function SidedBar() {
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    // ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0 0 0 / 0.5)",
-    zIndex: 1,
-  },
+  // backdrop: {
+  //   // ...StyleSheet.absoluteFillObject,
+  //   backgroundColor: "rgba(0 0 0 / 0.5)",
+  //   zIndex: 1,
+  // },
   drawerTop: {
     flex: 1,
     width: SIDEBAR_WIDTH,
