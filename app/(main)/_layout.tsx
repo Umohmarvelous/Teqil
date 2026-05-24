@@ -155,7 +155,7 @@ export default function MainLayout({ onOpenSidebar }: MainLayoutProps) {
             >
               {activeTab === "home" && (
                 <View style={[styles.header, { paddingTop: topPadding + 2 }, { backgroundColor: tabBarBg }]}>
-                  <Pressable onPress={onOpenSidebar} style={styles.menuBtn}>
+                  <Pressable onPress={() => setSidebarOpen(true)} style={styles.menuBtn}>
                     <HugeiconsIcon icon={Menu02Icon} size={22} color={textColor} />
                   </Pressable>
                   <Pressable style={styles.logoBtn}>

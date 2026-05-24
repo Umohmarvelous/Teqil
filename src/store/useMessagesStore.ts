@@ -64,6 +64,13 @@ interface MessagesState {
 
   subscribeToRealtime: (userId: string) => () => void;
   unsubscribeRealtime: () => void;
+
+  // Convenience aliases used by passenger/driver screens
+  loadConversations: (userId: string, role: 'driver' | 'passenger') => Promise<void>;
+  startConversation: (driverId: string, passengerId: string, driverData?: any, passengerData?: any) => Promise<Conversation | null>;
+  subscribeToMessages: (userId: string) => () => void;
+  sendMessage: (convId: string, senderId: string, text: string, senderName: string, senderRole: 'driver' | 'passenger') => Promise<void>;
+  markConversationRead: (convId: string, userId: string, role: 'driver' | 'passenger') => Promise<void>;
 }
 
 function normalizeMessage(msg: any): Message {
@@ -371,6 +378,182 @@ export const useMessagesStore = create<MessagesState>()(
           try { supabase.removeChannel(sub); } catch (_) {}
           set({ realtimeSubscription: null });
         }
+      },
+
+      // ─── Convenience aliases ────────────────────────────────────────────
+
+      loadConversations: async (userId, role) => {
+        try {
+          const { data, error } = await supabase
+            .from('conversations')
+            .select('*')
+            .order('last_message_at', { ascending: false });
+
+          if (error || !data) return;
+
+          // Filter client-side by role
+          const filtered = data.filter((c: any) => {
+            if (role === 'driver') return c.participant_id === userId;
+            return c.passenger_id === userId || c.participant_role === 'driver';
+          });
+
+          const normalized: Conversation[] = filtered.map((c: any) => ({
+            id: c.id,
+            participant_id: c.participant_id,
+            participant_name: c.participant_name || 'Driver',
+            participant_role: c.participant_role || 'driver',
+            participant_photo: c.participant_photo,
+            participant_driver_id: c.participant_driver_id,
+            participant_vehicle: c.participant_vehicle,
+            participant_park_name: c.participant_park_name,
+            participant_phone: c.participant_phone,
+            last_message: c.last_message || '',
+            last_message_at: c.last_message_at || new Date().toISOString(),
+            unread_count: c.unread_count || 0,
+            trip_code: c.trip_code,
+          }));
+
+          set({ conversations: normalized });
+
+          // Load messages for each conversation
+          for (const conv of normalized) {
+            const { data: msgs } = await supabase
+              .from('messages')
+              .select('*')
+              .eq('conversation_id', conv.id)
+              .order('created_at', { ascending: true });
+            if (msgs) {
+              set((state) => ({
+                messages: { ...state.messages, [conv.id]: msgs.map(normalizeMessage) },
+              }));
+            }
+          }
+        } catch (e) {
+          console.warn('[Messages] loadConversations error:', e);
+        }
+      },
+
+      startConversation: async (driverId, passengerId, driverData, passengerData) => {
+        const convId = `conv_${[driverId, passengerId].sort().join('_')}`;
+
+        // Check if already exists locally
+        const existing = get().conversations.find((c) => c.id === convId);
+        if (existing) return existing;
+
+        // Check Supabase
+        const { data: remoteConv } = await supabase
+          .from('conversations')
+          .select('*')
+          .eq('id', convId)
+          .single();
+
+        if (remoteConv) {
+          const normalized: Conversation = {
+            id: remoteConv.id,
+            participant_id: remoteConv.participant_id,
+            participant_name: remoteConv.participant_name || 'Driver',
+            participant_role: remoteConv.participant_role || 'driver',
+            participant_photo: remoteConv.participant_photo,
+            participant_driver_id: remoteConv.participant_driver_id,
+            last_message: remoteConv.last_message || '',
+            last_message_at: remoteConv.last_message_at || new Date().toISOString(),
+            unread_count: remoteConv.unread_count || 0,
+          };
+          set((state) => ({
+            conversations: state.conversations.find(c => c.id === convId)
+              ? state.conversations
+              : [normalized, ...state.conversations],
+          }));
+          return normalized;
+        }
+
+        // Fetch missing data if needed
+        if (!driverData) {
+          const { data } = await supabase
+            .from('users')
+            .select('full_name, phone, driver_id, profile_photo')
+            .eq('id', driverId)
+            .single();
+          driverData = data;
+        }
+        if (!passengerData) {
+          const { data } = await supabase
+            .from('users')
+            .select('full_name, phone')
+            .eq('id', passengerId)
+            .single();
+          passengerData = data;
+        }
+
+        const newConv: Conversation = {
+          id: convId,
+          participant_id: driverId,
+          participant_name: driverData?.full_name || 'Driver',
+          participant_role: 'driver',
+          participant_driver_id: driverData?.driver_id,
+          participant_photo: driverData?.profile_photo,
+          participant_phone: driverData?.phone,
+          last_message: '',
+          last_message_at: new Date().toISOString(),
+          unread_count: 0,
+        };
+
+        try {
+          await supabase.from('conversations').insert([{
+            id: convId,
+            participant_id: driverId,
+            participant_name: newConv.participant_name,
+            participant_role: 'driver',
+            participant_driver_id: newConv.participant_driver_id,
+            participant_photo: newConv.participant_photo,
+            participant_phone: newConv.participant_phone,
+            passenger_id: passengerId,
+            passenger_name: passengerData?.full_name || 'Passenger',
+            last_message: '',
+            last_message_at: newConv.last_message_at,
+            unread_count: 0,
+          }]);
+        } catch (e) {
+          console.warn('[Messages] startConversation insert error:', e);
+        }
+
+        set((state) => ({
+          conversations: [newConv, ...state.conversations],
+        }));
+
+        return newConv;
+      },
+
+      subscribeToMessages: (userId) => get().subscribeToRealtime(userId),
+
+      sendMessage: async (convId, senderId, text, senderName, senderRole) => {
+        const msgId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const msg: Message = {
+          id: msgId,
+          conversation_id: convId,
+          sender_id: senderId,
+          sender_name: senderName,
+          sender_role: senderRole,
+          text,
+          created_at: new Date().toISOString(),
+          read: false,
+          status: 'sent',
+        };
+        await get().addMessage(msg);
+
+        // Update conversation last_message in Supabase
+        try {
+          await supabase
+            .from('conversations')
+            .update({ last_message: text, last_message_at: msg.created_at })
+            .eq('id', convId);
+        } catch (e) {
+          console.warn('[Messages] sendMessage conversation update error:', e);
+        }
+      },
+
+      markConversationRead: async (convId, _userId, _role) => {
+        await get().markRead(convId);
       },
     }),
     {
