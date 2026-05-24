@@ -1,26 +1,14 @@
 /**
  * app/(main)/messages.tsx
  *
- * WhatsApp-style messaging between passengers and drivers.
+ * Messaging between passengers and drivers.
  *
- * Flow (passenger):
- *  1. Tap "+" → NewChatModal
- *  2. Enter driver ID (e.g. DRV-A3X9KL) or trip code
- *  3. Supabase lookup → if found, open ChatScreen with that driver
- *  4. Messages are inserted into `messages` table keyed by conversation_id
- *  5. Driver sees them via Supabase realtime subscription (in _layout.tsx)
+ * Search: passenger enters a driver ID in any format (DRV-A3X9KL, drv-a3x9kl,
+ * A3X9KL, etc.) → normalised to uppercase → exact match on public.users.driver_id.
+ * No trip code fallback — driver ID only.
  *
- * Flow (driver):
- *  - Incoming conversations appear automatically via realtime push
- *  - Driver can reply; messages route back to the passenger
- *
- * Supabase tables expected:
- *   conversations(id, participant_id, participant_name, participant_role,
- *                 participant_driver_id, participant_phone, participant_vehicle,
- *                 passenger_id, passenger_name, last_message, last_message_at,
- *                 unread_count, trip_code)
- *   messages(id, conversation_id, sender_id, sender_name, sender_role,
- *            text, audio_uri, created_at, read, status)
+ * Message routing: messages are inserted into the `messages` table keyed by
+ * conversation_id. The driver receives them via Supabase realtime subscription.
  */
 
 import React, {
@@ -44,7 +32,6 @@ import {
   Linking,
   RefreshControl,
   ActivityIndicator,
-  Clipboard,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -58,7 +45,6 @@ import {
 import { Colors } from "@/constants/colors";
 import Avatar from "@/components/Avatar";
 import { generateId } from "@/src/utils/helpers";
-import { TripsStorage } from "@/src/services/storage";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
   ArrowLeft01Icon,
@@ -83,15 +69,15 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { supabase } from "@/src/services/supabase";
 import { Audio } from "expo-av";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface DriverSearchResult {
-  id: string;
-  full_name: string | null;
-  phone: string | null;
-  driver_id: string | null;
-  vehicle_details: string | null;
-  park_name: string | null;
+// ─── Normalise driver ID input ────────────────────────────────────────────────
+// Accepts any capitalisation and optional prefix:
+//   "DRV-A3X9KL" | "drv-a3x9kl" | "A3X9KL" | "a3x9kl" | "DRV A3X9KL"
+// Returns the canonical form stored in the DB: "DRV-A3X9KL"
+function normaliseDriverId(raw: string): string {
+  const upper = raw.trim().toUpperCase().replace(/\s+/g, "-");
+  if (upper.startsWith("DRV-")) return upper;
+  if (upper.startsWith("DRV")) return `DRV-${upper.slice(3)}`;
+  return `DRV-${upper}`;
 }
 
 // ─── Contact Info Modal ───────────────────────────────────────────────────────
@@ -108,80 +94,62 @@ function ContactInfoModal({
   isDark: boolean;
 }) {
   if (!conversation) return null;
+  const textColor = isDark ? Colors.textWhite    : Colors.text;
+  const subColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const cardBg    = isDark ? Colors.primaryDarker : "#FFFFFF";
 
-  const textColor = isDark ? Colors.textWhite : Colors.text;
-  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
-
-  const handleCall = () => {
+  const call = () => {
     const phone = conversation.participant_phone;
     if (!phone) {
-      Alert.alert("No phone number", "This contact has no phone number on file.");
+      Alert.alert("No phone number", "This driver has no phone number on record.");
       return;
     }
-    const url = `tel:${phone.replace(/\s/g, "")}`;
-    Linking.canOpenURL(url).then((supported) => {
-      if (supported) Linking.openURL(url);
-      else Alert.alert("Cannot make call", "Your device cannot make phone calls.");
-    });
+    Linking.openURL(`tel:${phone.replace(/\s/g, "")}`);
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1, justifyContent: "flex-end" }}
       >
-        <Pressable style={modalStyles.backdrop} onPress={onClose} />
-        <View style={[modalStyles.sheet, { backgroundColor: cardBg }]}>
-          <View style={modalStyles.handle} />
-          <View style={modalStyles.headerRow}>
-            <Text style={[modalStyles.title, { color: textColor }]}>
-              Contact Info
-            </Text>
-            <Pressable onPress={onClose}>
+        <Pressable style={S.backdrop} onPress={onClose} />
+        <View style={[S.infoSheet, { backgroundColor: cardBg }]}>
+          <View style={S.handle} />
+          <View style={S.infoHeader}>
+            <Text style={[S.infoTitle, { color: textColor }]}>Contact Info</Text>
+            <Pressable onPress={onClose} hitSlop={8}>
               <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={textColor} />
             </Pressable>
           </View>
-          <View style={modalStyles.avatarCenter}>
-            <Avatar name={conversation.participant_name || "User"} size={72} />
-            <Text style={[modalStyles.contactName, { color: textColor }]}>
+          <View style={S.infoAvatarRow}>
+            <Avatar name={conversation.participant_name || "Driver"} size={72} />
+            <Text style={[S.infoName, { color: textColor }]}>
               {conversation.participant_name}
             </Text>
-            <Text style={[modalStyles.contactRole, { color: subTextColor }]}>
-              {conversation.participant_role}
-              {conversation.participant_driver_id
-                ? ` · ${conversation.participant_driver_id}`
-                : ""}
+            <Text style={[S.infoSub, { color: Colors.primary }]}>
+              {conversation.participant_driver_id}
             </Text>
             {conversation.participant_vehicle ? (
-              <Text style={[modalStyles.contactRole, { color: subTextColor }]}>
+              <Text style={[S.infoSub, { color: subColor }]}>
                 🚗 {conversation.participant_vehicle}
               </Text>
             ) : null}
           </View>
-          <View style={modalStyles.actionRow}>
+          <View style={S.infoActions}>
             <Pressable
-              style={[modalStyles.actionBtn, { backgroundColor: Colors.primary }]}
-              onPress={handleCall}
+              style={[S.infoActionBtn, { backgroundColor: Colors.primary }]}
+              onPress={call}
             >
               <HugeiconsIcon icon={CallIcon} size={20} color="#fff" />
-              <Text style={modalStyles.actionBtnText}>Call</Text>
+              <Text style={S.infoActionText}>Call</Text>
             </Pressable>
             <Pressable
-              style={[
-                modalStyles.actionBtn,
-                { backgroundColor: Colors.primaryDarker },
-              ]}
+              style={[S.infoActionBtn, { backgroundColor: Colors.primaryDarker }]}
               onPress={onClose}
             >
               <HugeiconsIcon icon={Message02Icon} size={20} color="#fff" />
-              <Text style={modalStyles.actionBtnText}>Message</Text>
+              <Text style={S.infoActionText}>Message</Text>
             </Pressable>
           </View>
         </View>
@@ -189,75 +157,6 @@ function ContactInfoModal({
     </Modal>
   );
 }
-
-const modalStyles = StyleSheet.create({
-  backdrop: { flex: 1 },
-  sheet: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 30,
-    paddingTop: 10,
-    paddingBottom: 50,
-    gap: 14,
-  },
-  handle: {
-    width: 60,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(154,154,154,0.3)",
-    alignSelf: "center",
-    marginBottom: 5,
-  },
-  title: { fontFamily: "Poppins_700Bold", fontSize: 18, marginTop: 20 },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 20,
-    borderRadius: 24,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    borderWidth: 1.5,
-  },
-  input: {
-    flex: 1,
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    padding: 0,
-  },
-  startBtn: { borderRadius: 14, paddingVertical: 14, alignItems: "center" },
-  startBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  avatarCenter: { alignItems: "center", marginVertical: 16, gap: 6 },
-  contactName: { fontFamily: "Poppins_700Bold", fontSize: 20 },
-  contactRole: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    textTransform: "capitalize",
-  },
-  actionRow: { flexDirection: "row", gap: 12, marginTop: 8 },
-  actionBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 14,
-  },
-  actionBtnText: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 14,
-    color: "#fff",
-  },
-});
 
 // ─── Message Bubble ───────────────────────────────────────────────────────────
 
@@ -280,29 +179,6 @@ function MessageBubble({
   textColor: string;
   subTextColor: string;
 }) {
-  const renderRightActions = () => (
-    <View style={bubbleStyles.swipeActions}>
-      <Pressable
-        onPress={onReply}
-        style={[bubbleStyles.swipeAction, { backgroundColor: Colors.gold }]}
-      >
-        <HugeiconsIcon icon={Reply} size={18} color="#fff" />
-      </Pressable>
-      <Pressable
-        onPress={onCopy}
-        style={[bubbleStyles.swipeAction, { backgroundColor: Colors.primary }]}
-      >
-        <HugeiconsIcon icon={Copy01Icon} size={18} color="#fff" />
-      </Pressable>
-      <Pressable
-        onPress={onDelete}
-        style={[bubbleStyles.swipeAction, { backgroundColor: Colors.error }]}
-      >
-        <HugeiconsIcon icon={Delete01Icon} size={18} color="#fff" />
-      </Pressable>
-    </View>
-  );
-
   const timeStr = message.created_at
     ? new Date(message.created_at).toLocaleTimeString([], {
         hour: "2-digit",
@@ -311,68 +187,51 @@ function MessageBubble({
     : "";
 
   return (
-    <Swipeable renderRightActions={renderRightActions} overshootRight={false}>
-      <View
-        style={[
-          bubbleStyles.container,
-          isMe ? bubbleStyles.containerMe : bubbleStyles.containerThem,
-        ]}
-      >
+    <Swipeable
+      renderRightActions={() => (
+        <View style={S.swipeActions}>
+          <Pressable onPress={onReply} style={[S.swipeAction, { backgroundColor: Colors.gold }]}>
+            <HugeiconsIcon icon={Reply} size={18} color="#fff" />
+          </Pressable>
+          <Pressable onPress={onCopy} style={[S.swipeAction, { backgroundColor: Colors.primary }]}>
+            <HugeiconsIcon icon={Copy01Icon} size={18} color="#fff" />
+          </Pressable>
+          <Pressable onPress={onDelete} style={[S.swipeAction, { backgroundColor: Colors.error }]}>
+            <HugeiconsIcon icon={Delete01Icon} size={18} color="#fff" />
+          </Pressable>
+        </View>
+      )}
+      overshootRight={false}
+    >
+      <View style={[S.bubbleWrap, isMe ? S.bubbleWrapMe : S.bubbleWrapThem]}>
         <View
           style={[
-            bubbleStyles.bubble,
+            S.bubble,
             isMe
-              ? bubbleStyles.bubbleMe
-              : [
-                  bubbleStyles.bubbleThem,
-                  {
-                    backgroundColor: isDark ? "#1E2820" : "#F0F0F0",
-                  },
-                ],
+              ? S.bubbleMe
+              : [S.bubbleThem, { backgroundColor: isDark ? "#1E2820" : "#F0F0F0" }],
           ]}
         >
-          {message.audio_uri ? (
+          <Text style={[S.bubbleText, { color: isMe ? "#fff" : textColor }]}>
+            {message.audio_uri ? "🎤 Voice message" : message.text}
+          </Text>
+          <View style={S.bubbleMeta}>
             <Text
               style={[
-                bubbleStyles.text,
-                { color: isMe ? "#fff" : textColor },
-              ]}
-            >
-              🎤 Voice message
-            </Text>
-          ) : (
-            <Text
-              style={[
-                bubbleStyles.text,
-                { color: isMe ? "#fff" : textColor },
-              ]}
-            >
-              {message.text}
-            </Text>
-          )}
-          <View style={bubbleStyles.meta}>
-            <Text
-              style={[
-                bubbleStyles.time,
-                {
-                  color: isMe
-                    ? "rgba(255,255,255,0.6)"
-                    : subTextColor,
-                },
+                S.bubbleTime,
+                { color: isMe ? "rgba(255,255,255,0.55)" : subTextColor },
               ]}
             >
               {timeStr}
             </Text>
             {isMe && (
               <HugeiconsIcon
-                icon={
-                  message.status === "read" ? TaskDone01Icon : Checkmark
-                }
-                size={14}
+                icon={message.status === "read" ? TaskDone01Icon : Checkmark}
+                size={13}
                 color={
                   message.status === "read"
                     ? "#34B7F1"
-                    : "rgba(255,255,255,0.5)"
+                    : "rgba(255,255,255,0.45)"
                 }
               />
             )}
@@ -383,55 +242,18 @@ function MessageBubble({
   );
 }
 
-const bubbleStyles = StyleSheet.create({
-  container: { marginVertical: 2, paddingHorizontal: 12 },
-  containerMe: { alignItems: "flex-end" },
-  containerThem: { alignItems: "flex-start" },
-  bubble: {
-    maxWidth: "78%",
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 4,
-  },
-  bubbleMe: {
-    backgroundColor: Colors.primary,
-    borderBottomRightRadius: 4,
-  },
-  bubbleThem: {
-    borderBottomLeftRadius: 4,
-  },
-  text: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  meta: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 4,
-  },
-  time: { fontFamily: "Poppins_400Regular", fontSize: 10 },
-  swipeActions: { flexDirection: "row", alignItems: "center" },
-  swipeAction: {
-    width: 50,
-    height: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
-
 // ─── Chat Screen ──────────────────────────────────────────────────────────────
 
 function ChatScreen({
   conversation,
   onBack,
   isDark,
+  invalidId = false,
 }: {
   conversation: Conversation;
   onBack: () => void;
   isDark: boolean;
+  invalidId?: boolean;
 }) {
   const { user } = useAuthStore();
   const {
@@ -442,34 +264,29 @@ function ChatScreen({
     typingUsers,
     deleteMessage,
     subscribeToRealtime,
-    unsubscribeRealtime,
   } = useMessagesStore();
 
-  const [text, setText] = useState("");
-  const [contactModalVisible, setContactModalVisible] = useState(false);
-  const [sending, setSending] = useState(false);
-
-  // Voice recording state
+  const [text,        setText]        = useState("");
+  const [sending,     setSending]     = useState(false);
+  const [infoVisible, setInfoVisible] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [recordingInstance, setRecordingInstance] =
-    useState<Audio.Recording | null>(null);
 
-  const listRef = useRef<FlatList>(null);
-  const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const insets = useSafeAreaInsets();
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  const listRef      = useRef<FlatList>(null);
+  const typingTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const insets       = useSafeAreaInsets();
 
-  const bg = isDark ? Colors.background : "#F5F5F5";
-  const textColor = isDark ? Colors.textWhite : Colors.text;
-  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
-  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
-  const inputBg = isDark ? "#1C2921" : "#F0F0F0";
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
+  const bg        = isDark ? Colors.background    : "#F5F5F5";
+  const textColor = isDark ? Colors.textWhite      : Colors.text;
+  const subColor  = isDark ? Colors.textSecondary  : Colors.textTertiary;
+  const cardBg    = isDark ? Colors.primaryDarker  : "#FFFFFF";
+  const border    = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+  const inputBg   = isDark ? "#1C2921"             : "#F0F0F0";
+  const topPad    = Platform.OS === "web" ? 67 : insets.top;
 
-  const messages = allMessages[conversation.id] || [];
+  const messages    = allMessages[conversation.id] || [];
   const otherTyping = typingUsers[conversation.id] || false;
 
-  // Subscribe to realtime for this conversation when chat opens
   useEffect(() => {
     if (!user?.id) return;
     const unsub = subscribeToRealtime(user.id);
@@ -482,56 +299,51 @@ function ChatScreen({
 
   useEffect(() => {
     if (messages.length > 0) {
-      setTimeout(
-        () => listRef.current?.scrollToEnd({ animated: true }),
-        120
-      );
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     }
   }, [messages.length]);
 
-  // ── Typing indicator ──────────────────────────────────────────────
-  const handleTyping = (value: string) => {
-    setText(value);
+  // ── Typing ────────────────────────────────────────────────────
+  const handleTyping = (v: string) => {
+    setText(v);
     setTyping(conversation.id, true);
-    if (typingTimeout.current) clearTimeout(typingTimeout.current);
-    typingTimeout.current = setTimeout(
+    if (typingTimer.current) clearTimeout(typingTimer.current);
+    typingTimer.current = setTimeout(
       () => setTyping(conversation.id, false),
       1500
     );
   };
 
-  // ── Send text message ─────────────────────────────────────────────
+  // ── Send text ─────────────────────────────────────────────────
   const handleSend = async () => {
-    if (!text.trim() || !user?.id || sending) return;
     const trimmed = text.trim();
+    if (!trimmed || !user?.id || sending) return;
     setSending(true);
     setText("");
     setTyping(conversation.id, false);
-
     const msg: Message = {
-      id: generateId(),
+      id:              generateId(),
       conversation_id: conversation.id,
-      sender_id: user.id,
-      sender_name: user.full_name || "Me",
-      sender_role: user.role as any,
-      text: trimmed,
-      created_at: new Date().toISOString(),
-      read: false,
-      status: "sent",
+      sender_id:       user.id,
+      sender_name:     user.full_name || "Me",
+      sender_role:     user.role as any,
+      text:            trimmed,
+      created_at:      new Date().toISOString(),
+      read:            false,
+      status:          "sent",
     };
-
     await addMessage(msg);
     setSending(false);
   };
 
-  // ── Voice recording ───────────────────────────────────────────────
+  // ── Voice recording ───────────────────────────────────────────
   const startRecording = async () => {
     try {
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== "granted") {
         Alert.alert(
           "Permission required",
-          "Microphone access is needed to record voice messages."
+          "Microphone access is needed for voice messages."
         );
         return;
       }
@@ -542,126 +354,89 @@ function ChatScreen({
       const { recording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
-      setRecordingInstance(recording);
+      recordingRef.current = recording;
       setIsRecording(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch (err) {
+    } catch {
       Alert.alert("Error", "Could not start recording.");
     }
   };
 
   const stopRecording = async () => {
-    if (!recordingInstance || !user?.id) return;
+    if (!recordingRef.current || !user?.id) return;
     setIsRecording(false);
     try {
-      await recordingInstance.stopAndUnloadAsync();
-      const uri = recordingInstance.getURI();
-      setRecordingInstance(null);
+      await recordingRef.current.stopAndUnloadAsync();
+      const uri = recordingRef.current.getURI();
+      recordingRef.current = null;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
       if (uri) {
         const msg: Message = {
-          id: generateId(),
+          id:              generateId(),
           conversation_id: conversation.id,
-          sender_id: user.id,
-          sender_name: user.full_name || "Me",
-          sender_role: user.role as any,
-          audio_uri: uri,
-          created_at: new Date().toISOString(),
-          read: false,
-          status: "sent",
+          sender_id:       user.id,
+          sender_name:     user.full_name || "Me",
+          sender_role:     user.role as any,
+          audio_uri:       uri,
+          created_at:      new Date().toISOString(),
+          read:            false,
+          status:          "sent",
         };
         await addMessage(msg);
       }
-    } catch (err) {
+    } catch {
       Alert.alert("Error", "Could not save voice message.");
     }
   };
 
   const cancelRecording = async () => {
-    if (!recordingInstance) return;
+    if (!recordingRef.current) return;
     setIsRecording(false);
-    try {
-      await recordingInstance.stopAndUnloadAsync();
-    } catch {}
-    setRecordingInstance(null);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try { await recordingRef.current.stopAndUnloadAsync(); } catch {}
+    recordingRef.current = null;
   };
 
-  // ── Call ──────────────────────────────────────────────────────────
   const handleCall = () => {
     const phone = conversation.participant_phone;
     if (!phone) {
-      Alert.alert(
-        "No phone number",
-        "This contact has no phone number available."
-      );
+      Alert.alert("No phone", "This driver has no phone number on record.");
       return;
     }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     Linking.openURL(`tel:${phone.replace(/\s/g, "")}`);
   };
 
-  // ── Reply / Delete / Copy ─────────────────────────────────────────
-  const handleReply = (message: Message) => {
-    const replyText = message.text?.trim();
-    if (!replyText) return;
-    setText(`↩ ${message.sender_name || "User"}: ${replyText}\n`);
+  const handleReply = (m: Message) => {
+    if (!m.text) return;
+    setText(`↩ ${m.sender_name || "User"}: ${m.text}\n`);
   };
 
-  const handleDelete = async (convId: string, msgId: string) => {
-    await deleteMessage(convId, msgId);
-  };
-
-  const handleCopy = (message: Message) => {
-    const copyText = message.text?.trim();
-    if (!copyText) return;
-    if (
-      Platform.OS === "web" &&
-      typeof navigator !== "undefined" &&
-      navigator.clipboard?.writeText
-    ) {
-      navigator.clipboard.writeText(copyText);
-    } else {
-      // React Native Clipboard
-      (Clipboard as any).setString?.(copyText);
+  const handleCopy = (m: Message) => {
+    if (!m.text) return;
+    if (Platform.OS === "web" && navigator?.clipboard) {
+      navigator.clipboard.writeText(m.text);
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  // ── Input bar right element ───────────────────────────────────────
-  // If there's typed text → show send button
-  // If no text → show mic button (hold to record)
-  const renderInputRight = () => {
-    if (text.trim()) {
-      return (
-        <Pressable
-          style={[
-            chatStyles.sendBtn,
-            {
-              backgroundColor: Colors.primary,
-              opacity: sending ? 0.6 : 1,
-            },
-          ]}
-          onPress={handleSend}
-          disabled={sending}
-        >
-          {sending ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <HugeiconsIcon icon={TelegramIcon} size={20} color="#fff" />
-          )}
-        </Pressable>
-      );
-    }
-
-    return (
+  // Right button: send (text present) or mic (no text)
+  const InputRight = () =>
+    text.trim() ? (
+      <Pressable
+        style={[S.sendBtn, { backgroundColor: Colors.primary, opacity: sending ? 0.6 : 1 }]}
+        onPress={handleSend}
+        disabled={sending}
+      >
+        {sending ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <HugeiconsIcon icon={TelegramIcon} size={20} color="#fff" />
+        )}
+      </Pressable>
+    ) : (
       <Pressable
         style={[
-          chatStyles.sendBtn,
-          {
-            backgroundColor: isRecording ? Colors.error : Colors.primary,
-          },
+          S.sendBtn,
+          { backgroundColor: isRecording ? Colors.error : Colors.primary },
         ]}
         onLongPress={startRecording}
         onPressOut={isRecording ? stopRecording : undefined}
@@ -674,42 +449,36 @@ function ChatScreen({
         />
       </Pressable>
     );
-  };
 
   return (
     <KeyboardAvoidingView
-      style={[{ flex: 1, backgroundColor: bg }]}
+      style={{ flex: 1, backgroundColor: bg }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
     >
       <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Header */}
       <View
         style={[
-          chatStyles.header,
+          S.chatHeader,
           {
             backgroundColor: cardBg,
-            borderBottomColor: borderColor,
-            paddingTop: topPadding + 12,
+            borderBottomColor: border,
+            paddingTop: topPad + 12,
           },
         ]}
       >
-        <Pressable onPress={onBack} style={chatStyles.backBtn} hitSlop={8}>
+        <Pressable onPress={onBack} style={S.chatBack} hitSlop={8}>
           <HugeiconsIcon icon={ArrowLeft01Icon} size={25} color={textColor} />
         </Pressable>
-
         <Pressable
-          style={chatStyles.headerInfo}
-          onPress={() => setContactModalVisible(true)}
+          style={S.chatHeaderInfo}
+          onPress={() => setInfoVisible(true)}
         >
-          <Avatar
-            name={conversation.participant_name || "User"}
-            size={38}
-          />
-          <View style={chatStyles.headerText}>
+          <Avatar name={conversation.participant_name || "Driver"} size={38} />
+          <View style={{ flex: 1 }}>
             <Text
-              style={[chatStyles.headerName, { color: textColor }]}
+              style={[S.chatHeaderName, { color: textColor }]}
               numberOfLines={1}
             >
               {conversation.participant_name}
@@ -727,89 +496,72 @@ function ChatScreen({
               </Text>
             ) : (
               <Text
-                style={[chatStyles.headerRole, { color: subTextColor }]}
+                style={[S.chatHeaderSub, { color: Colors.primary }]}
                 numberOfLines={1}
               >
-                {conversation.participant_driver_id
-                  ? conversation.participant_driver_id
-                  : conversation.participant_role}
-                {conversation.participant_vehicle
-                  ? ` · ${conversation.participant_vehicle}`
-                  : ""}
+                {conversation.participant_driver_id}
               </Text>
             )}
           </View>
         </Pressable>
-
-        {/* Call button */}
-        <Pressable onPress={handleCall} style={chatStyles.callBtn} hitSlop={8}>
+        <Pressable onPress={handleCall} style={S.chatCallBtn} hitSlop={8}>
           <HugeiconsIcon icon={CallIcon} size={22} color={Colors.primary} />
         </Pressable>
-
-        <Pressable
-          onPress={() => setContactModalVisible(true)}
-          hitSlop={8}
-        >
-          <HugeiconsIcon
-            icon={MoreVerticalIcon}
-            size={24}
-            color={textColor}
-          />
+        <Pressable onPress={() => setInfoVisible(true)} hitSlop={8}>
+          <HugeiconsIcon icon={MoreVerticalIcon} size={24} color={textColor} />
         </Pressable>
       </View>
 
-      {/* Recording indicator */}
+      {/* Invalid driver warning */}
+      {invalidId && (
+        <View style={[S.warnBanner, { backgroundColor: Colors.gold + "22" }]}>
+          <Text style={[S.warnText, { color: Colors.gold }]}>
+            ⚠ Invalid driver_id — this driver could not be verified. Messages
+            may not be delivered.
+          </Text>
+        </View>
+      )}
+
+      {/* Recording banner */}
       {isRecording && (
         <View
-          style={[
-            chatStyles.recordingBanner,
-            { backgroundColor: Colors.error + "22" },
-          ]}
+          style={[S.recBanner, { backgroundColor: Colors.error + "22" }]}
         >
-          <View style={chatStyles.recordingDot} />
-          <Text
-            style={[chatStyles.recordingText, { color: Colors.error }]}
-          >
-            Recording... Release to send, tap × to cancel
+          <View style={S.recDot} />
+          <Text style={[S.recText, { color: Colors.error }]}>
+            Recording… release to send
           </Text>
           <Pressable onPress={cancelRecording} hitSlop={8}>
-            <Text style={{ color: Colors.error, fontSize: 18 }}>×</Text>
+            <Text style={{ color: Colors.error, fontSize: 20, lineHeight: 22 }}>
+              ×
+            </Text>
           </Pressable>
         </View>
       )}
 
-      {/* Messages list */}
+      {/* Messages */}
       <FlatList
         ref={listRef}
         data={messages}
         keyExtractor={(m) => m.id}
-        contentContainerStyle={chatStyles.messageList}
+        contentContainerStyle={S.messageList}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => {
-          const isMe = item.sender_id === user?.id;
-          return (
-            <MessageBubble
-              message={item}
-              isMe={isMe}
-              onReply={() => handleReply(item)}
-              onDelete={() => handleDelete(conversation.id, item.id)}
-              onCopy={() => handleCopy(item)}
-              isDark={isDark}
-              textColor={textColor}
-              subTextColor={subTextColor}
-            />
-          );
-        }}
+        renderItem={({ item }) => (
+          <MessageBubble
+            message={item}
+            isMe={item.sender_id === user?.id}
+            onReply={() => handleReply(item)}
+            onDelete={() => deleteMessage(conversation.id, item.id)}
+            onCopy={() => handleCopy(item)}
+            isDark={isDark}
+            textColor={textColor}
+            subTextColor={subColor}
+          />
+        )}
         ListEmptyComponent={
-          <View style={chatStyles.emptyChat}>
-            <HugeiconsIcon
-              icon={Message02Icon}
-              size={44}
-              color={subTextColor}
-            />
-            <Text
-              style={[chatStyles.emptyChatText, { color: subTextColor }]}
-            >
+          <View style={S.emptyChat}>
+            <HugeiconsIcon icon={Message02Icon} size={44} color={subColor} />
+            <Text style={[S.emptyChatText, { color: subColor }]}>
               No messages yet. Say hello!
             </Text>
           </View>
@@ -819,33 +571,29 @@ function ChatScreen({
       {/* Input bar */}
       <View
         style={[
-          chatStyles.inputRow,
+          S.inputBar,
           {
             backgroundColor: cardBg,
-            borderTopColor: borderColor,
+            borderTopColor: border,
             paddingBottom: Math.max(insets.bottom, 12),
           },
         ]}
       >
         <TextInput
-          style={[
-            chatStyles.input,
-            { backgroundColor: inputBg, color: textColor },
-          ]}
+          style={[S.textInput, { backgroundColor: inputBg, color: textColor }]}
           placeholder="Type a message..."
-          placeholderTextColor={subTextColor}
+          placeholderTextColor={subColor}
           value={text}
           onChangeText={handleTyping}
           multiline
           maxLength={2000}
-          returnKeyType="default"
         />
-        {renderInputRight()}
+        <InputRight />
       </View>
 
       <ContactInfoModal
-        visible={contactModalVisible}
-        onClose={() => setContactModalVisible(false)}
+        visible={infoVisible}
+        onClose={() => setInfoVisible(false)}
         conversation={conversation}
         isDark={isDark}
       />
@@ -853,105 +601,27 @@ function ChatScreen({
   );
 }
 
-const chatStyles = StyleSheet.create({
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 10,
-    borderBottomWidth: 1,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerInfo: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  headerText: { flex: 1 },
-  headerName: { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
-  headerRole: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 11,
-    marginTop: 1,
-  },
-  callBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: `${Colors.primary}20`,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  recordingBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  recordingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.error,
-  },
-  recordingText: {
-    flex: 1,
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12,
-  },
-  messageList: {
-    paddingVertical: 12,
-    paddingBottom: 20,
-    flexGrow: 1,
-  },
-  emptyChat: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-    paddingTop: 100,
-  },
-  emptyChatText: { fontFamily: "Poppins_400Regular", fontSize: 14 },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    borderTopWidth: 1,
-  },
-  input: {
-    flex: 1,
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    maxHeight: 120,
-    minHeight: 42,
-  },
-  sendBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 0,
-  },
-});
-
 // ─── New Chat Modal ────────────────────────────────────────────────────────────
-// Passengers search by driver ID (DRV-XXXXXX) or trip code.
-// Performs a Supabase lookup and opens the chat if found.
+//
+// Lookup order:
+//   1. users.id = input AND role = 'driver'       (UUID entered directly)
+//   2. users.driver_id = normalised AND role = 'driver'  (DRV-XXXX entered)
+//
+// Either way we always open a chat. If neither lookup hits we open with an
+// "Invalid driver_id" warning baked into the conversation object so the chat
+// screen can surface it to the passenger.
+
+interface DriverRecord {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
+  driver_id: string | null;
+  vehicle_details: string | null;
+  park_name: string | null;
+}
+
+// Status of the last search attempt
+type SearchStatus = "idle" | "searching" | "found" | "invalid";
 
 function NewChatModal({
   visible,
@@ -961,141 +631,118 @@ function NewChatModal({
 }: {
   visible: boolean;
   onClose: () => void;
-  onStart: (conv: Conversation) => void;
+  onStart: (conv: Conversation, invalidId: boolean) => void;
   isDark: boolean;
 }) {
   const { user } = useAuthStore();
-  const [query, setQuery] = useState("");
-  const [searching, setSearching] = useState(false);
-  const [searchResult, setSearchResult] =
-    useState<DriverSearchResult | null>(null);
-  // true = DB confirmed the driver exists, false = unverified (opened anyway)
-  const [verified, setVerified] = useState(false);
+  const [query,  setQuery]  = useState("");
+  const [status, setStatus] = useState<SearchStatus>("idle");
+  const [result, setResult] = useState<DriverRecord | null>(null);
 
-  const textColor = isDark ? Colors.textWhite : Colors.text;
-  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
-  const borderColor = isDark ? "rgba(255,255,255,0.12)" : "#E8ECF0";
-  const inputBg = isDark ? Colors.background : "#F4F6FA";
+  const textColor = isDark ? Colors.textWhite     : Colors.text;
+  const subColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const cardBg    = isDark ? Colors.primaryDarker : "#FFFFFF";
+  const border    = isDark ? "rgba(255,255,255,0.12)" : "#E8ECF0";
+  const inputBg   = isDark ? Colors.background    : "#F4F6FA";
 
-  // Reset when modal closes
   useEffect(() => {
     if (!visible) {
       setQuery("");
-      setSearchResult(null);
-      setVerified(false);
+      setResult(null);
+      setStatus("idle");
     }
   }, [visible]);
 
-  const looksLikeDriverId = (v: string) =>
-    v.includes("-") || v.toUpperCase().startsWith("DRV");
+  const reset = () => { setResult(null); setStatus("idle"); };
 
   const handleSearch = async () => {
-    const clean = query.trim().toUpperCase();
-    if (!clean || !user?.id) return;
+    const raw = query.trim();
+    if (!raw || !user?.id) return;
 
-    setSearching(true);
-    setSearchResult(null);
-    setVerified(false);
+    setStatus("searching");
+    setResult(null);
 
-    // ── Helper: build an unverified fallback result from the raw input ──
-    const fallback = (): DriverSearchResult => ({
-      // We don't have a real UUID, so use the input as the id placeholder.
-      // Messages will still be inserted with this as participant_id;
-      // the driver will match via driver_id string in their conversation list.
-      id: `unverified_${clean}`,
-      full_name: clean,          // show the typed ID as the name
-      phone: null,
-      driver_id: clean,
-      vehicle_details: null,
-      park_name: null,
-    });
+    let found: DriverRecord | null = null;
 
     try {
-      if (looksLikeDriverId(clean)) {
-        // ── Attempt Supabase lookup by driver_id ───────────────────
-        let found: DriverSearchResult | null = null;
-        try {
-          const { data } = await supabase
-            .from("users")
-            .select("id, full_name, phone, driver_id, vehicle_details, park_name")
-            .eq("driver_id", clean)
-            .maybeSingle();
-          if (data) found = data as DriverSearchResult;
-        } catch {
-          // Supabase unreachable or table doesn't exist — continue to fallback
-        }
+      // ── Attempt 1: treat input as a UUID (users.id) ──────────────
+      const { data: byId } = await supabase
+        .from("users")
+        .select("id, full_name, phone, driver_id, vehicle_details, park_name")
+        .eq("id", raw)
+        .eq("role", "driver")
+        .maybeSingle();
 
-        if (found) {
-          setVerified(true);
-          setSearchResult(found);
-        } else {
-          // Not in DB but still let the user open a chat
-          setVerified(false);
-          setSearchResult(fallback());
-        }
-        return;
-      }
-
-      // ── Fallback: trip code lookup ────────────────────────────────
-      const trip = await TripsStorage.getByCode(clean);
-      if (trip) {
-        let driverProfile: DriverSearchResult | null = null;
-        try {
-          const { data } = await supabase
-            .from("users")
-            .select("id, full_name, phone, driver_id, vehicle_details, park_name")
-            .eq("id", trip.driver_id)
-            .maybeSingle();
-          if (data) driverProfile = data as DriverSearchResult;
-        } catch {}
-
-        setVerified(!!driverProfile);
-        setSearchResult(
-          driverProfile ?? {
-            id: trip.driver_id,
-            full_name: "Driver",
-            phone: null,
-            driver_id: null,
-            vehicle_details: null,
-            park_name: null,
-          }
-        );
+      if (byId) {
+        found = byId as DriverRecord;
       } else {
-        // Unknown trip code — still open with unverified result
-        setVerified(false);
-        setSearchResult(fallback());
+        // ── Attempt 2: treat input as DRV-XXXX code (users.driver_id) ──
+        const normalised = normaliseDriverId(raw);
+        const { data: byDriverId } = await supabase
+          .from("users")
+          .select("id, full_name, phone, driver_id, vehicle_details, park_name")
+          .eq("driver_id", normalised)
+          .eq("role", "driver")
+          .maybeSingle();
+
+        if (byDriverId) found = byDriverId as DriverRecord;
       }
-    } finally {
-      setSearching(false);
+    } catch (err: any) {
+      // Network failure — treat as invalid but still allow opening
+      console.warn("[Messages] driver lookup error:", err?.message ?? err);
+    }
+
+    if (found) {
+      setResult(found);
+      setStatus("found");
+    } else {
+      // Nothing matched — build a placeholder so the user can still open a chat
+      setResult({
+        id:              `invalid_${raw}`,   // sentinel — no real UUID
+        full_name:       raw,                // show the typed string as name
+        phone:           null,
+        driver_id:       raw,
+        vehicle_details: null,
+        park_name:       null,
+      });
+      setStatus("invalid");
     }
   };
 
-  const handleStartChat = async () => {
-    if (!searchResult || !user?.id) return;
+  // Open the chat — passes invalidId=true when the lookup failed so the
+  // ChatScreen can show the "Invalid driver_id" warning banner.
+  const handleOpen = () => {
+    if (!result || !user?.id) return;
 
-    // Deterministic conversation ID so the same two users always share one thread
-    const convId = `conv_${[user.id, searchResult.id]
-      .sort()
-      .join("_")}`;
+    const isInvalid = status === "invalid";
+
+    // Use a sorted pair for deterministic conv IDs.
+    // For invalid IDs we include the raw input so each invalid search
+    // gets its own thread (avoids collisions between different bad inputs).
+    const convId = isInvalid
+      ? `conv_invalid_${user.id}_${result.driver_id}`
+      : `conv_${[user.id, result.id].sort().join("_")}`;
 
     const conv: Conversation = {
-      id: convId,
-      participant_id: searchResult.id,
-      participant_name: searchResult.full_name || "Driver",
-      participant_role: "driver",
-      participant_driver_id: searchResult.driver_id || undefined,
-      participant_vehicle: searchResult.vehicle_details || undefined,
-      participant_park_name: searchResult.park_name || undefined,
-      participant_phone: searchResult.phone || undefined,
-      last_message: "",
-      last_message_at: new Date().toISOString(),
-      unread_count: 0,
+      id:                    convId,
+      participant_id:        result.id,
+      participant_name:      result.full_name || "Unknown",
+      participant_role:      "driver",
+      participant_driver_id: result.driver_id ?? undefined,
+      participant_vehicle:   result.vehicle_details ?? undefined,
+      participant_park_name: result.park_name ?? undefined,
+      participant_phone:     result.phone ?? undefined,
+      last_message:          "",
+      last_message_at:       new Date().toISOString(),
+      unread_count:          0,
     };
 
-    onStart(conv);
+    onStart(conv, isInvalid);
     onClose();
   };
+
+  const isFound   = status === "found";
+  const isInvalid = status === "invalid";
 
   return (
     <Modal
@@ -1108,155 +755,110 @@ function NewChatModal({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1, justifyContent: "flex-end" }}
       >
-        <Pressable style={newChatStyles.backdrop} onPress={onClose} />
-        <View style={[newChatStyles.sheet, { backgroundColor: cardBg }]}>
-          <View style={newChatStyles.handle} />
-          <Text style={[newChatStyles.title, { color: textColor }]}>
-            New Message
-          </Text>
-          <Text
-            style={[newChatStyles.subtitle, { color: subTextColor }]}
-          >
-            Enter a driver ID (e.g. DRV-A3X9KL) or a 6-character trip code
+        <Pressable style={S.backdrop} onPress={onClose} />
+        <View style={[S.newSheet, { backgroundColor: cardBg }]}>
+          <View style={S.handle} />
+
+          <Text style={[S.newTitle, { color: textColor }]}>New Message</Text>
+          <Text style={[S.newSub, { color: subColor }]}>
+            {`Enter the driver's ID or UUID`}
           </Text>
 
-          {/* Search field */}
-          <View
-            style={[
-              newChatStyles.inputRow,
-              { backgroundColor: inputBg, borderColor },
-            ]}
-          >
-            <HugeiconsIcon
-              icon={Search01Icon}
-              size={18}
-              color={subTextColor}
-            />
+          {/* ── Input ── */}
+          <View style={[S.newInputRow, { backgroundColor: inputBg, borderColor: border }]}>
+            <HugeiconsIcon icon={Search01Icon} size={18} color={subColor} />
             <TextInput
-              style={[newChatStyles.input, { color: textColor }]}
-              placeholder="DRV-A3X9KL or ABC123"
-              placeholderTextColor={subTextColor}
+              style={[S.newInput, { color: textColor }]}
+              placeholder="DRV-A3X9KL"
+              placeholderTextColor={subColor}
               value={query}
-              onChangeText={(v) => {
-                setQuery(v);
-                setSearchResult(null);
-                setVerified(false);
-              }}
-              autoCapitalize="characters"
+              onChangeText={(v) => { setQuery(v); reset(); }}
               autoFocus
-              maxLength={20}
+              autoCapitalize="characters"
+              autoCorrect={false}
               returnKeyType="search"
               onSubmitEditing={handleSearch}
             />
-            {query.trim().length > 0 && (
-              <Pressable
-                onPress={() => {
-                  setQuery("");
-                  setSearchResult(null);
-                  setVerified(false);
-                }}
-                hitSlop={8}
-              >
-                <Text style={{ color: subTextColor, fontSize: 18 }}>×</Text>
+            {query.length > 0 && (
+              <Pressable hitSlop={8} onPress={() => { setQuery(""); reset(); }}>
+                <Text style={{ color: subColor, fontSize: 18 }}>{`×`}</Text>
               </Pressable>
             )}
           </View>
 
-          {/* Search button */}
+          {/* ── Search button ── */}
           <Pressable
             style={[
-              newChatStyles.searchBtn,
+              S.newSearchBtn,
               {
-                backgroundColor: query.trim()
-                  ? Colors.primary
-                  : isDark
-                  ? "#2A2A2A"
-                  : "#E5E7EB",
-                opacity: searching ? 0.7 : 1,
+                backgroundColor: query.trim() ? Colors.primary : isDark ? "#2A2A2A" : "#E5E7EB",
+                opacity: status === "searching" ? 0.7 : 1,
               },
             ]}
             onPress={handleSearch}
-            disabled={!query.trim() || searching}
+            disabled={!query.trim() || status === "searching"}
           >
-            {searching ? (
+            {status === "searching" ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text
-                style={[
-                  newChatStyles.searchBtnText,
-                  {
-                    color: query.trim() ? "#fff" : subTextColor,
-                  },
-                ]}
-              >
-                Search
+              <Text style={[S.newSearchBtnText, { color: query.trim() ? "#fff" : subColor }]}>
+                Search Driver
               </Text>
             )}
           </Pressable>
 
-          {/* Search result card — always shown after search, verified or not */}
-          {searchResult && (
+          {/* ── Result card (shown for both found + invalid) ── */}
+          {result && (
             <View
               style={[
-                newChatStyles.resultCard,
+                S.resultCard,
                 {
-                  backgroundColor: verified
+                  backgroundColor: isFound
                     ? isDark ? "#1C2921" : "#F0FDF4"
                     : isDark ? "#221A1A" : "#FFF8F0",
-                  borderColor: verified
-                    ? Colors.primary + "44"
-                    : Colors.gold + "88",
+                  borderColor: isFound ? Colors.primary + "55" : Colors.gold + "99",
                 },
               ]}
             >
-              <Avatar name={searchResult.full_name || "Driver"} size={48} />
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Text style={[newChatStyles.resultName, { color: textColor }]}>
-                    {verified ? searchResult.full_name || "Driver" : searchResult.driver_id}
-                  </Text>
-                  {/* Verified / unverified badge */}
-                  <View
-                    style={[
-                      newChatStyles.badge,
-                      { backgroundColor: verified ? Colors.primary + "22" : Colors.gold + "33" },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        newChatStyles.badgeText,
-                        { color: verified ? Colors.primary : Colors.gold },
-                      ]}
-                    >
-                      {verified ? "✓ verified" : "⚠ unverified"}
+              <Avatar name={isFound ? result.full_name || "Driver" : "?"} size={50} />
+
+              <View style={{ flex: 1, gap: 2 }}>
+                {isFound ? (
+                  <>
+                    <Text style={[S.resultName, { color: textColor }]}>
+                      {result.full_name || "Driver"}
                     </Text>
-                  </View>
-                </View>
-                {searchResult.driver_id && verified && (
-                  <Text style={[newChatStyles.resultSub, { color: Colors.primary }]}>
-                    {searchResult.driver_id}
-                  </Text>
-                )}
-                {!verified && (
-                  <Text style={[newChatStyles.resultSub, { color: Colors.gold }]}>
-                    ID not found in database — messages may not deliver
-                  </Text>
-                )}
-                {searchResult.vehicle_details && (
-                  <Text style={[newChatStyles.resultSub, { color: subTextColor }]}>
-                    🚗 {searchResult.vehicle_details}
-                  </Text>
+                    <Text style={[S.resultDriverId, { color: Colors.primary }]}>
+                      {result.driver_id}
+                    </Text>
+                    {result.vehicle_details ? (
+                      <Text style={[S.resultSub, { color: subColor }]}>
+                        🚗 {result.vehicle_details}
+                      </Text>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <Text style={[S.resultName, { color: Colors.gold }]}>
+                      Invalid driver_id
+                    </Text>
+                    <Text style={[S.resultSub, { color: subColor }]}>
+                      {`"${query.trim()}" is not a registered driver. You can still
+                      open a chat but messages wont be delivered.`}
+                    </Text>
+                  </>
                 )}
               </View>
+
               <Pressable
                 style={[
-                  newChatStyles.startBtn,
-                  { backgroundColor: verified ? Colors.primary : Colors.gold },
+                  S.chatBtn,
+                  { backgroundColor: isFound ? Colors.primary : Colors.gold },
                 ]}
-                onPress={handleStartChat}
+                onPress={handleOpen}
               >
-                <Text style={newChatStyles.startBtnText}>
-                  {verified ? "Chat" : "Open"}
+                <Text style={S.chatBtnText}>
+                  {isFound ? "Chat" : "Open anyway"}
                 </Text>
               </Pressable>
             </View>
@@ -1267,88 +869,6 @@ function NewChatModal({
   );
 }
 
-const newChatStyles = StyleSheet.create({
-  backdrop: { flex: 1 },
-  sheet: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 24,
-    paddingBottom: 344,
-    gap: 14,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(154,154,154,0.3)",
-    alignSelf: "center",
-    marginBottom: 4,
-  },
-  title: { fontFamily: "Poppins_700Bold", fontSize: 20 },
-  subtitle: { fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 20 },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderWidth: 1,
-  },
-  input: {
-    flex: 1,
-    fontFamily: "Poppins_400Regular",
-    fontSize: 15,
-    padding: 0,
-    letterSpacing: 1,
-  },
-  searchBtn: {
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 50,
-  },
-  searchBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
-  resultCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-  },
-  resultName: { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
-  resultSub: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12,
-    marginTop: 2,
-  },
-  badge: {
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  badgeText: {
-    fontFamily: "Poppins_500Medium",
-    fontSize: 10,
-  },
-  startBtn: {
-    borderRadius: 12,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-  },
-  startBtnText: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 14,
-    color: "#fff",
-  },
-});
-
 // ─── Conversation List Item ───────────────────────────────────────────────────
 
 function ConvItem({
@@ -1357,18 +877,18 @@ function ConvItem({
   onDelete,
   isDark,
   textColor,
-  subTextColor,
+  subColor,
   cardBg,
-  borderColor,
+  border,
 }: {
   item: Conversation;
   onPress: () => void;
   onDelete: () => void;
   isDark: boolean;
   textColor: string;
-  subTextColor: string;
+  subColor: string;
   cardBg: string;
-  borderColor: string;
+  border: string;
 }) {
   const timeStr = item.last_message_at
     ? new Date(item.last_message_at).toLocaleTimeString([], {
@@ -1381,11 +901,8 @@ function ConvItem({
     <Swipeable
       renderRightActions={() => (
         <Pressable
+          style={[S.deleteSwipe, { backgroundColor: Colors.error }]}
           onPress={onDelete}
-          style={[
-            convItemStyles.deleteSwipe,
-            { backgroundColor: Colors.error },
-          ]}
         >
           <HugeiconsIcon icon={Delete01Icon} size={22} color="#fff" />
         </Pressable>
@@ -1393,56 +910,43 @@ function ConvItem({
     >
       <Pressable
         style={({ pressed }) => [
-          convItemStyles.item,
-          { backgroundColor: cardBg, borderBottomColor: borderColor },
+          S.convItem,
+          { backgroundColor: cardBg, borderBottomColor: border },
           pressed && { opacity: 0.85 },
         ]}
         onPress={onPress}
       >
         <View style={{ position: "relative" }}>
-          <Avatar name={item.participant_name || "User"} size={50} />
-          {(item.unread_count ?? 0) > 0 && (
-            <View style={convItemStyles.unreadDot} />
-          )}
+          <Avatar name={item.participant_name || "Driver"} size={50} />
+          {(item.unread_count ?? 0) > 0 && <View style={S.onlineDot} />}
         </View>
-
-        <View style={convItemStyles.textBlock}>
-          <View style={convItemStyles.topRow}>
+        <View style={S.convText}>
+          <View style={S.convTopRow}>
             <Text
-              style={[convItemStyles.name, { color: textColor }]}
+              style={[S.convName, { color: textColor }]}
               numberOfLines={1}
             >
               {item.participant_name}
             </Text>
-            <Text style={[convItemStyles.time, { color: subTextColor }]}>
-              {timeStr}
-            </Text>
+            <Text style={[S.convTime, { color: subColor }]}>{timeStr}</Text>
           </View>
-          <View style={convItemStyles.bottomRow}>
+          <View style={S.convBottomRow}>
             <Text
-              style={[convItemStyles.lastMsg, { color: subTextColor }]}
+              style={[S.convLast, { color: subColor }]}
               numberOfLines={1}
             >
-              {item.trip_code ? `[${item.trip_code}] ` : ""}
-              {item.last_message || "Start a conversation"}
+              {item.last_message || "Tap to start chatting"}
             </Text>
             {(item.unread_count ?? 0) > 0 && (
-              <View style={convItemStyles.badge}>
-                <Text style={convItemStyles.badgeText}>
-                  {(item.unread_count ?? 0) > 9
-                    ? "9+"
-                    : item.unread_count}
+              <View style={S.badge}>
+                <Text style={S.badgeText}>
+                  {(item.unread_count ?? 0) > 9 ? "9+" : item.unread_count}
                 </Text>
               </View>
             )}
           </View>
           {item.participant_driver_id && (
-            <Text
-              style={[
-                convItemStyles.driverId,
-                { color: Colors.primary + "BB" },
-              ]}
-            >
+            <Text style={[S.convDriverId, { color: Colors.primary + "AA" }]}>
               {item.participant_driver_id}
             </Text>
           )}
@@ -1452,73 +956,12 @@ function ConvItem({
   );
 }
 
-const convItemStyles = StyleSheet.create({
-  item: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  textBlock: { flex: 1, gap: 2 },
-  topRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  name: { fontFamily: "Poppins_600SemiBold", fontSize: 15, flex: 1 },
-  time: { fontFamily: "Poppins_400Regular", fontSize: 11 },
-  bottomRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  lastMsg: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 13,
-    flex: 1,
-  },
-  driverId: { fontFamily: "Poppins_400Regular", fontSize: 11 },
-  badge: {
-    backgroundColor: Colors.primary,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 5,
-    marginLeft: 6,
-  },
-  badgeText: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 10,
-    color: "#fff",
-  },
-  unreadDot: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: Colors.primary,
-    borderWidth: 2,
-    borderColor: "#fff",
-  },
-  deleteSwipe: {
-    width: 70,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
-
-// ─── Main Messages Tab ────────────────────────────────────────────────────────
+// ─── Main Tab ─────────────────────────────────────────────────────────────────
 
 export default function MessagesTab() {
   const insets = useSafeAreaInsets();
   const { theme } = useSettingsStore();
-  const { user } = useAuthStore();
+  const { user }  = useAuthStore();
   const {
     conversations,
     addConversation,
@@ -1526,41 +969,35 @@ export default function MessagesTab() {
     subscribeToRealtime,
   } = useMessagesStore();
 
-  const [activeConv, setActiveConv] = useState<Conversation | null>(null);
-  const [newChatVisible, setNewChatVisible] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [activeConv,      setActiveConv]      = useState<Conversation | null>(null);
+  const [activeInvalidId, setActiveInvalidId] = useState(false);
+  const [newChatVisible,  setNewChatVisible]  = useState(false);
+  const [refreshing,      setRefreshing]      = useState(false);
 
-  const isDark = theme === "dark";
-  const bg = isDark ? Colors.background : "#F0F0F0";
-  const textColor = isDark ? Colors.textWhite : Colors.text;
-  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
-  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
+  const isDark    = theme === "dark";
+  const bg        = isDark ? Colors.background    : "#F0F0F0";
+  const textColor = isDark ? Colors.textWhite      : Colors.text;
+  const subColor  = isDark ? Colors.textSecondary  : Colors.textTertiary;
+  const cardBg    = isDark ? Colors.primaryDarker  : "#FFFFFF";
+  const border    = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+  const topPad    = Platform.OS === "web" ? 67 : insets.top;
 
-  // Subscribe to realtime so drivers receive incoming messages
   useEffect(() => {
     if (!user?.id) return;
     const unsub = subscribeToRealtime(user.id);
     return () => unsub?.();
   }, [user?.id]);
 
-  // Filter conversations relevant to the current user's role
-  const visibleConversations = useMemo(() => {
+  const visible = useMemo(() => {
     if (!user) return [];
     if (user.role === "driver") {
-      // Drivers see conversations where they are the participant
       return conversations.filter(
         (c) =>
           c.participant_id === user.id ||
-          (user.driver_id &&
-            c.participant_driver_id === user.driver_id)
+          (user.driver_id && c.participant_driver_id === user.driver_id)
       );
     }
-    // Passengers see conversations they started with drivers
-    return conversations.filter(
-      (c) => c.participant_role === "driver"
-    );
+    return conversations.filter((c) => c.participant_role === "driver");
   }, [conversations, user]);
 
   const onRefresh = useCallback(async () => {
@@ -1569,41 +1006,38 @@ export default function MessagesTab() {
     setRefreshing(false);
   }, []);
 
-  // When a passenger starts a new chat, persist the conversation and
-  // also write a mirror record to Supabase so the driver can see it.
-  const handleStartConversation = async (conv: Conversation) => {
+  const handleStart = async (conv: Conversation, invalidId: boolean) => {
+    setActiveInvalidId(invalidId);
     await addConversation(conv);
-
-    // Mirror to Supabase so driver's realtime subscription picks it up
-    if (user) {
-      try {
-        await supabase.from("conversations").upsert([
+    // Mirror to Supabase so the driver sees it in their list (skip for invalid IDs)
+    if (user && !invalidId) {
+      supabase
+        .from("conversations")
+        .upsert([
           {
-            id: conv.id,
-            participant_id: conv.participant_id,
-            participant_name: conv.participant_name,
-            participant_role: conv.participant_role,
+            id:                    conv.id,
+            participant_id:        conv.participant_id,
+            participant_name:      conv.participant_name,
+            participant_role:      conv.participant_role,
             participant_driver_id: conv.participant_driver_id ?? null,
-            participant_phone: conv.participant_phone ?? null,
-            participant_vehicle: conv.participant_vehicle ?? null,
-            passenger_id: user.id,
-            passenger_name: user.full_name || "Passenger",
-            passenger_phone: user.phone || null,
-            last_message: "",
-            last_message_at: new Date().toISOString(),
-            unread_count: 0,
-            trip_code: conv.trip_code ?? null,
+            participant_phone:     conv.participant_phone ?? null,
+            participant_vehicle:   conv.participant_vehicle ?? null,
+            passenger_id:          user.id,
+            passenger_name:        user.full_name || "Passenger",
+            passenger_phone:       user.phone || null,
+            last_message:          "",
+            last_message_at:       new Date().toISOString(),
+            unread_count:          0,
           },
-        ]);
-      } catch (e) {
-        console.warn("[Messages] Failed to mirror conversation:", e);
-      }
+        ])
+        .then(({ error }) => {
+          if (error) console.warn("[Messages] upsert conv:", error.message);
+        });
     }
-
     setActiveConv(conv);
   };
 
-  const handleDeleteConversation = (id: string) => {
+  const confirmDelete = (id: string) => {
     Alert.alert("Delete conversation", "This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       {
@@ -1614,14 +1048,14 @@ export default function MessagesTab() {
     ]);
   };
 
-  // If a chat is active, render it full-screen
   if (activeConv) {
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
         <ChatScreen
           conversation={activeConv}
-          onBack={() => setActiveConv(null)}
+          onBack={() => { setActiveConv(null); setActiveInvalidId(false); }}
           isDark={isDark}
+          invalidId={activeInvalidId}
         />
       </GestureHandlerRootView>
     );
@@ -1629,30 +1063,27 @@ export default function MessagesTab() {
 
   return (
     <>
-      <GestureHandlerRootView style={[styles.root, { backgroundColor: bg }]}>
+      <GestureHandlerRootView style={[S.root, { backgroundColor: bg }]}>
         <StatusBar style={isDark ? "light" : "dark"} />
 
-        {/* Header */}
         <View
           style={[
-            styles.header,
+            S.header,
             {
               backgroundColor: cardBg,
-              paddingTop: topPadding + 12,
-              borderBottomColor: borderColor,
+              paddingTop: topPad + 12,
+              borderBottomColor: border,
             },
           ]}
         >
           <View style={{ flex: 1 }}>
-            <Text style={[styles.headerTitle, { color: textColor }]}>
-              Messages
-            </Text>
+            <Text style={[S.headerTitle, { color: textColor }]}>Messages</Text>
             {user?.role === "driver" && (
               <Text
                 style={{
                   fontFamily: "Poppins_400Regular",
                   fontSize: 12,
-                  color: subTextColor,
+                  color: subColor,
                   marginTop: 1,
                 }}
               >
@@ -1660,26 +1091,20 @@ export default function MessagesTab() {
               </Text>
             )}
           </View>
-
-          {/* Only passengers initiate; drivers only respond */}
           {user?.role !== "driver" && (
             <Pressable
-              style={styles.newChatBtn}
+              style={S.newBtn}
               onPress={() => setNewChatVisible(true)}
             >
-              <HugeiconsIcon
-                icon={PlusSignIcon}
-                size={23}
-                color={textColor}
-              />
+              <HugeiconsIcon icon={PlusSignIcon} size={23} color={textColor} />
             </Pressable>
           )}
         </View>
 
         <FlatList
-          data={visibleConversations}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          data={visible}
+          keyExtractor={(c) => c.id}
+          contentContainerStyle={{ flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -1693,42 +1118,35 @@ export default function MessagesTab() {
               item={item}
               isDark={isDark}
               textColor={textColor}
-              subTextColor={subTextColor}
+              subColor={subColor}
               cardBg={cardBg}
-              borderColor={borderColor}
+              border={border}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setActiveConv(item);
               }}
-              onDelete={() => handleDeleteConversation(item.id)}
+              onDelete={() => confirmDelete(item.id)}
             />
           )}
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <HugeiconsIcon
-                icon={ChartBubbleIcon}
-                size={52}
-                color={subTextColor}
-              />
-              <Text style={[styles.emptyTitle, { color: textColor }]}>
+            <View style={S.empty}>
+              <HugeiconsIcon icon={ChartBubbleIcon} size={52} color={subColor} />
+              <Text style={[S.emptyTitle, { color: textColor }]}>
                 {user?.role === "driver"
-                  ? "No passenger messages yet"
+                  ? "No messages yet"
                   : "No conversations yet"}
               </Text>
-              <Text style={[styles.emptySub, { color: subTextColor }]}>
+              <Text style={[S.emptySub, { color: subColor }]}>
                 {user?.role === "driver"
                   ? "When passengers message you, they'll appear here."
-                  : "Enter a driver ID to start chatting."}
+                  : "Tap + and enter a driver's ID to start chatting."}
               </Text>
               {user?.role !== "driver" && (
                 <Pressable
-                  style={[
-                    styles.emptyBtn,
-                    { backgroundColor: Colors.primary },
-                  ]}
+                  style={[S.emptyBtn, { backgroundColor: Colors.primary }]}
                   onPress={() => setNewChatVisible(true)}
                 >
-                  <Text style={styles.emptyBtnText}>Start a conversation</Text>
+                  <Text style={S.emptyBtnText}>Start a conversation</Text>
                 </Pressable>
               )}
             </View>
@@ -1740,59 +1158,153 @@ export default function MessagesTab() {
         visible={newChatVisible}
         onClose={() => setNewChatVisible(false)}
         isDark={isDark}
-        onStart={handleStartConversation}
+        onStart={handleStart}
       />
     </>
   );
 }
 
-// ─── Root styles ──────────────────────────────────────────────────────────────
+// ─── Stylesheet ───────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const S = StyleSheet.create({
   root: { flex: 1 },
+  backdrop: { flex: 1 },
+  handle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: "rgba(154,154,154,0.3)",
+    alignSelf: "center", marginBottom: 4,
+  },
+
+  // List header
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1,
   },
   headerTitle: { fontFamily: "Poppins_700Bold", fontSize: 24 },
-  newChatBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
+  newBtn: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+
+  // Conversation item
+  convItem: {
+    flexDirection: "row", alignItems: "center", gap: 14,
+    paddingHorizontal: 16, paddingVertical: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  listContent: { flexGrow: 1 },
-  empty: {
-    alignItems: "center",
-    paddingTop: 100,
-    paddingHorizontal: 40,
-    gap: 12,
+  convText:      { flex: 1, gap: 2 },
+  convTopRow:    { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  convName:      { fontFamily: "Poppins_600SemiBold", fontSize: 15, flex: 1 },
+  convTime:      { fontFamily: "Poppins_400Regular", fontSize: 11 },
+  convBottomRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  convLast:      { fontFamily: "Poppins_400Regular", fontSize: 13, flex: 1 },
+  convDriverId:  { fontFamily: "Poppins_400Regular", fontSize: 11, marginTop: 1 },
+  onlineDot: {
+    position: "absolute", top: 0, right: 0,
+    width: 12, height: 12, borderRadius: 6,
+    backgroundColor: Colors.primary, borderWidth: 2, borderColor: "#fff",
   },
-  emptyTitle: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 18,
-    textAlign: "center",
+  badge: {
+    backgroundColor: Colors.primary, borderRadius: 10,
+    minWidth: 20, height: 20, alignItems: "center", justifyContent: "center",
+    paddingHorizontal: 5, marginLeft: 6,
   },
-  emptySub: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    textAlign: "center",
-    lineHeight: 22,
+  badgeText:   { fontFamily: "Poppins_700Bold", fontSize: 10, color: "#fff" },
+  deleteSwipe: { width: 70, alignItems: "center", justifyContent: "center" },
+
+  // Empty state
+  empty:        { alignItems: "center", paddingTop: 100, paddingHorizontal: 40, gap: 12 },
+  emptyTitle:   { fontFamily: "Poppins_600SemiBold", fontSize: 18, textAlign: "center" },
+  emptySub:     { fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center", lineHeight: 22 },
+  emptyBtn:     { borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12, marginTop: 8 },
+  emptyBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: "#fff" },
+
+  // New chat modal
+  newSheet: {
+    position: "absolute", bottom: 0, left: 0, right: 0,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: 24, paddingBottom: 44, gap: 14,
   },
-  emptyBtn: {
-    borderRadius: 14,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    marginTop: 8,
+  newTitle:      { fontFamily: "Poppins_700Bold", fontSize: 20 },
+  newSub:        { fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 20 },
+  newInputRow: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1,
   },
-  emptyBtnText: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 14,
-    color: "#fff",
+  newInput:          { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 15, padding: 0, letterSpacing: 1 },
+  newSearchBtn:      { borderRadius: 14, paddingVertical: 14, alignItems: "center", justifyContent: "center", minHeight: 50 },
+  newSearchBtnText:  { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
+  resultCard: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    borderRadius: 16, padding: 14, borderWidth: 1,
   },
+  resultName:     { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
+  resultDriverId: { fontFamily: "Poppins_600SemiBold", fontSize: 13, marginTop: 1 },
+  resultSub:      { fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 2 },
+  chatBtn:        { borderRadius: 12, paddingHorizontal: 18, paddingVertical: 10 },
+  chatBtnText:    { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: "#fff" },
+
+  // Warning banner (invalid driver_id)
+  warnBanner: {
+    flexDirection: "row", alignItems: "flex-start",
+    paddingHorizontal: 16, paddingVertical: 10,
+  },
+  warnText: { fontFamily: "Poppins_400Regular", fontSize: 12, lineHeight: 18, flex: 1 },
+
+  // Chat screen
+  chatHeader: {
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 16, paddingBottom: 12, gap: 10, borderBottomWidth: 1,
+  },
+  chatBack:       { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  chatHeaderInfo: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 },
+  chatHeaderName: { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
+  chatHeaderSub:  { fontFamily: "Poppins_500Medium", fontSize: 12, marginTop: 1 },
+  chatCallBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: `${Colors.primary}20`, alignItems: "center", justifyContent: "center",
+  },
+  recBanner: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
+  recDot:    { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.error },
+  recText:   { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 12 },
+  messageList:   { paddingVertical: 12, paddingBottom: 20, flexGrow: 1 },
+  emptyChat:     { alignItems: "center", justifyContent: "center", gap: 12, paddingTop: 100 },
+  emptyChatText: { fontFamily: "Poppins_400Regular", fontSize: 14 },
+  inputBar: {
+    flexDirection: "row", alignItems: "flex-end",
+    gap: 8, paddingHorizontal: 12, paddingTop: 8, borderTopWidth: 1,
+  },
+  textInput: {
+    flex: 1, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 10,
+    fontFamily: "Poppins_400Regular", fontSize: 14, maxHeight: 120, minHeight: 42,
+  },
+  sendBtn: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
+
+  // Message bubble
+  bubbleWrap:     { marginVertical: 2, paddingHorizontal: 12 },
+  bubbleWrapMe:   { alignItems: "flex-end" },
+  bubbleWrapThem: { alignItems: "flex-start" },
+  bubble: { maxWidth: "78%", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, gap: 4 },
+  bubbleMe:   { backgroundColor: Colors.primary, borderBottomRightRadius: 4 },
+  bubbleThem: { borderBottomLeftRadius: 4 },
+  bubbleText: { fontFamily: "Poppins_400Regular", fontSize: 14, lineHeight: 21 },
+  bubbleMeta: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 4 },
+  bubbleTime: { fontFamily: "Poppins_400Regular", fontSize: 10 },
+  swipeActions: { flexDirection: "row", alignItems: "center" },
+  swipeAction:  { width: 50, height: "100%", alignItems: "center", justifyContent: "center" },
+
+  // Contact info modal
+  infoSheet: {
+    position: "absolute", bottom: 0, left: 0, right: 0,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: 30, paddingTop: 10, paddingBottom: 50, gap: 14,
+  },
+  infoHeader:    { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  infoTitle:     { fontFamily: "Poppins_700Bold", fontSize: 18, marginTop: 20 },
+  infoAvatarRow: { alignItems: "center", marginVertical: 16, gap: 6 },
+  infoName:      { fontFamily: "Poppins_700Bold", fontSize: 20 },
+  infoSub:       { fontFamily: "Poppins_400Regular", fontSize: 14 },
+  infoActions:   { flexDirection: "row", gap: 12, marginTop: 8 },
+  infoActionBtn: {
+    flex: 1, flexDirection: "row", alignItems: "center",
+    justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 14,
+  },
+  infoActionText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: "#fff" },
 });
