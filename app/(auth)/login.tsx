@@ -445,11 +445,11 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
-        {/* <Pressable style={styles.backBtn} onPress={() => router.back()}>
+        <Pressable style={styles.backBtn} onPress={() => router.dismissTo('/(main)')}>
           <Ionicons name="arrow-back" size={22} color={Colors.primaryLight} />
           <Text style={styles.backText}>Back</Text>
         </Pressable>
-        <View style={styles.backBtn} /> */}
+        {/* <View style={styles.backBtn} /> */}
       </View>
 
       <KeyboardAwareScrollViewCompat

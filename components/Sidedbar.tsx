@@ -48,17 +48,13 @@ interface SidebarItem {
   danger?: boolean;
 }
 
-
-
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
-
 
 export default function SidedBar() {
   const { isAuthenticated, user, logout } = useAuthStore();
   const insets = useSafeAreaInsets();
   const { theme, setTheme } = useSettingsStore();
-
 
   const handleLogout = () => {
     Alert.alert("Sign Out", "Are you sure?", [
@@ -146,207 +142,187 @@ export default function SidedBar() {
   const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
   const bg = isDark ? Colors.background : Colors.border;
 
-
   return (
-    <View style={[{flex: 1},{width: SCREEN_WIDTH / 1.33}, {height: SCREEN_HEIGHT}]}>
-
-      <View
-        style={[
-        ]}
-        pointerEvents="auto"
-      >
-          <Pressable style={StyleSheet.absoluteFillObject}
-          />
-      </View>
-      <View style={[styles.drawerTop, {
-        backgroundColor: bg,
-        paddingTop: insets.top + 0,
-        paddingBottom: Math.max(insets.bottom, 0)
-      }]}>
-        <View style={[styles.drawer,]}>
-          <View style={[styles.drawerHeader,
-          ]}>
+    <View style={[styles.drawerTop, {
+      backgroundColor: bg,
+      // marginTop: -100,
+      // paddingBottom: insets.bottom + 20,
+      // paddingTop: insets.top + 0,
+    }]}>
+      <View style={styles.drawer}>
+        <View style={[styles.drawerHeader, { paddingTop: insets.top + 27 }]}>
+          <View style={{flexDirection:'row', gap: 10}}>
             <View style={styles.headerTop}>
               <Avatar
                 name={user?.full_name || "User"}
                 photoUri={user?.profile_photo}
                 size={54}
               />
-              <View style={styles.drawerRightIcon}>
-                <Pressable style={[styles.menuList]}>
-                  <HugeiconsIcon icon={MoreHorizontalCircleIcon} size={20} color={textColor} />
-                </Pressable>
-                  <Pressable
-                    style={styles.closeBtn}
-                  >
-                  <HugeiconsIcon icon={Cancel01Icon} size={20} color={textColor} />
-                </Pressable>
-              </View>
             </View>
-            <Text style={[styles.userName, { color: textColor }]} numberOfLines={1}>
-              {user?.full_name || "Teqil User"}
-            </Text>
-            <Text style={[styles.userRole, { color: Colors.primary }]}>
-              {user?.role === "driver"
-                ? "Driver"
-                : user?.role === "park_owner"
-                ? "Park Owner"
-                : user?.role 
-                ? "Passenger" 
-                : "No role"
-              }
-              {user?.driver_id ? ` · ${user.driver_id}` : ""}
-            </Text>
-          </View>
-
-          <View style={[styles.darkModeRow]}>
-            <View style={styles.darkModeLeft}>
-              <HugeiconsIcon icon={isDark ? Moon02Icon : Sun01Icon} size={24} color={textColor} />
-              <Text style={[styles.darkModeText, { color: textColor }]}>
-                {isDark ? 'Dark Mode' : 'Light Mode'}
+            <View style={{flexDirection:'column', justifyContent: 'flex-end'}}>
+              <Text style={[styles.userName, { color: textColor }]} numberOfLines={1}>
+                {user?.full_name || "Teqil User"}
+              </Text>
+              <Text style={[styles.userRole, { color: Colors.primary }]}>
+                {user?.role === "driver"
+                  ? "Driver"
+                  : user?.role === "park_owner"
+                  ? "Park Owner"
+                  : user?.role 
+                  ? "Passenger" 
+                  : "No role"
+                }
+                {user?.driver_id ? ` · ${user.driver_id}` : ""}
               </Text>
             </View>
-            <Switch
-              value={isDark}
-              onValueChange={(val) => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setTheme(val ? "dark" : "light");
-              }}
-              trackColor={{ false: "#E5E7EB", true: Colors.surface + "50" }}
-              thumbColor={isDark ? Colors.surface : "#000"}
-            />
           </View>
+          <View style={styles.drawerRightIcon}>
+              <Pressable style={styles.menuList}>
+                <HugeiconsIcon icon={MoreHorizontalCircleIcon} fill={'#000'} size={27} color={textColor} />
+              </Pressable>
+              {/* <Pressable style={styles.closeBtn}>
+                <HugeiconsIcon icon={Cancel01Icon} size={20} color={textColor} />
+              </Pressable> */}
+            </View>
+        </View>
 
-          <ScrollView style={[]}>
-            {isAuthenticated ? (
-              <ScrollView
-                style={[styles.navList, styles.navListcontainer, { backgroundColor: cardBg }]}>
-                {filteredNavItems.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    style={({ pressed }) => [
-                      styles.navItem,
-                      pressed && { backgroundColor: cardBg },
+        <View style={styles.darkModeRow}>
+          <View style={styles.darkModeLeft}>
+            <HugeiconsIcon icon={isDark ? Moon02Icon : Sun01Icon} size={24} color={textColor} />
+            <Text style={[styles.darkModeText, { color: textColor }]}>
+              {isDark ? 'Dark Mode' : 'Light Mode'}
+            </Text>
+          </View>
+          <Switch
+            value={isDark}
+            onValueChange={(val) => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setTheme(val ? "dark" : "light");
+            }}
+            trackColor={{ false: "#E5E7EB", true: Colors.surface + "50" }}
+            thumbColor={isDark ? Colors.surface : "#000"}
+          />
+        </View>
+
+        <ScrollView style={[]}>
+          {isAuthenticated ? (
+            <ScrollView
+              style={[styles.navList, styles.navListcontainer, ]}>
+              {filteredNavItems.map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={({ pressed }) => [
+                    styles.navItem,
+                    pressed && { backgroundColor: cardBg },
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    item.onPress();
+                  }}
+                >
+                  <View
+                    style={[
+                      styles.navIconBox,
+                      
                     ]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      item.onPress();
-                    }}
                   >
-                    <View
-                      style={[
-                        styles.navIconBox,
-                        {
-                          backgroundColor: item.danger
-                            ? "rgba(239,68,68,0.1)"
-                            : cardBg,
-                        },
-                      ]}
-                    >
-                      <HugeiconsIcon
-                        icon={item.icon as any}
-                        size={18}
-                        color={item.danger ? "#EF4444" : Colors.primary}
-                      />
+                    <HugeiconsIcon
+                      icon={item.icon as any}
+                      size={18}
+                      color={Colors.text}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      styles.navLabel,
+                      {
+                        color: item.danger ? "#EF4444" : textColor,
+                      },
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                  {item.badge ? (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{item.badge}</Text>
                     </View>
-                    <Text
-                      style={[
-                        styles.navLabel,
-                        {
-                          color: item.danger ? "#EF4444" : textColor,
-                        },
-                      ]}
-                    >
-                      {item.label}
-                    </Text>
-                    {item.badge ? (
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{item.badge}</Text>
-                      </View>
-                    ) : (
-                      <HugeiconsIcon
-                        icon={ChevronRight}
-                        size={14}
-                        color={subTextColor}
-                        style={styles.navChevron} />
-                    )}
-                  </Pressable>
-                ))}
-              </ScrollView>
-            ) : (
+                  ) : (
+                    <HugeiconsIcon
+                      icon={ChevronRight}
+                      size={14}
+                      color={subTextColor}
+                      style={styles.navChevron} />
+                  )}
+                </Pressable>
+              ))}
+            </ScrollView>
+          ) : (
+            <Pressable
+              style={styles.signInContainer}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push("/(auth)/login");
+              }}
+            >
+              <HugeiconsIcon icon={Alert01Icon} size={45} color={Colors.gold} />
+              <View style={styles.signInTextContent}>
+                <Text style={[styles.signInText, { color: textColor }]}>
+                  You are signed in as {user?.full_name || "User"}
+                </Text>
+                <Text style={[styles.signInSubText, { color: subTextColor }]}>
+                  Sign in with a different account
+                </Text>
+              </View>
               <Pressable
-                  style={[styles.signInContainer,
+                style={({ pressed }) => [
+                  styles.signInButton,
+                  { backgroundColor: 'transparent' },
+                  pressed && { opacity: 0.8 },
                 ]}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   router.push("/(auth)/login");
                 }}
               >
-                <HugeiconsIcon icon={Alert01Icon} size={45} color={Colors.gold} />
-                <View style={styles.signInTextContent}>
-                  <Text style={[styles.signInText, { color: textColor }]}>
-                    You are signed in as {user?.full_name || "User"}
-                  </Text>
-                  <Text style={[styles.signInSubText, { color: subTextColor }]}>
-                    Sign in with a different account
-                  </Text>
-                </View>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.signInButton,
-                    { backgroundColor: 'transparent' },
-                    pressed && { opacity: 0.8 },
-                  ]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    router.push("/(auth)/login");
-                  }}
-                >
-                  <Text style={styles.signInButtonText}>Sign In</Text>
-                </Pressable>
+                <Text style={styles.signInButtonText}>Sign In</Text>
               </Pressable>
-            )}
-          </ScrollView>
-        </View>
-        <Text style={[styles.version, { color: textColor }]}>
-          Teqil v1.0.0
-        </Text>
+            </Pressable>
+          )}
+        </ScrollView>
       </View>
+      <Text style={[styles.version, { color: textColor }]}>
+        Teqil v1.0.0
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // backdrop: {
-  //   // ...StyleSheet.absoluteFillObject,
-  //   backgroundColor: "rgba(0 0 0 / 0.5)",
-  //   zIndex: 1,
-  // },
   drawerTop: {
-    flex: 1,
-    width: SIDEBAR_WIDTH,
-    position: "absolute",
+    position: 'absolute',
+    top: -170,       
+    bottom: 0,         
     left: 0,
-    top: 0,
-    bottom:0,
+    height: SCREEN_HEIGHT,
+    width: SIDEBAR_WIDTH,
     zIndex: 2,
-    paddingHorizontal: 7,
+    paddingHorizontal: 0,
   },
   drawer: {
-    zIndex: 2,
+    flex: 1,
   },
   drawerHeader: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginBottom: 15,
-    gap: 6,
-    borderRadius: 30,
+    paddingVertical: 26,
+    flexDirection: 'row',
+    justifyContent:'space-between',
+    backgroundColor: '#fff',    marginBottom: 25
+    // borderWidth: 2, borderColor:'red'
   },
   headerTop: {
-    flexDirection: "row",
+    flexDirection: "column",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 10,
+    alignItems: "flex-start",  
   },
   drawerRightIcon: {
     flexDirection: 'row',
@@ -408,6 +384,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
     marginBottom: 2,
+    borderBottomWidth: .5, borderBottomColor: 'rgb(204 203 203)0000'
   },
   navIconBox: {
     width: 36,
@@ -443,7 +420,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: "center",
     marginBottom: 18,
-    marginHorizontal:10,
+    marginHorizontal: 10,
     borderRadius: 30,
     justifyContent: 'flex-end',
     alignSelf: 'center',
@@ -462,7 +439,7 @@ const styles = StyleSheet.create({
     gap: 20
   },
   signInTextContent: {
-    gap:5
+    gap: 5
   },
   signInText: {
     fontFamily: "Poppins_600SemiBold",

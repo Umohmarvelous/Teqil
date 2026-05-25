@@ -206,14 +206,14 @@ export default function HomeTab() {
   //     ? "Find Trip"
   //       : "Broadcast";
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
+  // const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   return (
     <View style={[styles.root, { backgroundColor: bg }, ]}>
       <StatusBar style={isDark ? 'light' : 'dark'}  />
 
 
-      <View style={[{ position: 'absolute', left: -330, right: 90, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 500}, {width: SCREEN_WIDTH / 1.33}, {height: SCREEN_HEIGHT}, { paddingTop: topPadding + 30 }]}>
+      <View style={[{position: 'absolute', left: -330, zIndex: 500, top: 0 }, {width: SCREEN_WIDTH / 1.33},{height: SCREEN_HEIGHT,} ]}>
             <SidedBar/>
       </View>
       
@@ -233,7 +233,7 @@ export default function HomeTab() {
 
         {/* Role-specific shortcuts */}
         <View style={ [styles.card, styles.shortcutRow, { backgroundColor: cardBg, borderColor }]}>
-        <Text style={[styles.sectionTitle, { color: textColor }]}>{!user ? 'Quixxck Transfer' : 'Quick Actions'}
+        <Text style={[styles.sectionTitle, { color: textColor }]}>{!user ? 'Quick Transfer' : 'Quick Actions'}
         </Text>
           {!(user?.role === "driver" && "passenger")  && (
             <>

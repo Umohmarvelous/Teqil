@@ -302,7 +302,7 @@ const [totalEarnedCoins, setTotalEarnedCoins] = useState(0);
                   },
                 ]);
               }}>
-              <HugeiconsIcon icon={LogoutIcon} size={23} color={Colors.textWhite} />
+              <HugeiconsIcon icon={LogoutIcon} fill={'#000'} size={23} color={textColor} />
               {/* <Text style={styles.signOutText}>Sign Out</Text> */}
             </Pressable>
 
