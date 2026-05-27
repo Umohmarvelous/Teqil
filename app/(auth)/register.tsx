@@ -81,10 +81,10 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 // ─── Role selector ────────────────────────────────────────────────────────────
 
-const ROLES: { value: UserRole; label: string; icon: keyof typeof Ionicons.glyphMap; desc: string }[] = [
-  { value: "driver",     label: "Driver",     icon: "car-sport",  desc: "Earn coins driving" },
-  { value: "passenger",  label: "Passenger",  icon: "person",     desc: "Find & track trips" },
-  { value: "park_owner", label: "Park Owner", icon: "business",   desc: "Manage your park"   },
+const ROLES: { value: UserRole; label: string; icon: keyof typeof Ionicons.glyphMap;  }[] = [
+  { value: "driver",     label: "Driver",     icon: "car-sport",  },
+  { value: "passenger",  label: "Passenger",  icon: "person",     },
+  { value: "park_owner", label: "Park Owner", icon: "business",   },
 ];
 
 function RoleSelector({
@@ -113,9 +113,6 @@ function RoleSelector({
               />
               <Text style={[roleStyles.cardLabel, active && roleStyles.cardLabelActive]}>
                 {role.label}
-              </Text>
-              <Text style={[roleStyles.cardDesc, active && roleStyles.cardDescActive]}>
-                {role.desc}
               </Text>
             </Pressable>
           );

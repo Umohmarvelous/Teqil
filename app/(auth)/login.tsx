@@ -46,8 +46,7 @@ import {
 import { supabase } from "@/src/services/supabase";
 import { useTranslation } from "react-i18next";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { HugeiconsIcon } from "@hugeicons/react-native";
-import { Apple01Icon, AppleFinderIcon, AppleStocksIcon } from "@hugeicons/core-free-icons";
+
 
 // Required for OAuth redirect handling on web
 WebBrowser.maybeCompleteAuthSession();
