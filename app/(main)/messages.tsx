@@ -2595,7 +2595,7 @@ const S = StyleSheet.create({
   newSheet: {
     position: "absolute", bottom: 0, left: 0, right: 0,
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    padding: 24, paddingBottom: 44, gap: 14,
+    padding: 24, paddingBottom: 344, gap: 14,
   },
   newTitle:      { fontFamily: "Poppins_700Bold", fontSize: 20 },
   newSub:        { fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 20 },

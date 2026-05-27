@@ -28,9 +28,9 @@ import QRScannerModal from "@/components/QRScannerModal";
 import QuickReceiveModal from "@/components/quickrecieveModal";
 import { useMessagesStore } from "@/src/store/useMessagesStore";
 
-import SidedBar from "@/components/Sidedbar";
+// import SidedBar from "@/components/Sidedbar";
 
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+// import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 
 
@@ -41,9 +41,9 @@ export default function HomeTab() {
   const { user } = useAuthStore();
   
   
-  const insets = useSafeAreaInsets();
-  const { width: SCREEN_WIDTH } = Dimensions.get("window");
-  const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+  // const insets = useSafeAreaInsets();
+  // const { width: SCREEN_WIDTH } = Dimensions.get("window");
+  // const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 
   const handlePayAction = () => {
@@ -70,7 +70,7 @@ export default function HomeTab() {
   const bg = isDark ? Colors.background : Colors.border;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
+  const cardBg = isDark ? Colors.overlayLight : "#FFFFFF";
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
   const [quickTransferVisible, setQuickTransferVisible] = useState(false);
@@ -213,10 +213,6 @@ export default function HomeTab() {
       <StatusBar style={isDark ? 'light' : 'dark'}  />
 
 
-      <View style={[{position: 'absolute', left: -330, zIndex: 500, top: 0 }, {width: SCREEN_WIDTH / 1.33},{height: SCREEN_HEIGHT,} ]}>
-            <SidedBar/>
-      </View>
-      
       {/* Header */}
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 12}]}
@@ -354,20 +350,16 @@ export default function HomeTab() {
         {userUnreadCount > 0 && (
           <Pressable
             style={[styles.card, { backgroundColor: cardBg, borderColor }]}
-            onPress={() => {
-              // Navigate to messages tab
-              // You may need to pass a setActiveTab function from parent or use navigation
-              // Since HomeTab doesn't have direct tab navigation, you can emit an event or use a context.
-              // For simplicity, we'll use a prop from parent (you'll need to pass setActiveTab down).
-            }}
+            onPress={() => router.navigate("/messages")}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ backgroundColor: Colors.primaryLight, padding: 12, borderRadius: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12,     paddingHorizontal: 18,
+ }}>
+              <View style={{ padding: 12, borderRadius: 20 }}>
                 <HugeiconsIcon icon={Message02Icon} size={24} color={Colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.sectionTitle, { color: textColor }]}>New Messages</Text>
-                <Text style={{ color: subTextColor }}>You have {userUnreadCount} unread message{userUnreadCount > 1 ? 's' : ''}</Text>
+                <Text style={{ color: 'red' }}>You have {userUnreadCount} unread message{userUnreadCount > 1 ? 's' : ''}</Text>
               </View>
               <HugeiconsIcon icon={ChevronRight} size={20} color={subTextColor} />
             </View>
