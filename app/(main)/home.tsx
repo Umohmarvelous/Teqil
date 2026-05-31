@@ -47,11 +47,11 @@ export default function HomeTab() {
 
 
   const handlePayAction = () => {
-    if (user?.role === 'passenger') {
-      router.push('/(passenger)/scan-pay');
-    } else {
-      router.push('/(driver)/qr-receive');
-    }
+    // if (user?.role === 'passenger') {
+      router.push('/(passenger)/pay-fare');
+    // } else {
+    //   router.push('/(driver)/qr-receive');
+    // }
   };
 
   const { conversations } = useMessagesStore();
@@ -89,9 +89,9 @@ export default function HomeTab() {
 
   // Define actions
   const MINIACTIONS = [
-    { id: "pay", icon: Wallet01Icon , label: "Pay", color: textColor },
-    { id: "qr", icon: QrCodeIcon , label: "Scan QR",      color: textColor },
-    { id: "share", icon: Share01Icon , label: "Share Trip",  color: textColor },
+    { id: "pay", icon: Wallet01Icon , label: "Pay Now", color: textColor },
+    { id: "qr", icon: QrCodeIcon , label: "Scan Code",      color: textColor },
+    { id: "share", icon: Share01Icon , label: "Share your Trip",  color: textColor },
   ] ;
   const PASSENGERSACTIONSBUTTON = [
     { id: "find", icon: Search , label: "Find Trip",   color: textColor },

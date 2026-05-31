@@ -273,15 +273,15 @@ export default function MainLayout() {
               </Pressable>
               <Pressable style={styles.logoBtn}>
               <Image
-  source={
-    isDark
-      ? require("@/assets/images/Logo_with_transparent_background.png") // Ensure this is the white version
-      : require("@/assets/images/Black_logo_with_white_background.png") // Ensure this is the black version
-  }
-  style={styles.photoImg}
-  resizeMode="contain" // Changed to contain to avoid cropping
-  width={120}
-/>
+                source={
+                  isDark
+                    ? require("@/assets/images/Logo_with_transparent_background.png") // Ensure this is the white version
+                    : require("@/assets/images/Black_logo_with_white_background.png") // Ensure this is the black version
+                }
+                style={styles.photoImg}
+                resizeMode="contain" // Changed to contain to avoid cropping
+                width={120}
+              />
               </Pressable>
               <Pressable onPress={() => handleTabPress("profile")}>
                 <Avatar name={user?.full_name || "U"} photoUri={user?.profile_photo} size={38} />
