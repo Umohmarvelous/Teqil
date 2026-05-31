@@ -1,73 +1,148 @@
 import React from 'react';
-import { View, Text, StyleSheet, Share, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Share, Pressable, Image } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import { useAuthStore } from '@/src/store/useStore';
+import { Colors } from '@/constants/colors';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSettingsStore } from '@/src/store/useSettingsStore';
 
 export default function QRReceiveScreen() {
   const { user } = useAuthStore();
+  const insets = useSafeAreaInsets();
+  const { theme } = useSettingsStore();
 
-  // Both driver_id and subaccount_code must exist on the user profile
-  // subaccount_code is set when the driver onboards via Paystack
-  const qrValue = `TEQIL:DRV-${user?.id}:${user?.subaccount_code ?? 'UNKNOWN'}`;
+  const isDark = theme === "dark";
+  const bg = isDark ? Colors.background : Colors.border;
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textSecondary;
+  const cardBg = isDark ? Colors.overlayLight : "#FFFFFF";
+
+
+  // QR format specified by requirements
+  const qrValue = `TEQIL:DRV-${user?.driver_id || user?.id} bank_account:"" subaccount:""`;
 
   const handleShare = () => {
     Share.share({
-      message: `Scan my TEQIL QR to pay me: ${qrValue}`,
+      message: `Scan my TEQIL QR to start a trip: ${qrValue}`,
     });
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.heading}>Your Payment QR</Text>
-      <Text style={styles.subtext}>Show this to passengers to receive payment.</Text>
+    <View style={[styles.container, { paddingTop: insets.top + 20 }, { backgroundColor: bg }]}>
+      <Pressable style={styles.backBtn} onPress={() => router.back()}>
+        <Ionicons name="chevron-back" size={24} color={textColor} />
+      </Pressable>
+      
+      <Text style={[styles.heading, {color: textColor}]}>My QR Code</Text>
+      <Text style={[styles.subtext, {color: subTextColor}]}>Show this to passengers to start a trip.</Text>
 
-      <View style={styles.qrContainer}>
+
+      <View style={[styles.qrContainer, {backgroundColor: cardBg}]}>
         <QRCode
           value={qrValue}
-          size={220}
-          color="#1A1A1A"
-          backgroundColor="#FFFFFF"
-          // Optionally add a logo: logo={require('@/assets/logo.png')} logoSize={40}
+          size={240}
+          color={cardBg}
+          backgroundColor={textColor}
         />
       </View>
 
-      <Text style={styles.driverId}>Driver ID: {user?.id?.slice(0, 8)}…</Text>
+      <View style={styles.profileContainer}>
+        <Image 
+          source={{ uri: user?.profile_photo || 'https://via.placeholder.com/150' }} 
+          style={styles.avatar} 
+        />
+        <Text style={[styles.driverName, {color: textColor}]}>{user?.full_name || 'Driver'}</Text>
+        <Text style={[styles.vehicleText, {color: subTextColor}]}>{user?.vehicle_details || 'Vehicle not specified'}</Text>
+        <Text style={[styles.driverId, {color: textColor}]}>ID: {user?.driver_id || user?.id?.slice(0, 8)}</Text>
+      </View>
 
-      {user?.subaccount_code ? (
-        <Text style={styles.subaccount}>Subaccount: {user.subaccount_code}</Text>
-      ) : (
-        <Text style={styles.warning}>⚠️ No subaccount linked. Contact support.</Text>
-      )}
-
-      <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-        <Text style={styles.shareText}>Share QR Code</Text>
-      </TouchableOpacity>
+      <Pressable style={[styles.shareButton, {backgroundColor: cardBg}]} onPress={handleShare}>
+        <Ionicons name="share-outline" size={20} color={textColor} />
+        <Text style={[styles.shareText, {color: textColor}]}>Share QR Code</Text>
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', paddingTop: 64, backgroundColor: '#fff', padding: 24 },
-  heading: { fontSize: 22, fontWeight: '700', marginBottom: 8 },
-  subtext: { color: '#666', fontSize: 14, marginBottom: 36, textAlign: 'center' },
-  qrContainer: {
-    padding: 20,
-    backgroundColor: '#fff',
+  container: { 
+    flex: 1, 
+    alignItems: 'center', 
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+  },
+  backBtn: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    width: 40,
+    height: 40,
     borderRadius: 20,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    marginBottom: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
-  driverId: { color: '#444', fontSize: 13, marginBottom: 4 },
-  subaccount: { color: '#888', fontSize: 12, marginBottom: 32 },
-  warning: { color: '#FF3B30', fontSize: 13, marginBottom: 32 },
+  heading: { 
+    fontSize: 24, 
+    fontFamily: 'Poppins_700Bold', 
+    marginBottom: 8,
+    // marginTop: 20,
+  },
+  subtext: { 
+    fontSize: 14, 
+    fontFamily: 'Poppins_400Regular',
+    marginBottom: 40, 
+    textAlign: 'center' 
+  },
+  qrContainer: {
+    padding: 24,
+    borderRadius: 24,
+    // marginBottom: 40,
+    marginBottom: 'auto',
+
+  },
+  profileContainer: {
+    alignItems: 'center',    marginBottom: 'auto',
+
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: Colors.primary,
+    marginBottom: 16,
+  },
+  driverName: {
+    fontSize: 20,
+    fontFamily: 'Poppins_700Bold',
+    marginBottom: 4,
+  },
+  vehicleText: {
+    fontSize: 14,
+    fontFamily: 'Poppins_500Medium',
+    marginBottom: 4,
+  },
+  driverId: { 
+    fontSize: 12, 
+    fontFamily: 'Poppins_600SemiBold' 
+  },
   shareButton: {
-    backgroundColor: '#007AFF',
+    borderWidth: 1,
+    borderColor: Colors.border,
     paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 16,
+    borderRadius: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+    justifyContent: 'center',
   },
-  shareText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  shareText: { 
+    fontFamily: 'Poppins_600SemiBold', 
+    fontSize: 16 
+  },
 });

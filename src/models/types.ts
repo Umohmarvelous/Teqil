@@ -36,6 +36,9 @@ export interface Trip extends Syncable {
   start_time: string;
   end_time?: string;
   distance?: number;
+  distance_km?: number;
+  current_fare?: number;
+  route_path?: any;
   capacity: number;
   status: "active" | "completed";
   created_at: string;

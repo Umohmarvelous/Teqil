@@ -82,6 +82,8 @@
 import React, { useRef } from "react";
 import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
 import { HugeiconsIcon } from "@hugeicons/react-native";
+import { Colors } from "@/constants/colors";
+import { useSettingsStore } from "@/src/store/useSettingsStore";
 
 // We'll pass the icon component directly instead of name string
 interface ActionTileProps {
@@ -92,6 +94,11 @@ interface ActionTileProps {
 }
 
 export default function ActionTile({ icon: IconComponent, label, color, onPress }: ActionTileProps) {
+  const { theme } = useSettingsStore();
+
+  const isDark = theme === "dark";
+  const ActionTileIcon = isDark ? Colors.primaryDarker : Colors.overlayLight;
+
   const scale = useRef(new Animated.Value(1)).current;
 
   const animateIn = () => {
@@ -121,7 +128,9 @@ export default function ActionTile({ icon: IconComponent, label, color, onPress 
         style={styles.actionTileInner}
       >
         <View style={[styles.actionIconWrap]}>
-          <HugeiconsIcon icon={IconComponent as any} fill={color} fillOpacity={.1} size={25} color={color} />
+          <View style={{ backgroundColor: ActionTileIcon, padding: 12, borderRadius: 50, opacity:isDark ? .8 : 1  }} >
+            <HugeiconsIcon icon={IconComponent as any} fill={color} fillOpacity={.1} size={24} color={color}/>
+          </View>
           <Text style={[styles.actionLabel, { color }]}>{label}</Text>
         </View>
       </Pressable>

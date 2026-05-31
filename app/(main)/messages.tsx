@@ -2742,7 +2742,6 @@ import {
   ArrowLeft01Icon,
   Message02Icon,
   PlusSignIcon,
-  ChartBubbleIcon,
   TelegramIcon,
   Delete01Icon,
   MoreVerticalIcon,
@@ -3516,7 +3515,7 @@ export default function MessagesTab() {
   const [refreshing,      setRefreshing]      = useState(false);
 
   const isDark    = theme === 'dark';
-  const bg        = isDark ? Colors.background   : '#F0F0F0';
+  const bg        = isDark ? Colors.background : Colors.border;
   const textColor = isDark ? Colors.textWhite     : Colors.text;
   const subColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
   const cardBg    = isDark ? Colors.primaryDarker : '#FFFFFF';
@@ -3605,12 +3604,9 @@ export default function MessagesTab() {
         <View style={[S.header, { backgroundColor: cardBg, paddingTop: topPad + 12, borderBottomColor: border }]}>
           <View style={{ flex: 1 }}>
             <Text style={[S.headerTitle, { color: textColor }]}>Messages</Text>
-            <Text style={{ fontFamily: 'Poppins_400Regular', fontSize: 12, color: subColor, marginTop: 1 }}>
-              {user?.role === 'driver' ? 'Tap + to message a passenger' : 'Tap + to message a driver'}
-            </Text>
           </View>
           <Pressable style={S.newBtn} onPress={() => setNewChatVisible(true)}>
-            <HugeiconsIcon icon={PlusSignIcon} size={23} color={textColor} />
+            <HugeiconsIcon icon={PlusSignIcon} size={23} color={bg} />
           </Pressable>
         </View>
 
@@ -3650,17 +3646,24 @@ export default function MessagesTab() {
             />
           )}
           ListEmptyComponent={
-            <View style={S.empty}>
-              <HugeiconsIcon icon={ChartBubbleIcon} size={52} color={subColor} />
-              <Text style={[S.emptyTitle, { color: textColor }]}>No conversations yet</Text>
+            <View style={[S.empty]}>
+              {/* <HugeiconsIcon icon={ChartBubbleIcon} size={52} color={subColor} /> */}
+              <Text style={[S.emptyTitle, { color: textColor }]}>Opps!...No message yet.</Text>
               <Text style={[S.emptySub, { color: subColor }]}>
                 {user?.role === 'driver'
-                  ? 'Tap + to start a conversation with a passenger.'
-                  : 'Tap + to start a conversation with a driver.'}
+                  ? (<>
+                      <Text>
+                        Tap <Text style={[{ color: Colors.primary }]}> + </Text> to start a conversation.
+                      </Text>
+                    </>)
+                  :
+                    <>
+                      <Text>
+                        Tap <Text style={[{ color: Colors.primary }]}> + </Text> to start a conversation.
+                      </Text>
+                    </>
+                }
               </Text>
-              <Pressable style={[S.emptyBtn, { backgroundColor: Colors.primary }]} onPress={() => setNewChatVisible(true)}>
-                <Text style={S.emptyBtnText}>New conversation</Text>
-              </Pressable>
             </View>
           }
         />
@@ -3685,7 +3688,7 @@ const S = StyleSheet.create({
 
   header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1 },
   headerTitle: { fontFamily: 'Poppins_700Bold', fontSize: 24 },
-  newBtn:      { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  newBtn:      { width: 40, height: 40, borderRadius: 50, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background },
 
   convItem:     { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth },
   convText:     { flex: 1, gap: 2 },
@@ -3704,14 +3707,14 @@ const S = StyleSheet.create({
   badgeText: { fontFamily: 'Poppins_700Bold', fontSize: 10, color: '#fff' },
   deleteSwipe: { width: 70, alignItems: 'center', justifyContent: 'center' },
 
-  empty:        { alignItems: 'center', paddingTop: 100, paddingHorizontal: 40, gap: 12 },
-  emptyTitle:   { fontFamily: 'Poppins_600SemiBold', fontSize: 18, textAlign: 'center' },
+  empty:        { alignItems: 'center', paddingHorizontal: 40, gap: 12, margin: 'auto' },
+  emptyTitle:   { fontFamily: 'Poppins_500Medium', fontSize: 18, textAlign: 'center' },
   emptySub:     { fontFamily: 'Poppins_400Regular', fontSize: 14, textAlign: 'center', lineHeight: 22 },
   emptyBtn:     { borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12, marginTop: 8 },
   emptyBtnText: { fontFamily: 'Poppins_600SemiBold', fontSize: 14, color: '#fff' },
 
   // New Chat Modal
-  newSheet:      { position: 'absolute', bottom: 0, left: 0, right: 0, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 344, gap: 14 },
+  newSheet:      { position: 'absolute', bottom: 0, left: 0, right: 0, borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 24, paddingBottom: 344, gap: 14 },
   newTitle:      { fontFamily: 'Poppins_700Bold', fontSize: 20 },
   newSub:        { fontFamily: 'Poppins_400Regular', fontSize: 13, lineHeight: 20 },
 

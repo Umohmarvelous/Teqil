@@ -31,6 +31,7 @@ import {
   ChevronRight,
   Plus,
   Contact,
+  IdentityCardFreeIcons,
 } from "@hugeicons/core-free-icons";
 
 const SIDEBAR_WIDTH = 330;
@@ -113,16 +114,19 @@ export default function SidedBar() {
           <View style={{ flexDirection: "row", gap: 10 }}>
             <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={54} />
             <View style={{ flexDirection: "column", justifyContent: "flex-end" }}>
-              <Text style={[styles.userName, { color: textColor }]}>{user?.full_name || "Teqil User"}</Text>
-              <Text style={[styles.userRole, { color: Colors.primary }]}>
-                {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "User"}
-              </Text>
+              <Text style={[styles.userName, { color: textColor }]}>{user?.full_name || "No user"}</Text>
+              <View style={styles.roleContainer}>
+                <HugeiconsIcon icon={IdentityCardFreeIcons} size={16} color={Colors.primary} />
+                <Text style={[styles.userRole, { color: Colors.primary }]}>
+                  {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "no role"}
+                </Text>
+              </View>
             </View>
           </View>
           
           <View style={styles.drawerRightIcon}>
             <Pressable onPress={toggleMenu} style={styles.menuList}>
-              <HugeiconsIcon icon={MoreHorizontalCircleIcon} size={27} color={textColor} />
+              <HugeiconsIcon icon={MoreHorizontalCircleIcon} fill={'black'} size={27} color={textColor} />
             </Pressable>
 
             {menuOpen && (
@@ -160,7 +164,8 @@ export default function SidedBar() {
           ) : (
             <Pressable style={styles.signInContainer} onPress={() => router.push("/(auth)/login")}>
               <HugeiconsIcon icon={Alert01Icon} size={45} color={Colors.gold} />
-              <Text style={[styles.signInText, { color: textColor }]}>Sign In</Text>
+              <Text style={[styles.signInText, { color: subTextColor }]}>You are not Signed In !!</Text>
+              <Text style={[styles.signInsubText, { color: Colors.gold }]}>Sign In</Text>
             </Pressable>
           )}
         </ScrollView>
@@ -173,11 +178,16 @@ export default function SidedBar() {
 const styles = StyleSheet.create({
   drawerTop: { position: "absolute", top: 0, bottom: 0, left: 0, height: SCREEN_HEIGHT, width: SIDEBAR_WIDTH, zIndex: 2 },
   drawer: { flex: 1 },
-  drawerHeader: { paddingHorizontal: 20, paddingVertical: 50, flexDirection: "row", justifyContent: "space-between", zIndex: 10, borderBottomWidth: 1, borderBottomColor: "#000" },
+  drawerHeader: { paddingHorizontal: 20, paddingVertical: 50, flexDirection: "row", justifyContent: "space-between", zIndex: 10, borderBottomWidth: 1, borderBottomColor: "#6B6B6B3B" },
   dropdown: { position: "absolute", top: 40, right: 0, width: 260, borderRadius: 30, padding: 20, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 5, elevation: 5 },
   dropdownItem: { paddingVertical: 15, flexDirection: 'row', gap: 15, alignItems: 'center', justifyContent: 'flex-start' },
+  roleContainer: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4
+  },
   userName: { fontFamily: "Poppins_700Bold", fontSize: 19 },
-  userRole: { fontFamily: "Poppins_400Regular", fontSize: 13 },
+  userRole: { fontFamily: "Poppins_400Regular", fontSize: 13, },
   drawerRightIcon: { justifyContent: "center" },
   menuList: { padding: 5 },
   navListcontainer: { borderRadius: 30, padding: 10 },
@@ -186,7 +196,8 @@ const styles = StyleSheet.create({
   navIconBox: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   navLabel: { flex: 1, fontFamily: "Poppins_500Medium", fontSize: 14 },
   version: { textAlign: "center", padding: 30, fontSize: 11 },
-  signInContainer: { alignItems: "center", padding: 30 },
-  signInText: { fontFamily: "Poppins_600SemiBold", fontSize: 16 },
+  signInContainer: { alignItems: "center", borderWidth: 1, borderColor: Colors.gold, borderRadius: 30, marginTop: 90, marginHorizontal: 20, paddingVertical: 60, flex: 1 },
+  signInText: { fontFamily: "Poppins_600Semi", fontSize: 18, marginTop: 15, marginBottom: 15 },
+  signInsubText: { fontFamily: "Poppins_600SemiBold", fontSize: 16 },
 });
 

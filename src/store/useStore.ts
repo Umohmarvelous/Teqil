@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { User, UserRole, Trip, Passenger } from "../models/types";
+import type { User, UserRole, Trip, Passenger, LiveLocation } from "../models/types";
 
 type Language = "en" | "pid";
 
@@ -27,6 +27,11 @@ interface TripStore {
   earningsCoins: number;
   elapsedSeconds: number;
   tripDistanceKm: number;
+  currentLocation: LiveLocation | null;
+  speed: number;
+  fare: number;
+  isTracking: boolean;
+  routeCoordinates: {latitude: number, longitude: number}[];
 
   setActiveTrip: (trip: Trip | null) => void;
   setActiveTripPassengers: (passengers: Passenger[]) => void;
@@ -34,6 +39,11 @@ interface TripStore {
   incrementEarnings: (coins: number) => void;
   setElapsedSeconds: (s: number) => void;
   setTripDistanceKm: (km: number) => void;
+  setCurrentLocation: (loc: LiveLocation | null) => void;
+  setSpeed: (speed: number) => void;
+  setFare: (fare: number) => void;
+  setIsTracking: (isTracking: boolean) => void;
+  addRouteCoordinate: (coord: {latitude: number, longitude: number}) => void;
   resetTripState: () => void;
 }
 
@@ -78,6 +88,11 @@ export const useTripStore = create<TripStore>((set) => ({
   earningsCoins: 0,
   elapsedSeconds: 0,
   tripDistanceKm: 0,
+  currentLocation: null,
+  speed: 0,
+  fare: 0,
+  isTracking: false,
+  routeCoordinates: [],
 
   setActiveTrip: (trip) => set({ activeTrip: trip }),
   setActiveTripPassengers: (passengers) =>
@@ -87,6 +102,11 @@ export const useTripStore = create<TripStore>((set) => ({
     set((state) => ({ earningsCoins: state.earningsCoins + coins })),
   setElapsedSeconds: (s) => set({ elapsedSeconds: s }),
   setTripDistanceKm: (km) => set({ tripDistanceKm: km }),
+  setCurrentLocation: (loc) => set({ currentLocation: loc }),
+  setSpeed: (speed) => set({ speed }),
+  setFare: (fare) => set({ fare }),
+  setIsTracking: (isTracking) => set({ isTracking }),
+  addRouteCoordinate: (coord) => set((state) => ({ routeCoordinates: [...state.routeCoordinates, coord] })),
   resetTripState: () =>
     set({
       activeTrip: null,
@@ -94,5 +114,10 @@ export const useTripStore = create<TripStore>((set) => ({
       earningsCoins: 0,
       elapsedSeconds: 0,
       tripDistanceKm: 0,
+      currentLocation: null,
+      speed: 0,
+      fare: 0,
+      isTracking: false,
+      routeCoordinates: [],
     }),
 }));

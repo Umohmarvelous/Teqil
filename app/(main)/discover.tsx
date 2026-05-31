@@ -389,7 +389,7 @@ export default function DiscoverTab({ onCommentPress }: { onCommentPress?: (post
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
 
   const isDark = theme === "dark";
-  const bg = isDark ? Colors.background : "#FAFAFA";
+  const bg = isDark ? Colors.background : Colors.border;
 
   const viewabilityConfig = { itemVisiblePercentThreshold: 50 };
   const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
@@ -607,13 +607,13 @@ export default function DiscoverTab({ onCommentPress }: { onCommentPress?: (post
         data={feedItems}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        ListHeaderComponent={
-          <View style={styles.igHeaderTitle}>
-            <Text style={[styles.igLogo, { color: isDark ? Colors.textWhite : Colors.text }]}>
-              Teqil
-            </Text>
-          </View>
-        }
+        // ListHeaderComponent={
+        //   <View style={styles.igHeaderTitle}>
+        //     <Text style={[styles.igLogo, { color: isDark ? Colors.textWhite : Colors.text }]}>
+        //       Teqil
+        //     </Text>
+        //   </View>
+        // }
         ListFooterComponent={
           isPaginating ? (
             <View style={styles.footerLoader}>
@@ -648,9 +648,7 @@ export default function DiscoverTab({ onCommentPress }: { onCommentPress?: (post
   );
 }
 
-// ----------------------------------------------------------------------
-// Styles (updated)
-// ----------------------------------------------------------------------
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   listContent: { paddingBottom: 20 },

@@ -140,10 +140,10 @@ export default function ProfileTab() {
   const [newContactName, setNewContactName] = useState("");
   const [newContactPhone, setNewContactPhone] = useState("");
   const [parkExpanded, setParkExpanded] = useState(false)
-  const [showPersonalInfo, setShowPersonalInfo] = useState(false);
-  const [showDriverDetails, setShowDriverDetails] = useState(false);
+  const [showPersonalInfo, setShowPersonalInfo] = useState(true);
+  const [showDriverDetails, setShowDriverDetails] = useState(true);
 
-const [totalEarnedCoins, setTotalEarnedCoins] = useState(0);
+  const [totalEarnedCoins, setTotalEarnedCoins] = useState(0);
 
 
   const isDark = theme === "dark";
@@ -264,7 +264,7 @@ const [totalEarnedCoins, setTotalEarnedCoins] = useState(0);
               </View>
             </Pressable>
             <View style={{alignItems: 'flex-start', justifyContent: 'flex-start', gap: 3 }}>
-              <Text style={[styles.heroName, {color: textColor} ]}>{user?.full_name || "Teqil User"}</Text>
+              <Text style={[styles.heroName, {color: textColor} ]}>{user?.full_name || "No user"}</Text>
               <View style={styles.roleBadge}>
                 <Text style={styles.roleText}>
                   {user?.role === "driver" ? (
@@ -276,7 +276,12 @@ const [totalEarnedCoins, setTotalEarnedCoins] = useState(0);
                         </View>
                       )}
                     </View>
-                  ) : user?.role === "park_owner" ? "Park Owner" : "Passenger"}
+                  ) : user?.role === "park_owner" ? "Park Owner" : (
+                    <View style={ styles.roleContainer}>
+                      <HugeiconsIcon icon={IdentityCardFreeIcons} size={16} color={Colors.gold} />
+                        <Text style={ [{color: Colors.gold} ]}>no role</Text>
+                    </View>
+                  )}
                 </Text>
               </View>
             </View>
@@ -705,6 +710,14 @@ const styles = StyleSheet.create({
     color: Colors.gold,
     letterSpacing: 1.2,
   },
+
+  roleContainer: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4
+  },
+
+
 
   scrollContent: {
     paddingBottom: 32,

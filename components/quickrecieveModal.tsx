@@ -17,6 +17,8 @@ import { QrCodeIcon } from "@hugeicons/core-free-icons";
 // import { TripsStorage } from "@/src/services/storage";
 // import type { Trip } from "@/src/models/types";
 import { Colors } from "@/constants/colors";
+import QRReceiveScreen from "@/app/(driver)/qr-receive";
+import { useSettingsStore } from "@/src/store/useSettingsStore";
 
 
 
@@ -29,7 +31,12 @@ interface QuickReceiveModalProps {
 
 
 export default function QuickReceiveModal({ visible, onClose, driverId }: QuickReceiveModalProps) {
-   
+
+    const { theme } = useSettingsStore();
+
+  const isDark = theme === "dark";
+  const bg = isDark ? Colors.background : Colors.border;
+
    const slideY = useRef(new Animated.Value(400)).current;
    const backdropOp = useRef(new Animated.Value(0)).current;
   //  const { user } = useAuthStore();
@@ -65,12 +72,12 @@ export default function QuickReceiveModal({ visible, onClose, driverId }: QuickR
       <Animated.View style={[qr.backdrop, { opacity: backdropOp }]}>
         <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
       </Animated.View>
-      <Animated.View style={[qr.sheet, { transform: [{ translateY: slideY }] }]}>
+      <Animated.View style={[qr.sheet, { transform: [{ translateY: slideY }] }, {backgroundColor: bg}]}>
         <View style={qr.handle} />
         {/* <Text style={qr.title}>Receive Payment</Text> */}
         {/* <Text style={qr.sub}>Share your Driver ID or QR code to receive fare</Text> */}
 
-        <View style={qr.idBox}>
+        {/* <View style={qr.idBox}>
           <Text style={qr.idLabel}>Your Driver ID</Text>
           <Text style={qr.idValue}>{driverId || "—"}</Text>
         </View>
@@ -82,7 +89,8 @@ export default function QuickReceiveModal({ visible, onClose, driverId }: QuickR
 
         <Pressable style={qr.closeBtn} onPress={onClose}>
           <Text style={qr.closeBtnText}>Done</Text>
-        </Pressable>
+        </Pressable> */}
+        <QRReceiveScreen/>
       </Animated.View>
     </Modal>
   );
@@ -101,16 +109,16 @@ const qr = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 2,
-    backgroundColor: "#fff",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 24,
-    paddingBottom: 44,
+    // paddingBottom: 44,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.15,
     shadowRadius: 20,
     elevation: 24,
+  
   },
   handle: {
     width: 40,

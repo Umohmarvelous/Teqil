@@ -6,6 +6,7 @@ import {
   FlatList,
   Platform,
   RefreshControl,
+  Pressable,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,7 +16,8 @@ import { formatDateTime } from "@/src/utils/helpers";
 import type { Broadcast } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { Notification01Icon, Notification03Icon } from "@hugeicons/core-free-icons";
+import { Notification01Icon } from "@hugeicons/core-free-icons";
+import { router } from "expo-router";
 
 function MessageCard({ broadcast }: { broadcast: Broadcast }) {
   return (
@@ -62,9 +64,15 @@ export default function MessagesScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
-        <Text style={styles.headerTitle}>{t("driver.messages")}</Text>
-        <Text style={styles.headerSubtitle}>Messages from your park</Text>
+
+      <View style={[styles.header, { paddingTop: topPadding + 20 } ]}>
+        <Pressable onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={24} color={Colors.text} />
+        </Pressable>
+        <View >
+          <Text style={styles.headerTitle}>{t("driver.messages")}</Text>
+          {/* <Text style={styles.headerSubtitle}>Messages from your park</Text> */}
+        </View>
       </View>
 
       <FlatList
@@ -111,6 +119,10 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
+    gap: 22,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    // justifyContent: 'flex-start',
     paddingHorizontal: 24,
     paddingBottom: 16,
     backgroundColor: Colors.surface,
@@ -119,8 +131,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: "Poppins_700Bold",
-    fontSize: 24,
-    color: Colors.text,
+    fontSize: 26,
+    color: Colors.text, 
+
   },
   headerSubtitle: {
     fontFamily: "Poppins_400Regular",

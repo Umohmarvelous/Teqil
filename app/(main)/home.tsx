@@ -7,8 +7,6 @@ import {
   ScrollView,
   Alert,
   RefreshControl,
-  Dimensions,
-  Platform,
 } from "react-native";
 import { router } from "expo-router";
 import { useAuthStore } from "@/src/store/useStore";
@@ -27,6 +25,10 @@ import ActionTile from "@/components/ActionTile";
 import QRScannerModal from "@/components/QRScannerModal";
 import QuickReceiveModal from "@/components/quickrecieveModal";
 import { useMessagesStore } from "@/src/store/useMessagesStore";
+import LocationPromptModal from "@/components/LocationPromptModal";
+import ActiveTripBanner from "@/components/ActiveTripBanner";
+import TripListener from "@/components/TripListener";
+import { text } from "node:stream/consumers";
 
 // import SidedBar from "@/components/Sidedbar";
 
@@ -79,11 +81,15 @@ export default function HomeTab() {
 
 
   const handleQRScan = useCallback((data: string) => {
-    // QR codes from drivers contain their driver ID or trip code
-    // Format expected: "TEQIL:DRV-XXXXXX" or "TEQIL:TRIPCODE"
-    const parsed = data.replace("TEQIL:", "").trim();
-    // setDriverRef(parsed);
-    Alert.alert("QR Scanned Successfully ", ` ${parsed}`);
+    // Format expected: "TEQIL:DRV-XXXXXX bank_account:"" subaccount:"""
+    if (data.startsWith("TEQIL:DRV-")) {
+      const parsedId = data.split(" ")[0].replace("TEQIL:DRV-", "").trim();
+      setScannerVisible(false);
+      router.push(`/(passenger)/verify-driver?driver_id=${parsedId}`);
+    } else {
+      const parsed = data.replace("TEQIL:", "").trim();
+      Alert.alert("QR Scanned Successfully", ` ${parsed}`);
+    }
   }, []);
 
 
@@ -94,16 +100,16 @@ export default function HomeTab() {
     { id: "share", icon: Share01Icon , label: "Share your Trip",  color: textColor },
   ] ;
   const PASSENGERSACTIONSBUTTON = [
+    { id: "qr", icon: QrCodeIcon, label: "Scan to Start", color: textColor },
     { id: "find", icon: Search , label: "Find Trip",   color: textColor },
     { id: "history", icon: History, label: "History", color: textColor },
     { id: "sos", icon: Warning, label: "Emergency", color: textColor },
-    
   ] ;
   const DRIVERSACTIONSBUTTON = [
     { id: "add", icon: Plus, label: "New Trip", color: textColor},
     { id: "megaphone", icon: Message01Icon, label: "Messages", color: textColor},
     { id: "time", icon: History, label: "History", color: textColor},
-    { id: "scan", icon: QrCodeIcon, label: "Scan Code", color: textColor},
+    { id: "scan", icon: QrCodeIcon, label: "Generate Code", color: textColor},
   ] ;
 
 
@@ -139,12 +145,12 @@ export default function HomeTab() {
       case "megaphone":
         router.push ("/(driver)/messages");
         break;
-        case "time":
+      case "time":
         router.push ("/(driver)/history");
         break;
-        case "scan":
-        setReceiveVisible(true);
-          // router.push ("/(auth)/driver-profile");
+      case "scan":
+        // setReceiveVisible(true);
+        router.push ("/(driver)/qr-receive");
         break;
     }
   };
@@ -226,6 +232,8 @@ export default function HomeTab() {
           />
         }
       >
+        <TripListener />
+        <ActiveTripBanner />
 
         {/* Role-specific shortcuts */}
         <View style={ [styles.card, styles.shortcutRow, { backgroundColor: cardBg, borderColor }]}>
@@ -269,7 +277,7 @@ export default function HomeTab() {
               {/* <Text>is Driver</Text> */}
               <View style={styles.shortcut}>
                 {DRIVERSACTIONSBUTTON.map((action) => (
-                  <View key={action.id} >
+                  <View key={action.id}>
                     <ActionTile
                       icon={action.icon as any}
                       label={action.label}
@@ -474,6 +482,8 @@ export default function HomeTab() {
         onClose={() => setReceiveVisible(false)}
         driverId={user?.driver_id}
       />
+
+      <LocationPromptModal />
     </View>
   );
 }
@@ -494,7 +504,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between', 
     borderRadius: 30,
     paddingVertical: 18,
-    paddingBottom: 18,
+    paddingBottom: 30,
     // borderWidth: 1,
     gap: 20,
   },
