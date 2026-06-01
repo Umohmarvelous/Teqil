@@ -97,7 +97,7 @@ export default function ActionTile({ icon: IconComponent, label, color, onPress 
   const { theme } = useSettingsStore();
 
   const isDark = theme === "dark";
-  const ActionTileIcon = isDark ? Colors.primaryDarker : Colors.overlayLight;
+  const ActionTileIcon = isDark ? Colors.overlayLight : Colors.overlayLight;
 
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -128,8 +128,8 @@ export default function ActionTile({ icon: IconComponent, label, color, onPress 
         style={styles.actionTileInner}
       >
         <View style={[styles.actionIconWrap]}>
-          <View style={{ backgroundColor: ActionTileIcon, padding: 12, borderRadius: 50, opacity:isDark ? .8 : 1  }} >
-            <HugeiconsIcon icon={IconComponent as any} fill={color} fillOpacity={.1} size={24} color={color}/>
+          <View style={{ borderWidth: .5, borderColor: isDark ? Colors.textSecondary : Colors.overlay, backgroundColor: ActionTileIcon, padding: 12, borderRadius: 50, opacity: isDark ? .9 : .8 }} >
+            <HugeiconsIcon icon={IconComponent as any}  size={24} color={color}/>
           </View>
           <Text style={[styles.actionLabel, { color }]}>{label}</Text>
         </View>

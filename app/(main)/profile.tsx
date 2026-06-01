@@ -249,7 +249,7 @@ export default function ProfileTab() {
 
   return (
     <ScrollView style={[styles.root, { backgroundColor: bg }]}>
-      <StatusBar style={isDark ? 'light' : 'dark'} animated />
+      <StatusBar style={isDark ? 'light' : 'dark'}  />
       <View style={ styles.mainContainer}>
 
         {/* Hero Section */}

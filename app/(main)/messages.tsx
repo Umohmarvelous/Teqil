@@ -3601,12 +3601,12 @@ export default function MessagesTab() {
       <GestureHandlerRootView style={[S.root, { backgroundColor: bg }]}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
 
-        <View style={[S.header, { backgroundColor: cardBg, paddingTop: topPad + 12, borderBottomColor: border }]}>
+        <View style={[S.header, { backgroundColor: bg, paddingTop: topPad + 12, borderBottomColor: border }]}>
           <View style={{ flex: 1 }}>
             <Text style={[S.headerTitle, { color: textColor }]}>Messages</Text>
           </View>
           <Pressable style={S.newBtn} onPress={() => setNewChatVisible(true)}>
-            <HugeiconsIcon icon={PlusSignIcon} size={23} color={bg} />
+            <HugeiconsIcon icon={PlusSignIcon} size={23} color={'#fff'} />
           </Pressable>
         </View>
 

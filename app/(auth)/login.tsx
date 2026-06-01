@@ -40,13 +40,12 @@ import { useAuthStore } from "@/src/store/useStore";
 import { Colors } from "@/constants/colors";
 import {
   signInOfflineAware,
-  signInWithBiometrics,
   saveBiometricCredentials,
 } from "@/src/services/auth";
 import { supabase } from "@/src/services/supabase";
 import { useTranslation } from "react-i18next";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-
+import { useSettingsStore } from "@/src/store/useSettingsStore";
 
 // Required for OAuth redirect handling on web
 WebBrowser.maybeCompleteAuthSession();
@@ -140,17 +139,25 @@ function FormField({
   inputRef?: React.RefObject<TextInput | null>;
   returnKeyType?: "next" | "done" | "go";
   onSubmitEditing?: () => void;
-}) {
+  })
+{
+
+  const { theme } = useSettingsStore();
+  const isDark = theme === "dark";
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+  
   return (
     <View style={fieldStyles.wrap}>
-      <Text style={fieldStyles.label}>{label}</Text>
-      <View style={[fieldStyles.inputRow, error ? fieldStyles.inputRowError : null]}>
-        <Ionicons name={icon} size={20} color={error ? Colors.error : Colors.primaryLight} style={fieldStyles.icon} />
+      <Text style={[fieldStyles.label, { color: textColor}]}>{label}</Text>
+      <View style={[fieldStyles.inputRow, error ? fieldStyles.inputRowError : null, { backgroundColor: borderColor }, {borderColor:error ? Colors.error : borderColor}]}>
+        <Ionicons name={icon} size={20} color={subTextColor} style={fieldStyles.icon} />
         <TextInput
           ref={inputRef}
-          style={fieldStyles.input}
+          style={[fieldStyles.input, {color: textColor}]}
           placeholder={placeholder}
-          placeholderTextColor={Colors.primaryLight}
+          placeholderTextColor={subTextColor}
           value={value}
           onChangeText={onChangeText}
           onBlur={onBlur}
@@ -164,7 +171,7 @@ function FormField({
         />
         {rightElement}
       </View>
-      {error ? <Text style={fieldStyles.errorText}>{error}</Text> : null}
+      {error ? <Text style={[fieldStyles.errorText, {color: Colors.error}]}>{error}</Text> : null}
     </View>
   );
 }
@@ -174,7 +181,6 @@ const fieldStyles = StyleSheet.create({
   label: {
     fontFamily: "Poppins_500Medium",
     fontSize: 13,
-    color: Colors.primaryLight,
     marginTop: 16,
     marginBottom: 7,
     paddingLeft: 5,
@@ -182,7 +188,6 @@ const fieldStyles = StyleSheet.create({
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.overlayLight,
     borderRadius: 26,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -195,12 +200,10 @@ const fieldStyles = StyleSheet.create({
     flex: 1,
     fontFamily: "Poppins_400Regular",
     fontSize: 15,
-    color: Colors.primaryLight,
   },
   errorText: {
     fontFamily: "Poppins_400Regular",
     fontSize: 12,
-    color: Colors.error,
     marginTop: 4,
   },
 });
@@ -208,22 +211,28 @@ const fieldStyles = StyleSheet.create({
 // ─── Divider ──────────────────────────────────────────────────────────────────
 
 function OrDivider() {
+    const { theme } = useSettingsStore();
+
+
+  const isDark = theme === "dark";
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+
   return (
     <View style={divStyles.row}>
-      <View style={divStyles.line} />
-      <Text style={divStyles.text}>or continue with</Text>
-      <View style={divStyles.line} />
+      <View style={[divStyles.line, {backgroundColor: borderColor}]} />
+      <Text style={[divStyles.text, {color: subTextColor}]}>or continue with</Text>
+      <View style={[divStyles.line, {backgroundColor: borderColor}]} />
     </View>
   );
 }
 
 const divStyles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", marginVertical: 40 },
-  line: { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.2)" },
+  line: { flex: 1, height: 1 },
   text: {
     fontFamily: "Poppins_400Regular",
     fontSize: 13,
-    color: Colors.primaryLight,
     marginHorizontal: 12,
   },
 });
@@ -240,18 +249,29 @@ function OAuthButton({
   loading: boolean;
 }) {
   const isApple = provider === "apple";
+
+
+    const { theme } = useSettingsStore();
+
+
+  const isDark = theme === "dark";
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+
+
   return (
     <Pressable
-      style={[oauthStyles.btn, isApple && oauthStyles.btnApple]}
+      style={[oauthStyles.btn, {backgroundColor: borderColor, borderColor}]}
       onPress={onPress}
       disabled={loading}
     >
       <Ionicons
         name={isApple ? "logo-apple" : "logo-google"}
         size={20}
-        color={isApple ? "#fff" : "#fff"}
+        color={isDark ? "#fff" : "#000"}
       />
-      <Text style={[oauthStyles.text, isApple && oauthStyles.textApple]}>
+      
+      <Text style={[oauthStyles.text, {color: textColor}]}>
         {loading ? "Connecting..." : `${isApple ? "Apple" : "Google"}`}
       </Text>
     </Pressable>
@@ -264,28 +284,34 @@ const oauthStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    backgroundColor: Colors.overlayLight,
     borderRadius: 26,
     height: 52,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
-    flex: 1
+    flex: 1,
   },
-  btnApple: {
-    // backgroundColor: "rgba(0,0,0,0.5)",
-    // borderColor: "rgba(255,255,255,0.3)",
-  },
+
   text: {
     fontFamily: "Poppins_500Medium",
     fontSize: 15,
     color: "#fff",
   },
-  textApple: { color: "#fff" },
 });
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function LoginScreen() {
+
+  const { theme } = useSettingsStore();
+
+
+  
+  const isDark = theme === "dark";
+  const bg = isDark ? Colors.background : Colors.textWhite;
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : Colors.text;
+
+
   const insets = useSafeAreaInsets();
   const { setUser, setIsAuthenticated } = useAuthStore();
   const { t } = useTranslation();
@@ -293,23 +319,10 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(null);
-  const [biometricAvailable, setBiometricAvailable] = useState(false);
-  const [biometricLoading, setBiometricLoading] = useState(false);
+
 
   const passwordRef = useRef<TextInput>(null);
 
-  // Check biometric availability on mount
-  useEffect(() => {
-    (async () => {
-      const result = await signInWithBiometrics().catch(() => null);
-      // We just want to know if supported + enrolled, not actually authenticate
-      const { LocalAuthentication } = await import("expo-local-authentication").catch(() => ({ LocalAuthentication: null }));
-      if (!LocalAuthentication) return;
-      const supported = await LocalAuthentication.hasHardwareAsync?.().catch(() => false);
-      const enrolled = await LocalAuthentication.isEnrolledAsync?.().catch(() => false);
-      setBiometricAvailable(!!(supported && enrolled));
-    })();
-  }, []);
 
   const formOpacity = useSharedValue(0);
   const formY = useSharedValue(20);
@@ -362,33 +375,7 @@ export default function LoginScreen() {
     }
   };
 
-  // ── Biometric login ───────────────────────────────────────────────────────
 
-  const handleBiometricLogin = useCallback(async () => {
-    setBiometricLoading(true);
-    try {
-      const result = await signInWithBiometrics();
-      if (!result.supported || !result.enrolled) {
-        Alert.alert("Not Available", "Biometric authentication is not set up on this device.");
-        return;
-      }
-      if (!result.success) {
-        if (result.error === "no_credentials") {
-          Alert.alert("Not Set Up", "Sign in with your password first to enable biometric login.");
-        }
-        // If user cancelled, do nothing
-        return;
-      }
-      if (result.user) {
-        setUser(result.user);
-        setIsAuthenticated(true);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        router.replace(routeByRole(result.user.role, result.user.profile_complete) as any);
-      }
-    } finally {
-      setBiometricLoading(false);
-    }
-  }, [setUser, setIsAuthenticated]);
 
   // ── OAuth ─────────────────────────────────────────────────────────────────
 
@@ -442,13 +429,19 @@ export default function LoginScreen() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, {backgroundColor: bg}]}>
       <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
         <Pressable style={styles.backBtn} onPress={() => router.dismissTo('/(main)')}>
-          <Ionicons name="arrow-back" size={22} color={Colors.primaryLight} />
-          <Text style={styles.backText}>Back</Text>
+          <Ionicons name="chevron-back" size={22} color={textColor} />
+          {/* <Text style={[styles.backText, {color: textColor}]}>Back</Text> */}
         </Pressable>
-        {/* <View style={styles.backBtn} /> */}
+
+        <View style={styles.pageHeaderContainer}>
+          <Text style={[styles.pageTitle, {color: textColor}]}>Login</Text>
+          <Text style={[styles.pageSubtitle, {color: subTextColor}]}>Sign in to continue your journey</Text>
+        </View>
+
+        <View style={styles.backBtn} />
       </View>
 
       <KeyboardAwareScrollViewCompat
@@ -459,10 +452,7 @@ export default function LoginScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.pageHeaderContainer}>
-          <Text style={styles.pageTitle}>Login</Text>
-          <Text style={styles.pageSubtitle}>Sign in to continue your journey</Text>
-        </View>
+        
 
         <Animated.View style={formAnimStyle}>
           {/* Email */}
@@ -507,7 +497,7 @@ export default function LoginScreen() {
                     <Ionicons
                       name={showPassword ? "eye-off-outline" : "eye-outline"}
                       size={20}
-                      color={Colors.primaryLight}
+                      color={textColor}
                     />
                   </Pressable>
                 }
@@ -520,44 +510,24 @@ export default function LoginScreen() {
             onPress={() => Alert.alert("Reset Password", "Password reset coming soon.")}
             hitSlop={8}
           >
-            <Text style={styles.forgotText}>{t("auth.forgotPassword")}</Text>
+            <Text style={[styles.forgotText, {color: subTextColor}]}>{t("auth.forgotPassword")}</Text>
           </Pressable>
 
           {/* Submit */}
           <AnimatedPressable
             onPress={handleSubmit(onSubmit)}
             disabled={isLoading}
-            style={[styles.submitBtn, isLoading && styles.submitBtnLoading]}
+            style={[styles.submitBtn, isLoading && styles.submitBtnLoading, {backgroundColor: borderColor, borderColor}]}
           >
-            <Text style={styles.submitBtnText}>
+            <Text style={[styles.submitBtnText, {color: isDark ? '#fff' : '#fff'}]}>
               {isLoading
-                ? <ActivityIndicator size="small" color={Colors.primaryLight} />
+                ? <ActivityIndicator size="small" color={textColor} />
                 : t("auth.login")}
             </Text>
             {!isLoading && (
-              <Ionicons name="arrow-forward" size={18} color={Colors.primaryLight} />
+              ""
             )}
           </AnimatedPressable>
-
-          {/* Biometric login */}
-          {biometricAvailable && (
-            <Pressable
-              style={styles.biometricBtn}
-              onPress={handleBiometricLogin}
-              disabled={biometricLoading}
-            >
-              {biometricLoading ? (
-                <ActivityIndicator size="small" color={Colors.primaryLight} />
-              ) : (
-                <>
-                  <Ionicons name="finger-print" size={22} color={Colors.primaryLight} />
-                  <Text style={styles.biometricText}>
-                    {Platform.OS === "ios" ? "Sign in with Face ID / Touch ID" : "Sign in with Fingerprint"}
-                  </Text>
-                </>
-              )}
-            </Pressable>
-          )}
 
           <OrDivider />
 
@@ -578,10 +548,10 @@ export default function LoginScreen() {
           </View>
 
           {/* Switch to register */}
-          <Pressable style={styles.switchBtn} onPress={() => router.replace("/(auth)/register")}>
-            <Text style={styles.switchText}>
+          <Pressable style={[styles.switchBtn] } onPress={() => router.replace("/(auth)/register")}>
+            <Text style={[styles.switchText, {color: subTextColor}] }>
               {t("auth.noAccount")}{" "}
-              <Text style={styles.switchLink}>{t("auth.signUp")}</Text>
+              <Text style={[styles.switchLink, {color: textColor}]}>{t("auth.signUp")}</Text>
             </Text>
           </Pressable>
         </Animated.View>
@@ -591,13 +561,24 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.primary },
+  container: { flex: 1 },
   header: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    alignItems: "flex-start",
+    justifyContent: "space-around",
     paddingHorizontal: 20,
     paddingBottom: 8,
+  },
+  pageHeaderContainer: { alignItems: "center", marginBottom: 0 },
+  pageTitle: {
+    fontFamily: "Poppins_700Bold",
+    fontSize: 20,
+    marginBottom: 3,
+  },
+  pageSubtitle: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    // marginBottom: 32,
   },
   backBtn: {
     width: 40,
@@ -608,44 +589,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 5,
   },
-  backText: { color: Colors.primaryLight, fontWeight: "600", fontSize: 15 },
+  backText: { fontWeight: "600", fontSize: 15 },
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 44, paddingTop: 28 },
-  pageHeaderContainer: { alignItems: "center", marginBottom: 40 },
-  pageTitle: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 30,
-    color: Colors.primaryLight,
-    marginBottom: 6,
-  },
-  pageSubtitle: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 15,
-    color: Colors.primaryLight,
-    marginBottom: 32,
-  },
+  scrollContent: { paddingHorizontal: 44, paddingTop: 125, marginVertical:'auto' },
   forgotBtn: { alignSelf: "flex-end", marginBottom: 24, marginTop: -8 },
   forgotText: {
     fontFamily: "Poppins_500Medium",
     fontSize: 13,
-    color: Colors.primaryLight,
   },
   submitBtn: {
-    backgroundColor: Colors.overlay,
+    borderWidth: 1,
     borderRadius: 26,
     height: 56,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    elevation: 8,
-    marginTop: 10,
+    marginTop: 100,
   },
   submitBtnLoading: { opacity: 0.7 },
   submitBtnText: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 16,
-    color: Colors.primaryLight,
   },
   biometricBtn: {
     flexDirection: "row",
@@ -674,11 +638,9 @@ const styles = StyleSheet.create({
   switchText: {
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
-    color: Colors.primaryLight,
   },
   switchLink: {
     fontFamily: "Poppins_600SemiBold",
-    color: Colors.primaryDark,
   },
 });
 

@@ -118,7 +118,7 @@ function NativeAdCard({ isDark }: { isDark: boolean }) {
           <HugeiconsIcon icon={MoreVerticalCircle01Icon} size={20} color={subColor} />
         </Pressable>
       </View>
-      <View style={[styles.adImageContainer, { backgroundColor: isDark ? "#111" : "#F5F5F5" }]}>
+      <View style={[styles.adImageContainer, { backgroundColor: isDark ? "#111" : "#F5F5F5", borderWidth: 2, borderColor: 'red' }]}>
         <HugeiconsIcon icon={FlashIcon} size={48} color={Colors.primary} />
         <Text style={[styles.adImageText, { color: subColor }]}>Grow your earnings</Text>
         <Pressable style={styles.adCtaButton} onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}>
@@ -607,13 +607,7 @@ export default function DiscoverTab({ onCommentPress }: { onCommentPress?: (post
         data={feedItems}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        // ListHeaderComponent={
-        //   <View style={styles.igHeaderTitle}>
-        //     <Text style={[styles.igLogo, { color: isDark ? Colors.textWhite : Colors.text }]}>
-        //       Teqil
-        //     </Text>
-        //   </View>
-        // }
+
         ListFooterComponent={
           isPaginating ? (
             <View style={styles.footerLoader}>

@@ -33,7 +33,7 @@ export const Shimmer = ({ width, height, borderRadius = 8, style, isDark = false
     transform: [{ translateX: translateX.value }],
   }));
 
-  const baseColor = isDark ? Colors.primaryDarker : '#E1E9EE';
+  const baseColor = isDark ? Colors.primaryDarker : '#ffffff';
   const shimmerColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)';
 
   return (

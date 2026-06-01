@@ -72,7 +72,10 @@ export default function HomeTab() {
   const bg = isDark ? Colors.background : Colors.border;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const cardBg = isDark ? Colors.overlayLight : "#FFFFFF";
+  // const cardBg = isDark ? Colors.overlayLight : "#FFFFFF";
+  // const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+
+  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
   const [quickTransferVisible, setQuickTransferVisible] = useState(false);
@@ -95,7 +98,7 @@ export default function HomeTab() {
 
   // Define actions
   const MINIACTIONS = [
-    { id: "pay", icon: Wallet01Icon , label: "Pay Now", color: textColor },
+    { id: "pay", icon: Wallet01Icon , label: "Pay Now", color: textColor, },
     { id: "qr", icon: QrCodeIcon , label: "Scan Code",      color: textColor },
     { id: "share", icon: Share01Icon , label: "Share your Trip",  color: textColor },
   ] ;
@@ -505,7 +508,7 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     paddingVertical: 18,
     paddingBottom: 30,
-    // borderWidth: 1,
+    borderWidth: 1,
     gap: 20,
   },
   sectionTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, marginTop: 10, marginBottom: 0 },

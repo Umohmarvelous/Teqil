@@ -126,7 +126,7 @@ export default function SidedBar() {
           
           <View style={styles.drawerRightIcon}>
             <Pressable onPress={toggleMenu} style={styles.menuList}>
-              <HugeiconsIcon icon={MoreHorizontalCircleIcon} fill={'black'} size={27} color={textColor} />
+              <HugeiconsIcon icon={MoreHorizontalCircleIcon} fill={textColor} size={27} color={textColor} />
             </Pressable>
 
             {menuOpen && (
