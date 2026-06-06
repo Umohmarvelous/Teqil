@@ -521,7 +521,7 @@ export default function LoginScreen() {
           >
             <Text style={[styles.submitBtnText, {color: isDark ? '#fff' : '#fff'}]}>
               {isLoading
-                ? <ActivityIndicator size="small" color={textColor} />
+                ? <ActivityIndicator size="small" color={subTextColor} />
                 : t("auth.login")}
             </Text>
             {!isLoading && (

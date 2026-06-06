@@ -33,11 +33,15 @@ import {
   MessageIcon,
   Message01Icon,
   Menu02Icon,
+  SearchIcon,
 } from "@hugeicons/core-free-icons";
 import BottomSheet from "@gorhom/bottom-sheet";
 import { CommentSheet } from "@/components/CommentSheet";
 import MainTab from "./index";
 import SidedBar from "@/components/Sidedbar";
+import FindDriverModal from "@/components/FindDriverModal";
+
+// import { router } from "expo-router";
 
 type Tab = "home" | "profile" | "messages" | "settings";
 type TopTab = "home" | "discover";
@@ -55,6 +59,7 @@ export default function MainLayout() {
 
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [activeTopTab, setActiveTopTab] = useState<TopTab>("home");
+  const [finderVisible, setFinderVisible] = useState(false);
 
   // ── Sidebar state ────────────────────────────────────────────
   const sidebarOpen = useRef(false);
@@ -194,6 +199,11 @@ export default function MainLayout() {
     setActiveTab(tab);
   };
 
+  const toggleSearch = () => {
+    // router.navigate("/(passenger)/find-driver")
+    setFinderVisible(true)
+  };
+
   const renderMainContent = () => {
     if (activeTab !== "home") {
       switch (activeTab) {
@@ -272,22 +282,23 @@ export default function MainLayout() {
                 <HugeiconsIcon icon={Menu02Icon} size={22} color={textColor} />
               </Pressable>
               <Pressable style={styles.logoBtn}>
-              <Image
-                source={
-                  isDark
-                    ? require("@/assets/images/Logo_with_transparent_background.png") // Ensure this is the white version
-                    : require("@/assets/images/Black_logo_with_white_background.png") // Ensure this is the black version
-                }
-                style={styles.photoImg}
-                resizeMode="contain" // Changed to contain to avoid cropping
-                width={120}
-              />
+                <Image
+                  source={
+                    isDark
+                      ? require("@/assets/images/Logo_with_transparent_background.png") 
+                      : require("@/assets/images/Black_logo_with_white_background.png") 
+                  }
+                  style={styles.photoImg}
+                  resizeMode="contain" // Changed to contain to avoid cropping
+                  width={120}
+                />
               </Pressable>
-              <Pressable onPress={() => handleTabPress("profile")}>
-                <Avatar name={user?.full_name || "U"} photoUri={user?.profile_photo} size={38} />
+              <Pressable onPress={toggleSearch} style={[styles.menuList, {backgroundColor: Colors.border, borderColor}]}>
+                <HugeiconsIcon icon={SearchIcon} size={23} color={textColor} />
               </Pressable>
+
             </View>
-          )}
+          )} 
 
           {/* Top Tab Bar (Home/For You) */}
           {activeTab === "home" && (
@@ -426,6 +437,12 @@ export default function MainLayout() {
         onClose={() => setCommentSheetPost(null)}
         onAddComment={handleAddComment}
       />
+
+      <FindDriverModal
+        visible={finderVisible}
+        onClose={() => setFinderVisible(false)}
+        // onClose={handleFindDriverClose}
+      />
     </View>
   );
 }
@@ -465,13 +482,22 @@ const styles = StyleSheet.create({
   },
   content: { flex: 1 },
   header: {
-    gap: 10,
-    paddingHorizontal: 37,
+    // gap: 10,
+    paddingHorizontal: 20,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  photoImg: { width: 50, height: 50, alignSelf: "center" },
+  menuList: {
+    // backgroundColor: '#E5E7EB',
+    borderRadius: 30,
+    padding: 9, 
+    flexDirection: 'column', 
+    alignItems: 'center', 
+    gap: 10,
+    borderWidth: 1
+   },
+
   menuBtn: {
     width: 38,
     height: 38,
@@ -485,13 +511,15 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     justifyContent: "center",
     alignItems: "center",
+    flex: 1
   },
+  photoImg: { width: 50, height: 50, alignSelf: "center" },
   topTabBar: {
     flexDirection: "column",
     paddingBottom: 0,
     borderBottomWidth: 0.5,
     position: "relative",
-    paddingTop: 20,
+    paddingTop: 5,
   },
   topTabItemContainer: { flexDirection: "row" },
   topTabItem: {

@@ -15,6 +15,7 @@ export interface User {
   points_balance: number;
   avg_rating?: number;
   profile_complete?: boolean;
+  push_token?: string;
   created_at: string;
 }
 

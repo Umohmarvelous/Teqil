@@ -4,18 +4,12 @@
 import React, { useEffect, useRef } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   Pressable,
   Modal,
   Animated,
 } from "react-native";
 import { FB } from "@/constants/fbPalette";
-import { HugeiconsIcon } from "@hugeicons/react-native";
-import { QrCodeIcon } from "@hugeicons/core-free-icons";
-// import { useAuthStore } from "@/src/store/useStore";
-// import { TripsStorage } from "@/src/services/storage";
-// import type { Trip } from "@/src/models/types";
 import { Colors } from "@/constants/colors";
 import QRReceiveScreen from "@/app/(driver)/qr-receive";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
@@ -32,24 +26,13 @@ interface QuickReceiveModalProps {
 
 export default function QuickReceiveModal({ visible, onClose, driverId }: QuickReceiveModalProps) {
 
-    const { theme } = useSettingsStore();
+  const { theme } = useSettingsStore();
 
   const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.border;
 
    const slideY = useRef(new Animated.Value(400)).current;
    const backdropOp = useRef(new Animated.Value(0)).current;
-  //  const { user } = useAuthStore();
-   //   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
-   //   const completedTrips = recentTrips.filter((t) => t.status === "completed").length;
-   
-  //  useEffect(() => {
-  //     if (!user?.id) return;
-  //     TripsStorage.getByDriverId(user.id).then((trips) =>
-  //        setRecentTrips(trips.slice(-5).reverse())
-  //     );
-  //  }, [user?.id]);
-
 
   useEffect(() => {
     if (visible) {
@@ -74,22 +57,7 @@ export default function QuickReceiveModal({ visible, onClose, driverId }: QuickR
       </Animated.View>
       <Animated.View style={[qr.sheet, { transform: [{ translateY: slideY }] }, {backgroundColor: bg}]}>
         <View style={qr.handle} />
-        {/* <Text style={qr.title}>Receive Payment</Text> */}
-        {/* <Text style={qr.sub}>Share your Driver ID or QR code to receive fare</Text> */}
 
-        {/* <View style={qr.idBox}>
-          <Text style={qr.idLabel}>Your Driver ID</Text>
-          <Text style={qr.idValue}>{driverId || "—"}</Text>
-        </View>
-
-        <View style={qr.qrPlaceholder}>
-          <HugeiconsIcon icon={ QrCodeIcon} size={130} color={Colors.primary} />
-          <Text style={qr.qrHint}>QR Code (tap to share)</Text>
-        </View>
-
-        <Pressable style={qr.closeBtn} onPress={onClose}>
-          <Text style={qr.closeBtnText}>Done</Text>
-        </Pressable> */}
         <QRReceiveScreen/>
       </Animated.View>
     </Modal>

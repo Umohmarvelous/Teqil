@@ -8,6 +8,7 @@ import {
   Alert,
   Dimensions,
   Animated,
+  Image,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -32,6 +33,8 @@ import {
   Plus,
   Contact,
   IdentityCardFreeIcons,
+  SearchList01Icon,
+  SearchIcon,
 } from "@hugeicons/core-free-icons";
 
 const SIDEBAR_WIDTH = 330;
@@ -61,6 +64,10 @@ export default function SidedBar() {
       duration: 200,
       useNativeDriver: true,
     }).start(() => setMenuOpen(!menuOpen));
+  };
+
+  const toggleSearch = () => {
+    router.navigate("/(passenger)/find-driver")
   };
 
   const handleLogout = () => {
@@ -106,14 +113,56 @@ export default function SidedBar() {
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
   const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
   const bg = isDark ? Colors.background : Colors.border;
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+
 
   return (
-    <View style={[styles.drawerTop, { backgroundColor: bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.drawerTop, styles.containerTop, { backgroundColor: bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.drawer}>
-        <View style={[styles.drawerHeader, { backgroundColor: bg }]}>
+        
+        {/* <View style={{marginHorizontal: 12, width: 290, height: 0, borderWidth: .4, borderColor: subTextColor}} /> */}
+        <View>
+          <Image
+            source={
+              isDark
+                ? require("@/assets/images/Logo_with_transparent_background.png") // Ensure this is the white version
+                : require("@/assets/images/Black_logo_with_white_background.png") // Ensure this is the black version
+            }
+            style={styles.photoImg}
+            resizeMode="cover" // Changed to contain to avoid cropping
+            width={120}
+          />
+        </View>
+
+        <ScrollView style={{ flex: 1 }}>
+            {isAuthenticated ? (
+              <View style={[styles.navList, styles.navListcontainer]}>
+                {filteredNavItems.map((item) => (
+                  <Pressable key={item.id} style={styles.navItem} onPress={() => { Haptics.impactAsync(); item.onPress(); }}>
+                    <View style={styles.navIconBox}>
+                      <HugeiconsIcon icon={item.icon as any} size={18} color={item.danger ? "#EF4444" : textColor} />
+                    </View>
+                    <Text style={[styles.navLabel, { color: item.danger ? "#EF4444" : textColor }]}>{item.label}</Text>
+                    {!item.danger && <HugeiconsIcon icon={ChevronRight} size={14} color={subTextColor} />}
+                  </Pressable>
+                ))}
+              </View>
+            ) : (
+              <Pressable style={[styles.signInContainer, {backgroundColor: cardBg, borderColor }]} onPress={() => router.push("/(auth)/login")}>
+                <HugeiconsIcon icon={Alert01Icon} size={45} color={Colors.gold} />
+                <Text style={[styles.signInText, { color: subTextColor }]}>You are not Signed In !!</Text>
+                <Text style={[styles.signInsubText, { color: Colors.gold }]}>Sign In</Text>
+              </Pressable>
+            )}
+        </ScrollView>
+      </View>
+
+      {/* <Text style={[styles.version, { color: subTextColor }]}>Teqil v1.0.0</Text> */}
+
+      <View style={[styles.drawerHeader, { backgroundColor: bg }]}>
           <View style={{ flexDirection: "row", gap: 10 }}>
             <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={54} />
-            <View style={{ flexDirection: "column", justifyContent: "flex-end" }}>
+            <View style={{ flexDirection: "column", justifyContent: "flex-start" }}>
               <Text style={[styles.userName, { color: textColor }]}>{user?.full_name || "No user"}</Text>
               <View style={styles.roleContainer}>
                 <HugeiconsIcon icon={IdentityCardFreeIcons} size={16} color={Colors.primary} />
@@ -126,16 +175,22 @@ export default function SidedBar() {
           
           <View style={styles.drawerRightIcon}>
             <Pressable onPress={toggleMenu} style={styles.menuList}>
-              <HugeiconsIcon icon={MoreHorizontalCircleIcon} fill={textColor} size={27} color={textColor} />
+              <HugeiconsIcon icon={MoreHorizontalCircleIcon} fill={textColor} size={25} color={textColor} />
             </Pressable>
-
+            
+            <Pressable onPress={toggleSearch} style={[styles.searchList, { backgroundColor: Colors.border, borderColor }]}>
+                  
+              <HugeiconsIcon icon={SearchIcon} size={23} color={textColor} />
+            </Pressable>
+            
             {menuOpen && (
               <Animated.View style={[styles.dropdown, { opacity: menuAnim, backgroundColor: cardBg}]}>
                 <Pressable style={styles.dropdownItem} onPress={() => { toggleMenu(); router.push("/(auth)/register"); }}>
                   <HugeiconsIcon icon={Plus} size={25} color={textColor} />
 
                   <Text style={[{fontSize: 15, fontWeight:'500'}, { color: textColor }]}>Create New Account</Text>
-                </Pressable>
+              </Pressable>
+              <View style= {{height: .2, width: 'auto', borderColor: Colors.overlay, borderWidth: .3, marginVertical: 10}} />
                 <Pressable style={styles.dropdownItem} onPress={() => { toggleMenu(); router.push("/(auth)/login"); }}>
                   <HugeiconsIcon icon={Contact} size={24} color={textColor} />
 
@@ -144,43 +199,23 @@ export default function SidedBar() {
               </Animated.View>
             )}
           </View>
-        </View>
-
-        {/* <View style={{marginHorizontal: 12, width: 290, height: 0, borderWidth: .4, borderColor: subTextColor}} /> */}
-
-        <ScrollView style={{ flex: 1 }}>
-          {isAuthenticated ? (
-            <View style={[styles.navList, styles.navListcontainer]}>
-              {filteredNavItems.map((item) => (
-                <Pressable key={item.id} style={styles.navItem} onPress={() => { Haptics.impactAsync(); item.onPress(); }}>
-                  <View style={styles.navIconBox}>
-                    <HugeiconsIcon icon={item.icon as any} size={18} color={item.danger ? "#EF4444" : textColor} />
-                  </View>
-                  <Text style={[styles.navLabel, { color: item.danger ? "#EF4444" : textColor }]}>{item.label}</Text>
-                  {!item.danger && <HugeiconsIcon icon={ChevronRight} size={14} color={subTextColor} />}
-                </Pressable>
-              ))}
-            </View>
-          ) : (
-            <Pressable style={styles.signInContainer} onPress={() => router.push("/(auth)/login")}>
-              <HugeiconsIcon icon={Alert01Icon} size={45} color={Colors.gold} />
-              <Text style={[styles.signInText, { color: subTextColor }]}>You are not Signed In !!</Text>
-              <Text style={[styles.signInsubText, { color: Colors.gold }]}>Sign In</Text>
-            </Pressable>
-          )}
-        </ScrollView>
       </View>
-      <Text style={[styles.version, { color: subTextColor }]}>Teqil v1.0.0</Text>
+                <Text style={[styles.version, { color: subTextColor }]}>Teqil v1.0.0</Text>
+        
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  drawerTop: { position: "absolute", top: 0, bottom: 0, left: 0, height: SCREEN_HEIGHT, width: SIDEBAR_WIDTH, zIndex: 2 },
-  drawer: { flex: 1 },
-  drawerHeader: { paddingHorizontal: 20, paddingVertical: 50, flexDirection: "row", justifyContent: "space-between", zIndex: 10, borderBottomWidth: 1, borderBottomColor: "#6B6B6B3B" },
-  dropdown: { position: "absolute", top: 40, right: 0, width: 260, borderRadius: 30, padding: 20, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 5, elevation: 5 },
-  dropdownItem: { paddingVertical: 15, flexDirection: 'row', gap: 15, alignItems: 'center', justifyContent: 'flex-start' },
+
+  drawerTop: { position: "absolute", top: 0, bottom: 0, left: 0, height: SCREEN_HEIGHT, width: SIDEBAR_WIDTH, zIndex: 2, },
+  containerTop: { flex: 1, flexDirection: 'column', justifyContent: 'space-between' },
+  drawer: { flex: 1 , flexDirection: 'column' },
+  drawerHeader: { paddingHorizontal: 20, paddingVertical: 30, paddingBottom: 20, flexDirection: "row", justifyContent: "space-between", zIndex: 10, borderTopWidth: 1, borderTopColor: "#6B6B6B3B" },
+  dropdown: { position: "absolute", bottom: 65, right: 0, width: 260, borderRadius: 30, padding: 20, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 5, elevation: 5 },
+  dropdownItem: {
+    paddingVertical: 15, flexDirection: 'row', gap: 15, alignItems: 'center', justifyContent: 'flex-start'
+  },
   roleContainer: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -189,15 +224,35 @@ const styles = StyleSheet.create({
   userName: { fontFamily: "Poppins_700Bold", fontSize: 19 },
   userRole: { fontFamily: "Poppins_400Regular", fontSize: 13, },
   drawerRightIcon: { justifyContent: "center" },
-  menuList: { padding: 5 },
-  navListcontainer: { borderRadius: 30, padding: 10 },
-  navList: { paddingHorizontal: 10 },
+  menuList: { padding: 5, flexDirection: 'column', alignItems: 'center', gap: 10 },
+  searchList: {
+    borderRadius: 30,
+    padding: 9, 
+    alignItems: 'center', 
+    justifyContent:'center',
+    gap: 10,
+    borderWidth: 1
+  },
+  logoBtn: {
+    width: 25,
+    height: 25,
+  },
+  photoImg: { width: 50, height: 50, alignSelf: "center", marginTop: 20 },
+  navListcontainer: { borderRadius: 30, padding: 10, },
+  navList: { paddingHorizontal: 10, marginVertical: 20, },
   navItem: { flexDirection: "row", alignItems: "center", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 12, gap: 12, marginRight: 20 },
   navIconBox: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   navLabel: { flex: 1, fontFamily: "Poppins_500Medium", fontSize: 14 },
-  version: { textAlign: "center", padding: 30, fontSize: 11 },
-  signInContainer: { alignItems: "center", borderWidth: 1, borderColor: Colors.gold, borderRadius: 30, marginTop: 90, marginHorizontal: 20, paddingVertical: 60, flex: 1 },
-  signInText: { fontFamily: "Poppins_600Semi", fontSize: 18, marginTop: 15, marginBottom: 15 },
+  signInContainer: {
+    alignItems: "center", 
+    // borderRadius: 30, 
+    marginTop: 100, 
+    marginHorizontal: 10, 
+    paddingVertical: 60, 
+    borderWidth: 1, 
+  },
+  signInText: { fontFamily: "Poppins_600Semi", fontSize: 18, marginVertical: 15 },
   signInsubText: { fontFamily: "Poppins_600SemiBold", fontSize: 16 },
+  version: { textAlign: "center", padding: 30, paddingVertical: 12, fontSize: 11 },
 });
 

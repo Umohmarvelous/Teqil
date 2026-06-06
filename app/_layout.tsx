@@ -23,6 +23,8 @@ import { syncAll, startConnectivityListener, SyncUser } from "@/src/services/syn
 import i18n from "@/src/i18n";
 import { StatusBar } from "expo-status-bar";
 import * as Notifications from "expo-notifications";
+import { syncUserToPublicTable } from "@/src/services/auth";
+import { registerForPushNotifications } from "@/src/services/notifications";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -106,15 +108,23 @@ export default function RootLayout() {
     if (language) i18n.changeLanguage(language);
   }, [language]);
 
-  // Request notification permissions on startup
+  // Request notification permissions and register push token
   useEffect(() => {
     (async () => {
-      const { status } = await Notifications.getPermissionsAsync();
-      if (status !== "granted") {
-        await Notifications.requestPermissionsAsync();
+      if (!user) return; // Wait until authenticated
+
+      try {
+        const token = await registerForPushNotifications();
+        if (token && token !== user.push_token) {
+          const updatedUser = { ...user, push_token: token };
+          setUser(updatedUser);
+          await syncUserToPublicTable(updatedUser);
+        }
+      } catch (e) {
+        console.warn("[Layout] Failed to register push token:", e);
       }
     })();
-  }, []);
+  }, [user]);
 
   // Supabase auth state
   useEffect(() => {
@@ -183,3 +193,5 @@ export default function RootLayout() {
     </ErrorBoundary>
   );
 }
+
+

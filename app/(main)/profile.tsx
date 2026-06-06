@@ -568,7 +568,7 @@ export default function ProfileTab() {
                 ))}
                 <View style={styles.addContactRow}>
                   <TextInput
-                    style={[styles.addInput, { backgroundColor: isDark ? "#0D1117" : "#F4F6FA", color: textColor, borderColor }]}
+                    style={[styles.addInput, { backgroundColor: isDark ? "#0D1117" : "#F6F6F6", color: textColor, borderColor }]}
                     placeholder="Name"
                     placeholderTextColor={subTextColor}
                     value={newContactName}

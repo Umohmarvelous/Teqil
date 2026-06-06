@@ -26,7 +26,7 @@ export const Colors = {
   textInverse: "#FFFFFF",
 
   // border: "#E5E7EB",
-  border: "#E6E6E6",
+  border: "#F5F5F5",
   borderLight: "#FFFFFF",
 
   success: "#00A651",
@@ -34,10 +34,11 @@ export const Colors = {
   error: "firebrick",
   info: "#3B82F6",
 
-  overlay: "rgba(0, 0, 0, 0.5)",
-  overlayLight: "#00000026",
+  overlay: "rgba(0, 0, 0, 0.3)",
+  // overlayLight: "#00000026",
+  overlayLight: "#B9B8B826",
 
-  overlayColored: "rgb(14 1 12)",
+  overlayColored: "#202020",
 
 
   tabBar: "#FFFFFF",
