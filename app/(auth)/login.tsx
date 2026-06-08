@@ -1,3 +1,4 @@
+
 /**
  * app/(auth)/login.tsx
  *
@@ -18,6 +19,7 @@ import {
   Alert,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -44,7 +46,6 @@ import {
 } from "@/src/services/auth";
 import { supabase } from "@/src/services/supabase";
 import { useTranslation } from "react-i18next";
-import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 
 // Required for OAuth redirect handling on web
@@ -330,7 +331,7 @@ export default function LoginScreen() {
   useEffect(() => {
     formOpacity.value = withDelay(150, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
     formY.value = withDelay(150, withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) }));
-  }, []);
+  }, [formOpacity, formY]);
 
   const formAnimStyle = useAnimatedStyle(() => ({
     opacity: formOpacity.value,
@@ -444,13 +445,14 @@ export default function LoginScreen() {
         <View style={styles.backBtn} />
       </View>
 
-      <KeyboardAwareScrollViewCompat
+      <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: Math.max(insets.bottom, 24) + (Platform.OS === "web" ? 34 : 0) },
         ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         
 
@@ -555,7 +557,7 @@ export default function LoginScreen() {
             </Text>
           </Pressable>
         </Animated.View>
-      </KeyboardAwareScrollViewCompat>
+      </ScrollView>
     </View>
   );
 }
@@ -643,4 +645,3 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_600SemiBold",
   },
 });
-

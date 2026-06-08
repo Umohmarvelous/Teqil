@@ -170,6 +170,7 @@ export default function MainLayout() {
   // ── Theme & Bottom Sheets ──────────────────────────────────────
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
+  const bg = isDark ? Colors.background : Colors.border;
   const tabBarBg = isDark ? Colors.background : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
@@ -293,8 +294,8 @@ export default function MainLayout() {
                   width={120}
                 />
               </Pressable>
-              <Pressable onPress={toggleSearch} style={[styles.menuList, {backgroundColor: Colors.border, borderColor}]}>
-                <HugeiconsIcon icon={SearchIcon} size={23} color={textColor} />
+              <Pressable onPress={toggleSearch} style={[styles.menuList, {backgroundColor: isDark ? Colors.overlayLight : Colors.border, borderColor}]}>
+                <HugeiconsIcon icon={SearchIcon} size={20} color={textColor} />
               </Pressable>
 
             </View>

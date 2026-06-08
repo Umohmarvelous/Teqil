@@ -29,11 +29,12 @@ export default function FindDriverModal({
   
   const isDark                               = theme === "dark";
 
-  const bg        = isDark ? Colors.background   : Colors.border;
-  const cardBg    = isDark ? Colors.surface      : "#FFFFFF";
-  const textColor = isDark ? Colors.textWhite    : Colors.text;
-  const subColor  = isDark ? Colors.textSecondary: Colors.textTertiary;
-  const inputBg   = isDark ? Colors.surface      : "#FFFFFF";
+  const bg = isDark ? Colors.background : Colors.border;
+  const cardBg   = isDark ? Colors.surface    : "#FFFFFF";
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+
 
 
    const slideAnim = useRef(new Animated.Value(500)).current;
@@ -73,14 +74,9 @@ export default function FindDriverModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]); // slideAnim/backdropAnim are stable refs
 
-
-
   const handleClose = useCallback(() => {
     onClose();
   }, [onClose]);
-
-
-
 
   return (
     <Modal
@@ -107,11 +103,11 @@ export default function FindDriverModal({
           rStyles.sheet,
           Platform.OS === "android" && rStyles.sheetAndroid,
           { transform: [{ translateY: slideAnim }] },
-          {backgroundColor: cardBg}
+          {backgroundColor: bg}
         ]}
       >
         {/* Handle */}
-        <View style={rStyles.handle} />
+        <View style={[rStyles.handle, {backgroundColor: textColor}]} />
 
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -142,12 +138,12 @@ const rStyles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 2,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingTop: 12,
-    paddingHorizontal: 24,
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
+    paddingTop: 16,
+    paddingHorizontal: 0,
     paddingBottom: Platform.OS === "ios" ? 44 : 28,
-    maxHeight: "90%",
+    maxHeight: "100%",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.5,
@@ -158,12 +154,11 @@ const rStyles = StyleSheet.create({
     paddingBottom: 32,
   },
   handle: {
-    width: 40,
-    height: 4,
+    width: 60,
+    height: 5,
     borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.22)",
     alignSelf: "center",
-    marginBottom: 20,
+    marginBottom: 10,
   },
   scrollContent: {
     paddingBottom: 8,

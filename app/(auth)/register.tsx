@@ -1,3 +1,4 @@
+
 /**
  * app/(auth)/register.tsx
  *
@@ -22,6 +23,8 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
+  ScrollView,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useForm, Controller } from "react-hook-form";
@@ -32,7 +35,6 @@ import * as WebBrowser from "expo-web-browser";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-// import { LinearGradient } from "expo-linear-gradient";
 
 import { Colors } from "@/constants/colors";
 import { useAuthStore } from "@/src/store/useStore";
@@ -44,7 +46,6 @@ import {
   generateInitialsAvatar,
 } from "@/src/utils/helpers";
 import { supabase } from "@/src/services/supabase";
-import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import type { UserRole } from "@/src/models/types";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -141,9 +142,7 @@ const roleStyles = StyleSheet.create({
     borderRadius: 20,
     paddingVertical: 24,
     paddingHorizontal: 13,
-    
     gap: 6,
-    // borderWidth: 0.5,
     borderColor: Colors.textWhite,
     shadowColor: Colors.text,
     shadowOffset: { width: 0, height: 4 },
@@ -165,17 +164,6 @@ const roleStyles = StyleSheet.create({
     color: Colors.primaryLight,
     textAlign: 'center'
  },
-  cardDesc: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 10,
-    color: Colors.primaryLight,
-    textAlign: "center",
-    lineHeight: 14,
-  },
-  cardDescActive: {
-    color: Colors.primaryLight
-    
-   },
 });
 
 // ─── Password suggestion modal ────────────────────────────────────────────────
@@ -379,16 +367,12 @@ const oauthStyles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.2)",
     flex: 1
   },
-  btnApple: {
-    // backgroundColor: "rgba(0,0,0,0.5)",
-    // borderColor: "rgba(255,255,255,0.3)",
-  },
+  btnApple: {},
   text: {
     fontFamily: "Poppins_500Medium",
     fontSize: 15,
     color: "#fff",
   },
-  textApple: { color: "#fff" },
 });
 
 // ─── Field wrapper + input ────────────────────────────────────────────────────
@@ -514,7 +498,7 @@ export default function RegisterScreen() {
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 480, useNativeDriver: true }).start();
-  }, []);
+  }, [fadeAnim]);
 
   const {
     control,
@@ -535,10 +519,11 @@ export default function RegisterScreen() {
 
   const handlePressIn = useCallback(() => {
     Animated.spring(buttonScale, { toValue: 0.95, useNativeDriver: true }).start();
-  }, []);
+  }, [buttonScale]);
+  
   const handlePressOut = useCallback(() => {
     Animated.spring(buttonScale, { toValue: 1, useNativeDriver: true }).start();
-  }, []);
+  }, [buttonScale]);
 
   const handlePasswordFocus = useCallback(() => {
     const suggestion = generateStrongPassword();
@@ -684,19 +669,17 @@ export default function RegisterScreen() {
     [role, router]
   );
 
-  // const goBack = () => router.push('/(auth)/login');
   const goToLogin = () => router.replace("/(auth)/login");
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        {/* <TouchableOpacity onPress={goBack} style={styles.backBtn} hitSlop={{ top: 100, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="arrow-back" size={22} color={Colors.primaryLight} />
-          <Text style={styles.backText}>Back to Login</Text>
-        </TouchableOpacity> */}
-      </View>
+    <KeyboardAvoidingView 
+      style={[styles.root, { paddingTop: insets.top }]}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0} // Adjust this number
+    >
+      <View style={styles.header} />
 
-      <KeyboardAwareScrollViewCompat
+      <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -882,7 +865,7 @@ export default function RegisterScreen() {
             </TouchableOpacity>
           </View>
         </Animated.View>
-      </KeyboardAwareScrollViewCompat>
+      </ScrollView>
 
       {/* Password suggestion modal */}
       <PasswordSuggestionModal
@@ -891,7 +874,7 @@ export default function RegisterScreen() {
         onAccept={handleAcceptPassword}
         onDismiss={() => setPwModalVisible(false)}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

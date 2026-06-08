@@ -33,9 +33,9 @@ import {
   Plus,
   Contact,
   IdentityCardFreeIcons,
-  SearchList01Icon,
   SearchIcon,
 } from "@hugeicons/core-free-icons";
+import FindDriverModal from "./FindDriverModal";
 
 const SIDEBAR_WIDTH = 330;
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -57,6 +57,9 @@ export default function SidedBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuAnim = useRef(new Animated.Value(0)).current;
 
+  const [finderVisible, setFinderVisible] = useState(false);
+
+
   const toggleMenu = () => {
     const toValue = menuOpen ? 0 : 2;
     Animated.timing(menuAnim, {
@@ -67,7 +70,7 @@ export default function SidedBar() {
   };
 
   const toggleSearch = () => {
-    router.navigate("/(passenger)/find-driver")
+    setFinderVisible(true)
   };
 
   const handleLogout = () => {
@@ -200,8 +203,13 @@ export default function SidedBar() {
             )}
           </View>
       </View>
-                <Text style={[styles.version, { color: subTextColor }]}>Teqil v1.0.0</Text>
-        
+      <Text style={[styles.version, { color: subTextColor }]}>Teqil v1.0.0</Text>
+
+      <FindDriverModal
+        visible={finderVisible}
+        onClose={() => setFinderVisible(false)}
+        // onClose={handleFindDriverClose}
+      />
     </View>
   );
 }

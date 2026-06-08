@@ -29,6 +29,9 @@ import { useMessagesStore } from "@/src/store/useMessagesStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { Colors } from "@/constants/colors";
 import { getInitials } from "@/src/utils/helpers";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import { Rocket } from "@hugeicons/core-free-icons";
+import { text } from "node:stream/consumers";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -109,13 +112,15 @@ function DriverCard({
   onMessage: (d: DriverResult) => void;
   isSelf:    boolean;
   isDark:    boolean;
-}) {
-  const cardBg   = isDark ? Colors.surface    : "#FFFFFF";
+  }) {
+  const bg = isDark ? Colors.background : Colors.border;
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
   const textColor = isDark ? Colors.textWhite : Colors.text;
-  const subColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const subColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+
 
   return (
-    <View style={[cardStyles.card, { backgroundColor: cardBg }]}>
+    <View style={[cardStyles.card, { backgroundColor: Colors.overlayLight, borderColor }]}>
       <View style={cardStyles.left}>
         <DriverAvatar photo={driver.profile_photo} name={driver.full_name || "Driver"} />
         {/* Online dot placeholder — replace with realtime presence if needed */}
@@ -123,27 +128,29 @@ function DriverCard({
       </View>
 
       <View style={cardStyles.info}>
-        <Text style={[cardStyles.name, { color: textColor }]} numberOfLines={1}>
-          {driver.full_name || "Driver"}
-        </Text>
-
-        <View style={cardStyles.badgeRow}>
+        <View style={{flexDirection: 'row', gap: 5}}>
+          <Text style={[cardStyles.name, { color: textColor }]} numberOfLines={1}>
+            {driver.full_name || "Driver"}
+          </Text>
           <View style={cardStyles.idBadge}>
-            <Ionicons name="id-card-outline" size={11} color={Colors.primary} />
+            {/* <Ionicons name="id-card-outline" size={11} color={Colors.primary} /> */}
             <Text style={cardStyles.idText}>{driver.driver_id}</Text>
           </View>
+        </View>
+
+        <View style={cardStyles.badgeRow}>
           <StarRating value={driver.avg_rating} />
         </View>
 
         {driver.vehicle_details ? (
           <Text style={[cardStyles.detail, { color: subColor }]} numberOfLines={1}>
-            🚗 {driver.vehicle_details}
+            <Text style={{fontWeight:'bold', color: textColor}}>Vehicle: </Text>{driver.vehicle_details}
           </Text>
         ) : null}
 
         {(driver.park_name || driver.park_location) ? (
           <Text style={[cardStyles.detail, { color: subColor }]} numberOfLines={1}>
-            📍 {driver.park_name || driver.park_location}
+            <Text style={{fontWeight:'bold', color: textColor}}>Park Name: </Text> {driver.park_name || driver.park_location}
           </Text>
         ) : null}
       </View>
@@ -153,6 +160,7 @@ function DriverCard({
           style={({ pressed }) => [
             cardStyles.msgBtn,
             pressed && { opacity: 0.8 },
+            { backgroundColor: bg, borderColor }
           ]}
           onPress={() => onMessage(driver)}
         >
@@ -167,31 +175,33 @@ function DriverCard({
 const cardStyles = StyleSheet.create({
   card: {
     flexDirection:  "row",
-    alignItems:     "center",
+    alignItems:     "flex-start",
     gap:            14,
-    borderRadius:   18,
-    padding:        16,
+    borderRadius:   30,
+    paddingVertical:        14,
+    paddingHorizontal:        7,
     shadowColor:    "#000",
     shadowOffset:   { width: 0, height: 2 },
     shadowOpacity:  0.07,
     shadowRadius:   8,
-    elevation:      2,
+    elevation: 2,
+    borderWidth: 1
   },
   left:     { position: "relative" },
   onlineDot:{
     position:    "absolute",
-    bottom:      2,
-    right:       2,
-    width:       11,
-    height:      11,
-    borderRadius:6,
+    bottom:      0,
+    right:       0,
+    width:       14,
+    height:      14,
+    borderRadius: 50,
     backgroundColor: Colors.primary,
     borderWidth: 2,
     borderColor: "#fff",
   },
   info:     { flex: 1, gap: 3 },
-  name:     { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
-  badgeRow: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
+  name:     { fontFamily: "Poppins_600SemiBold", fontSize: 17 },
+  badgeRow: { flexDirection: "row", alignItems: "center", gap: 50, flexWrap: "wrap" },
   idBadge:  {
     flexDirection:   "row",
     alignItems:      "center",
@@ -205,17 +215,14 @@ const cardStyles = StyleSheet.create({
   detail:   { fontFamily: "Poppins_400Regular", fontSize: 12, lineHeight: 18 },
   msgBtn:   {
     flexDirection:    "row",
-    alignItems:       "center",
-    gap:              5,
-    backgroundColor:  Colors.primary,
-    paddingHorizontal:12,
-    paddingVertical:   9,
-    borderRadius:     12,
-    shadowColor:      Colors.primary,
-    shadowOffset:     { width: 0, height: 3 },
-    shadowOpacity:    0.3,
-    shadowRadius:     6,
-    elevation:        4,
+    alignItems: "center",
+    position: 'absolute',
+    bottom: 5,
+    right: 5,
+    gap: 5,
+    borderWidth: 1,
+    padding:12,
+    borderRadius:     30,
   },
   msgBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 12, color: "#fff" },
 });
@@ -243,7 +250,7 @@ function EmptyState({ query, searched, isDark }: { query: string; searched: bool
     <View style={emptyStyles.wrap}>
       <Text style={[emptyStyles.title, { color: txt }]}>No drivers found</Text>
       <Text style={[emptyStyles.sub, { color: sub }]}>
-        {`No results for "{query}". Check the ID or try a different name.`}
+        No results for <Text style={{fontWeight: 'heavy', color: '#000'}}>{query}.</Text> Check the ID or try a different name.
       </Text>
     </View>
   );
@@ -255,7 +262,6 @@ const emptyStyles = StyleSheet.create({
     width:           72,
     height:          72,
     borderRadius:    22,
-    backgroundColor: Colors.primaryLight,
     alignItems:      "center",
     justifyContent:  "center",
     marginBottom:    4,
@@ -273,11 +279,10 @@ export default function FindDriverScreen() {
   const { theme }                            = useSettingsStore();
   const isDark                               = theme === "dark";
 
-  const bg        = isDark ? Colors.background   : Colors.border;
   const cardBg    = isDark ? Colors.surface      : "#FFFFFF";
   const textColor = isDark ? Colors.textWhite    : Colors.text;
   const subColor  = isDark ? Colors.textSecondary: Colors.textTertiary;
-  const inputBg   = isDark ? Colors.surface      : "#FFFFFF";
+  const inputBg   = isDark ? Colors.overlayLight      : "#FFFFFF";
 
   const [query,     setQuery]     = useState("");
   const [results,   setResults]   = useState<DriverResult[]>([]);
@@ -287,7 +292,7 @@ export default function FindDriverScreen() {
 
   const inputRef = useRef<TextInput>(null);
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
+  // const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   const doSearch = useCallback(async (q: string) => {
     const trimmed = q.trim();
@@ -353,29 +358,42 @@ export default function FindDriverScreen() {
   );
 
   return (
-    <View style={[styles.root, { backgroundColor: bg }]}>
+    <View style={[styles.root]}>
       {/* ── Header ── */}
-      <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: cardBg }]}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
-          <Ionicons name="chevron-back" size={22} color={textColor} />
-        </Pressable>
+      <View style={[styles.header]}>
         <View style={styles.headerCenter}>
-          <Text style={[styles.headerTitle, { color: textColor }]}>Find a Driver</Text>
+          {/* <Text style={[styles.headerTitle, { color: textColor }]}>Find a Driver</Text>
           <Text style={[styles.headerSub, { color: subColor }]}>
             Search by badge ID or name
-          </Text>
+          </Text> */}
         </View>
         <View style={{ width: 36 }} />
       </View>
 
       {/* ── Search bar ── */}
-      <View style={[styles.searchWrap, { backgroundColor: cardBg, borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "#E8ECF0" }]}>
-        <View style={[styles.searchRow, { backgroundColor: inputBg, borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E8ECF0" }]}>
-          <Ionicons name="search" size={18} color={Colors.textSecondary} />
+      <View style={[styles.searchWrap, { backgroundColor: inputBg, borderColor: isDark ? "rgba(255,255,255,0.1)" : "#E8ECF0" }]}>
+        <View style={[styles.searchRow]}>
+
+          {query.length > 0 ? (
+              <Pressable
+                hitSlop={8}
+                onPress={() => {
+                  setQuery("");
+                  setResults([]);
+                  setSearched(false);
+                  inputRef.current?.focus();
+                }}
+              >
+                <Ionicons name="close-circle" size={26} color={textColor} />
+              </Pressable>
+            ) : (
+                <Ionicons name="search" size={21} color={textColor} />
+          )}
+
           <TextInput
             ref={inputRef}
             style={[styles.searchInput, { color: textColor }]}
-            placeholder='Driver ID (e.g. "chidio") or name'
+            placeholder='Search for Drivers by ID'
             placeholderTextColor={subColor}
             value={query}
             onChangeText={(v) => { setQuery(v); if (!v.trim()) { setResults([]); setSearched(false); } }}
@@ -384,14 +402,6 @@ export default function FindDriverScreen() {
             returnKeyType="search"
             onSubmitEditing={() => doSearch(query)}
           />
-          {query.length > 0 && (
-            <Pressable
-              hitSlop={8}
-              onPress={() => { setQuery(""); setResults([]); setSearched(false); inputRef.current?.focus(); }}
-            >
-              <Ionicons name="close-circle" size={18} color={subColor} />
-            </Pressable>
-          )}
         </View>
 
         <Pressable
@@ -404,7 +414,8 @@ export default function FindDriverScreen() {
         >
           {loading
             ? <ActivityIndicator size="small" color="#fff" />
-            : <Text style={styles.searchBtnText}>Search</Text>
+            : <Ionicons name="send" size="18" color={Colors.textWhite} />
+            // <Text style={styles.searchBtnText}>Search</Text>
           }
         </Pressable>
       </View>
@@ -436,21 +447,14 @@ export default function FindDriverScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, marginHorizontal: 15, gap:9 },
 
   header: {
-    flexDirection:    "row",
     alignItems:       "center",
     paddingHorizontal:20,
-    paddingBottom:    16,
+    paddingBottom: 16,
   },
-  backBtn: {
-    width:        36,
-    height:       36,
-    borderRadius: 12,
-    alignItems:   "center",
-    justifyContent:"center",
-  },
+
   headerCenter: { flex: 1, alignItems: "center" },
   headerTitle:  { fontFamily: "Poppins_700Bold",    fontSize: 18 },
   headerSub:    { fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 1 },
@@ -458,20 +462,19 @@ const styles = StyleSheet.create({
   searchWrap: {
     flexDirection:  "row",
     alignItems:     "center",
-    gap:            10,
-    paddingHorizontal: 16,
-    paddingVertical:   12,
-    borderBottomWidth: 1,
+    gap:            5,
+    padding: 7,
+    borderRadius:    30,
+    borderWidth:     1,
   },
   searchRow: {
     flex:            1,
     flexDirection:   "row",
     alignItems:      "center",
-    gap:             10,
-    borderRadius:    14,
-    paddingHorizontal:14,
-    paddingVertical:  11,
-    borderWidth:     1,
+    gap:             4,
+    borderRadius:    50,
+    paddingHorizontal: 5,
+    paddingVertical:  5,
   },
   searchInput: {
     flex:       1,
@@ -481,18 +484,18 @@ const styles = StyleSheet.create({
   },
   searchBtn: {
     backgroundColor:  Colors.primary,
-    borderRadius:     14,
-    paddingHorizontal:16,
-    paddingVertical:   11,
+    borderRadius:     50,
+    padding:12,
+    alignItems:'center', justifyContent: 'center'
   },
   searchBtnText: {
     fontFamily: "Poppins_600SemiBold",
     fontSize:   14,
-    color:      "#fff",
+    color: "#fff",
   },
 
   list: {
-    padding: 16,
+    padding: 2,
     gap:     12,
   },
 });
