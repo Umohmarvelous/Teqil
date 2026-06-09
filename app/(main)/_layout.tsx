@@ -8,8 +8,8 @@ import {
   Animated,
   PanResponder,
   Dimensions,
-  Image,
   ScrollView,
+  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
@@ -170,7 +170,6 @@ export default function MainLayout() {
   // ── Theme & Bottom Sheets ──────────────────────────────────────
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
-  const bg = isDark ? Colors.background : Colors.border;
   const tabBarBg = isDark ? Colors.background : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
@@ -282,22 +281,26 @@ export default function MainLayout() {
               <Pressable onPress={openSidebar} style={styles.menuBtn}>
                 <HugeiconsIcon icon={Menu02Icon} size={22} color={textColor} />
               </Pressable>
-              <Pressable style={styles.logoBtn}>
-                <Image
-                  source={
-                    isDark
-                      ? require("@/assets/images/Logo_with_transparent_background.png") 
-                      : require("@/assets/images/Black_logo_with_white_background.png") 
-                  }
-                  style={styles.photoImg}
-                  resizeMode="contain" // Changed to contain to avoid cropping
-                  width={120}
-                />
-              </Pressable>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                  <Pressable style={styles.logoBtn}>
+                    <Image
+                      source={
+                        isDark
+                        ? require("@/assets/images/Logo_with_transparent_background.png") 
+                        : require("@/assets/images/Black_logo_with_white_background.png") 
+                      }
+                      style={styles.photoImg}
+                      resizeMode="contain" // Changed to contain to avoid cropping
+                      width={60}
+                      />
+                  </Pressable>
+                  <Text style={[{ fontSize: 19, fontFamily:'Inter-Black' }, {color: textColor}]}>
+                    Emilgo
+                  </Text>
+              </View>
               <Pressable onPress={toggleSearch} style={[styles.menuList, {backgroundColor: isDark ? Colors.overlayLight : Colors.border, borderColor}]}>
                 <HugeiconsIcon icon={SearchIcon} size={20} color={textColor} />
               </Pressable>
-
             </View>
           )} 
 
@@ -311,7 +314,7 @@ export default function MainLayout() {
                       styles.topTabText,
                       {
                         color: textColor,
-                        fontFamily: activeTopTab === "home" ? "Poppins_700Bold" : "Poppins_400Medium",
+                        fontFamily: activeTopTab === "home" ? "Poppins_700Bold" : "Poppins_700Bold",
                         opacity: activeTopTab === "home" ? 1 : 0.45,
                       },
                     ]}
@@ -325,12 +328,12 @@ export default function MainLayout() {
                       styles.topTabText,
                       {
                         color: textColor,
-                        fontFamily: activeTopTab === "discover" ? "Poppins_700Bold" : "Poppins_400Medium",
+                        fontFamily: activeTopTab === "discover" ? "Poppins_700Bold" : "Poppins_700Bold",
                         opacity: activeTopTab === "discover" ? 1 : 0.45,
                       },
                     ]}
                   >
-                    For You
+                    For you
                   </Text>
                 </Pressable>
               </View>
@@ -483,7 +486,6 @@ const styles = StyleSheet.create({
   },
   content: { flex: 1 },
   header: {
-    // gap: 10,
     paddingHorizontal: 20,
     flexDirection: "row",
     alignItems: "center",
@@ -512,7 +514,7 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     justifyContent: "center",
     alignItems: "center",
-    flex: 1
+    // flex: 1
   },
   photoImg: { width: 50, height: 50, alignSelf: "center" },
   topTabBar: {
@@ -520,15 +522,15 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     borderBottomWidth: 0.5,
     position: "relative",
-    paddingTop: 5,
+    paddingTop: 15,
   },
   topTabItemContainer: { flexDirection: "row" },
   topTabItem: {
     flex: 1,
     alignItems: "center",
-    paddingBottom: 14,
+    paddingBottom: 9,
   },
-  topTabText: { fontSize: 16, letterSpacing: 0 },
+  topTabText: { fontSize: 17, letterSpacing: 0 },
   topTabIndicator: {
     position: "absolute",
     bottom: 0,

@@ -6,6 +6,7 @@ import {
   FlatList,
   Platform,
   RefreshControl,
+  Pressable,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +18,8 @@ import type { Trip } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { Time02Icon } from "@hugeicons/core-free-icons";
+import { router } from "expo-router";
+import { useSettingsStore } from "@/src/store/useSettingsStore";
 
 interface TripCardProps {
   trip: Trip;
@@ -124,6 +127,14 @@ export default function PassengerHistoryScreen() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
+
+  const { theme } = useSettingsStore();
+  const isDark = theme === "dark";
+  const tabBarBg = isDark ? Colors.background : Colors.textWhite;
+  const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
+
+
+
   const load = async () => {
     if (!user?.id) return;
     const passengers = await PassengersStorage.getByUserId(user.id);
@@ -151,11 +162,16 @@ export default function PassengerHistoryScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
-        <Text style={styles.headerTitle}>{t("history.title")}</Text>
-        <Text style={styles.headerCount}>
-          {trips.length} {trips.length === 1 ? "trip" : "trips"}
-        </Text>
+
+      <View style={[styles.header, { paddingTop: topPadding + 10 }, {backgroundColor: tabBarBg, borderColor}]}>
+        <Pressable style={styles.sideElement} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={24} color={Colors.text} />
+        </Pressable>
+        <View style={{alignItems: 'center'}}>
+          <Text style={styles.headerTitle}>{t("history.title")}</Text>
+          <Text style={styles.headerSubtitle}>{trips.length} {trips.length === 1 ? "trip" : "trips"}</Text>
+        </View>
+        <View style={styles.sideElement} />
       </View>
 
       <FlatList
@@ -205,18 +221,33 @@ const styles = StyleSheet.create({
   },
 
   // ── Header ──────────────────────────────────────────────
+
+  // Header
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 24,
     paddingBottom: 16,
-    backgroundColor: Colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
   },
   headerTitle: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 24,
-    color: Colors.text,
+    fontFamily: "Inter-Black",
+    fontSize: 19,
+    color: Colors.text, 
   },
+  headerSubtitle: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  sideElement: {
+    width: 40, // Fixed width ensures the left and right take up equal space
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+
+
   headerCount: {
     fontFamily: "Poppins_400Regular",
     fontSize: 14,

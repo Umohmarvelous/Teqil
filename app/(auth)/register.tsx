@@ -2,12 +2,13 @@
 /**
  * app/(auth)/register.tsx
  *
- * Changes from original:
- * - Role selection (driver / passenger / park_owner) inline — no separate welcome screen needed
- * - Password suggestion modal on password field focus
- * - Google + Apple OAuth
- * - Auto-generated initials avatar if no photo uploaded
- * - Driver ID: username + 4 random digits
+ * UI updated to match login.tsx design language:
+ * - Same color composition (dynamic dark/light via useSettingsStore)
+ * - Same typography (Poppins family), borderRadius, input styles
+ * - Same header layout (back button + centered title/subtitle)
+ * - Same FormField / OrDivider / OAuthButton pattern
+ * - Dark/light mode reactive throughout
+ * - All original logic, structure, and functionality preserved
  */
 
 import React, { useRef, useCallback, useState, useEffect } from "react";
@@ -18,7 +19,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  Animated,
   Platform,
   ActivityIndicator,
   Modal,
@@ -35,9 +35,18 @@ import * as WebBrowser from "expo-web-browser";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withDelay,
+  Easing,
+} from "react-native-reanimated";
 
 import { Colors } from "@/constants/colors";
 import { useAuthStore } from "@/src/store/useStore";
+import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { signUpOfflineAware, saveBiometricCredentials } from "@/src/services/auth";
 import {
   generateUsername,
@@ -80,12 +89,44 @@ const registerSchema = z
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
+// ─── Animated pressable (matches login.tsx) ───────────────────────────────────
+
+function AnimatedPressable({
+  onPress,
+  disabled,
+  style,
+  children,
+}: {
+  onPress: () => void;
+  disabled?: boolean;
+  style: object | object[];
+  children: React.ReactNode;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+  return (
+    <Animated.View style={animStyle}>
+      <Pressable
+        onPress={onPress}
+        disabled={disabled}
+        onPressIn={() => { if (!disabled) scale.value = withSpring(0.95, { damping: 20 }); }}
+        onPressOut={() => { scale.value = withSpring(1, { damping: 15 }); }}
+        style={style}
+      >
+        {children}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 // ─── Role selector ────────────────────────────────────────────────────────────
 
-const ROLES: { value: UserRole; label: string; icon: keyof typeof Ionicons.glyphMap;  }[] = [
-  { value: "driver",     label: "Driver",     icon: "car-sport",  },
-  { value: "passenger",  label: "Passenger",  icon: "person",     },
-  { value: "park_owner", label: "Park Owner", icon: "business",   },
+const ROLES: { value: UserRole; label: string; icon: keyof typeof Ionicons.glyphMap; }[] = [
+  { value: "driver",     label: "Driver",     icon: "car-sport"  },
+  { value: "passenger",  label: "Passenger",  icon: "person"     },
+  { value: "park_owner", label: "Park Owner", icon: "business"   },
 ];
 
 function RoleSelector({
@@ -95,24 +136,35 @@ function RoleSelector({
   value: UserRole | null;
   onChange: (r: UserRole) => void;
 }) {
+  const { theme } = useSettingsStore();
+  const isDark = theme === "dark";
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+  const cardBg = isDark ? "rgba(255,255,255,0.06)" : "#F5F7FA";
+
   return (
     <View style={roleStyles.container}>
-      <Text style={roleStyles.label}>Who Are You ?</Text>
+      <Text style={[roleStyles.label, { color: subTextColor }]}>Who Are You?</Text>
       <View style={roleStyles.row}>
         {ROLES.map((role) => {
           const active = value === role.value;
           return (
             <Pressable
               key={role.value}
-              style={[roleStyles.card, active && roleStyles.cardActive]}
+              style={[
+                roleStyles.card,
+                { backgroundColor: cardBg, borderColor },
+                active && { backgroundColor: isDark ? Colors.primaryDark : Colors.primary, borderColor: Colors.primary },
+              ]}
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onChange(role.value); }}
             >
               <Ionicons
                 name={role.icon}
                 size={22}
-                color={active ? "#fff" : Colors.primaryLight}
+                color={active ? "#fff" : isDark ? Colors.textSecondary : Colors.textTertiary}
               />
-              <Text style={[roleStyles.cardLabel, active && roleStyles.cardLabelActive]}>
+              <Text style={[roleStyles.cardLabel, { color: active ? "#fff" : subTextColor }]}>
                 {role.label}
               </Text>
             </Pressable>
@@ -124,46 +176,30 @@ function RoleSelector({
 }
 
 const roleStyles = StyleSheet.create({
-  container: { marginBottom: 24 },
+  container: { marginBottom: 8 },
   label: {
     fontFamily: "Poppins_500Medium",
     fontSize: 13,
-    color: Colors.primaryLight,
+    marginTop: 16,
     marginBottom: 10,
     paddingLeft: 5,
-    fontWeight: "heavy"
   },
   row: { flexDirection: "row", gap: 10 },
   card: {
     flex: 1,
     alignItems: "center",
-    justifyContent: 'center',
-    backgroundColor: Colors.overlayLight,
+    justifyContent: "center",
     borderRadius: 20,
-    paddingVertical: 24,
-    paddingHorizontal: 13,
+    paddingVertical: 20,
+    paddingHorizontal: 10,
     gap: 6,
-    borderColor: Colors.textWhite,
-    shadowColor: Colors.text,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 6,
-  },
-  cardActive: {
-    backgroundColor: Colors.primaryDark,
-    borderColor: Colors.primaryLight,
+    borderWidth: 1.5,
   },
   cardLabel: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 12,
-    color: Colors.primaryLight,
-    textAlign: 'center'
+    textAlign: "center",
   },
-  cardLabelActive: {
-    color: Colors.primaryLight,
-    textAlign: 'center'
- },
 });
 
 // ─── Password suggestion modal ────────────────────────────────────────────────
@@ -179,6 +215,14 @@ function PasswordSuggestionModal({
   onDismiss: () => void;
   suggestion: string;
 }) {
+  const { theme } = useSettingsStore();
+  const isDark = theme === "dark";
+  const sheetBg = isDark ? Colors.primaryDarker : "#FFFFFF";
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+  const pwBoxBg = isDark ? "rgba(255,255,255,0.05)" : "#F5F7FA";
+
   return (
     <Modal
       transparent
@@ -187,19 +231,19 @@ function PasswordSuggestionModal({
       onRequestClose={onDismiss}
     >
       <Pressable style={pwStyles.backdrop} onPress={onDismiss}>
-        <View style={pwStyles.sheet} onStartShouldSetResponder={() => true}>
-          <View style={pwStyles.handle} />
+        <View style={[pwStyles.sheet, { backgroundColor: sheetBg }]} onStartShouldSetResponder={() => true}>
+          <View style={[pwStyles.handle, { backgroundColor: borderColor }]} />
           <View style={pwStyles.iconRow}>
-            <View style={pwStyles.iconBg}>
+            <View style={[pwStyles.iconBg, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : Colors.border }]}>
               <Ionicons name="key-outline" size={26} color={Colors.primary} />
             </View>
           </View>
-          <Text style={pwStyles.title}>Use a Strong Password?</Text>
-          <Text style={pwStyles.sub}>
+          <Text style={[pwStyles.title, { color: textColor }]}>Use a Strong Password?</Text>
+          <Text style={[pwStyles.sub, { color: subTextColor }]}>
             We generated a strong password for you. Save it somewhere safe!
           </Text>
-          <View style={pwStyles.pwBox}>
-            <Text style={pwStyles.pwText} selectable>{suggestion}</Text>
+          <View style={[pwStyles.pwBox, { backgroundColor: pwBoxBg, borderColor }]}>
+            <Text style={[pwStyles.pwText, { color: Colors.primary }]} selectable>{suggestion}</Text>
           </View>
           <Pressable
             style={pwStyles.acceptBtn}
@@ -208,7 +252,7 @@ function PasswordSuggestionModal({
             <Text style={pwStyles.acceptBtnText}>Use this password</Text>
           </Pressable>
           <Pressable style={pwStyles.dismissBtn} onPress={onDismiss}>
-            <Text style={pwStyles.dismissBtnText}>Type my own</Text>
+            <Text style={[pwStyles.dismissBtnText, { color: subTextColor }]}>Type my own</Text>
           </Pressable>
         </View>
       </Pressable>
@@ -223,7 +267,6 @@ const pwStyles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: Colors.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 28,
@@ -235,7 +278,6 @@ const pwStyles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.border,
     marginBottom: 8,
   },
   iconRow: { marginBottom: 4 },
@@ -243,42 +285,36 @@ const pwStyles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 16,
-    backgroundColor: Colors.primaryLight,
     alignItems: "center",
     justifyContent: "center",
   },
   title: {
     fontFamily: "Poppins_700Bold",
     fontSize: 20,
-    color: Colors.text,
     textAlign: "center",
   },
   sub: {
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
-    color: Colors.textSecondary,
     textAlign: "center",
     lineHeight: 22,
   },
   pwBox: {
-    backgroundColor: Colors.surfaceSecondary,
     borderRadius: 14,
     paddingHorizontal: 20,
     paddingVertical: 16,
     width: "100%",
     borderWidth: 1,
-    borderColor: Colors.border,
   },
   pwText: {
     fontFamily: "Poppins_700Bold",
     fontSize: 17,
-    color: Colors.primary,
     letterSpacing: 1.5,
     textAlign: "center",
   },
   acceptBtn: {
     backgroundColor: Colors.primary,
-    borderRadius: 16,
+    borderRadius: 26,
     height: 52,
     alignItems: "center",
     justifyContent: "center",
@@ -298,33 +334,38 @@ const pwStyles = StyleSheet.create({
   dismissBtnText: {
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
-    color: Colors.textSecondary,
     textDecorationLine: "underline",
   },
 });
 
-// ─── Divider + OAuth ──────────────────────────────────────────────────────────
+// ─── Divider ──────────────────────────────────────────────────────────────────
 
 function OrDivider() {
+  const { theme } = useSettingsStore();
+  const isDark = theme === "dark";
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+
   return (
     <View style={divStyles.row}>
-      <View style={divStyles.line} />
-      <Text style={divStyles.text}>or</Text>
-      <View style={divStyles.line} />
+      <View style={[divStyles.line, { backgroundColor: borderColor }]} />
+      <Text style={[divStyles.text, { color: subTextColor }]}>or continue with</Text>
+      <View style={[divStyles.line, { backgroundColor: borderColor }]} />
     </View>
   );
 }
 
 const divStyles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", marginVertical: 16 },
-  line: { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.2)" },
+  row: { flexDirection: "row", alignItems: "center", marginVertical: 32 },
+  line: { flex: 1, height: 1 },
   text: {
     fontFamily: "Poppins_400Regular",
     fontSize: 13,
-    color: Colors.primaryLight,
     marginHorizontal: 12,
   },
 });
+
+// ─── OAuth button ─────────────────────────────────────────────────────────────
 
 function OAuthButton({
   provider,
@@ -336,18 +377,23 @@ function OAuthButton({
   loading: boolean;
 }) {
   const isApple = provider === "apple";
+  const { theme } = useSettingsStore();
+  const isDark = theme === "dark";
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+
   return (
     <Pressable
-      style={[oauthStyles.btn, isApple && oauthStyles.btnApple]}
+      style={[oauthStyles.btn, { backgroundColor: borderColor, borderColor }]}
       onPress={onPress}
       disabled={loading}
     >
       <Ionicons
         name={isApple ? "logo-apple" : "logo-google"}
         size={20}
-        color={isApple ? "#fff" : "#DB4437"}
+        color={isDark ? "#fff" : "#000"}
       />
-      <Text style={oauthStyles.text}>
+      <Text style={[oauthStyles.text, { color: textColor }]}>
         {loading ? "Connecting..." : `${isApple ? "Apple" : "Google"}`}
       </Text>
     </Pressable>
@@ -360,119 +406,129 @@ const oauthStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    backgroundColor: Colors.overlayLight,
     borderRadius: 26,
     height: 52,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
-    flex: 1
+    flex: 1,
   },
-  btnApple: {},
   text: {
     fontFamily: "Poppins_500Medium",
     fontSize: 15,
-    color: "#fff",
   },
 });
 
-// ─── Field wrapper + input ────────────────────────────────────────────────────
+// ─── Form field (matches login.tsx FormField exactly) ─────────────────────────
 
-function FieldWrapper({
+function FormField({
   label,
+  icon,
+  placeholder,
+  value,
+  onChangeText,
+  onBlur,
   error,
-  children,
+  secureTextEntry,
+  keyboardType = "default",
+  autoCapitalize = "none",
+  rightElement,
+  inputRef,
+  returnKeyType,
+  onSubmitEditing,
+  onFocus,
+  autoComplete,
+  maxLength,
 }: {
   label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  placeholder: string;
+  value: string;
+  onChangeText: (v: string) => void;
+  onBlur: () => void;
   error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <View style={fieldStyles.wrapper}>
-      <Text style={fieldStyles.label}>{label}</Text>
-      {children}
-      {error ? <Text style={fieldStyles.errorText}>{error}</Text> : null}
-    </View>
-  );
-}
-
-function InputRow({
-  icon,
-  trailingIcon,
-  hasError,
-  onFocusCallback,
-  ...inputProps
-}: {
-  icon: React.ReactNode;
-  trailingIcon?: React.ReactNode;
-  hasError?: boolean;
-  onFocusCallback?: () => void;
-  placeholder?: string;
-  value?: string;
-  onChangeText?: (text: string) => void;
-  onBlur?: () => void;
   secureTextEntry?: boolean;
-  keyboardType?: "default" | "email-address" | "phone-pad" | "number-pad";
-  autoCapitalize?: "none" | "words" | "sentences" | "characters";
+  keyboardType?: "email-address" | "default" | "phone-pad" | "number-pad";
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  rightElement?: React.ReactNode;
+  inputRef?: React.RefObject<TextInput | null>;
+  returnKeyType?: "next" | "done" | "go";
+  onSubmitEditing?: () => void;
+  onFocus?: () => void;
   autoComplete?: string;
   maxLength?: number;
 }) {
-  const [focused, setFocused] = useState(false);
+  const { theme } = useSettingsStore();
+  const isDark = theme === "dark";
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+
   return (
-    <View style={[inputStyles.row, focused && inputStyles.focused, hasError && inputStyles.errored]}>
-      <View style={inputStyles.iconWrap}>{icon}</View>
-      <TextInput
-        style={inputStyles.input}
-        placeholderTextColor={Colors.primaryLight}
-        onFocus={() => { setFocused(true); onFocusCallback?.(); }}
-        onBlur={() => { setFocused(false); inputProps.onBlur?.(); }}
-        {...(inputProps as any)}
-      />
-      {trailingIcon ? <View style={inputStyles.trailingWrap}>{trailingIcon}</View> : null}
+    <View style={fieldStyles.wrap}>
+      <Text style={[fieldStyles.label, { color: textColor }]}>{label}</Text>
+      <View style={[
+        fieldStyles.inputRow,
+        error ? fieldStyles.inputRowError : null,
+        { backgroundColor: borderColor },
+        { borderColor: error ? Colors.error : borderColor },
+      ]}>
+        <Ionicons name={icon} size={20} color={subTextColor} style={fieldStyles.icon} />
+        <TextInput
+          ref={inputRef}
+          style={[fieldStyles.input, { color: textColor }]}
+          placeholder={placeholder}
+          placeholderTextColor={subTextColor}
+          value={value}
+          onChangeText={onChangeText}
+          onBlur={onBlur}
+          onFocus={onFocus}
+          secureTextEntry={secureTextEntry}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={false}
+          returnKeyType={returnKeyType}
+          onSubmitEditing={onSubmitEditing}
+          blurOnSubmit={returnKeyType === "done"}
+          maxLength={maxLength}
+          {...(autoComplete ? { autoComplete: autoComplete as any } : {})}
+          {...Platform.select({ web: { style: [fieldStyles.input, { color: textColor, outlineStyle: "none" } as any] } })}
+        />
+        {rightElement}
+      </View>
+      {error ? <Text style={[fieldStyles.errorText, { color: Colors.error }]}>{error}</Text> : null}
     </View>
   );
 }
 
 const fieldStyles = StyleSheet.create({
-  wrapper: { marginBottom: 18 },
+  wrap: { marginBottom: 4 },
   label: {
     fontFamily: "Poppins_500Medium",
     fontSize: 13,
-    color: Colors.primaryLight,
     marginTop: 16,
     marginBottom: 7,
-    paddingLeft: 15,
+    paddingLeft: 5,
   },
-  errorText: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 11,
-    color: Colors.error,
-    marginTop: 4,
-    marginLeft: 2,
-  },
-});
-
-const inputStyles = StyleSheet.create({
-  row: {
+  inputRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.overlayLight,
     borderRadius: 26,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderWidth: 1.5,
     borderColor: "transparent",
   },
-  focused: { backgroundColor: Colors.overlayLight },
-  errored: { borderColor: Colors.error },
-  iconWrap: { marginRight: 10, width: 22, alignItems: "center" },
-  trailingWrap: { marginLeft: 8 },
+  inputRowError: { borderColor: Colors.error },
+  icon: { marginRight: 12 },
   input: {
     flex: 1,
     fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    color: Colors.primaryLight,
-    height: "100%",
-    ...Platform.select({ web: { outlineStyle: "none" } as any }),
+    fontSize: 15,
+  },
+  errorText: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    marginTop: 4,
+    paddingLeft: 5,
   },
 });
 
@@ -482,6 +538,13 @@ export default function RegisterScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { theme } = useSettingsStore();
+
+  const isDark = theme === "dark";
+  const bg = isDark ? Colors.background : Colors.textWhite;
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : Colors.text;
 
   const { selectedRole, setSelectedRole, setUser } = useAuthStore();
   const [role, setRole] = useState<UserRole | null>(selectedRole || null);
@@ -493,12 +556,19 @@ export default function RegisterScreen() {
   const [pwSuggestion, setPwSuggestion] = useState("");
   const [pwModalVisible, setPwModalVisible] = useState(false);
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const buttonScale = useRef(new Animated.Value(1)).current;
+  // Reanimated (matches login.tsx animation pattern)
+  const formOpacity = useSharedValue(0);
+  const formY = useSharedValue(20);
 
   useEffect(() => {
-    Animated.timing(fadeAnim, { toValue: 1, duration: 480, useNativeDriver: true }).start();
-  }, [fadeAnim]);
+    formOpacity.value = withDelay(150, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
+    formY.value = withDelay(150, withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) }));
+  }, [formOpacity, formY]);
+
+  const formAnimStyle = useAnimatedStyle(() => ({
+    opacity: formOpacity.value,
+    transform: [{ translateY: formY.value }],
+  }));
 
   const {
     control,
@@ -516,14 +586,6 @@ export default function RegisterScreen() {
       confirmPassword: "",
     },
   });
-
-  const handlePressIn = useCallback(() => {
-    Animated.spring(buttonScale, { toValue: 0.95, useNativeDriver: true }).start();
-  }, [buttonScale]);
-  
-  const handlePressOut = useCallback(() => {
-    Animated.spring(buttonScale, { toValue: 1, useNativeDriver: true }).start();
-  }, [buttonScale]);
 
   const handlePasswordFocus = useCallback(() => {
     const suggestion = generateStrongPassword();
@@ -558,12 +620,9 @@ export default function RegisterScreen() {
 
       try {
         const resolvedName = data.fullName?.trim() || generateUsername();
-        // Driver ID: username-derived + 4 digits
         const driverId = role === "driver"
           ? generateDriverIdFromUsername(resolvedName)
           : undefined;
-
-        // Auto-generate avatar from initials if no photo
         const avatarUri = generateInitialsAvatar(resolvedName);
 
         const metadata: Record<string, unknown> = {
@@ -578,12 +637,10 @@ export default function RegisterScreen() {
         };
 
         const result = await signUpOfflineAware(data.email.trim(), data.password, metadata);
-
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
         if (result?.user) {
           setUser(result.user);
-          // Save credentials for biometric login
           await saveBiometricCredentials(data.email.trim(), data.password);
         }
 
@@ -636,7 +693,6 @@ export default function RegisterScreen() {
                 : undefined;
               const avatarUri = supaUser.user_metadata?.avatar_url || generateInitialsAvatar(resolvedName);
 
-              // Upsert the profile row
               await supabase.from("users").upsert({
                 id: supaUser.id,
                 full_name: resolvedName,
@@ -670,175 +726,189 @@ export default function RegisterScreen() {
   );
 
   const goToLogin = () => router.replace("/(auth)/login");
+  const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   return (
-    <KeyboardAvoidingView 
-      style={[styles.root, { paddingTop: insets.top }]}
+    <KeyboardAvoidingView
+      style={[styles.root, { backgroundColor: bg }]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0} // Adjust this number
+      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
     >
-      <View style={styles.header} />
+      {/* Header — matches login.tsx header exactly */}
+      <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
+        <Pressable style={styles.backBtn} onPress={() => router.dismissTo("/(main)")}>
+          <Ionicons name="chevron-back" size={22} color={textColor} />
+        </Pressable>
+        <View style={styles.pageHeaderContainer}>
+          <Text style={[styles.pageTitle, { color: textColor }]}>{t("auth.register")}</Text>
+          <Text style={[styles.pageSubtitle, { color: subTextColor }]}>Join thousands of Nigerians on Teqil</Text>
+        </View>
+        <View style={styles.backBtn} />
+      </View>
 
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Animated.View style={[styles.titleBlock, { opacity: fadeAnim }]}>
-          <Text style={styles.title}>{t("auth.register")}</Text>
-          <Text style={styles.subtitle}>Join thousands of Nigerians on Teqil</Text>
-        </Animated.View>
-
-        <Animated.View style={{ opacity: fadeAnim }}>
+        <Animated.View style={formAnimStyle}>
           {/* Role selector */}
           <RoleSelector value={role} onChange={handleRoleChange} />
 
           {/* Full Name */}
-          <FieldWrapper label={t("auth.fullName")} error={errors.fullName?.message}>
-            <Controller
-              control={control}
-              name="fullName"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <InputRow
-                  icon={<Ionicons name="person-outline" size={18} color={Colors.primaryLight} />}
-                  placeholder="e.g. Emeka Okonkwo"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  hasError={!!errors.fullName}
-                  autoCapitalize="words"
-                />
-              )}
-            />
-          </FieldWrapper>
+          <Controller
+            control={control}
+            name="fullName"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormField
+                label={t("auth.fullName")}
+                icon="person-outline"
+                placeholder="e.g. Emeka Okonkwo"
+                value={value ?? ""}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.fullName?.message}
+                autoCapitalize="words"
+                returnKeyType="next"
+              />
+            )}
+          />
 
           {/* Email */}
-          <FieldWrapper label={t("auth.email")} error={errors.email?.message}>
-            <Controller
-              control={control}
-              name="email"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <InputRow
-                  icon={<Ionicons name="mail-outline" size={18} color={Colors.primaryLight} />}
-                  placeholder={t("auth.emailPlaceholder")}
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  hasError={!!errors.email}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                />
-              )}
-            />
-          </FieldWrapper>
+          <Controller
+            control={control}
+            name="email"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormField
+                label={t("auth.email")}
+                icon="mail-outline"
+                placeholder={t("auth.emailPlaceholder")}
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.email?.message}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                returnKeyType="next"
+              />
+            )}
+          />
 
           {/* Phone */}
-          <FieldWrapper label={t("auth.phone")} error={errors.phone?.message}>
-            <Controller
-              control={control}
-              name="phone"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <InputRow
-                  icon={<Ionicons name="call-outline" size={18} color={Colors.primaryLight} />}
-                  placeholder={t("auth.phonePlaceholder")}
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  hasError={!!errors.phone}
-                  keyboardType="phone-pad"
-                  autoComplete="tel"
-                />
-              )}
-            />
-          </FieldWrapper>
+          <Controller
+            control={control}
+            name="phone"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormField
+                label={t("auth.phone")}
+                icon="call-outline"
+                placeholder={t("auth.phonePlaceholder")}
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.phone?.message}
+                keyboardType="phone-pad"
+                autoComplete="tel"
+                returnKeyType="next"
+              />
+            )}
+          />
 
           {/* Age */}
-          <FieldWrapper label={t("auth.age")} error={errors.age?.message}>
-            <Controller
-              control={control}
-              name="age"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <InputRow
-                  icon={<FontAwesome5 name="birthday-cake" size={16} color={Colors.primaryLight} />}
-                  placeholder={t("auth.agePlaceholder")}
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  hasError={!!errors.age}
-                  keyboardType="number-pad"
-                  maxLength={3}
-                />
-              )}
-            />
-          </FieldWrapper>
+          <Controller
+            control={control}
+            name="age"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormField
+                label={t("auth.age")}
+                icon="calendar-outline"
+                placeholder={t("auth.agePlaceholder")}
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.age?.message}
+                keyboardType="number-pad"
+                maxLength={3}
+                returnKeyType="next"
+              />
+            )}
+          />
 
-          {/* Password — focus triggers suggestion modal */}
-          <FieldWrapper label={t("auth.password")} error={errors.password?.message}>
-            <Controller
-              control={control}
-              name="password"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <InputRow
-                  icon={<Ionicons name="lock-closed-outline" size={18} color={Colors.primaryLight} />}
-                  placeholder={t("auth.passwordPlaceholder")}
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  hasError={!!errors.password}
-                  secureTextEntry={!showPassword}
-                  onFocusCallback={handlePasswordFocus}
-                  trailingIcon={
-                    <TouchableOpacity onPress={() => setShowPassword((v) => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={Colors.primaryLight} />
-                    </TouchableOpacity>
-                  }
-                />
-              )}
-            />
-          </FieldWrapper>
+          {/* Password */}
+          <Controller
+            control={control}
+            name="password"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormField
+                label={t("auth.password")}
+                icon="lock-closed-outline"
+                placeholder={t("auth.passwordPlaceholder")}
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.password?.message}
+                secureTextEntry={!showPassword}
+                onFocus={handlePasswordFocus}
+                returnKeyType="next"
+                rightElement={
+                  <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
+                    <Ionicons
+                      name={showPassword ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color={isDark ? Colors.textSecondary : Colors.textTertiary}
+                    />
+                  </Pressable>
+                }
+              />
+            )}
+          />
 
           {/* Confirm Password */}
-          <FieldWrapper label={t("auth.confirmPassword")} error={errors.confirmPassword?.message}>
-            <Controller
-              control={control}
-              name="confirmPassword"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <InputRow
-                  icon={<Ionicons name="shield-checkmark-outline" size={18} color={Colors.primaryLight} />}
-                  placeholder="Repeat your password"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  hasError={!!errors.confirmPassword}
-                  secureTextEntry={!showConfirm}
-                  trailingIcon={
-                    <TouchableOpacity onPress={() => setShowConfirm((v) => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Ionicons name={showConfirm ? "eye-off-outline" : "eye-outline"} size={18} color={Colors.primaryLight} />
-                    </TouchableOpacity>
-                  }
-                />
-              )}
-            />
-          </FieldWrapper>
+          <Controller
+            control={control}
+            name="confirmPassword"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormField
+                label={t("auth.confirmPassword")}
+                icon="shield-checkmark-outline"
+                placeholder="Repeat your password"
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.confirmPassword?.message}
+                secureTextEntry={!showConfirm}
+                returnKeyType="done"
+                onSubmitEditing={handleSubmit(onSubmit)}
+                rightElement={
+                  <Pressable onPress={() => setShowConfirm((v) => !v)} hitSlop={8}>
+                    <Ionicons
+                      name={showConfirm ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color={isDark ? Colors.textSecondary : Colors.textTertiary}
+                    />
+                  </Pressable>
+                }
+              />
+            )}
+          />
 
-          {/* Submit */}
-          <Animated.View style={[styles.buttonWrap, { transform: [{ scale: buttonScale }] }]}>
-            <TouchableOpacity
-              style={styles.submitBtn}
-              onPress={handleSubmit(onSubmit)}
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
-              disabled={loading}
-              activeOpacity={0.9}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.submitBtnText}>Create Account</Text>
-              )}
-            </TouchableOpacity>
-          </Animated.View>
+          {/* Submit — matches login.tsx submitBtn style */}
+          <AnimatedPressable
+            onPress={handleSubmit(onSubmit)}
+            disabled={loading}
+            style={[
+              styles.submitBtn,
+              loading && styles.submitBtnLoading,
+              { backgroundColor: borderColor, borderColor },
+            ]}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color={isDark ? Colors.textSecondary : "#fff"} />
+            ) : (
+              <Text style={[styles.submitBtnText, { color: "#fff" }]}>Create Account</Text>
+            )}
+          </AnimatedPressable>
 
           <OrDivider />
 
@@ -857,13 +927,14 @@ export default function RegisterScreen() {
               loading={oauthLoading === "google"}
             />
           </View>
+
           {/* Sign in link */}
-          <View style={styles.signInRow}>
-            <Text style={styles.signInText}>Already have an account? </Text>
-            <TouchableOpacity onPress={goToLogin} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
-              <Text style={styles.signInLink}>Sign In</Text>
-            </TouchableOpacity>
-          </View>
+          <Pressable style={styles.switchBtn} onPress={goToLogin}>
+            <Text style={[styles.switchText, { color: subTextColor }]}>
+              Already have an account?{" "}
+              <Text style={[styles.switchLink, { color: textColor }]}>Sign In</Text>
+            </Text>
+          </Pressable>
         </Animated.View>
       </ScrollView>
 
@@ -879,66 +950,60 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.primary },
-  header: { paddingHorizontal: 30, paddingVertical: 12 },
-  backBtn: {
+  root: { flex: 1 },
+  header: {
+    flexDirection: "row",
     alignItems: "flex-start",
-    justifyContent: "flex-start",
-    flexDirection: "column",
-    gap: 55,
+    justifyContent: "space-around",
+    paddingHorizontal: 20,
+    paddingBottom: 8,
   },
-  backText: { color: Colors.primaryLight, fontWeight: "600", fontSize: 15 },
-  scrollContent: { paddingHorizontal: 34, paddingTop: 4 },
-  titleBlock: { marginBottom: 32, alignItems: "center" },
-  title: {
+  pageHeaderContainer: { alignItems: "center", marginBottom: 0 },
+  pageTitle: {
     fontFamily: "Poppins_700Bold",
-    fontSize: 30,
-    color: Colors.primaryLight,
-    marginBottom: 6,
+    fontSize: 20,
+    marginBottom: 3,
   },
-  subtitle: {
+  pageSubtitle: {
     fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    color: Colors.primaryLight,
-    lineHeight: 20,
+    fontSize: 12,
   },
-  buttonWrap: { marginTop: 28, marginBottom: 8 },
-  submitBtn: {
-    backgroundColor: Colors.overlay,
-    borderRadius: 44,
-    height: 56,
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    elevation: 6,
+    flexDirection: "row",
+    gap: 5,
   },
+  scrollContent: { paddingHorizontal: 44, paddingTop: 24 },
+  submitBtn: {
+    borderWidth: 1,
+    borderRadius: 26,
+    height: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 28,
+  },
+  submitBtnLoading: { opacity: 0.7 },
   submitBtnText: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 16,
-    color: "#fff",
-    letterSpacing: 0.3,
-  },
-  signInRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 12,
-    paddingBottom: 8,
-  },
-  signInText: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    color: Colors.primaryLight,
-  },
-  signInLink: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 14,
-    color: Colors.primaryLight,
-    textDecorationLine: "underline",
   },
   oauthContent: {
-    gap:10,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 10
+    gap: 10,
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  switchBtn: { alignItems: "center", marginTop: 24, paddingVertical: 8 },
+  switchText: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 14,
+  },
+  switchLink: {
+    fontFamily: "Poppins_600SemiBold",
   },
 });

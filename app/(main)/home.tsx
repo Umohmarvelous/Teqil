@@ -126,8 +126,7 @@ export default function HomeTab() {
         handlePayAction();
         break;
       case "history":
-        router.push("/(passenger)/find-driver");
-        // router.push("/(passenger)/history");
+        router.push("/(passenger)/history");
         break;
       case "sos":
         Alert.alert("Emergency SOS", "SOS is available during a live trip. Start or join a trip to activate it.");

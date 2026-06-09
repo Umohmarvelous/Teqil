@@ -181,9 +181,8 @@ export default function SidedBar() {
               <HugeiconsIcon icon={MoreHorizontalCircleIcon} fill={textColor} size={25} color={textColor} />
             </Pressable>
             
-            <Pressable onPress={toggleSearch} style={[styles.searchList, { backgroundColor: Colors.border, borderColor }]}>
-                  
-              <HugeiconsIcon icon={SearchIcon} size={23} color={textColor} />
+            <Pressable onPress={toggleSearch} style={[styles.searchList, {backgroundColor: isDark ? Colors.overlayLight : Colors.border, borderColor}]}>
+              <HugeiconsIcon icon={SearchIcon} size={22} color={textColor} />
             </Pressable>
             
             {menuOpen && (
@@ -231,15 +230,14 @@ const styles = StyleSheet.create({
   },
   userName: { fontFamily: "Poppins_700Bold", fontSize: 19 },
   userRole: { fontFamily: "Poppins_400Regular", fontSize: 13, },
-  drawerRightIcon: { justifyContent: "center" },
-  menuList: { padding: 5, flexDirection: 'column', alignItems: 'center', gap: 10 },
+  drawerRightIcon: { justifyContent: "space-between", alignItems:'flex-start', flexDirection: 'row', gap: 16 },
+  menuList: { alignItems: 'center', },
   searchList: {
     borderRadius: 30,
-    padding: 9, 
+    padding: 6, 
     alignItems: 'center', 
     justifyContent:'center',
-    gap: 10,
-    borderWidth: 1
+    borderWidth: 1,
   },
   logoBtn: {
     width: 25,

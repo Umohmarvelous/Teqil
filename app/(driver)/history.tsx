@@ -13,11 +13,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/src/store/useStore";
 import { Colors } from "@/constants/colors";
 import { TripsStorage, PassengersStorage } from "@/src/services/storage";
-import { formatDate, formatDuration, formatCoins, } from "@/src/utils/helpers";
+import { formatDate, formatDuration, formatCoins, formatNaira, coinsToNaira, } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { BarcodeScanIcon, Calendar, Star, Time01Icon } from "@hugeicons/core-free-icons";
+import { useSettingsStore } from "@/src/store/useSettingsStore";
+import { router } from "expo-router";
 
 type FilterTab = "all" | "active" | "completed";
 
@@ -26,34 +28,45 @@ interface TripWithPassengerCount extends Trip {
   estimatedCoins: number;
 }
 
-// function StatSummary({
-//   totalTrips,
-//   completedTrips,
-//   totalCoins,
-// }: {
-//   totalTrips: number;
-//   completedTrips: number;
-//   totalCoins: number;
-// }) {
-//   return (
-//     <View style={styles.summaryRow}>
-//       <View style={styles.summaryCard}>
-//         <Text style={styles.summaryValue}>{totalTrips}</Text>
-//         <Text style={styles.summaryLabel}>Total Trips</Text>
-//       </View>
-//       <View style={[styles.summaryCard, styles.summaryCardMiddle]}>
-//         <Text style={styles.summaryValue}>{completedTrips}</Text>
-//         <Text style={styles.summaryLabel}>Completed</Text>
-//       </View>
-//       <View style={styles.summaryCard}>
-//         <Text style={[styles.summaryValue, { color: Colors.gold }]}>
-//           {formatNaira(Math.round(coinsToNaira(totalCoins)))}
-//         </Text>
-//         <Text style={styles.summaryLabel}>Est. Earned</Text>
-//       </View>
-//     </View>
-//   );
-// }
+function StatSummary({
+
+  totalTrips,
+  completedTrips,
+  totalCoins,
+}: {
+  totalTrips: number;
+  completedTrips: number;
+  totalCoins: number;
+  }) {
+
+  const { theme } = useSettingsStore();
+  const isDark = theme === "dark";
+  const bg = isDark ? Colors.background : Colors.textWhite;
+  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
+    const tabBarBg = isDark ? Colors.background : Colors.textWhite;
+  const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+
+  return (
+    <View style={styles.summaryRow}>
+      <View style={[styles.summaryCard, {backgroundColor: cardBg, borderColor}]}>
+        <Text style={styles.summaryValue}>{totalTrips}</Text>
+        <Text style={styles.summaryLabel}>Total Trips</Text>
+      </View>
+      <View style={[styles.summaryCard, styles.summaryCardMiddle]}>
+        <Text style={styles.summaryValue}>{completedTrips}</Text>
+        <Text style={styles.summaryLabel}>Completed</Text>
+      </View>
+      <View style={styles.summaryCard}>
+        <Text style={[styles.summaryValue, { color: Colors.gold }]}>
+          {formatNaira(Math.round(coinsToNaira(totalCoins)))}
+        </Text>
+        <Text style={styles.summaryLabel}>Est. Earned</Text>
+      </View>
+    </View>
+  );
+}
 
 function FilterTabs({
   active,
@@ -267,18 +280,37 @@ export default function DriverHistoryScreen() {
     completed: allTrips.filter((t) => t.status === "completed").length,
   };
 
-  // const totalCoins = allTrips.reduce((sum, t) => sum + t.estimatedCoins, 0);
+  const totalCoins = allTrips.reduce((sum, t) => sum + t.estimatedCoins, 0);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
+
+
+
+  const { theme } = useSettingsStore();
+  const isDark = theme === "dark";
+  const bg = isDark ? Colors.background : Colors.textWhite;
+  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
+    const tabBarBg = isDark ? Colors.background : Colors.textWhite;
+  const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+
+
 
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
-        <Text style={styles.headerTitle}>{t("history.title")}</Text>
-        <Text style={styles.headerSubtitle}>
-          {allTrips.length} {allTrips.length === 1 ? "trip" : "trips"} so far
-        </Text>
+
+
+      <View style={[styles.header, { paddingTop: topPadding + 16 }, {backgroundColor: tabBarBg, borderColor}]}>
+        <Pressable style={styles.sideElement} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={24} color={Colors.text} />
+        </Pressable>
+        <View style={{alignItems: 'center'}}>
+          <Text style={styles.headerTitle}>{t("history.title")}</Text>
+          <Text style={styles.headerSubtitle}>{allTrips.length} {allTrips.length === 1 ? "trip" : "trips"} so far</Text>
+        </View>
+        <View style={styles.sideElement} />
       </View>
 
 
@@ -304,13 +336,13 @@ export default function DriverHistoryScreen() {
         }
         ListHeaderComponent={
           <View style={ styles.FilterTabHolder}>
-            {/* {allTrips.length > 0 && (
+            {allTrips.length > 0 && (
               <StatSummary
               totalTrips={allTrips.length}
               completedTrips={counts.completed}
               totalCoins={totalCoins}
               />
-            )} */}
+            )}
             <FilterTabs active={filter} onChange={setFilter} counts={counts} />
           </View>
         }
@@ -328,24 +360,34 @@ export default function DriverHistoryScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 , backgroundColor: Colors.textWhite},
 
+
+    // Header
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 24,
     paddingBottom: 16,
-    backgroundColor: Colors.surface,
     // borderBottomWidth: 1,
-    // borderBottomColor: Colors.borderLight,
   },
   headerTitle: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 24,
-    color: Colors.text,
+    fontFamily: "Inter-Black",
+    fontSize: 19,
+    color: Colors.text, 
   },
   headerSubtitle: {
     fontFamily: "Poppins_400Regular",
-    fontSize: 13,
+    fontSize: 12,
     color: Colors.textSecondary,
-    marginTop: 2,
   },
+  sideElement: {
+    width: 40, // Fixed width ensures the left and right take up equal space
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+
+
+
 
   // Summary cards
   summaryRow: {
@@ -363,12 +405,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 10,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.10,
-    shadowRadius: 5,
+    borderWidth: .5,
     // marginBottom: 10,
-    elevation: 1
   },
   summaryCardMiddle: {
     borderWidth: 1.5,

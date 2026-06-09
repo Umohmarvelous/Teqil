@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { Notification01Icon } from "@hugeicons/core-free-icons";
 import { router } from "expo-router";
+import { useSettingsStore } from "@/src/store/useSettingsStore";
 
 function MessageCard({ broadcast }: { broadcast: Broadcast }) {
   return (
@@ -60,19 +61,26 @@ export default function MessagesScreen() {
     setRefreshing(false);
   };
 
+  const { theme } = useSettingsStore();
+  const isDark = theme === "dark";
+  const tabBarBg = isDark ? Colors.background : Colors.textWhite;
+  const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
+
+
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   return (
     <View style={styles.container}>
 
-      <View style={[styles.header, { paddingTop: topPadding + 20 } ]}>
-        <Pressable onPress={() => router.back()}>
+      <View style={[styles.header, { paddingTop: topPadding + 16 }, {backgroundColor: tabBarBg, borderColor}]}>
+        <Pressable style={styles.sideElement} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color={Colors.text} />
         </Pressable>
-        <View >
+        <View style={{alignItems: 'center'}}>
           <Text style={styles.headerTitle}>{t("driver.messages")}</Text>
-          {/* <Text style={styles.headerSubtitle}>Messages from your park</Text> */}
+          <Text style={styles.headerSubtitle}>Messages from your park</Text>
         </View>
+        <View style={styles.sideElement} />
       </View>
 
       <FlatList
@@ -92,14 +100,9 @@ export default function MessagesScreen() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <View style={styles.emptyIconBg}>
-            
-              <HugeiconsIcon icon={Notification01Icon} size={40}  color={Colors.primary}/>
+              <HugeiconsIcon icon={Notification01Icon} size={40}  color={Colors.textSecondary}/>
             </View>
-            <Text style={styles.emptyTitle}>No messages yet</Text>
-            <Text style={styles.emptySubtitle}>
-              Your park owner will send announcements here. Pull down to
-              refresh.
-            </Text>
+            <Text style={styles.emptyTitle}>Opps....No messages yet!!</Text>
           </View>
         }
         ListFooterComponent={
@@ -117,33 +120,41 @@ export default function MessagesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 , backgroundColor: Colors.border},
 
+
+
+
   // Header
   header: {
-    gap: 22,
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    // justifyContent: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 24,
     paddingBottom: 16,
-    backgroundColor: Colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
   },
   headerTitle: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 26,
+    fontFamily: "Inter-Black",
+    fontSize: 19,
     color: Colors.text, 
-
   },
   headerSubtitle: {
     fontFamily: "Poppins_400Regular",
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.textSecondary,
-    marginTop: 2,
+  },
+  sideElement: {
+    width: 40, // Fixed width ensures the left and right take up equal space
+    alignItems: 'flex-start',
+    justifyContent: 'center',
   },
 
+
+
+
+
+
   // List
-  listContent: { padding: 20, gap: 12 },
+  listContent: { flex:1, padding: 20, gap: 12 },
 
   // Message card
   messageCard: {
@@ -190,9 +201,10 @@ const styles = StyleSheet.create({
   // Empty state
   emptyState: {
     alignItems: "center",
-    paddingTop: 60,
+    alignSelf: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 40,
-    gap: 14,
+    flex: 1,
   },
   emptyIconBg: {
     width: 80,
@@ -200,7 +212,6 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
   },
   emptyTitle: {
     fontFamily: "Poppins_600SemiBold",

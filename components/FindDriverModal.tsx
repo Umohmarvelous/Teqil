@@ -30,10 +30,7 @@ export default function FindDriverModal({
   const isDark                               = theme === "dark";
 
   const bg = isDark ? Colors.background : Colors.border;
-  const cardBg   = isDark ? Colors.surface    : "#FFFFFF";
   const textColor = isDark ? Colors.textWhite : Colors.text;
-  const subColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
 
 
