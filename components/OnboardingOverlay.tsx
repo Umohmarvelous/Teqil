@@ -792,6 +792,7 @@ import MessagesTab from "./messages";
 import SettingsTab from "./settings";
 import DiscoverTab from "./discover";
 import type { FeedItem } from "./discover";
+// oisofoerire
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
   HomeIcon,
