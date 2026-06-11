@@ -56,3 +56,81 @@ export function useOnboarding(): UseOnboardingReturn {
 
   return { shouldShow, isLoaded, complete, reset };
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// /**
+//  * src/hooks/useOnboarding.ts
+//  *
+//  * Controls whether the onboarding overlay shows.
+//  * Persists state in AsyncStorage keyed by user ID so each account
+//  * gets its own first-launch flag (handles shared devices).
+//  *
+//  * Usage:
+//  *   const { shouldShow, complete, reset } = useOnboarding(userId);
+//  */
+
+// import { useState, useEffect, useCallback } from "react";
+// import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// const KEY = (userId?: string) =>
+//   userId ? `teqil_onboarding_v2_${userId}` : "teqil_onboarding_v2_guest";
+
+// interface UseOnboardingReturn {
+//   shouldShow: boolean;
+//   isLoaded:   boolean;
+//   complete:   () => Promise<void>;
+//   reset:      () => Promise<void>;
+// }
+
+// export function useOnboarding(userId?: string): UseOnboardingReturn {
+//   const [shouldShow, setShouldShow] = useState(false);
+//   const [isLoaded,   setIsLoaded]   = useState(false);
+
+//   useEffect(() => {
+//     const storageKey = KEY(userId);
+//     AsyncStorage.getItem(storageKey)
+//       .then((val) => {
+//         // null = key never written = first launch → show
+//         setShouldShow(val === null);
+//         setIsLoaded(true);
+//       })
+//       .catch(() => {
+//         // Storage failure — skip onboarding silently, don't block the app
+//         setShouldShow(false);
+//         setIsLoaded(true);
+//       });
+//   }, [userId]);
+
+//   const complete = useCallback(async () => {
+//     setShouldShow(false);
+//     try {
+//       await AsyncStorage.setItem(KEY(userId), "1");
+//     } catch {
+//       // Non-fatal; worst case it shows again next launch
+//     }
+//   }, [userId]);
+
+//   const reset = useCallback(async () => {
+//     setShouldShow(true);
+//     try {
+//       await AsyncStorage.removeItem(KEY(userId));
+//     } catch {}
+//   }, [userId]);
+
+//   return { shouldShow, isLoaded, complete, reset };
+// }
