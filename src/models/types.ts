@@ -2,6 +2,9 @@ export type UserRole = "driver" | "passenger" | "park_owner";
 
 export interface User {
   id: string;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
   full_name: string | null;
   phone: string;
   email: string;
@@ -13,6 +16,8 @@ export interface User {
   park_location?: string;
   park_name?: string;
   points_balance: number;
+  credits_balance?: number;
+  device_fingerprint?: string;
   avg_rating?: number;
   profile_complete?: boolean;
   push_token?: string;
@@ -104,3 +109,36 @@ export interface LiveLocation {
 }
 
 export type AuthState = "unauthenticated" | "authenticated" | "loading";
+
+export type CreditType = "signup" | "ad_watch" | "comment" | "like" | "share" | "reply";
+
+export interface CreditHistory extends Syncable {
+  id: string;
+  user_id: string;
+  type: CreditType;
+  amount: number;
+  post_id?: string;
+  comment_id?: string;
+  created_at: string;
+}
+
+// ─── Ad Engagement ───────────────────────────────────────────────────────────
+export type EngagementLevel = 'Green' | 'Yellow' | 'Orange' | 'Red';
+
+export interface AdEngagement extends Syncable {
+  id: string;
+  user_id: string;
+  vendor_name: string;
+  watch_time: number;      // seconds
+  views: number;
+  clicks: number;
+  engagement_level: EngagementLevel;
+  created_at: string;
+}
+
+export function getEngagementLevel(watchTime: number, clicked: boolean): EngagementLevel {
+  if (watchTime >= 30 && clicked) return 'Green';
+  if (watchTime >= 10 && watchTime <= 29) return 'Yellow';
+  if (watchTime >= 3 && watchTime <= 9) return 'Orange';
+  return 'Red';
+}

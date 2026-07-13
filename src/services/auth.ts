@@ -366,6 +366,27 @@ async function hashPassword(password: string, email: string): Promise<string> {
   }
 }
 
+// ─── Resolve Username ─────────────────────────────────────────────────────────
+export async function checkUsernameExists(username: string): Promise<{email: string; device_fingerprint: string | null} | null> {
+  try {
+    const { data, error } = await supabase.rpc('get_user_by_username', { p_username: username });
+    if (error) {
+      console.warn('RPC checkUsernameExists error:', error);
+      return null;
+    }
+    if (data && data.length > 0) {
+      return {
+        email: data[0].email,
+        device_fingerprint: data[0].device_fingerprint,
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error('checkUsernameExists failed:', err);
+    return null;
+  }
+}
+
 // ─── Sync a User object into public.users ─────────────────────────────────────
 // Called after signup and after every profile update so that
 // driver_id (and other fields) are immediately searchable via Supabase queries.
@@ -374,6 +395,9 @@ export async function syncUserToPublicTable(user: User): Promise<void> {
     await supabase.from("users").upsert(
       {
         id:               user.id,
+        username:         user.username ?? null,
+        first_name:       user.first_name ?? null,
+        last_name:        user.last_name ?? null,
         full_name:        user.full_name,
         phone:            user.phone,
         email:            user.email,
@@ -385,6 +409,8 @@ export async function syncUserToPublicTable(user: User): Promise<void> {
         park_location:    user.park_location ?? null,
         park_name:        user.park_name ?? null,
         points_balance:   user.points_balance ?? 0,
+        credits_balance:  user.credits_balance ?? 0,
+        device_fingerprint: user.device_fingerprint ?? null,
         avg_rating:       user.avg_rating ?? null,
         profile_complete: user.profile_complete ?? false,
         push_token:       user.push_token ?? null,
@@ -461,6 +487,9 @@ export async function signInOfflineAware(
     const meta = supaUser.user_metadata ?? {};
     const user: User = {
       id:               supaUser.id,
+      username:         meta.username ?? null,
+      first_name:       meta.first_name ?? null,
+      last_name:        meta.last_name ?? null,
       full_name:        meta.full_name ?? null,
       phone:            meta.phone ?? "",
       email:            supaUser.email ?? email,
@@ -472,6 +501,8 @@ export async function signInOfflineAware(
       park_location:    meta.park_location,
       park_name:        meta.park_name,
       points_balance:   meta.points_balance ?? 0,
+      credits_balance:  meta.credits_balance ?? 0,
+      device_fingerprint: meta.device_fingerprint,
       avg_rating:       meta.avg_rating,
       profile_complete: meta.profile_complete ?? false,
       created_at:       supaUser.created_at,
@@ -518,6 +549,9 @@ export async function signUpOfflineAware(
 
     const user: User = {
       id:               supaUser.id,
+      username:         (metadata.username as string) ?? null,
+      first_name:       (metadata.first_name as string) ?? null,
+      last_name:        (metadata.last_name as string) ?? null,
       full_name:        (metadata.full_name as string) ?? null,
       phone:            (metadata.phone as string) ?? "",
       email:            supaUser.email ?? email,
@@ -529,6 +563,8 @@ export async function signUpOfflineAware(
       park_location:    metadata.park_location as string | undefined,
       park_name:        metadata.park_name as string | undefined,
       points_balance:   (metadata.points_balance as number) ?? 0,
+      credits_balance:  (metadata.credits_balance as number) ?? 10,
+      device_fingerprint: metadata.device_fingerprint as string | undefined,
       avg_rating:       metadata.avg_rating as number | undefined,
       profile_complete: (metadata.profile_complete as boolean) ?? false,
       created_at:       supaUser.created_at,

@@ -20,6 +20,7 @@ import { Colors } from "@/constants/colors";
 import { supabase } from "@/src/services/supabase";
 import type { MapStyle, FontSize, HistoryRetention } from "@/src/store/useSettingsStore";
 import { StatusBar } from "expo-status-bar";
+import ReplayTutorialButton from "@/components/ReplayTutorialButton";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { 
   Analytics, 
@@ -602,6 +603,10 @@ export default function SettingsTab() {
             />
           </Section>
         )}
+
+        <Section title="Help">
+          <ReplayTutorialButton />
+        </Section>
 
         <Section title="Account">
           <SettingRow

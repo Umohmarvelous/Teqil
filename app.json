@@ -4,21 +4,21 @@
     "slug": "teqil",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/Black_logo_with_white_background.png",
+    "icon": "./assets/images/black_logo_with_transparent_background.png",
     "scheme": "teqil",
     "userInterfaceStyle": "black",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/Black_logo_with_white_background.png",
+      "image": "./assets/images/black_logo_with_transparent_background.png",
       "resizeMode": "contain",
       "backgroundColor": "#00A651"
     },
     "ios": {
-      "config": {
-        "googleMaps": {
-          "apiKey": "your_actual_key_here"
-        }
-      },
+      // "config": {
+      //   "googleMaps": {
+      //     "apiKey": "your_actual_key_here"
+      //   }
+      // },
       "supportsTablet": false,
       "bundleIdentifier": "com.teqil.app",
       "infoPlist": {
@@ -30,11 +30,11 @@
       }
     },
     "android": {
-      "config": {
-        "googleMaps": {
-          "apiKey": "your_actual_key_here"
-        }
-      },
+      // "config": {
+      //   "googleMaps": {
+      //     "apiKey": "your_actual_key_here"
+      //   }
+      // },
       "package": "com.teqil.app",
       "adaptiveIcon": {
         "backgroundColor": "#00A651",
@@ -53,7 +53,8 @@
       ]
     },
     "web": {
-      "favicon": "./assets/images/favicon.png"
+      // "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/black_logo_with_transparent_background.png"
     },
     "plugins": [
       [

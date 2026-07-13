@@ -1,4 +1,5 @@
 
+
 /**
  * app/(auth)/login.tsx
  *
@@ -36,6 +37,8 @@ import Animated, {
   withSpring,
   withDelay,
   Easing,
+  FadeIn,
+  FadeOut,
 } from "react-native-reanimated";
 
 import { useAuthStore } from "@/src/store/useStore";
@@ -645,3 +648,547 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_600SemiBold",
   },
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// import React, { useEffect, useRef, useState } from "react";
+// import {
+//   View,
+//   Text,
+//   StyleSheet,
+//   Pressable,
+//   TextInput,
+//   Alert,
+//   Platform,
+//   ActivityIndicator,
+//   ScrollView,
+// } from "react-native";
+// import { router } from "expo-router";
+// import { useSafeAreaInsets } from "react-native-safe-area-context";
+// import { Ionicons } from "@expo/vector-icons";
+// import * as Haptics from "expo-haptics";
+
+// import Animated, {
+//   useSharedValue,
+//   useAnimatedStyle,
+//   withTiming,
+//   withDelay,
+//   Easing,
+//   FadeIn,
+//   FadeOut,
+// } from "react-native-reanimated";
+
+// import { useAuthStore } from "@/src/store/useStore";
+// import { Colors } from "@/constants/colors";
+// import {
+//   signInOfflineAware,
+//   saveBiometricCredentials,
+//   signInWithBiometrics,
+//   getBiometricCredentials,
+//   checkUsernameExists,
+//   syncUserToPublicTable,
+// } from "@/src/services/auth";
+// import { useTranslation } from "react-i18next";
+// import { useSettingsStore } from "@/src/store/useSettingsStore";
+// import { getDeviceFingerprint } from "@/src/utils/device";
+
+// function routeByRole(role: string, profileComplete: boolean | undefined) {
+//   if (role === "driver") {
+//     return profileComplete ? "/(main)" : "/(auth)/driver-profile";
+//   }
+//   return "/(main)";
+// }
+
+// export default function LoginScreen() {
+//   const { theme } = useSettingsStore();
+//   const isDark = theme === "dark";
+//   const bg = isDark ? Colors.background : Colors.textWhite;
+//   const textColor = isDark ? Colors.textWhite : Colors.text;
+//   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+//   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+
+//   const insets = useSafeAreaInsets();
+//   const { setUser, setIsAuthenticated } = useAuthStore();
+//   const { t } = useTranslation();
+
+//   const [username, setUsername] = useState("");
+//   const [password, setPassword] = useState("");
+//   const [showPasswordInput, setShowPasswordInput] = useState(false);
+//   const [showPassword, setShowPassword] = useState(false);
+//   const [isLoading, setIsLoading] = useState(false);
+//   const [isBiometricLoading, setIsBiometricLoading] = useState(false);
+//   const [emailForLogin, setEmailForLogin] = useState<string | null>(null);
+//   const [hasBiometricCredentials, setHasBiometricCredentials] = useState(false);
+
+//   const passwordRef = useRef<TextInput>(null);
+
+//   const formOpacity = useSharedValue(0);
+//   const formY = useSharedValue(20);
+
+//   // Check if we have stored biometric credentials on mount
+//   useEffect(() => {
+//     (async () => {
+//       const creds = await getBiometricCredentials();
+//       setHasBiometricCredentials(!!creds);
+//     })();
+//   }, []);
+
+//   useEffect(() => {
+//     formOpacity.value = withDelay(
+//       150,
+//       withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) })
+//     );
+//     formY.value = withDelay(
+//       150,
+//       withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) })
+//     );
+//   }, []);
+
+//   const formAnimStyle = useAnimatedStyle(() => ({
+//     opacity: formOpacity.value,
+//     transform: [{ translateY: formY.value }],
+//   }));
+
+//   // ─── Username submit: look up user, show password field ─────────────────────
+//   const handleUsernameSubmit = async () => {
+//     if (!username.trim()) return;
+//     setIsLoading(true);
+
+//     try {
+//       const userMeta = await checkUsernameExists(username.trim().toLowerCase());
+
+//       if (!userMeta) {
+//         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+//         Alert.alert(
+//           "User not found",
+//           "No account found with that username. Please sign up."
+//         );
+//         setIsLoading(false);
+//         return;
+//       }
+
+//       setEmailForLogin(userMeta.email);
+//       // Always show the password input after username lookup
+//       setShowPasswordInput(true);
+//       setTimeout(() => passwordRef.current?.focus(), 100);
+//     } catch (err) {
+//       Alert.alert("Error", "Could not verify username.");
+//     } finally {
+//       setIsLoading(false);
+//     }
+//   };
+
+//   // ─── Biometric login: uses stored credentials + device FaceID/TouchID ───────
+//   const handleBiometricLogin = async () => {
+//     setIsBiometricLoading(true);
+//     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+//     try {
+//       const biometricResult = await signInWithBiometrics();
+
+//       if (!biometricResult.supported) {
+//         Alert.alert(
+//           "Not Supported",
+//           "Biometric authentication is not available on this device."
+//         );
+//         return;
+//       }
+
+//       if (!biometricResult.enrolled) {
+//         Alert.alert(
+//           "Not Enrolled",
+//           "Please set up Face ID or Touch ID in your device settings first."
+//         );
+//         return;
+//       }
+
+//       if (biometricResult.success && biometricResult.user) {
+//         handleSuccessfulLogin(
+//           biometricResult.user,
+//           biometricResult.offlineMode
+//         );
+//         return;
+//       }
+
+//       // Biometric failed
+//       if (biometricResult.error === "no_credentials") {
+//         Alert.alert(
+//           "No Saved Login",
+//           "Please sign in with your username and password first. After that, biometric login will be available."
+//         );
+//       } else if (biometricResult.error) {
+//         // User cancelled or auth failed — just silently return, don't show error
+//         console.log("[Login] Biometric dismissed:", biometricResult.error);
+//       }
+//     } catch (err) {
+//       Alert.alert(
+//         "Error",
+//         "Biometric authentication failed. Please try again."
+//       );
+//     } finally {
+//       setIsBiometricLoading(false);
+//     }
+//   };
+
+//   // ─── Password login ─────────────────────────────────────────────────────────
+//   const handlePasswordLogin = async () => {
+//     if (!emailForLogin || !password) return;
+//     setIsLoading(true);
+//     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+//     try {
+//       const { user, offlineMode } = await signInOfflineAware(
+//         emailForLogin,
+//         password
+//       );
+
+//       // Save for future biometric logins
+//       await saveBiometricCredentials(emailForLogin, password);
+
+//       // Update device fingerprint on successful password login
+//       const currentFingerprint = await getDeviceFingerprint();
+//       user.device_fingerprint = currentFingerprint;
+
+//       // Sync fingerprint to DB so biometric works on next login
+//       syncUserToPublicTable(user).catch(() => {});
+
+//       handleSuccessfulLogin(user, offlineMode);
+//     } catch (err) {
+//       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+//       Alert.alert(
+//         "Sign In Failed",
+//         err instanceof Error ? err.message : t("common.error")
+//       );
+//     } finally {
+//       setIsLoading(false);
+//     }
+//   };
+
+//   const handleSuccessfulLogin = (user: any, offlineMode?: boolean) => {
+//     setUser(user);
+//     setIsAuthenticated(true);
+//     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+//     if (offlineMode) {
+//       Alert.alert(
+//         "Offline Mode",
+//         "Signed in from cache. Some features need internet."
+//       );
+//     }
+//     router.replace(routeByRole(user.role, user.profile_complete) as any);
+//   };
+
+//   const handleForgotPassword = () => {
+//     if (!username.trim()) {
+//       Alert.alert("Forgot Password", "Please enter your username first.");
+//       return;
+//     }
+//     Alert.alert(
+//       "Reset Password",
+//       `A reset link will be sent to the email associated with '${username}'`
+//     );
+//   };
+
+//   const topPadding = Platform.OS === "web" ? 67 : insets.top;
+
+//   return (
+//     <View style={[styles.container, { backgroundColor: bg }]}>
+//       <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
+//         <View style={styles.pageHeaderContainer}>
+//           <Text style={[styles.pageTitle, { color: textColor }]}>Login</Text>
+//           <Text style={[styles.pageSubtitle, { color: subTextColor }]}>
+//             Sign in to continue your journey
+//           </Text>
+//         </View>
+//       </View>
+
+//       <ScrollView
+//         style={styles.scroll}
+//         contentContainerStyle={[
+//           styles.scrollContent,
+//           { paddingBottom: Math.max(insets.bottom, 24) },
+//         ]}
+//         showsVerticalScrollIndicator={false}
+//         keyboardShouldPersistTaps="handled"
+//       >
+//         <Animated.View style={formAnimStyle}>
+//           <View style={{marginVertical: 50, marginBottom: 150}}>
+
+//             {/* Username Input Row */}
+//             <Text style={[styles.label, { color: textColor }]}>Username</Text>
+            
+//             <View style={{flex: 1, flexDirection: 'row', justifyContent: 'space-between', gap: 12}}>
+//               <View
+//                 style={[
+//                   styles.inputRow,
+//                   { backgroundColor: textColor },
+//                   {flex: 1}
+//                 ]}
+//               >
+//                 <Ionicons
+//                   name="person-outline"
+//                   size={15}
+//                   color={isDark ? Colors.text : Colors.textWhite}
+//                   style={styles.icon}
+//                 />
+//                 <TextInput
+//                   style={[styles.input, { color: isDark ? Colors.text : Colors.textWhite }]}
+//                   placeholder="Enter your username"
+//                   placeholderTextColor={isDark ? Colors.text : Colors.textWhite}
+//                   value={username}
+//                   onChangeText={(text) => {
+//                     setUsername(text);
+//                     setShowPasswordInput(false);
+//                     setEmailForLogin(null);
+//                   }}
+//                   autoCapitalize="none"
+//                   autoCorrect={false}
+//                   returnKeyType="go"
+//                   onSubmitEditing={handleUsernameSubmit}
+//                   editable={!isLoading && !isBiometricLoading}
+//                 />
+//                 {isLoading && !isBiometricLoading ? (
+//                   <ActivityIndicator
+//                     size="small"
+//                     color={textColor}
+//                     style={{ marginLeft: 8 }}
+//                   />
+//                 ) : null}
+//               </View>
+
+
+//               {/* Biometric Login Button — always visible if credentials exist */}
+//               <Pressable
+//                 style={[
+//                   styles.biometricBtn,
+//                   {
+//                     borderColor: hasBiometricCredentials
+//                       ? textColor
+//                       : textColor,
+//                     opacity: hasBiometricCredentials ? 1 : 0.4,
+//                   },
+//                 ]}
+//                 onPress={handleBiometricLogin}
+//                 disabled={isBiometricLoading || !hasBiometricCredentials}
+//               >
+//                 {isBiometricLoading ? (
+//                   <ActivityIndicator size={28} color={textColor} />
+//                 ) : (
+//                   <Ionicons
+//                     name="finger-print"
+//                     size={28}
+//                     color={
+//                       hasBiometricCredentials ? textColor : textColor
+//                     }
+//                   />
+//                 )}
+//                 {/* <Text
+//                   style={[
+//                     styles.biometricBtnText,
+//                     {
+//                       color: hasBiometricCredentials
+//                         ? Colors.primary
+//                         : subTextColor,
+//                     },
+//                   ]}
+//                 >
+//                   {hasBiometricCredentials
+//                     ? "Sign in with Face ID / Touch ID"
+//                     : "Sign in with password first to enable biometrics"}
+//                 </Text> */}
+//               </Pressable>
+//             </View>
+                
+//             {/* Password Input (Hidden until username is verified) */}
+//             {showPasswordInput && (
+//               <Animated.View entering={FadeIn} exiting={FadeOut}>
+//                 <Text style={[styles.label, { color: textColor }]}>Password</Text>
+//                 <View
+//                   style={[
+//                     styles.inputRow,
+//                     { backgroundColor: borderColor, borderColor },
+//                   ]}
+//                 >
+//                   <Ionicons
+//                     name="lock-closed-outline"
+//                     size={20}
+//                     color={subTextColor}
+//                     style={styles.icon}
+//                   />
+//                   <TextInput
+//                     ref={passwordRef}
+//                     style={[styles.input, { color: textColor }]}
+//                     placeholder="Enter your password"
+//                     placeholderTextColor={subTextColor}
+//                     value={password}
+//                     onChangeText={setPassword}
+//                     secureTextEntry={!showPassword}
+//                     autoCapitalize="none"
+//                     returnKeyType="done"
+//                     onSubmitEditing={handlePasswordLogin}
+//                     editable={!isLoading}
+//                   />
+//                   <Pressable
+//                     onPress={() => setShowPassword(!showPassword)}
+//                     hitSlop={8}
+//                   >
+//                     <Ionicons
+//                       name={showPassword ? "eye-off-outline" : "eye-outline"}
+//                       size={20}
+//                       color={textColor}
+//                     />
+//                   </Pressable>
+//                 </View>
+//               </Animated.View>
+//             )}
+
+
+
+//             <Pressable style={styles.forgotBtn} onPress={handleForgotPassword}>
+//               <Text style={[styles.forgotText, { color: subTextColor }]}>
+//                 Forgot password?
+//               </Text>
+//             </Pressable>
+//           </View>
+
+//           {/* Sign In / Username Submit Button */}
+//           <Pressable
+//             onPress={showPasswordInput ? handlePasswordLogin : handleUsernameSubmit}
+//             disabled={isLoading || isBiometricLoading || !username.trim()}
+//             style={[
+//               styles.submitBtn,
+//               (isLoading || !username.trim()) && styles.submitBtnDisabled,
+//               { backgroundColor: textColor },
+//             ]}
+//           >
+//             <Text style={[styles.submitBtnText, { color: bg }]}>
+//               {isLoading ? (
+//                 <ActivityIndicator size="small" color={bg} />
+//               ) : showPasswordInput ? (
+//                 "Sign In"
+//               ) : (
+//                 "Continue"
+//               )}
+//             </Text>
+//           </Pressable>
+
+        
+
+//           <Pressable
+//             style={styles.switchBtn}
+//             onPress={() => router.replace("/(auth)/register")}
+//           >
+//             <Text style={[styles.switchText, { color: subTextColor }]}>
+//               {`Don't have an account?`}
+//               <Text style={[styles.switchLink, { color: textColor }]}>
+//                 Sign Up
+//               </Text>
+//             </Text>
+//           </Pressable>
+//         </Animated.View>
+//       </ScrollView>
+//     </View>
+//   );
+// }
+
+// const styles = StyleSheet.create({
+//   container: { flex: 1 },
+//   header: {
+//     alignItems: "center",
+//     paddingHorizontal: 20,
+//     paddingBottom: 8,
+//   },
+//   pageHeaderContainer: { alignItems: "center" },
+//   pageTitle: {
+//     fontFamily: "Poppins_700Bold",
+//     fontSize: 24,
+//     marginBottom: 3,
+//   },
+//   pageSubtitle: {
+//     fontFamily: "Poppins_400Regular",
+//     fontSize: 14,
+//   },
+//   scroll: { flex: 1 },
+//   scrollContent: {
+//     paddingHorizontal: 30,
+//     marginVertical: 70,
+//   },
+//   label: {
+//     fontFamily: "Poppins_500Medium",
+//     fontSize: 13,
+//     // marginTop: 16,
+//     marginBottom: 7,
+//     paddingLeft: 5,
+//   },
+//   inputRow: {
+//     flexDirection: "row",
+//     alignItems: "center",
+//     borderRadius: 26,
+//     paddingHorizontal: 16,
+//     paddingVertical: 14,
+//   },
+//   icon: { marginRight: 12 },
+//   input: {
+//     flex: 1,
+//     fontFamily: "Poppins_400Regular",
+//     fontSize: 14,
+//   },
+//   forgotBtn: {
+//     alignSelf: "flex-end", 
+//     marginVertical: 16, 
+//    },
+//   forgotText: {
+//     fontFamily: "Poppins_500Medium",
+//     fontSize: 13,
+//   },
+//   submitBtn: {
+//     borderRadius: 26,
+//     height: 56,
+//     flexDirection: "row",
+//     alignItems: "center",
+//     justifyContent: "center",
+//     marginTop: 8,
+//   },
+//   submitBtnDisabled: { opacity: 0.5 },
+//   submitBtnText: {
+//     fontFamily: "Poppins_600SemiBold",
+//     fontSize: 16,
+//   },
+//   biometricBtn: {
+//     alignItems: "center",
+//     justifyContent: "center",
+//     borderRadius: 56,
+//     borderWidth: .3,
+//     padding: 9
+//   },
+//   biometricBtnText: {
+//     fontFamily: "Poppins_500Medium",
+//     fontSize: 13,
+//   },
+//   switchBtn: { alignItems: "center", marginTop: 40, paddingVertical: 8 },
+//   switchText: {
+//     fontFamily: "Poppins_400Regular",
+//     fontSize: 14,
+//   },
+//   switchLink: {
+//     fontFamily: "Poppins_600SemiBold",
+//   },
+// });
+
+
+
+
+
+
+

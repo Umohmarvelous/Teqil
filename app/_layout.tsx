@@ -428,6 +428,8 @@ import * as Notifications from "expo-notifications";
 import { syncUserToPublicTable } from "@/src/services/auth";
 import { registerForPushNotifications } from "@/src/services/notifications";
 import NetworkBanner from "@/components/NetworkBanner";
+import SessionTimeout from "@/src/components/SessionTimeout";
+import FloatingCreditAnimation from "@/src/components/FloatingCreditAnimation";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -576,6 +578,7 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
+    <>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView
@@ -587,10 +590,14 @@ export default function RootLayout() {
             backgroundColor="transparent"
             animated
           />
-          <RootLayoutNav />
+          <SessionTimeout>
+            <RootLayoutNav />
+            <FloatingCreditAnimation />
+          </SessionTimeout>
           <NetworkBanner onRetry={handleNetworkRetry} />
         </GestureHandlerRootView>
       </QueryClientProvider>
     </ErrorBoundary>
+    </>
   );
 }

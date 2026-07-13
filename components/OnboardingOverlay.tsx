@@ -1,1488 +1,363 @@
-// // components/OnboardingOverlay.tsx
-// //
-// // Full-screen tutorial overlay that walks first-time users through Teqil's UI.
-// //
-// // Architecture:
-// //   – Role-aware: shows relevant steps for driver / passenger / park_owner.
-// //   – Each step describes a real UI region with a SpotlightRing that morphs
-// //     between positions via Animated.spring.
-// //   – A bottom card slides up with step content, icon, and nav controls.
-// //   – "Skip" is always visible in the top-right — one tap exits entirely.
-// //   – After the final step a "Let's go" button calls onComplete.
-// //
-// // Integration: render once inside RootLayout, conditionally based on
-// // useOnboarding().shouldShow. Pass onComplete to mark it done.
-
-// import React, {
-//   useEffect,
-//   useRef,
-//   useState,
-//   useCallback,
-//   useMemo,
-// } from "react";
-// import {
-//   View,
-//   Text,
-//   StyleSheet,
-//   Pressable,
-//   Animated,
-//   Easing,
-//   Dimensions,
-//   Platform,
-//   ScrollView,
-// } from "react-native";
-// import { useSafeAreaInsets } from "react-native-safe-area-context";
-// import { Ionicons } from "@expo/vector-icons";
-// import { useAuthStore } from "@/src/store/useStore";
-// import { useSettingsStore } from "@/src/store/useSettingsStore";
-
-// const { width: W, height: H } = Dimensions.get("window");
-
-// // ─── Color tokens (inline to avoid import issues) ────────────────────────────
-// const C = {
-//   primary:     "#00A651",
-//   primaryDark: "#007a3d",
-//   primaryLight:"rgba(0,166,81,0.15)",
-//   gold:        "#F59E0B",
-//   error:       "#EF4444",
-//   surface:     "#FFFFFF",
-//   text:        "#0F172A",
-//   textSec:     "#64748B",
-//   dark:        "#0a1210",
-//   darkCard:    "#111c15",
-//   darkBorder:  "rgba(0,166,81,0.2)",
-// };
-
-// // ─── Step definitions ─────────────────────────────────────────────────────────
-
-// export type UserRole = "driver" | "passenger" | "park_owner";
-
-// interface SpotlightRegion {
-//   // Describes WHERE on screen the spotlight should appear.
-//   // All values are fractions of W / H so they work on any screen size.
-//   cx: number; // centre X (0–1)
-//   cy: number; // centre Y (0–1)
-//   rx: number; // half-width of ellipse  (0–1)
-//   ry: number; // half-height of ellipse (0–1)
-// }
-
-// interface TutorialStep {
-//   id:         string;
-//   icon:       string; // Ionicons name
-//   iconColor?: string;
-//   title:      string;
-//   body:       string;
-//   tip?:       string; // optional highlighted tip line
-//   region:     SpotlightRegion;
-// }
-
-// // Steps shared across all roles
-// const COMMON_STEPS: TutorialStep[] = [
-//   {
-//     id:    "welcome",
-//     icon:  "sparkles",
-//     iconColor: C.gold,
-//     title: "Welcome to Teqil",
-//     body:  "Nigeria's trusted ride network for drivers, passengers, and park owners. This quick tour takes under a minute.",
-//     tip:   "You can skip at any time — just tap Skip above.",
-//     region: { cx: 0.5, cy: 0.35, rx: 0.38, ry: 0.12 },
-//   },
-//   {
-//     id:    "header",
-//     icon:  "menu-outline",
-//     title: "Navigation header",
-//     body:  "The ☰ menu icon opens your personal sidebar with account info, quick links, and settings. Your avatar in the top-right goes to your profile.",
-//     tip:   "Swipe from the left edge to open the sidebar.",
-//     region: { cx: 0.5, cy: 0.07, rx: 0.48, ry: 0.055 },
-//   },
-//   {
-//     id:    "top-tabs",
-//     icon:  "albums-outline",
-//     title: "Home & For You tabs",
-//     body:  'The "Home" tab shows your dashboard and core actions. "For You" is a social feed of trip updates and park announcements.',
-//     region: { cx: 0.5, cy: 0.15, rx: 0.46, ry: 0.045 },
-//   },
-//   {
-//     id:    "bottom-tabs",
-//     icon:  "grid-outline",
-//     title: "Bottom navigation",
-//     body:  "Four tabs live here: Home (your dashboard), You (profile & history), Messages (chats), and Settings.",
-//     region: { cx: 0.5, cy: 0.93, rx: 0.48, ry: 0.055 },
-//   },
-//   {
-//     id:    "messages",
-//     icon:  "chatbubble-ellipses-outline",
-//     title: "Messages tab",
-//     body:  "Start a direct conversation with any driver by their badge ID. All your chats live here with real-time delivery ticks.",
-//     tip:   "Tap + inside Messages to find a driver by ID.",
-//     region: { cx: 0.72, cy: 0.93, rx: 0.14, ry: 0.055 },
-//   },
-//   {
-//     id:    "settings",
-//     icon:  "settings-outline",
-//     title: "Settings",
-//     body:  "Customise theme (light/dark), language (English/Pidgin), notifications, privacy, and biometric lock.",
-//     region: { cx: 0.89, cy: 0.93, rx: 0.1, ry: 0.055 },
-//   },
-// ];
-
-// const DRIVER_STEPS: TutorialStep[] = [
-//   {
-//     id:    "driver-balance",
-//     icon:  "star",
-//     iconColor: C.gold,
-//     title: "Your coin balance",
-//     body:  "Coins accumulate every 30 seconds during an active trip. 70 % of ad revenue goes directly to you. The 👁 icon hides your balance.",
-//     tip:   "₦1 ≈ 1.43 coins. Coins are redeemable in the rewards section.",
-//     region: { cx: 0.5, cy: 0.38, rx: 0.42, ry: 0.14 },
-//   },
-//   {
-//     id:    "driver-start",
-//     icon:  "navigate-circle",
-//     iconColor: C.primary,
-//     title: "START TRIP button",
-//     body:  "Creates a new trip from your current GPS location. You'll get a unique 6-character code — share it with passengers so they can join and track you live.",
-//     tip:   "Your location is only shared while a trip is active.",
-//     region: { cx: 0.5, cy: 0.62, rx: 0.44, ry: 0.07 },
-//   },
-//   {
-//     id:    "driver-qr",
-//     icon:  "qr-code",
-//     title: "Your QR code",
-//     body:  "Passengers scan this to pay the fare directly. Your badge ID  is embedded in the QR — it never changes.",
-//     region: { cx: 0.5, cy: 0.5, rx: 0.35, ry: 0.12 },
-//   },
-//   {
-//     id:    "driver-history",
-//     icon:  "time-outline",
-//     title: "Trip history",
-//     body:  'Filter trips by "All", "Active", or "Completed". Each card shows passengers carried, duration, and estimated coins earned.',
-//     region: { cx: 0.5, cy: 0.5, rx: 0.44, ry: 0.15 },
-//   },
-// ];
-
-// const PASSENGER_STEPS: TutorialStep[] = [
-//   {
-//     id:    "passenger-find",
-//     icon:  "search-circle",
-//     iconColor: C.primary,
-//     title: "FIND TRIP",
-//     body:  "Enter the 6-character trip code your driver shares with you. You'll see the live route, driver details, and can add emergency contacts.",
-//     tip:   "Codes are case-insensitive — ABC123 = abc123.",
-//     region: { cx: 0.5, cy: 0.62, rx: 0.44, ry: 0.07 },
-//   },
-//   {
-//     id:    "passenger-pay",
-//     icon:  "card-outline",
-//     iconColor: C.gold,
-//     title: "Pay Fare",
-//     body:  "Tap the ₦ button to pay your driver. Scan their QR code or type their badge ID. Quick-amount buttons (₦500, ₦1000…) speed things up.",
-//     region: { cx: 0.5, cy: 0.5, rx: 0.44, ry: 0.10 },
-//   },
-//   {
-//     id:    "passenger-driver-search",
-//     icon:  "people-circle-outline",
-//     title: "Find a driver",
-//     body:  "Search any driver by their 6-character badge ID or partial name. See their vehicle, city, and rating before messaging them directly.",
-//     tip:   "Badge IDs are the first 6 letters of the driver's username.",
-//     region: { cx: 0.5, cy: 0.5, rx: 0.44, ry: 0.10 },
-//   },
-//   {
-//     id:    "passenger-sos",
-//     icon:  "warning",
-//     iconColor: C.error,
-//     title: "SOS alert",
-//     body:  "During a live trip, the red SOS button immediately notifies your emergency contacts and the park owner with your live location.",
-//     tip:   "Add emergency contacts when joining a trip — they get SMS updates.",
-//     region: { cx: 0.85, cy: 0.55, rx: 0.12, ry: 0.055 },
-//   },
-// ];
-
-// const PARK_OWNER_STEPS: TutorialStep[] = [
-//   {
-//     id:    "park-dashboard",
-//     icon:  "stats-chart",
-//     iconColor: C.primary,
-//     title: "Park dashboard",
-//     body:  "Monitor active trips, total drivers, and completion rate in real time. The numbers update automatically as drivers start and finish trips.",
-//     region: { cx: 0.5, cy: 0.38, rx: 0.44, ry: 0.18 },
-//   },
-//   {
-//     id:    "park-alerts",
-//     icon:  "alert-circle",
-//     iconColor: C.error,
-//     title: "Emergency alerts",
-//     body:  "SOS signals from passengers on trips departing your park appear here instantly. Tap any alert to see the live location and driver details.",
-//     region: { cx: 0.5, cy: 0.50, rx: 0.44, ry: 0.12 },
-//   },
-//   {
-//     id:    "park-broadcast",
-//     icon:  "megaphone",
-//     iconColor: C.gold,
-//     title: "Broadcast messages",
-//     body:  "Send an announcement to all drivers registered to your park. Great for price changes, road closures, or safety notices.",
-//     region: { cx: 0.5, cy: 0.65, rx: 0.44, ry: 0.08 },
-//   },
-//   {
-//     id:    "park-verify",
-//     icon:  "shield-checkmark",
-//     iconColor: C.primary,
-//     title: "Verify drivers",
-//     body:  "Review driver profiles and mark them as verified. Verified drivers display a trust badge to passengers — it increases booking confidence.",
-//     region: { cx: 0.5, cy: 0.55, rx: 0.44, ry: 0.10 },
-//   },
-// ];
-
-// function buildSteps(role: UserRole | null): TutorialStep[] {
-//   const roleSteps =
-//     role === "driver"     ? DRIVER_STEPS :
-//     role === "park_owner" ? PARK_OWNER_STEPS :
-//     PASSENGER_STEPS;
-//   return [...COMMON_STEPS, ...roleSteps];
-// }
-
-// // ─── Spotlight ring ───────────────────────────────────────────────────────────
-
-// interface SpotlightProps {
-//   region:    SpotlightRegion;
-//   animating: boolean;
-// }
-
-// function SpotlightRing({ region, animating }: SpotlightProps) {
-//   const cx = region.cx * W;
-//   const cy = region.cy * H;
-//   const rw = region.rx * W;
-//   const rh = region.ry * H;
-
-//   const pulseAnim  = useRef(new Animated.Value(1)).current;
-//   const opacityAnim = useRef(new Animated.Value(0)).current;
-
-//   useEffect(() => {
-//     // Fade in
-//     Animated.timing(opacityAnim, {
-//       toValue:  1,
-//       duration: 300,
-//       useNativeDriver: true,
-//     }).start();
-
-//     // Pulse loop
-//     const pulse = Animated.loop(
-//       Animated.sequence([
-//         Animated.timing(pulseAnim, {
-//           toValue:  1.06,
-//           duration: 900,
-//           easing:   Easing.inOut(Easing.sin),
-//           useNativeDriver: true,
-//         }),
-//         Animated.timing(pulseAnim, {
-//           toValue:  1,
-//           duration: 900,
-//           easing:   Easing.inOut(Easing.sin),
-//           useNativeDriver: true,
-//         }),
-//       ]),
-//     );
-//     pulse.start();
-//     return () => { pulse.stop(); };
-//   }, []);
-
-//   const pad = 10;
-
-//   return (
-//     <Animated.View
-//       pointerEvents="none"
-//       style={[
-//         spotStyles.ring,
-//         {
-//           opacity:   opacityAnim,
-//           left:      cx - rw - pad,
-//           top:       cy - rh - pad,
-//           width:     (rw + pad) * 2,
-//           height:    (rh + pad) * 2,
-//           borderRadius: (rh + pad) * 1.2,
-//           transform: [{ scale: pulseAnim }],
-//         },
-//       ]}
-//     />
-//   );
-// }
-
-// const spotStyles = StyleSheet.create({
-//   ring: {
-//     position:    "absolute",
-//     borderWidth: 2.5,
-//     borderColor: C.primary,
-//     shadowColor: C.primary,
-//     shadowOffset:{ width: 0, height: 0 },
-//     shadowOpacity:0.9,
-//     shadowRadius:12,
-//     // Glow tint fill
-//     backgroundColor: "rgba(0,166,81,0.06)",
-//   },
-// });
-
-// // ─── Step card ────────────────────────────────────────────────────────────────
-
-// interface StepCardProps {
-//   step:       TutorialStep;
-//   index:      number;
-//   total:      number;
-//   onNext:     () => void;
-//   onBack:     () => void;
-//   onComplete: () => void;
-//   isLast:     boolean;
-//   isDark:     boolean;
-// }
-
-// function StepCard({
-//   step, index, total, onNext, onBack, onComplete, isLast, isDark,
-// }: StepCardProps) {
-//   const slideY  = useRef(new Animated.Value(60)).current;
-//   const opacity = useRef(new Animated.Value(0)).current;
-
-//   useEffect(() => {
-//     // Reset and re-animate every time step changes
-//     slideY.setValue(50);
-//     opacity.setValue(0);
-//     Animated.parallel([
-//       Animated.spring(slideY,  { toValue: 0, damping: 22, stiffness: 180, useNativeDriver: true }),
-//       Animated.timing(opacity, { toValue: 1, duration: 260, useNativeDriver: true }),
-//     ]).start();
-//   }, [step.id]);
-
-//   const cardBg     = isDark ? C.darkCard  : C.surface;
-//   const textColor  = isDark ? "#F1F5F0"   : C.text;
-//   const subColor   = isDark ? "#8da898"   : C.textSec;
-//   const borderCol  = isDark ? C.darkBorder: "rgba(0,166,81,0.12)";
-
-//   return (
-//     <Animated.View
-//       style={[
-//         cardStyles.card,
-//         {
-//           backgroundColor: cardBg,
-//           borderColor:     borderCol,
-//           opacity,
-//           transform: [{ translateY: slideY }],
-//         },
-//       ]}
-//     >
-//       {/* Progress dots */}
-//       <View style={cardStyles.dotsRow}>
-//         {Array.from({ length: total }).map((_, i) => (
-//           <View
-//             key={i}
-//             style={[
-//               cardStyles.dot,
-//               i === index && cardStyles.dotActive,
-//               i < index  && cardStyles.dotDone,
-//             ]}
-//           />
-//         ))}
-//       </View>
-
-//       {/* Icon + counter */}
-//       <View style={cardStyles.iconRow}>
-//         <View style={[cardStyles.iconCircle, { backgroundColor: isDark ? "rgba(0,166,81,0.15)" : C.primaryLight }]}>
-//           <Ionicons
-//             name={step.icon as any}
-//             size={26}
-//             color={step.iconColor || C.primary}
-//           />
-//         </View>
-//         <Text style={[cardStyles.counter, { color: subColor }]}>
-//           {index + 1} / {total}
-//         </Text>
-//       </View>
-
-//       {/* Title */}
-//       <Text style={[cardStyles.title, { color: textColor }]}>{step.title}</Text>
-
-//       {/* Body */}
-//       <Text style={[cardStyles.body, { color: subColor }]}>{step.body}</Text>
-
-//       {/* Tip pill */}
-//       {step.tip && (
-//         <View style={[cardStyles.tipRow, { backgroundColor: isDark ? "rgba(0,166,81,0.1)" : "rgba(0,166,81,0.08)", borderColor: borderCol }]}>
-//           <Ionicons name="bulb-outline" size={13} color={C.primary} />
-//           <Text style={cardStyles.tipText}>{step.tip}</Text>
-//         </View>
-//       )}
-
-//       {/* Navigation buttons */}
-//       <View style={cardStyles.btnRow}>
-//         {index > 0 ? (
-//           <Pressable
-//             style={({ pressed }) => [cardStyles.backBtn, pressed && { opacity: 0.7 }]}
-//             onPress={onBack}
-//           >
-//             <Ionicons name="arrow-back" size={16} color={isDark ? "#8da898" : C.textSec} />
-//             <Text style={[cardStyles.backBtnText, { color: isDark ? "#8da898" : C.textSec }]}>Back</Text>
-//           </Pressable>
-//         ) : (
-//           <View style={cardStyles.backBtn} />
-//         )}
-
-//         <Pressable
-//           style={({ pressed }) => [
-//             cardStyles.nextBtn,
-//             isLast && cardStyles.nextBtnFinal,
-//             pressed && { opacity: 0.85 },
-//           ]}
-//           onPress={isLast ? onComplete : onNext}
-//         >
-//           <Text style={cardStyles.nextBtnText}>
-//             {isLast ? "Let's go 🎉" : "Next"}
-//           </Text>
-//           {!isLast && <Ionicons name="arrow-forward" size={16} color="#fff" />}
-//         </Pressable>
-//       </View>
-//     </Animated.View>
-//   );
-// }
-
-// const cardStyles = StyleSheet.create({
-//   card: {
-//     position:     "absolute",
-//     bottom:       0,
-//     left:         0,
-//     right:        0,
-//     borderTopLeftRadius:  28,
-//     borderTopRightRadius: 28,
-//     padding:      24,
-//     paddingBottom:36,
-//     borderWidth:  1,
-//     gap:          12,
-//     shadowColor:  "#000",
-//     shadowOffset: { width: 0, height: -8 },
-//     shadowOpacity:0.25,
-//     shadowRadius: 20,
-//     elevation:    24,
-//   },
-//   dotsRow: {
-//     flexDirection: "row",
-//     gap:           5,
-//     alignSelf:     "center",
-//     marginBottom:  4,
-//   },
-//   dot: {
-//     width:        6,
-//     height:       6,
-//     borderRadius: 3,
-//     backgroundColor: "rgba(100,116,139,0.35)",
-//   },
-//   dotActive: {
-//     width:           18,
-//     backgroundColor: C.primary,
-//   },
-//   dotDone: {
-//     backgroundColor: "rgba(0,166,81,0.45)",
-//   },
-//   iconRow: {
-//     flexDirection:  "row",
-//     alignItems:     "center",
-//     justifyContent: "space-between",
-//   },
-//   iconCircle: {
-//     width:        48,
-//     height:       48,
-//     borderRadius: 14,
-//     alignItems:   "center",
-//     justifyContent:"center",
-//   },
-//   counter: {
-//     fontFamily: "Poppins_500Medium",
-//     fontSize:   12,
-//     letterSpacing:0.5,
-//   },
-//   title: {
-//     fontFamily: "Poppins_700Bold",
-//     fontSize:   19,
-//     lineHeight: 26,
-//   },
-//   body: {
-//     fontFamily: "Poppins_400Regular",
-//     fontSize:   14,
-//     lineHeight: 22,
-//   },
-//   tipRow: {
-//     flexDirection:    "row",
-//     alignItems:       "flex-start",
-//     gap:              8,
-//     borderRadius:     12,
-//     padding:          12,
-//     borderWidth:      1,
-//   },
-//   tipText: {
-//     fontFamily: "Poppins_400Regular",
-//     fontSize:   12,
-//     color:      C.primary,
-//     flex:       1,
-//     lineHeight: 18,
-//   },
-//   btnRow: {
-//     flexDirection:  "row",
-//     alignItems:     "center",
-//     justifyContent: "space-between",
-//     marginTop:      4,
-//   },
-//   backBtn: {
-//     flexDirection: "row",
-//     alignItems:    "center",
-//     gap:           5,
-//     padding:       10,
-//     minWidth:      60,
-//   },
-//   backBtnText: {
-//     fontFamily: "Poppins_500Medium",
-//     fontSize:   14,
-//   },
-//   nextBtn: {
-//     flexDirection:   "row",
-//     alignItems:      "center",
-//     gap:             7,
-//     backgroundColor: C.primary,
-//     borderRadius:    14,
-//     paddingHorizontal:22,
-//     paddingVertical:  13,
-//     shadowColor:     C.primary,
-//     shadowOffset:    { width: 0, height: 5 },
-//     shadowOpacity:   0.4,
-//     shadowRadius:    10,
-//     elevation:       6,
-//   },
-//   nextBtnFinal: {
-//     backgroundColor: C.gold,
-//     shadowColor:     C.gold,
-//   },
-//   nextBtnText: {
-//     fontFamily: "Poppins_700Bold",
-//     fontSize:   15,
-//     color:      "#fff",
-//   },
-// });
-
-// // ─── Dimmed overlay ───────────────────────────────────────────────────────────
-
-// function DimOverlay({ opacity: opacityValue }: { opacity: Animated.Value }) {
-//   return (
-//     <Animated.View
-//       pointerEvents="none"
-//       style={[
-//         StyleSheet.absoluteFill,
-//         { backgroundColor: "rgba(0,0,0,0.72)", opacity: opacityValue },
-//       ]}
-//     />
-//   );
-// }
-
-// // ─── Main component ───────────────────────────────────────────────────────────
-
-// interface OnboardingOverlayProps {
-//   onComplete: () => void;
-// }
-
-// export default function OnboardingOverlay({ onComplete }: OnboardingOverlayProps) {
-//   const insets       = useSafeAreaInsets();
-//   const { user }     = useAuthStore();
-//   const { theme }    = useSettingsStore();
-//   const isDark       = theme === "dark";
-
-//   const role  = (user?.role ?? "passenger") as UserRole;
-//   const steps = useMemo(() => buildSteps(role), [role]);
-
-//   const [stepIndex, setStepIndex] = useState(0);
-
-//   const dimOpacity   = useRef(new Animated.Value(0)).current;
-//   const skipOpacity  = useRef(new Animated.Value(0)).current;
-//   const exitScale    = useRef(new Animated.Value(1)).current;
-
-//   const currentStep = steps[stepIndex];
-//   const isLast      = stepIndex === steps.length - 1;
-
-//   // Entrance animation
-//   useEffect(() => {
-//     Animated.parallel([
-//       Animated.timing(dimOpacity,  { toValue: 1, duration: 400, useNativeDriver: true }),
-//       Animated.timing(skipOpacity, { toValue: 1, duration: 500, delay: 600, useNativeDriver: true }),
-//     ]).start();
-//   }, []);
-
-//   const handleComplete = useCallback(() => {
-//     // Exit animation
-//     Animated.parallel([
-//       Animated.timing(dimOpacity,  { toValue: 0, duration: 300, useNativeDriver: true }),
-//       Animated.timing(skipOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
-//       Animated.spring(exitScale, { toValue: 1.05, damping: 10, useNativeDriver: true }),
-//     ]).start(() => onComplete());
-//   }, [onComplete, dimOpacity, skipOpacity, exitScale]);
-
-//   const handleNext = useCallback(() => {
-//     if (stepIndex < steps.length - 1) setStepIndex((i) => i + 1);
-//   }, [stepIndex, steps.length]);
-
-//   const handleBack = useCallback(() => {
-//     if (stepIndex > 0) setStepIndex((i) => i - 1);
-//   }, [stepIndex]);
-
-//   const topPad = Platform.OS === "web" ? 20 : insets.top;
-
-//   return (
-//     <Animated.View
-//       style={[styles.root, { transform: [{ scale: exitScale }] }]}
-//       pointerEvents="box-none"
-//     >
-//       {/* Dimmed background */}
-//       <DimOverlay opacity={dimOpacity} />
-
-//       {/* Spotlight ring — morphs to new position on each step change */}
-//       <SpotlightRing
-//         key={currentStep.id}      // remount = re-animate on step change
-//         region={currentStep.region}
-//         animating={true}
-//       />
-
-//       {/* Skip button — always top-right */}
-//       <Animated.View
-//         style={[
-//           styles.skipWrap,
-//           { top: topPad + 12, opacity: skipOpacity },
-//         ]}
-//         pointerEvents="box-none"
-//       >
-//         <Pressable
-//           style={({ pressed }) => [
-//             styles.skipBtn,
-//             { backgroundColor: isDark ? "rgba(10,18,16,0.85)" : "rgba(255,255,255,0.92)" },
-//             pressed && { opacity: 0.8 },
-//           ]}
-//           onPress={handleComplete}
-//           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-//         >
-//           <Text style={[
-//             styles.skipText,
-//             { color: isDark ? "rgba(255,255,255,0.75)" : C.textSec },
-//           ]}>
-//             Skip tutorial
-//           </Text>
-//           <Ionicons
-//             name="close"
-//             size={14}
-//             color={isDark ? "rgba(255,255,255,0.6)" : C.textSec}
-//           />
-//         </Pressable>
-//       </Animated.View>
-
-//       {/* Step counter badge (top-center) */}
-//       <Animated.View
-//         style={[
-//           styles.stepBadge,
-//           { top: topPad + 14, opacity: skipOpacity },
-//         ]}
-//         pointerEvents="none"
-//       >
-//         <Text style={styles.stepBadgeText}>
-//           {stepIndex + 1} of {steps.length}
-//         </Text>
-//       </Animated.View>
-
-//       {/* Step card */}
-//       <StepCard
-//         step={currentStep}
-//         index={stepIndex}
-//         total={steps.length}
-//         onNext={handleNext}
-//         onBack={handleBack}
-//         onComplete={handleComplete}
-//         isLast={isLast}
-//         isDark={isDark}
-//       />
-//     </Animated.View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   root: {
-//     ...StyleSheet.absoluteFillObject,
-//     zIndex: 9999,
-//   },
-//   skipWrap: {
-//     position: "absolute",
-//     right:    16,
-//     zIndex:   10000,
-//   },
-//   skipBtn: {
-//     flexDirection:    "row",
-//     alignItems:       "center",
-//     gap:              6,
-//     paddingHorizontal:14,
-//     paddingVertical:   8,
-//     borderRadius:     20,
-//     borderWidth:      1,
-//     borderColor:      "rgba(0,166,81,0.25)",
-//     shadowColor:      "#000",
-//     shadowOffset:     { width: 0, height: 2 },
-//     shadowOpacity:    0.15,
-//     shadowRadius:     6,
-//     elevation:        4,
-//   },
-//   skipText: {
-//     fontFamily: "Poppins_500Medium",
-//     fontSize:   13,
-//   },
-//   stepBadge: {
-//     position:         "absolute",
-//     alignSelf:        "center",
-//     left:             0,
-//     right:            0,
-//     alignItems:       "center",
-//     zIndex:           10000,
-//     pointerEvents:    "none",
-//   },
-//   stepBadgeText: {
-//     fontFamily:      "Poppins_600SemiBold",
-//     fontSize:        12,
-//     color:           "rgba(255,255,255,0.45)",
-//     letterSpacing:   0.5,
-//   },
-// });
-
-
-
-
-
-
-
-
-
-
-
-
-
-// app/(main)/_layout.tsx
-//
-// CHANGES vs original:
-//   1. Imports OnboardingOverlay + useOnboarding
-//   2. Renders <OnboardingOverlay> conditionally after fonts/auth are ready
-//   3. Everything else is identical to original
-
-import React, { useState, useRef, useCallback } from "react";
+import { Colors } from "@/constants/colors";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   View,
+  Text,
   StyleSheet,
   Pressable,
-  Text,
-  Platform,
   Animated,
-  PanResponder,
   Dimensions,
-  Image,
-  ScrollView,
+  Platform,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BlurView } from "expo-blur";
-import * as Haptics from "expo-haptics";
-import { useAuthStore } from "@/src/store/useStore";
-import { useSettingsStore } from "@/src/store/useSettingsStore";
-import { useMessagesStore } from "@/src/store/useMessagesStore";
-import { Colors } from "@/constants/colors";
-import Avatar from "@/components/Avatar";
-import ProfileTab from "./profile";
-import MessagesTab from "./messages";
-import SettingsTab from "./settings";
-import DiscoverTab from "./discover";
-import type { FeedItem } from "./discover";
-// oisofoerire
-import { HugeiconsIcon } from "@hugeicons/react-native";
-import {
-  HomeIcon,
-  Home01Icon,
-  SettingsIcon,
-  Settings01Icon,
-  MessageIcon,
-  Message01Icon,
-  Menu02Icon,
-  SearchIcon,
-} from "@hugeicons/core-free-icons";
-import BottomSheet from "@gorhom/bottom-sheet";
-import { CommentSheet } from "@/components/CommentSheet";
-import MainTab from "./index";
-import SidedBar from "@/components/Sidedbar";
-import FindDriverModal from "@/components/FindDriverModal";
+import Svg, { Defs, Mask, Rect, Circle, Path } from "react-native-svg";
 
-// ── NEW: Onboarding ──────────────────────────────────────────────────────────
-import OnboardingOverlay from "@/components/OnboardingOverlay";
-import { useOnboarding } from "@/src/hooks/useOnboarding";
+const { width: W, height: H } = Dimensions.get("window");
 
-type Tab = "home" | "profile" | "messages" | "settings";
-type TopTab = "home" | "discover";
+interface TutorialStep {
+  id: string;
+  title: string;
+  body: string;
+  type: "none" | "circle";
+  x: number;
+  y: number;
+  radius?: number;
+  arrowDirection: "up" | "down" | "left" | "right";
+  displayText?: string;
+}
 
-const TAB_HEIGHT = 60;
-const SIDEBAR_WIDTH = 330;
-const EDGE_WIDTH = 30;
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const TUTORIAL_STEPS: TutorialStep[] = [
+  {
+    id: "home",
+    title: "Home",
+    body: "Tap here to return to your primary dashboard instantly.",
+    type: "none",
+    x: 0.3,
+    y: 0.13,
+    arrowDirection: "left",
+    displayText: "Home",
+  },
+  {
+    id: "for-you",
+    title: "For You",
+    body: "Explore tailor-made updates and personalized network recommendations.",
+    type: "none",
+    x: 0.78,
+    y: 0.13,
+    arrowDirection: "right",
+    displayText: "For You",
+  },
+  {
+    id: "scan-code",
+    title: "Scan Code",
+    body: "Instantly scan passenger or driver QR codes to pair devices seamlessly.",
+    type: "circle",
+    x: 0.134,
+    y: 0.2154,
+    radius: 26,
+    arrowDirection: "left",
+  },
+  {
+    id: "history",
+    title: "History",
+    body: "Review your detailed log of completed trips and overall metrics.",
+    type: "circle",
+    x: 0.622,
+    y: 0.2154,
+    radius: 26,
+    arrowDirection: "up",
+  },
+  {
+    id: "emergency-contact",
+    title: "Emergency Contact",
+    body: "One-tap trigger to alert dispatch and close contacts during crisis.",
+    type: "circle",
+    x: 0.866,
+    y: 0.2154,
+    radius: 26,
+    arrowDirection: "right",
+  },
+  {
+    id: "messaging-icon",
+    title: "Messages",
+    body: "Open secure real-time chats with connected drivers or dispatchers.",
+    type: "none",
+    x: 0.622,
+    y: 0.95,
+    arrowDirection: "down",
+    displayText: "Messages",
+  },
+];
 
-export default function MainLayout() {
-  const insets = useSafeAreaInsets();
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
-  const { user } = useAuthStore();
-  const { conversations } = useMessagesStore();
+const GamingArrow = ({ direction }: { direction: string }) => {
+  let rotation = "0deg";
+  if (direction === "down") rotation = "180deg";
+  if (direction === "left") rotation = "-90deg";
+  if (direction === "right") rotation = "90deg";
 
-  // ── Onboarding state ──────────────────────────────────────────────────────
-  const { shouldShow, isLoaded, complete } = useOnboarding();
-
-  const [activeTab, setActiveTab] = useState<Tab>("home");
-  const [activeTopTab, setActiveTopTab] = useState<TopTab>("home");
-  const [finderVisible, setFinderVisible] = useState(false);
-
-  // ── Sidebar state ────────────────────────────────────────────────────────
-  const sidebarOpen = useRef(false);
-  const sidebarAnim = useRef(new Animated.Value(0)).current;
-
-  const openSidebar = useCallback(() => {
-    sidebarOpen.current = true;
-    Animated.timing(sidebarAnim, {
-      toValue: SIDEBAR_WIDTH,
-      duration: 250,
-      useNativeDriver: true,
-    }).start();
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [sidebarAnim]);
-
-  const closeSidebar = useCallback(() => {
-    sidebarOpen.current = false;
-    Animated.timing(sidebarAnim, {
-      toValue: 0,
-      duration: 250,
-      useNativeDriver: true,
-    }).start();
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [sidebarAnim]);
-
-  const isSidebarGesture = useRef(false);
-  const panX = useRef(0);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gesture) => {
-        if (
-          Math.abs(gesture.dx) > Math.abs(gesture.dy) &&
-          Math.abs(gesture.dx) > 5
-        ) {
-          if (
-            !sidebarOpen.current &&
-            gesture.moveX <= EDGE_WIDTH &&
-            gesture.dx > 0
-          ) {
-            isSidebarGesture.current = true;
-            return true;
-          }
-          if (sidebarOpen.current) {
-            isSidebarGesture.current = true;
-            return true;
-          }
-        }
-        return false;
-      },
-      onPanResponderGrant: () => {
-        panX.current = sidebarOpen.current ? SIDEBAR_WIDTH : 0;
-        if (isSidebarGesture.current) {
-          sidebarAnim.setOffset(panX.current);
-          sidebarAnim.setValue(0);
-        }
-      },
-      onPanResponderMove: (_, gesture) => {
-        if (isSidebarGesture.current) {
-          let newX = gesture.dx;
-          if (!sidebarOpen.current) newX = Math.max(0, newX);
-          else newX = Math.min(0, newX);
-          const absolute = panX.current + newX;
-          const clamped = Math.min(SIDEBAR_WIDTH, Math.max(0, absolute));
-          sidebarAnim.setValue(clamped - panX.current);
-        }
-      },
-      onPanResponderRelease: (_, gesture) => {
-        if (isSidebarGesture.current) {
-          sidebarAnim.flattenOffset();
-          const currentX = panX.current + gesture.dx;
-          const threshold = SIDEBAR_WIDTH / 2;
-          if (currentX > threshold || gesture.vx > 0.5) {
-            openSidebar();
-          } else {
-            closeSidebar();
-          }
-        }
-        isSidebarGesture.current = false;
-      },
-    })
-  ).current;
-
-  const overlayOpacity = sidebarAnim.interpolate({
-    inputRange: [0, SIDEBAR_WIDTH],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
-  });
-
-  // ── Top Tabs ──────────────────────────────────────────────────────────────
-  const scrollViewRef = useRef<ScrollView>(null);
-  const scrollX = useRef(new Animated.Value(0)).current;
-
-  const handleTopTabPress = (tab: TopTab) => {
-    setActiveTopTab(tab);
-    scrollViewRef.current?.scrollTo({
-      x: tab === "home" ? 0 : SCREEN_WIDTH,
-      animated: true,
-    });
-  };
-
-  const indicatorTranslateX = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH],
-    outputRange: [SCREEN_WIDTH * 0.2, SCREEN_WIDTH * 0.7],
-    extrapolate: "clamp",
-  });
-
-  // ── Theme ─────────────────────────────────────────────────────────────────
-  const { theme } = useSettingsStore();
-  const isDark = theme === "dark";
-  const bg = isDark ? Colors.background : Colors.border;
-  const tabBarBg = isDark ? Colors.background : Colors.textWhite;
-  const textColor = isDark ? Colors.textWhite : Colors.text;
-  const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
-
-  // ── Bottom Sheets ─────────────────────────────────────────────────────────
-  const [commentSheetPost, setCommentSheetPost] = useState<FeedItem | null>(
-    null
+  return (
+    <View style={{ transform: [{ rotate: rotation }] }}>
+      <Svg width="28" height="28" viewBox="0 0 28 28">
+        <Path d="M14 2 L26 22 L14 17 L2 22 Z" fill={Colors.primary || "#E5C531"} />
+      </Svg>
+    </View>
   );
-  const bottomSheetRef = useRef<BottomSheet>(null);
-  const onAddCommentRef = useRef<(postId: string, text: string) => void>();
+};
 
-  const openCommentSheet = useCallback((post: FeedItem) => {
-    setCommentSheetPost(post);
-    bottomSheetRef.current?.snapToIndex(0);
-  }, []);
+interface OnboardingOverlayProps {
+  onComplete: () => void;
+}
 
-  const handleAddComment = useCallback((postId: string, text: string) => {
-    if (onAddCommentRef.current) {
-      onAddCommentRef.current(postId, text);
+export default function OnboardingOverlay({ onComplete }: OnboardingOverlayProps) {
+  const [stepIndex, setStepIndex] = useState(0);
+
+  const dimOpacity = useRef(new Animated.Value(0)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+  const bounceAnim = useRef(new Animated.Value(0)).current;
+
+  const currentStep = TUTORIAL_STEPS[stepIndex];
+
+  const animCX = useRef(new Animated.Value(TUTORIAL_STEPS[0].x * W)).current;
+  const animCY = useRef(new Animated.Value(TUTORIAL_STEPS[0].y * H)).current;
+  const animR = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(dimOpacity, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: false,
+    }).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bounceAnim, { toValue: 1, duration: 500, useNativeDriver: false }),
+        Animated.timing(bounceAnim, { toValue: 0, duration: 500, useNativeDriver: false }),
+      ])
+    ).start();
+  }, [dimOpacity, bounceAnim]);
+
+  useEffect(() => {
+    const targetX = currentStep.x * W;
+    const targetY = currentStep.y * H;
+    const targetR = currentStep.type === "circle" ? (currentStep.radius ?? 40) : 0;
+
+    Animated.sequence([
+      Animated.timing(contentOpacity, {
+        toValue: 0,
+        duration: 120,
+        useNativeDriver: false,
+      }),
+      Animated.parallel([
+        Animated.spring(animCX, { toValue: targetX, friction: 9, tension: 60, useNativeDriver: false }),
+        Animated.spring(animCY, { toValue: targetY, friction: 9, tension: 60, useNativeDriver: false }),
+        Animated.spring(animR, { toValue: targetR, friction: 9, tension: 60, useNativeDriver: false }),
+      ]),
+      Animated.timing(contentOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [stepIndex, currentStep, contentOpacity, animCX, animCY, animR]);
+
+  const handleComplete = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(dimOpacity, { toValue: 0, duration: 250, useNativeDriver: false }),
+      Animated.timing(contentOpacity, { toValue: 0, duration: 250, useNativeDriver: false }),
+    ]).start(() => onComplete());
+  }, [onComplete, dimOpacity, contentOpacity]);
+
+  const handleNext = useCallback(() => {
+    if (stepIndex < TUTORIAL_STEPS.length - 1) {
+      setStepIndex((i) => i + 1);
+    } else {
+      handleComplete();
     }
-  }, []);
+  }, [stepIndex, handleComplete]);
 
-  const totalUnread = conversations.reduce(
-    (s, c) => s + (c.unread_count ?? c.unreadCount ?? 0),
-    0
-  );
+  const renderTooltipContent = () => {
+    const offset = (currentStep.radius ?? 0) + 15;
+    const TOOLTIP_W = 280;
 
-  const handleTabPress = (tab: Tab) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setActiveTab(tab);
-  };
+    let containerStyle: any = {};
+    let flexDir: any = "column";
 
-  const toggleSearch = () => {
-    setFinderVisible(true);
-  };
-
-  const renderMainContent = () => {
-    if (activeTab !== "home") {
-      switch (activeTab) {
-        case "profile":
-          return <ProfileTab />;
-        case "messages":
-          return <MessagesTab />;
-        case "settings":
-          return <SettingsTab />;
-        default:
-          return null;
-      }
+    if (currentStep.arrowDirection === "up") {
+      containerStyle = { top: offset, width: TOOLTIP_W, left: -TOOLTIP_W / 2, alignItems: "center" };
+      flexDir = "column";
+    } else if (currentStep.arrowDirection === "down") {
+      containerStyle = { bottom: offset, width: TOOLTIP_W, left: -TOOLTIP_W / 2, alignItems: "center" };
+      flexDir = "column-reverse";
+    } else if (currentStep.arrowDirection === "left") {
+      containerStyle = { top: -20, left: offset, width: TOOLTIP_W, alignItems: "center" };
+      flexDir = "row";
+    } else if (currentStep.arrowDirection === "right") {
+      containerStyle = { top: -20, right: offset, width: TOOLTIP_W, justifyContent: "flex-end", alignItems: "center" };
+      flexDir = "row-reverse";
     }
+
+    const bounceDistance = 8;
+    let translateY = bounceAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0] });
+    let translateX = bounceAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0] });
+
+    if (currentStep.arrowDirection === "up") translateY = bounceAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -bounceDistance] });
+    if (currentStep.arrowDirection === "down") translateY = bounceAnim.interpolate({ inputRange: [0, 1], outputRange: [0, bounceDistance] });
+    if (currentStep.arrowDirection === "left") translateX = bounceAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -bounceDistance] });
+    if (currentStep.arrowDirection === "right") translateX = bounceAnim.interpolate({ inputRange: [0, 1], outputRange: [0, bounceDistance] });
 
     return (
-      <Animated.ScrollView
-        ref={scrollViewRef as any}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        bounces={false}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-          { useNativeDriver: true }
-        )}
-        scrollEventThrottle={16}
-        onMomentumScrollEnd={(e) => {
-          const page = Math.round(
-            e.nativeEvent.contentOffset.x / SCREEN_WIDTH
-          );
-          setActiveTopTab(page === 0 ? "home" : "discover");
-        }}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
-          <MainTab />
+      <View style={[styles.tooltipWrapper, containerStyle, { flexDirection: flexDir }]}>
+        <Animated.View style={{ transform: [{ translateX }, { translateY }] }}>
+          <GamingArrow direction={currentStep.arrowDirection} />
+        </Animated.View>
+
+        <View 
+          style={[
+            styles.gamingTextBox, 
+            currentStep.arrowDirection === "left" || currentStep.arrowDirection === "right" 
+              ? { marginHorizontal: 12 } 
+              : { marginVertical: 8 }
+          ]}
+        >
+          <Text style={styles.stepBody}>{currentStep.body}</Text>
         </View>
-        <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
-          <DiscoverTab
-            onCommentPress={openCommentSheet}
-            setCommentHandler={(handler) => {
-              onAddCommentRef.current = handler;
-            }}
-          />
-        </View>
-      </Animated.ScrollView>
+      </View>
     );
   };
 
+  const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
   return (
-    <View style={styles.root}>
-      <Animated.View
-        style={[
-          styles.sideBySideWrapper,
-          { transform: [{ translateX: sidebarAnim }] },
-        ]}
-        {...panResponder.panHandlers}
-      >
-        {/* Sidebar */}
-        <View style={styles.sidebarContainer}>
-          <SidedBar />
-        </View>
-
-        {/* Main content */}
-        <View style={styles.mainContainer}>
-          <Animated.View
-            style={[styles.overlay, { opacity: overlayOpacity }]}
-            pointerEvents={sidebarOpen.current ? "auto" : "none"}
-          >
-            <Pressable style={StyleSheet.absoluteFill} onPress={closeSidebar} />
-          </Animated.View>
-
-          {/* Header */}
-          {activeTab === "home" && (
-            <View
-              style={[
-                styles.header,
-                {
-                  paddingTop: topPadding + 2,
-                  backgroundColor: tabBarBg,
-                },
-              ]}
-            >
-              <Pressable onPress={openSidebar} style={styles.menuBtn}>
-                <HugeiconsIcon icon={Menu02Icon} size={22} color={textColor} />
-              </Pressable>
-              <Pressable style={styles.logoBtn}>
-                <Image
-                  source={
-                    isDark
-                      ? require("@/assets/images/Logo_with_transparent_background.png")
-                      : require("@/assets/images/Black_logo_with_white_background.png")
-                  }
-                  style={styles.photoImg}
-                  resizeMode="contain"
-                  width={120}
-                />
-              </Pressable>
-              <Pressable
-                onPress={toggleSearch}
-                style={[
-                  styles.menuList,
-                  {
-                    backgroundColor: isDark
-                      ? Colors.overlayLight
-                      : Colors.border,
-                    borderColor,
-                  },
-                ]}
-              >
-                <HugeiconsIcon
-                  icon={SearchIcon}
-                  size={20}
-                  color={textColor}
-                />
-              </Pressable>
-            </View>
-          )}
-
-          {/* Top Tab Bar */}
-          {activeTab === "home" && (
-            <View
-              style={[
-                styles.topTabBar,
-                {
-                  backgroundColor: tabBarBg,
-                  borderBottomColor: borderColor,
-                },
-              ]}
-            >
-              <View style={styles.topTabItemContainer}>
-                <Pressable
-                  style={styles.topTabItem}
-                  onPress={() => handleTopTabPress("home")}
-                >
-                  <Text
-                    style={[
-                      styles.topTabText,
-                      {
-                        color: textColor,
-                        fontFamily:
-                          activeTopTab === "home"
-                            ? "Poppins_700Bold"
-                            : "Poppins_400Medium",
-                        opacity: activeTopTab === "home" ? 1 : 0.45,
-                      },
-                    ]}
-                  >
-                    Home
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={styles.topTabItem}
-                  onPress={() => handleTopTabPress("discover")}
-                >
-                  <Text
-                    style={[
-                      styles.topTabText,
-                      {
-                        color: textColor,
-                        fontFamily:
-                          activeTopTab === "discover"
-                            ? "Poppins_700Bold"
-                            : "Poppins_400Medium",
-                        opacity: activeTopTab === "discover" ? 1 : 0.45,
-                      },
-                    ]}
-                  >
-                    For You
-                  </Text>
-                </Pressable>
-              </View>
-              <Animated.View
-                style={[
-                  styles.topTabIndicator,
-                  {
-                    backgroundColor: Colors.primary,
-                    transform: [{ translateX: indicatorTranslateX }],
-                  },
-                ]}
-              />
-            </View>
-          )}
-
-          {/* Content */}
-          <View style={styles.content}>{renderMainContent()}</View>
-
-          {/* Bottom Tab Bar */}
-          <View
-            style={[
-              styles.tabBar,
-              {
-                height: TAB_HEIGHT + Math.max(insets.bottom, 16),
-                backgroundColor: tabBarBg,
-              },
-            ]}
-          >
-            {Platform.OS === "ios" && (
-              <BlurView
-                intensity={0}
-                tint={isDark ? "dark" : "light"}
-                style={StyleSheet.absoluteFillObject}
-              />
-            )}
-            <View
-              style={[
-                styles.tabBarBorder,
-                {
-                  backgroundColor: isDark
-                    ? "rgba(255,255,255,0.07)"
-                    : "#E8ECF0",
-                },
-              ]}
-            />
-            <View style={styles.tabBarInner}>
-              <TabItem
-                id="home"
-                activeIcon={HomeIcon}
-                inactiveIcon={Home01Icon}
-                label="Home"
-                active={activeTab === "home"}
-                onPress={() => handleTabPress("home")}
-                isDark={isDark}
-              />
-              <Pressable
-                style={styles.tabItem}
-                onPress={() => handleTabPress("profile")}
-              >
-                <View
-                  style={
-                    activeTab === "profile"
-                      ? styles.avatarActive
-                      : styles.avatarInactive
-                  }
-                >
-                  <Avatar
-                    name={user?.full_name || "U"}
-                    photoUri={user?.profile_photo}
-                    size={28}
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.tabLabel,
-                    {
-                      color:
-                        activeTab === "profile"
-                          ? Colors.primary
-                          : isDark
-                          ? "#FFFFFF"
-                          : Colors.textSecondary,
-                      fontFamily:
-                        activeTab === "profile"
-                          ? "Poppins_600SemiBold"
-                          : "Poppins_400Regular",
-                    },
-                  ]}
-                >
-                  You
-                </Text>
-              </Pressable>
-              <Pressable
-                style={styles.tabItem}
-                onPress={() => handleTabPress("messages")}
-              >
-                <View style={{ position: "relative" }}>
-                  <HugeiconsIcon
-                    icon={
-                      activeTab === "messages" ? MessageIcon : Message01Icon
-                    }
-                    size={24}
-                    color={
-                      activeTab === "messages"
-                        ? Colors.primary
-                        : isDark
-                        ? "#FFFFFF"
-                        : Colors.textSecondary
-                    }
-                  />
-                  {totalUnread > 0 && (
-                    <View style={styles.unreadBadge}>
-                      <Text style={styles.unreadBadgeText}>
-                        {totalUnread > 9 ? "9+" : totalUnread}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                <Text
-                  style={[
-                    styles.tabLabel,
-                    {
-                      color:
-                        activeTab === "messages"
-                          ? Colors.primary
-                          : isDark
-                          ? "#FFFFFF"
-                          : Colors.textSecondary,
-                      fontFamily:
-                        activeTab === "messages"
-                          ? "Poppins_600SemiBold"
-                          : "Poppins_400Regular",
-                    },
-                  ]}
-                >
-                  Messages
-                </Text>
-              </Pressable>
-              <TabItem
-                id="settings"
-                activeIcon={SettingsIcon}
-                inactiveIcon={Settings01Icon}
-                label="Settings"
-                active={activeTab === "settings"}
-                onPress={() => handleTabPress("settings")}
-                isDark={isDark}
-              />
-            </View>
-          </View>
-        </View>
+    <View style={styles.root} pointerEvents="box-none">
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: dimOpacity }]}>
+        <Svg width="100%" height="100%">
+          <Defs>
+            <Mask id="gamingSpotlight">
+              <Rect x="0" y="0" width="100%" height="100%" fill="white" />
+              <AnimatedCircle cx={animCX} cy={animCY} r={animR} fill="black" />
+            </Mask>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill="rgba(6, 9, 20, 0.88)" mask="url(#gamingSpotlight)" />
+        </Svg>
       </Animated.View>
 
-      <CommentSheet
-        bottomSheetRef={bottomSheetRef}
-        post={commentSheetPost}
-        isDark={isDark}
-        onClose={() => setCommentSheetPost(null)}
-        onAddComment={handleAddComment}
-      />
-
-      <FindDriverModal
-        visible={finderVisible}
-        onClose={() => setFinderVisible(false)}
-      />
-
-      {/*
-       * OnboardingOverlay — rendered last so it sits above everything.
-       * Only shown once: isLoaded prevents a flash before AsyncStorage resolves.
-       * zIndex 9999 is set inside the component itself.
-       */}
-      {isLoaded && shouldShow && (
-        <OnboardingOverlay onComplete={complete} />
+      {currentStep.type === "none" && currentStep.displayText && (
+        <Animated.View
+          style={[
+            styles.foregroundItemAnchor,
+            { opacity: contentOpacity, left: currentStep.x * W, top: currentStep.y * H },
+          ]}
+        >
+          <Text style={styles.itemRawText}>{currentStep.displayText}</Text>
+        </Animated.View>
       )}
+
+      <Animated.View
+        style={[
+          styles.dynamicAnchor,
+          {
+            transform: [{ translateX: animCX }, { translateY: animCY }],
+          },
+        ]}
+        pointerEvents="box-none"
+      >
+        <Animated.View style={{ opacity: contentOpacity }} pointerEvents="box-none">
+          {renderTooltipContent()}
+        </Animated.View>
+      </Animated.View>
+
+      <View style={styles.footerContainer} pointerEvents="box-none">
+        <Pressable
+          style={({ pressed }) => [styles.navBtn, pressed && styles.btnPressed]}
+          onPress={handleComplete}
+        >
+          <Text style={styles.skipBtnText}>Skip</Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [styles.navBtn, pressed && styles.btnPressed]}
+          onPress={handleNext}
+        >
+          <Text style={styles.nextBtnText}>Next</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
-function TabItem({
-  activeIcon,
-  inactiveIcon,
-  label,
-  active,
-  onPress,
-  isDark,
-}: any) {
-  const color = active
-    ? Colors.primary
-    : isDark
-    ? "#FFFFFF"
-    : Colors.textSecondary;
-  return (
-    <Pressable style={styles.tabItem} onPress={onPress}>
-      <HugeiconsIcon
-        icon={active ? activeIcon : inactiveIcon}
-        size={24}
-        color={color}
-      />
-      <Text
-        style={[
-          styles.tabLabel,
-          {
-            color,
-            fontFamily: active ? "Poppins_600SemiBold" : "Poppins_400Regular",
-          },
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#000" },
-  sideBySideWrapper: {
-    flex: 1,
-    flexDirection: "row",
-    width: SCREEN_WIDTH + SIDEBAR_WIDTH,
-    marginLeft: -SIDEBAR_WIDTH,
-  },
-  sidebarContainer: {
-    width: SIDEBAR_WIDTH,
-    height: "100%",
-  },
-  mainContainer: {
-    width: SCREEN_WIDTH,
-    height: "100%",
-  },
-  overlay: {
+  root: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    zIndex: 10,
+    zIndex: 99999,
   },
-  content: { flex: 1 },
-  header: {
-    paddingHorizontal: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  menuList: {
-    borderRadius: 30,
-    padding: 9,
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 10,
-    borderWidth: 1,
-  },
-  menuBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: "flex-start",
-    justifyContent: "center",
-  },
-  logoBtn: {
-    width: 25,
-    height: 25,
-    marginVertical: 10,
-    justifyContent: "center",
-    alignItems: "center",
-    flex: 1,
-  },
-  photoImg: { width: 50, height: 50, alignSelf: "center" },
-  topTabBar: {
-    flexDirection: "column",
-    paddingBottom: 0,
-    borderBottomWidth: 0.5,
-    position: "relative",
-    paddingTop: 5,
-  },
-  topTabItemContainer: { flexDirection: "row" },
-  topTabItem: {
-    flex: 1,
-    alignItems: "center",
-    paddingBottom: 14,
-  },
-  topTabText: { fontSize: 16, letterSpacing: 0 },
-  topTabIndicator: {
+  foregroundItemAnchor: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    height: 3.5,
-    width: "10%",
-    borderRadius: 2,
+    width: 0,
+    height: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 100000,
   },
-  tabBar: { position: "relative", overflow: "hidden" },
-  tabBarBorder: {
-    height: 1,
+  itemRawText: {
+    fontFamily: "Poppins_700Bold",
+    fontSize: 20,
+    color: Colors.primary,
+    position: "absolute",
+  },
+  dynamicAnchor: {
     position: "absolute",
     top: 0,
     left: 0,
-    right: 0,
+    width: 0,
+    height: 0,
+    zIndex: 100001,
   },
-  tabBarInner: {
-    flexDirection: "row",
-    paddingTop: 8,
-    paddingHorizontal: 8,
-  },
-  tabItem: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    paddingVertical: 6,
-  },
-  tabLabel: { fontSize: 10, letterSpacing: 0.2 },
-  avatarActive: {
-    borderRadius: 16,
-    borderWidth: 2.5,
-    borderColor: Colors.primary,
-  },
-  avatarInactive: {
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  unreadBadge: {
+  tooltipWrapper: {
     position: "absolute",
-    top: -4,
-    right: -6,
-    backgroundColor: Colors.error,
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 3,
   },
-  unreadBadgeText: {
+  gamingTextBox: {
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    maxWidth: 240,
+  },
+  stepBody: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 14,
+    color: "#FFFFFF",
+    lineHeight: 20,
+    textAlign: "left",
+  },
+  footerContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 32,
+    paddingBottom: Platform.OS === "ios" ? 50 : 30,
+  },
+  navBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  btnPressed: {
+    opacity: 0.6,
+  },
+  skipBtnText: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 16,
+    color: "#7E8494",
+    letterSpacing: 0.5,
+  },
+  nextBtnText: {
     fontFamily: "Poppins_700Bold",
-    fontSize: 9,
-    color: "#fff",
+    fontSize: 16,
+    color: Colors.primary,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
 });

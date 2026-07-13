@@ -39,7 +39,15 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/colors";
 import { useAuthStore } from "@/src/store/useStore";
+import { useCreditsStore } from "@/src/store/useCreditsStore";
 import { formatNaira } from "@/src/utils/helpers";
+import { PaystackService } from "@/src/services/paystack";
+
+// ─── Revenue Constants ───────────────────────────────────────────────────────
+// 1 credit = ₦0.05 (as per example: 100 credits = ₦5)
+const CREDIT_TO_NAIRA = 0.05;
+const POOL_BONUS_PERCENT = 0.40;    // 40% bonus from pool to driver
+const COMPANY_CUT_PERCENT = 0.60;   // 60% from pool to company
 
 // ─── Camera module — loaded at module level, not inside a component ───────────
 // We need the hook (useCameraPermissions) to be available unconditionally so it
@@ -385,8 +393,8 @@ export default function PayFareScreen() {
       );
       return;
     }
-    const numAmount = parseFloat(amount);
-    if (!amount || isNaN(numAmount) || numAmount < 50) {
+    const baseFare = parseFloat(amount);
+    if (!amount || isNaN(baseFare) || baseFare < 50) {
       Alert.alert(
         "Invalid Amount",
         "Please enter an amount of at least ₦50."
@@ -394,16 +402,69 @@ export default function PayFareScreen() {
       return;
     }
 
+    // ── 1. Apply credit discount ──────────────────────────────────────────
+    const { balance: creditBalance } = useCreditsStore.getState();
+    const maxDiscountNaira = creditBalance * CREDIT_TO_NAIRA;
+    const discount = Math.min(maxDiscountNaira, baseFare);
+    const discountedFare = baseFare - discount;
+    const creditsUsed = Math.floor(discount / CREDIT_TO_NAIRA);
+
+    // ── 2. Calculate pool splits ──────────────────────────────────────────
+    const poolDuplicate = discountedFare;                            // Mirror of passenger payment
+    const poolBonus = Math.round(discountedFare * POOL_BONUS_PERCENT);   // 40%
+    const companyCut = Math.round(discountedFare * COMPANY_CUT_PERCENT); // 60%
+    const totalPoolNeeded = poolDuplicate + poolBonus;               // Duplicate + Bonus
+    const totalPoolNeededInCredits = totalPoolNeeded / CREDIT_TO_NAIRA;
+
+    // ── 3. Check if passenger has enough credits to fund pool ─────────────
+    if (creditBalance < totalPoolNeededInCredits) {
+      Alert.alert(
+        "Insufficient Credits",
+        "You don't have enough credits for this trip. Earn more by engaging in the For You tab.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    // ── 4. Process payment ────────────────────────────────────────────────
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setIsProcessing(true);
 
-    // Simulate payment processing — replace with Paystack/Flutterwave
-    await new Promise<void>((r) => setTimeout(r, 1800));
+    try {
+      const success = await PaystackService.processTripPayment({
+        email: user?.email || "passenger@teqil.app",
+        amount: discountedFare,
+        pool_duplicate_amount: poolDuplicate,
+        bonus_amount: poolBonus,
+        company_cut: companyCut,
+      });
 
-    setIsProcessing(false);
-    setPaymentSuccess(true);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, [driverRef, amount]);
+      if (success) {
+        // Deduct credits used for discount + pool funding
+        const totalCreditsDeducted = creditsUsed + Math.ceil(totalPoolNeededInCredits);
+        useCreditsStore.getState().setBalance(
+          Math.max(0, creditBalance - totalCreditsDeducted)
+        );
+
+        const driverReceives = discountedFare + poolDuplicate + poolBonus;
+        console.log(`[Revenue] Fare: ₦${baseFare}`);
+        console.log(`[Revenue] Discount: ₦${discount} (${creditsUsed} credits)`);
+        console.log(`[Revenue] Passenger pays: ₦${discountedFare}`);
+        console.log(`[Revenue] Driver receives: ₦${driverReceives}`);
+        console.log(`[Revenue] Company receives: ₦${companyCut}`);
+
+        setIsProcessing(false);
+        setPaymentSuccess(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        setIsProcessing(false);
+        Alert.alert("Payment Failed", "Could not process payment. Please try again.");
+      }
+    } catch (err) {
+      setIsProcessing(false);
+      Alert.alert("Payment Error", "An error occurred while processing your payment.");
+    }
+  }, [driverRef, amount, user?.email]);
 
   const handleSuccessDone = useCallback(() => {
     if (user?.id) {

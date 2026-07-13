@@ -120,20 +120,19 @@ export default function SidedBar() {
 
 
   return (
-    <View style={[styles.drawerTop, styles.containerTop, { backgroundColor: bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      <View style={styles.drawer}>
-        
+    <View style={[styles.drawerTop, styles.containerTop, { backgroundColor: bg, paddingTop: insets.top + 5, paddingBottom: insets.bottom }]}>
+      <View style={styles.drawer}>        
         {/* <View style={{marginHorizontal: 12, width: 290, height: 0, borderWidth: .4, borderColor: subTextColor}} /> */}
         <View>
           <Image
             source={
               isDark
-                ? require("@/assets/images/Logo_with_transparent_background.png") // Ensure this is the white version
-                : require("@/assets/images/Black_logo_with_white_background.png") // Ensure this is the black version
+                ? require("@/assets/images/white_logo_with_transparent_background.png")
+                : require("@/assets/images/black_logo_with_transparent_background.png")
             }
             style={styles.photoImg}
             resizeMode="cover" // Changed to contain to avoid cropping
-            width={120}
+            width={90}
           />
         </View>
 
@@ -164,7 +163,7 @@ export default function SidedBar() {
 
       <View style={[styles.drawerHeader, { backgroundColor: bg }]}>
           <View style={{ flexDirection: "row", gap: 10 }}>
-            <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={54} />
+            <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={48} />
             <View style={{ flexDirection: "column", justifyContent: "flex-start" }}>
               <Text style={[styles.userName, { color: textColor }]}>{user?.full_name || "No user"}</Text>
               <View style={styles.roleContainer}>
@@ -182,7 +181,7 @@ export default function SidedBar() {
             </Pressable>
             
             <Pressable onPress={toggleSearch} style={[styles.searchList, {backgroundColor: isDark ? Colors.overlayLight : Colors.border, borderColor}]}>
-              <HugeiconsIcon icon={SearchIcon} size={22} color={textColor} />
+              <HugeiconsIcon icon={SearchIcon} size={20} color={textColor} />
             </Pressable>
             
             {menuOpen && (
@@ -228,8 +227,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 4
   },
-  userName: { fontFamily: "Poppins_700Bold", fontSize: 19 },
-  userRole: { fontFamily: "Poppins_400Regular", fontSize: 13, },
+  userName: { fontFamily: "Poppins_700Bold", fontSize: 16 },
+  userRole: { fontFamily: "Poppins_400Regular", fontSize: 11, },
   drawerRightIcon: { justifyContent: "space-between", alignItems:'flex-start', flexDirection: 'row', gap: 16 },
   menuList: { alignItems: 'center', },
   searchList: {

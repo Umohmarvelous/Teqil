@@ -60,7 +60,11 @@ export const FeedCardSkeleton = ({ isDark }: { isDark: boolean }) => {
           <Shimmer width={100} height={12} borderRadius={6} style={{ marginTop: 6 }} isDark={isDark} />
         </View>
       </View>
+
+
       <Shimmer width="100%" height={300} borderRadius={22} isDark={isDark} />
+
+
       <View style={styles.actions}>
         <View style={styles.actionLeft}>
           <Shimmer width={24} height={24} borderRadius={6} isDark={isDark} />

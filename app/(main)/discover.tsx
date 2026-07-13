@@ -789,6 +789,7 @@ import * as Haptics from "expo-haptics";
 import { Video, ResizeMode } from "expo-av";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
+import { useCreditsStore } from "@/src/store/useCreditsStore";
 import { Colors } from "@/constants/colors";
 import { router } from "expo-router";
 import { HugeiconsIcon } from "@hugeicons/react-native";
@@ -802,6 +803,7 @@ import {
   Heart,
   VolumeMuteIcon,
   VolumeHighIcon,
+  AdvertisimentFreeIcons,
 } from "@hugeicons/core-free-icons";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { FeedSkeletonList } from "@/components/ShimmerSkeleton";
@@ -811,6 +813,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import { text } from "node:stream/consumers";
 
 // ----------------------------------------------------------------------
 // Types (same as before)
@@ -845,7 +848,7 @@ export interface FeedItem {
   isSaved?: boolean;
 }
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 // ----------------------------------------------------------------------
 // TRANSPORT SUBREDDITS
@@ -857,27 +860,28 @@ const REDDIT_BASE = "https://api.reddit.com/r";
 // Ad Card (unchanged)
 // ----------------------------------------------------------------------
 function NativeAdCard({ isDark }: { isDark: boolean }) {
-  const bg = isDark ? "#1A1A2E" : "#FFFFFF";
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
+
 
   return (
-    <View style={[styles.igCard, { backgroundColor: bg }]}>
+    <View style={[styles.igCard, { backgroundColor: borderColor }, {paddingHorizontal: 0}]}>
       <View style={styles.igHeader}>
         <View style={styles.igHeaderLeft}>
-          <View style={[styles.igAvatar, { backgroundColor: Colors.primaryLight }]}>
-            <HugeiconsIcon icon={FlashIcon} size={20} color={Colors.primary} />
+          <View style={[styles.igAvatar, { padding: 20, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: textColor }]}>
+            <HugeiconsIcon icon={AdvertisimentFreeIcons} size={23} color={subColor} />
           </View>
           <View>
-            <Text style={[styles.igUsername, { color: textColor }]}>Teqil</Text>
+            <Text style={[styles.igUsername, {fontSize: 15}, { color: textColor }]}>Ads</Text>
             <Text style={[styles.igLocation, { color: subColor }]}>Sponsored</Text>
           </View>
         </View>
         <Pressable hitSlop={8}>
-          <HugeiconsIcon icon={MoreVerticalCircle01Icon} size={20} color={subColor} />
+          <HugeiconsIcon icon={MoreVerticalCircle01Icon} fill={textColor} size={20} color={textColor} />
         </Pressable>
       </View>
-      <View style={[styles.adImageContainer, { backgroundColor: isDark ? "#111" : "#F5F5F5", borderWidth: 2, borderColor: 'red' }]}>
+      <View style={[styles.adImageContainer, {marginHorizontal: 10}]}>
         <HugeiconsIcon icon={FlashIcon} size={48} color={Colors.primary} />
         <Text style={[styles.adImageText, { color: subColor }]}>Grow your earnings</Text>
         <Pressable style={styles.adCtaButton} onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}>
@@ -989,6 +993,7 @@ function ContentCard({
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subColor = isDark ? Colors.textSecondary : Colors.textTertiary;
   const iconColor = isDark ? Colors.textWhite : Colors.text;
+  const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
 
   const handleLike = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -1000,7 +1005,7 @@ function ContentCard({
     onSaveToggle(item.id);
   };
 
-  const [imageHeight, setImageHeight] = useState(350);
+  const [imageHeight, setImageHeight] = useState(150);
   useEffect(() => {
     if (item.imageUrl && !item.isVideo) {
       Image.getSize(item.imageUrl, (width, height) => {
@@ -1011,96 +1016,101 @@ function ContentCard({
   }, [item.imageUrl, item.isVideo]);
 
   return (
-    <View style={[styles.igCard]}>
-      <View style={styles.igHeader}>
-        <Pressable style={styles.igHeaderLeft}>
-          <Image source={{ uri: item.user?.avatarUrl }} style={styles.igAvatar} />
-          <View>
-            <Text style={[styles.igUsername, { color: textColor }]}>{item.user?.username}</Text>
-            {item.location && <Text style={[styles.igLocation, { color: subColor }]}>{item.location}</Text>}
-          </View>
-        </Pressable>
-        <Pressable hitSlop={8} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 15 }}>
-          <Pressable hitSlop={10} onPress={handleSave}>
-            <HugeiconsIcon
-              icon={Bookmark01Icon}
-              size={24}
-              color={iconColor}
-              fill={item.isSaved ? iconColor : "none"}
-            />
-          </Pressable>
-          <HugeiconsIcon icon={MoreVerticalCircle01Icon} size={20} color={iconColor} />
-        </Pressable>
-      </View>
-
-      <Pressable onPress={() => onFullScreen(item)}>
-        {item.isVideo ? (
-          <View style={[styles.videoContainer, { height: imageHeight }]}>
-            <Video
-              source={{ uri: item.videoUrl! }}
-              style={styles.videoPlayer}
-              resizeMode={ResizeMode.COVER}
-              shouldPlay={isPlaying}
-              isMuted
-              usePoster
-              posterSource={{ uri: item.imageUrl }}
-              useNativeControls={false}
-            />
-            <View style={styles.durationBadge}>
-              <Text style={styles.durationText}>▶ Video</Text>
+    <>
+      <View style={[styles.igCard,
+        // { backgroundColor: borderColor }
+      ]}>
+        <View style={styles.igHeader}>
+          <Pressable style={styles.igHeaderLeft}>
+            <Image source={{ uri: item.user?.avatarUrl }} style={styles.igAvatar} />
+            <View>
+              <Text style={[styles.igUsername, { color: textColor }]}>{item.user?.username}</Text>
+              {item.location && <Text style={[styles.igLocation, { color: subColor }]}>{item.location}</Text>}
             </View>
-          </View>
-        ) : (
-          <Image
-            source={{ uri: item.imageUrl }}
-            style={[styles.igImage, { height: imageHeight }]}
-            resizeMode="cover"
-          />
-        )}
-      </Pressable>
-
-      <View style={styles.igActions}>
-        <View style={styles.igActionLeft}>
-          <Pressable hitSlop={10} onPress={handleLike}>
-            <HugeiconsIcon
-              icon={Heart}
-              size={24}
-              color={item.isLiked ? "#FF3B30" : iconColor}
-              fill={item.isLiked ? "#FF3B30" : "none"}
-            />
           </Pressable>
-          <Pressable hitSlop={10} onPress={() => onCommentPress(item)}>
-            <HugeiconsIcon icon={Comment01Icon} size={24} color={iconColor} />
-          </Pressable>
-          <Pressable hitSlop={10} onPress={() => onSharePress(item)}>
-            <HugeiconsIcon icon={Share01Icon} size={24} color={iconColor} />
+          <Pressable hitSlop={8} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 15 }}>
+            <Pressable hitSlop={10} onPress={handleSave}>
+              <HugeiconsIcon
+                icon={Bookmark01Icon}
+                size={24}
+                color={iconColor}
+                fill={item.isSaved ? iconColor : "none"}
+              />
+            </Pressable>
+            <HugeiconsIcon icon={MoreVerticalCircle01Icon} size={20} color={iconColor} />
           </Pressable>
         </View>
-      </View>
 
-      <View style={styles.igLikesContainer}>
-        <Text style={[styles.igLikes, { color: textColor }]}>
-          {item.likes.toLocaleString()} likes
-        </Text>
-      </View>
-
-      <View style={styles.igCaptionContainer}>
-        <Text style={[styles.igCaption, { color: textColor }]}>
-          <Text style={styles.igCaptionUsername}>{item.user?.username}</Text>{" "}
-          {item.caption}
-        </Text>
-      </View>
-
-      {item.comments.length > 0 && (
-        <Pressable style={styles.igCommentsPreview} onPress={() => onCommentPress(item)}>
-          <Text style={[styles.igViewComments, { color: Colors.primaryLight }]}>
-            See all {item.comments.length} {item.comments.length > 1 ? "comments" : "comment"}
-          </Text>
+        <Pressable onPress={() => onFullScreen(item)}>
+          {item.isVideo ? (
+            <View style={[styles.videoContainer,  { height: imageHeight }]}>
+              <Video
+                source={{ uri: item.videoUrl! }}
+                style={styles.videoPlayer}
+                resizeMode={ResizeMode.COVER}
+                shouldPlay={isPlaying}
+                isMuted
+                usePoster
+                posterSource={{ uri: item.imageUrl }}
+                useNativeControls={false}
+              />
+              <View style={styles.durationBadge}>
+                <Text style={styles.durationText}>▶ Video</Text>
+              </View>
+            </View>
+          ) : (
+            <Image
+              source={{ uri: item.imageUrl }}
+              style={[styles.igImage, { height: imageHeight }, {backgroundColor: borderColor}]}
+              resizeMode="cover"
+            />
+          )}
         </Pressable>
-      )}
 
-      <Text style={[styles.igTimestamp, { color: subColor }]}>{item.timestamp}</Text>
-    </View>
+        <View style={styles.igActions}>
+          <View style={styles.igActionLeft}>
+            <Pressable hitSlop={10} onPress={handleLike}>
+              <HugeiconsIcon
+                icon={Heart}
+                size={24}
+                color={item.isLiked ? "#FF3B30" : iconColor}
+                fill={item.isLiked ? "#FF3B30" : "none"}
+              />
+            </Pressable>
+            <Pressable hitSlop={10} onPress={() => onCommentPress(item)}>
+              <HugeiconsIcon icon={Comment01Icon} size={24} color={iconColor} />
+            </Pressable>
+            <Pressable hitSlop={10} onPress={() => onSharePress(item)}>
+              <HugeiconsIcon icon={Share01Icon} size={24} color={iconColor} />
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.igLikesContainer}>
+          <Text style={[styles.igLikes, { color: textColor }]}>
+            {item.likes.toLocaleString()} likes
+          </Text>
+        </View>
+
+        <View style={styles.igCaptionContainer}>
+          <Text style={[styles.igCaption, { color: textColor }]}>
+            <Text style={styles.igCaptionUsername}>{item.user?.username}</Text>{" "}
+            {item.caption}
+          </Text>
+        </View>
+
+        {item.comments.length > 0 && (
+          <Pressable style={styles.igCommentsPreview} onPress={() => onCommentPress(item)}>
+            <Text style={[styles.igViewComments, { color: Colors.primaryLight }]}>
+              See all {item.comments.length} {item.comments.length > 1 ? "comments" : "comment"}
+            </Text>
+          </Pressable>
+        )}
+
+        <Text style={[styles.igTimestamp, { color: subColor }]}>{item.timestamp}</Text>
+      </View>
+      <View style={{ borderWidth: .5, borderColor: borderColor, height: 1, width: '100%' }}/>
+    </>
   );
 }
 
@@ -1141,6 +1151,7 @@ export default function DiscoverTab({
   scrollY?: RNAnimated.Value;
 }) {
   const { user } = useAuthStore();
+  const { addCredit, addFloatingAnimation } = useCreditsStore();
   const { theme } = useSettingsStore();
   const isAuthenticated = !!user;
 
@@ -1267,14 +1278,20 @@ export default function DiscoverTab({
     (postId: string) => {
       if (!isAuthenticated) { setShowAuthPrompt(true); return; }
       setFeedItems((prev) =>
-        prev.map((item) =>
-          item.id === postId && item.type === "content"
-            ? { ...item, isLiked: !item.isLiked, likes: item.isLiked ? item.likes - 1 : item.likes + 1 }
-            : item
-        )
+        prev.map((item) => {
+          if (item.id === postId && item.type === "content") {
+            const isNowLiked = !item.isLiked;
+            if (isNowLiked && user) {
+              addCredit('like', 2, user.id, postId);
+              addFloatingAnimation(2, SCREEN_WIDTH / 2 - 20, SCREEN_HEIGHT / 2);
+            }
+            return { ...item, isLiked: isNowLiked, likes: isNowLiked ? item.likes + 1 : item.likes - 1 };
+          }
+          return item;
+        })
       );
     },
-    [isAuthenticated]
+    [isAuthenticated, user, addCredit, addFloatingAnimation]
   );
 
   const handleSaveToggle = useCallback(
@@ -1299,13 +1316,17 @@ export default function DiscoverTab({
 
   const handleSharePress = useCallback(async (post: FeedItem) => {
     try {
-      await Share.share({
+      const result = await Share.share({
         message: `Check out this post from ${post.user?.username} on Teqil`,
       });
+      if (result.action === Share.sharedAction && user) {
+        addCredit('share', 5, user.id, post.id);
+        addFloatingAnimation(5, SCREEN_WIDTH / 2 - 20, SCREEN_HEIGHT / 2);
+      }
     } catch (err) {
       console.error('Error:', err)
     }
-  }, []);
+  }, [user, addCredit, addFloatingAnimation]);
 
   const handleAddComment = useCallback((postId: string, text: string) => {
     const newComment: Comment = {
@@ -1315,6 +1336,12 @@ export default function DiscoverTab({
       timestamp: "Just now",
       likes: 0,
     };
+    
+    if (user) {
+      addCredit('comment', 5, user.id, postId);
+      addFloatingAnimation(5, SCREEN_WIDTH / 2 - 20, SCREEN_HEIGHT / 2);
+    }
+
     setFeedItems((prev) =>
       prev.map((item) =>
         item.id === postId && item.type === "content"
@@ -1322,7 +1349,7 @@ export default function DiscoverTab({
           : item
       )
     );
-  }, []);
+  }, [user, addCredit, addFloatingAnimation]);
 
   useEffect(() => {
     if (setCommentHandler) {
@@ -1411,6 +1438,7 @@ export default function DiscoverTab({
         contentContainerStyle={[
           styles.listContent,
           { paddingTop: HEADER_HEIGHT, paddingBottom: BOTTOM_HEIGHT },
+          // {borderBottomWidth: 1, borderBottomColor: 'red'},
         ]}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={Platform.OS === "android"}
@@ -1435,7 +1463,9 @@ export default function DiscoverTab({
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  listContent: { paddingBottom: 20 },
+  listContent: {
+    paddingBottom: 20, 
+  },
   igHeaderTitle: {
     paddingHorizontal: 19,
     paddingTop: Platform.OS === "ios" ? 8 : 4,
@@ -1447,6 +1477,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 19,
     marginVertical: 10,
     borderRadius: 30,
+    minHeight: 150,
   },
   igHeader: {
     flexDirection: "row",
@@ -1459,8 +1490,16 @@ const styles = StyleSheet.create({
   igAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#E5E5E5" },
   igUsername: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
   igLocation: { fontFamily: "Poppins_400Regular", fontSize: 11, marginTop: 2 },
-  igImage: { width: "100%", backgroundColor: "#F0F0F0" },
-  videoContainer: { width: "100%", backgroundColor: "#000" },
+  igImage: {
+    width: "auto", 
+    borderRadius: 20,
+    // maxHeight: 350,
+    marginHorizontal: 10
+  },
+  videoContainer: {
+    width: "100%", backgroundColor: "#000",
+    borderRadius: 20, 
+   },
   videoPlayer: { flex: 1 },
   durationBadge: {
     position: "absolute",
@@ -1475,8 +1514,9 @@ const styles = StyleSheet.create({
   igActions: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingTop: 10,
+    paddingVertical: 10
   },
   igActionLeft: { flexDirection: "row", gap: 16 },
   igLikesContainer: { paddingHorizontal: 12, marginTop: 8 },
@@ -1513,7 +1553,7 @@ const styles = StyleSheet.create({
   closeFullScreen: { position: "absolute", top: 50, right: 20, zIndex: 10 },
 
   // Ad
-  adImageContainer: { aspectRatio: 1, alignItems: "center", justifyContent: "center", padding: 20 },
+  adImageContainer: { aspectRatio: 1, alignItems: "center", justifyContent: "center", padding: 20, borderRadius: 20 },
   adImageText: { fontSize: 16, marginTop: 12 },
   adCtaButton: { backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 30, marginTop: 20 },
   adCtaButtonText: { color: "#FFF" },

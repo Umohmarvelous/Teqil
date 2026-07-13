@@ -8,12 +8,8 @@ export default function IndexScreen() {
   const { isAuthenticated, user } = useAuthStore();
 
   useEffect(() => {
-    // if (isLoading) return;
-
     if (!isAuthenticated || !user) {
-      // First time or logged out — always go to login, not welcome
-      // Welcome is only for brand new users (handled in login screen with a
-      // "Don't have an account? Sign up" flow)
+      // Not logged in → go to login screen
       router.replace("/(main)");
       return;
     }
@@ -21,7 +17,7 @@ export default function IndexScreen() {
     // Authenticated: drivers need profile completion first, everyone else
     // goes to the unified (main) dashboard
     if (user.role === "driver" && !user.profile_complete) {
-      router.replace("/(main)");
+      router.replace("/(auth)/driver-profile");
     } else {
       router.replace("/(main)");
     }

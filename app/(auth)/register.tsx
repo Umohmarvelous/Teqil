@@ -11,12 +11,11 @@
  * - All original logic, structure, and functionality preserved
  */
 
-import React, { useRef, useCallback, useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
   Alert,
   Platform,
@@ -32,7 +31,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
-import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import Animated, {
@@ -47,13 +46,15 @@ import Animated, {
 import { Colors } from "@/constants/colors";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
-import { signUpOfflineAware, saveBiometricCredentials } from "@/src/services/auth";
+import { signUpOfflineAware, saveBiometricCredentials, checkUsernameExists } from "@/src/services/auth";
 import {
   generateUsername,
   generateDriverIdFromUsername,
   generateStrongPassword,
   generateInitialsAvatar,
 } from "@/src/utils/helpers";
+import { getDeviceFingerprint } from "@/src/utils/device";
+import { useCreditsStore } from "@/src/store/useCreditsStore";
 import { supabase } from "@/src/services/supabase";
 import type { UserRole } from "@/src/models/types";
 
@@ -63,7 +64,8 @@ WebBrowser.maybeCompleteAuthSession();
 
 const registerSchema = z
   .object({
-    fullName: z.string().optional(),
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
     email: z
       .string()
       .min(1, "Email is required")
@@ -138,7 +140,6 @@ function RoleSelector({
 }) {
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
-  const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
   const cardBg = isDark ? "rgba(255,255,255,0.06)" : "#F5F7FA";
@@ -578,7 +579,8 @@ export default function RegisterScreen() {
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      fullName: "",
+      firstName: "",
+      lastName: "",
       email: "",
       phone: "",
       age: "",
@@ -619,18 +621,37 @@ export default function RegisterScreen() {
       setLoading(true);
 
       try {
-        const resolvedName = data.fullName?.trim() || generateUsername();
+        let usernameBase = `${data.firstName.trim().toLowerCase()}${data.lastName.trim().toLowerCase()}`;
+        let finalUsername = usernameBase;
+        
+        // Ensure uniqueness
+        let exists = await checkUsernameExists(finalUsername);
+        let counter = 1;
+        while (exists) {
+          finalUsername = `${usernameBase}${Math.floor(Math.random() * 10000)}`;
+          exists = await checkUsernameExists(finalUsername);
+          counter++;
+          if(counter > 5) break; // Fallback to avoid infinite loops
+        }
+
+        const resolvedName = `${data.firstName.trim()} ${data.lastName.trim()}`;
         const driverId = role === "driver"
-          ? generateDriverIdFromUsername(resolvedName)
+          ? generateDriverIdFromUsername(finalUsername)
           : undefined;
         const avatarUri = generateInitialsAvatar(resolvedName);
+        const deviceFingerprint = await getDeviceFingerprint();
 
         const metadata: Record<string, unknown> = {
+          first_name: data.firstName.trim(),
+          last_name: data.lastName.trim(),
+          username: finalUsername,
           full_name: resolvedName,
           phone: data.phone.trim(),
           age: parseInt(data.age, 10),
           role,
           points_balance: 0,
+          credits_balance: 10,
+          device_fingerprint: deviceFingerprint,
           profile_complete: false,
           profile_photo: avatarUri,
           ...(driverId ? { driver_id: driverId } : {}),
@@ -642,6 +663,9 @@ export default function RegisterScreen() {
         if (result?.user) {
           setUser(result.user);
           await saveBiometricCredentials(data.email.trim(), data.password);
+          
+          // Grant 10 credits
+          useCreditsStore.getState().addCredit('signup', 10, result.user.id);
         }
 
         if (role === "driver") {
@@ -731,8 +755,10 @@ export default function RegisterScreen() {
   return (
     <KeyboardAvoidingView
       style={[styles.root, { backgroundColor: bg }]}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
+      // behavior={Platform.OS === "ios" ? "padding" : "height"}
+      // keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={0}
     >
       {/* Header — matches login.tsx header exactly */}
       <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
@@ -755,19 +781,38 @@ export default function RegisterScreen() {
           {/* Role selector */}
           <RoleSelector value={role} onChange={handleRoleChange} />
 
-          {/* Full Name */}
+          {/* First Name */}
           <Controller
             control={control}
-            name="fullName"
+            name="firstName"
             render={({ field: { onChange, onBlur, value } }) => (
               <FormField
-                label={t("auth.fullName")}
+                label="First Name"
                 icon="person-outline"
-                placeholder="e.g. Emeka Okonkwo"
+                placeholder="e.g. Emeka"
                 value={value ?? ""}
                 onChangeText={onChange}
                 onBlur={onBlur}
-                error={errors.fullName?.message}
+                error={errors.firstName?.message}
+                autoCapitalize="words"
+                returnKeyType="next"
+              />
+            )}
+          />
+
+          {/* Last Name */}
+          <Controller
+            control={control}
+            name="lastName"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormField
+                label="Last Name"
+                icon="person-outline"
+                placeholder="e.g. Okonkwo"
+                value={value ?? ""}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.lastName?.message}
                 autoCapitalize="words"
                 returnKeyType="next"
               />
@@ -956,7 +1001,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-around",
     paddingHorizontal: 20,
-    paddingBottom: 8,
+    // paddingBottom: 8,
   },
   pageHeaderContainer: { alignItems: "center", marginBottom: 0 },
   pageTitle: {
