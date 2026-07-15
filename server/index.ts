@@ -26,7 +26,7 @@ function setupCors(app: express.Application) {
         origins.add(`https://${d.trim()}`);
       });
     }
-
+// So about the pay, i thought of something around 25k - 30k
     const origin = req.header("origin");
 
     // Allow localhost origins for Expo web development (any port)

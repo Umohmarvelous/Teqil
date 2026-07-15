@@ -596,9 +596,9 @@ export default function MainLayout() {
         onClose={() => setFinderVisible(false)}
       />
 
-      {/* {isLoaded && shouldShow && ( */}
+      {isLoaded && shouldShow && (
         <OnboardingOverlay onComplete={complete} />
-      {/* )} */}
+      )}
     </View>
   );
 }

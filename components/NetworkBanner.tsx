@@ -2,8 +2,9 @@
  * components/NetworkBanner.tsx
  *
  * Global network status banner that slides down from the top of the screen.
- * - Shows a red/orange banner when offline or sync fails
- * - Shows a green success banner briefly when connection is restored
+ * - Shows a red banner when offline (7s auto-dismiss)
+ * - Shows an orange/yellow banner when sync fails / weak (3s auto-dismiss)
+ * - Shows a green success banner briefly when connection is restored (3s auto-dismiss)
  * - Sits above all content (zIndex: 9998, below onboarding overlay at 9999)
  * - Support swipe up gesture to manually dismiss/hide the banner.
  *
@@ -46,10 +47,13 @@ export default function NetworkBanner({ onRetry }: NetworkBannerProps) {
 
   const translateY = useRef(new Animated.Value(-120)).current;
   const opacity = useRef(new Animated.Value(0)).current;
-  const restoredTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const wasOfflineRef = useRef(false);
+  const autoDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isVisibleRef = useRef(false);
+  const isInitialCheckRef = useRef(true);
+  const prevConditionRef = useRef<"good" | "weak" | "offline" | null>(null);
 
   const slideIn = useCallback(() => {
+    isVisibleRef.current = true;
     setIsVisible(true);
     Animated.parallel([
       Animated.spring(translateY, {
@@ -68,6 +72,14 @@ export default function NetworkBanner({ onRetry }: NetworkBannerProps) {
 
   const slideOut = useCallback(
     (onDone?: () => void) => {
+      if (autoDismissTimerRef.current) {
+        clearTimeout(autoDismissTimerRef.current);
+        autoDismissTimerRef.current = null;
+      }
+      if (!isVisibleRef.current) {
+        onDone?.();
+        return;
+      }
       Animated.parallel([
         Animated.timing(translateY, {
           toValue: -120,
@@ -80,6 +92,7 @@ export default function NetworkBanner({ onRetry }: NetworkBannerProps) {
           useNativeDriver: true,
         }),
       ]).start(() => {
+        isVisibleRef.current = false;
         setIsVisible(false);
         setBannerState("hidden");
         onDone?.();
@@ -89,36 +102,68 @@ export default function NetworkBanner({ onRetry }: NetworkBannerProps) {
   );
 
   const handleNetworkChange = useCallback(
-    (state: NetInfoState) => {
+    (state: NetInfoState, force = false) => {
       const isConnected = !!(state.isConnected && state.isInternetReachable);
       const isWeak =
         state.isConnected &&
         !state.isInternetReachable &&
         state.type !== "none";
 
-      if (restoredTimerRef.current) {
-        clearTimeout(restoredTimerRef.current);
-        restoredTimerRef.current = null;
+      let currentCondition: "good" | "weak" | "offline";
+      if (!isConnected && !isWeak) {
+        currentCondition = "offline";
+      } else if (isWeak) {
+        currentCondition = "weak";
+      } else {
+        currentCondition = "good";
       }
 
-      if (!isConnected && !isWeak) {
-        // Fully offline
-        wasOfflineRef.current = true;
+      // Clear any existing auto-dismiss timer
+      if (autoDismissTimerRef.current) {
+        clearTimeout(autoDismissTimerRef.current);
+        autoDismissTimerRef.current = null;
+      }
+
+      // Initial check: never show banner if network is good on app start / login
+      if (isInitialCheckRef.current) {
+        isInitialCheckRef.current = false;
+        prevConditionRef.current = currentCondition;
+        if (currentCondition === "good") {
+          return;
+        }
+      }
+
+      // Don't re-show if condition hasn't changed (unless forced by retry)
+      if (!force && prevConditionRef.current === currentCondition) {
+        return;
+      }
+
+      const previousCondition = prevConditionRef.current;
+      prevConditionRef.current = currentCondition;
+
+      if (currentCondition === "offline") {
+        // Poor / no network: show for 7 seconds
         setBannerState("offline");
         slideIn();
-      } else if (isWeak) {
-        // Connected but no internet (weak/captive portal)
-        wasOfflineRef.current = true;
+        autoDismissTimerRef.current = setTimeout(() => {
+          slideOut();
+        }, 7000);
+      } else if (currentCondition === "weak") {
+        // Fairly good / unstable: show for 3 seconds
         setBannerState("weak");
         slideIn();
-      } else if (isConnected && wasOfflineRef.current) {
-        // Back online — show success then hide
-        wasOfflineRef.current = false;
-        setBannerState("restored");
-        slideIn();
-        restoredTimerRef.current = setTimeout(() => {
+        autoDismissTimerRef.current = setTimeout(() => {
           slideOut();
-        }, 2800);
+        }, 3000);
+      } else if (currentCondition === "good") {
+        // Good network restored: show green success for 3 seconds
+        if (previousCondition && previousCondition !== "good") {
+          setBannerState("restored");
+          slideIn();
+          autoDismissTimerRef.current = setTimeout(() => {
+            slideOut();
+          }, 3000);
+        }
       }
     },
     [slideIn, slideOut]
@@ -126,23 +171,28 @@ export default function NetworkBanner({ onRetry }: NetworkBannerProps) {
 
   useEffect(() => {
     // Initial check
-    NetInfo.fetch().then(handleNetworkChange);
+    NetInfo.fetch().then((state) => handleNetworkChange(state));
 
-    const unsubscribe = NetInfo.addEventListener(handleNetworkChange);
+    const unsubscribe = NetInfo.addEventListener((state) =>
+      handleNetworkChange(state)
+    );
 
     return () => {
       unsubscribe();
-      if (restoredTimerRef.current) clearTimeout(restoredTimerRef.current);
+      if (autoDismissTimerRef.current) clearTimeout(autoDismissTimerRef.current);
     };
   }, [handleNetworkChange]);
 
-  // Handle Swipe up gesture configuration
+  // Handle Swipe up gesture configuration — KEPT EXACTLY AS IS
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) => {
         // Intercept gesture if user is explicitly swiping up vertically
-        return Math.abs(gestureState.dy) > Math.abs(gestureState.dx) && gestureState.dy < -5;
+        return (
+          Math.abs(gestureState.dy) > Math.abs(gestureState.dx) &&
+          gestureState.dy < -5
+        );
       },
       onPanResponderMove: (_, gestureState) => {
         // Only allow dragging upwards (negative dy values)
@@ -153,6 +203,10 @@ export default function NetworkBanner({ onRetry }: NetworkBannerProps) {
       onPanResponderRelease: (_, gestureState) => {
         // Dismiss if swiped up past 35 pixels OR if flicked up quickly (velocity)
         if (gestureState.dy < -35 || gestureState.vy < -0.4) {
+          if (autoDismissTimerRef.current) {
+            clearTimeout(autoDismissTimerRef.current);
+            autoDismissTimerRef.current = null;
+          }
           slideOut();
         } else {
           // Snap back to normal resting position if gesture was abandoned
@@ -166,6 +220,20 @@ export default function NetworkBanner({ onRetry }: NetworkBannerProps) {
       },
     })
   ).current;
+
+  const handleRetry = useCallback(() => {
+    // Clear any pending auto-dismiss
+    if (autoDismissTimerRef.current) {
+      clearTimeout(autoDismissTimerRef.current);
+      autoDismissTimerRef.current = null;
+    }
+    // Force a fresh network state evaluation
+    NetInfo.fetch().then((state) => {
+      handleNetworkChange(state, true);
+    });
+    // Also trigger the parent's retry action (e.g. syncAll)
+    onRetry?.();
+  }, [handleNetworkChange, onRetry]);
 
   if (!isVisible) return null;
 
@@ -237,9 +305,9 @@ export default function NetworkBanner({ onRetry }: NetworkBannerProps) {
           </Text>
         </View>
 
-        {isOfflineOrWeak && onRetry && (
+        {isOfflineOrWeak && (
           <Pressable
-            onPress={onRetry}
+            onPress={handleRetry}
             style={({ pressed }) => [
               styles.retryBtn,
               pressed && { opacity: 0.7 },

@@ -1,5 +1,5 @@
-import { Colors } from "@/constants/colors";
-import React, { useEffect, useRef, useState, useCallback } from "react";
+// components/OnboardingOverlay.tsx
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,357 +7,590 @@ import {
   Pressable,
   Animated,
   Dimensions,
-  Platform,
+  Easing,
+  useWindowDimensions,
 } from "react-native";
-import Svg, { Defs, Mask, Rect, Circle, Path } from "react-native-svg";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import {
+  QrCodeIcon,
+  History,
+  Warning,
+  MessageIcon,
+} from "@hugeicons/core-free-icons";
+import { Colors } from "@/constants/colors";
+import Svg, { Line, Polygon, Path } from "react-native-svg";
 
-const { width: W, height: H } = Dimensions.get("window");
+const { width: SCREEN_W } = Dimensions.get("window");
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
+
+type GhostType = "top-tab" | "action" | "bottom-tab";
 
 interface TutorialStep {
   id: string;
   title: string;
-  body: string;
-  type: "none" | "circle";
-  x: number;
-  y: number;
-  radius?: number;
-  arrowDirection: "up" | "down" | "left" | "right";
-  displayText?: string;
+  description: string;
+  ghostType: GhostType;
+  ghostLabel: string;
+  ghostIcon?: any;
+  isActive?: boolean;
+  targetX: number;
+  targetY: number;
+  /* ---- Arrow config — change these per step ---------------------- */
+  arrowDirection: number; // 0=right, 90=up, 180=left, 270=down, etc.
+  arrowLength: number;
+  /* ---- Description position relative to arrow tail --------------- */
+  descriptionOffsetX?: number; // +right, -left  from arrow tail
+  descriptionOffsetY?: number; // +down,  -up    from arrow tail
+  ArrowShape?: React.FC<{ length: number }>;
 }
-
-const TUTORIAL_STEPS: TutorialStep[] = [
-  {
-    id: "home",
-    title: "Home",
-    body: "Tap here to return to your primary dashboard instantly.",
-    type: "none",
-    x: 0.3,
-    y: 0.13,
-    arrowDirection: "left",
-    displayText: "Home",
-  },
-  {
-    id: "for-you",
-    title: "For You",
-    body: "Explore tailor-made updates and personalized network recommendations.",
-    type: "none",
-    x: 0.78,
-    y: 0.13,
-    arrowDirection: "right",
-    displayText: "For You",
-  },
-  {
-    id: "scan-code",
-    title: "Scan Code",
-    body: "Instantly scan passenger or driver QR codes to pair devices seamlessly.",
-    type: "circle",
-    x: 0.134,
-    y: 0.2154,
-    radius: 26,
-    arrowDirection: "left",
-  },
-  {
-    id: "history",
-    title: "History",
-    body: "Review your detailed log of completed trips and overall metrics.",
-    type: "circle",
-    x: 0.622,
-    y: 0.2154,
-    radius: 26,
-    arrowDirection: "up",
-  },
-  {
-    id: "emergency-contact",
-    title: "Emergency Contact",
-    body: "One-tap trigger to alert dispatch and close contacts during crisis.",
-    type: "circle",
-    x: 0.866,
-    y: 0.2154,
-    radius: 26,
-    arrowDirection: "right",
-  },
-  {
-    id: "messaging-icon",
-    title: "Messages",
-    body: "Open secure real-time chats with connected drivers or dispatchers.",
-    type: "none",
-    x: 0.622,
-    y: 0.95,
-    arrowDirection: "down",
-    displayText: "Messages",
-  },
-];
-
-const GamingArrow = ({ direction }: { direction: string }) => {
-  let rotation = "0deg";
-  if (direction === "down") rotation = "180deg";
-  if (direction === "left") rotation = "-90deg";
-  if (direction === "right") rotation = "90deg";
-
-  return (
-    <View style={{ transform: [{ rotate: rotation }] }}>
-      <Svg width="28" height="28" viewBox="0 0 28 28">
-        <Path d="M14 2 L26 22 L14 17 L2 22 Z" fill={Colors.primary || "#E5C531"} />
-      </Svg>
-    </View>
-  );
-};
 
 interface OnboardingOverlayProps {
   onComplete: () => void;
 }
 
+/* ------------------------------------------------------------------ */
+/*  SVG Arrow Shapes — swap these freely per step or globally          */
+/* ------------------------------------------------------------------ */
+
+export const ArrowDefault = ({ length }: { length: number }) => (
+  <Svg width={length} height={24} viewBox={`0 0 ${length} 24`}>
+    <Line
+      x1="0" y1="12"
+      x2={length - 10} y2="12"
+      stroke="rgb(105 104 104)"
+      strokeWidth="3"
+      strokeLinecap="round"
+    />
+    <Polygon
+      points={`${length},12 ${length - 10},4 ${length - 10},20`}
+      fill="rgb(105 104 104)"
+    />
+  </Svg>
+);
+
+export const ArrowOutline = ({ length }: { length: number }) => (
+  <Svg width={length} height={24} viewBox={`0 0 ${length} 24`}>
+    <Line
+      x1="0" y1="12"
+      x2={length - 12} y2="12"
+      stroke="#FFFFFF"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+    />
+    <Path
+      d={`M${length},12 L${length - 12},5 L${length - 12},19 Z`}
+      stroke="#FFFFFF"
+      strokeWidth="2.5"
+      fill="none"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+export const ArrowChevron = ({ length }: { length: number }) => (
+  <Svg width={length} height={24} viewBox={`0 0 ${length} 24`}>
+    <Path
+      d={`M0,12 L${length - 8},12 M${length - 14},6 L${length - 8},12 L${length - 14},18`}
+      stroke="#FFFFFF"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      fill="none"
+    />
+  </Svg>
+);
+
+/* ------------------------------------------------------------------ */
+/*  SVG Arrow — straight, 10 px gap, auto-rotation from tail→head       */
+/* ------------------------------------------------------------------ */
+
+const SvgArrow = ({
+  tailX,
+  tailY,
+  headX,
+  headY,
+  ArrowShape = ArrowDefault,
+}: {
+  tailX: number;
+  tailY: number;
+  headX: number;
+  headY: number;
+  ArrowShape?: React.FC<{ length: number }>;
+}) => {
+  const dx = headX - tailX;
+  const dy = headY - tailY;
+  const arrowLength = Math.sqrt(dx * dx + dy * dy);
+
+  const midX = (tailX + headX) / 2;
+  const midY = (tailY + headY) / 2;
+  const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+  return (
+    <View
+      style={{
+        position: "absolute",
+        left: midX - arrowLength / 2,
+        top: midY - 12,
+        width: arrowLength,
+        height: 24,
+        transform: [{ rotate: `${angle}deg` }],
+      }}
+      pointerEvents="none"
+    >
+      <ArrowShape length={arrowLength} />
+    </View>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/*  Ghost element builders — completely static                         */
+/* ------------------------------------------------------------------ */
+
+const GhostTopTab = ({
+  label,
+  isActive,
+}: {
+  label: string;
+  isActive?: boolean;
+}) => (
+  <View style={{ alignItems: "center" }}>
+    <Text
+      style={{
+        fontFamily: isActive ? "Poppins_700Bold" : "Poppins_400Medium",
+        fontSize: 16,
+        color: "#FFFFFF",
+        opacity: isActive ? 1 : 0.55,
+        letterSpacing: 0,
+      }}
+    >
+      {label}
+    </Text>
+    {isActive && (
+      <View
+        style={{
+          marginTop: 8,
+          width: 42,
+          height: 3.5,
+          borderRadius: 2,
+          backgroundColor: Colors.primary,
+        }}
+      />
+    )}
+  </View>
+);
+
+const GhostActionButton = ({
+  icon,
+  label,
+}: {
+  icon: any;
+  label: string;
+}) => (
+  <View style={{ alignItems: "center", width: 80 }}>
+    <View
+      style={{
+        width: 60,
+        height: 60,
+        borderRadius: 32,
+        backgroundColor: "#2C2C2E",
+        justifyContent: "center",
+        alignItems: "center",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8,
+      }}
+    >
+      <HugeiconsIcon icon={icon} size={24} color="#FFFFFF" />
+    </View>
+    <Text
+      style={{
+        fontFamily: "Poppins_500Medium",
+        fontSize: 11,
+        color: "#FFFFFF",
+        textAlign: "center",
+        marginTop: 0,
+        lineHeight: 14,
+      }}
+    >
+      {label}
+    </Text>
+  </View>
+);
+
+const GhostBottomTab = ({ icon, label }: { icon: any; label: string }) => (
+  <View style={{ alignItems: "center", width: 70 }}>
+    <HugeiconsIcon icon={icon} size={24} color="#FFFFFF" />
+    <Text
+      style={{
+        fontFamily: "Poppins_400Regular",
+        fontSize: 10,
+        color: "#FFFFFF",
+        marginTop: 4,
+        letterSpacing: 0.2,
+      }}
+    >
+      {label}
+    </Text>
+  </View>
+);
+
+/* ------------------------------------------------------------------ */
+/*  Main component                                                     */
+/* ------------------------------------------------------------------ */
+
 export default function OnboardingOverlay({ onComplete }: OnboardingOverlayProps) {
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+
+  const steps: TutorialStep[] = useMemo(() => {
+    const topTabY = insets.top + 73;
+    const actionY = insets.top + 167;
+    const bottomTabY = height - insets.bottom - 45;
+
+    return [
+      /* ── Home ─────────────────────────────────────────────── */
+      {
+        id: "home",
+        title: "Home",
+        description: "Your main dashboard with quick actions and trip overview.",
+        ghostType: "top-tab",
+        ghostLabel: "Home",
+        isActive: true,
+        targetX: width * 0.25,   // responsive: first tab at 25 % width
+        targetY: topTabY,
+        arrowDirection: 225,      // ↙ down-left  (45° toward bottom from left)
+        arrowLength: 80,
+        descriptionOffsetX: 0,    // card left edge sits at arrow tail
+        descriptionOffsetY: 0,   // card sits below arrow tail
+      },
+      /* ── For You ────────────────────────────────────────────── */
+      {
+        id: "for-you",
+        title: "For You",
+        description: "Discover personalized content and updates.",
+        ghostType: "top-tab",
+        ghostLabel: "For You",
+        isActive: true,
+        targetX: width * 0.75,    // responsive: second tab at 75 % width
+        targetY: topTabY,
+        arrowDirection: -50,     // ← straight left
+        arrowLength: 90,
+        descriptionOffsetX: -16,  // card sits to the right of arrow tail
+        descriptionOffsetY: 0, // vertically centered near tail
+      },
+      /* ── Scan Code ──────────────────────────────────────────── */
+      {
+        id: "scan-code",
+        title: "Scan Code",
+        description: "Scan driver QR codes to verify and join trips instantly.",
+        ghostType: "action",
+        ghostLabel: "Scan code",
+        ghostIcon: QrCodeIcon,
+        targetX: width * 0.134,
+        targetY: actionY,
+        arrowDirection: -120,       // → straight right
+        arrowLength: 80,
+        descriptionOffsetX: -220,// card sits to the left of arrow tail
+        descriptionOffsetY: 0,
+      },
+      /* ── History ────────────────────────────────────────────── */
+      {
+        id: "history",
+        title: "History",
+        description: "View all your past trips and ride history.",
+        ghostType: "action",
+        ghostLabel: "History",
+        ghostIcon: History,
+        targetX: width * 0.622,
+        targetY: actionY,
+        arrowDirection: -90,      // ↑ straight up
+        arrowLength: 85,
+        descriptionOffsetX: -110,// center card horizontally on tail
+        descriptionOffsetY: 0,
+      },
+      /* ── Emergency ──────────────────────────────────────────── */
+      {
+        id: "emergency",
+        title: "Emergency Contact",
+        description: "Quick access to emergency contacts and SOS features.",
+        ghostType: "action",
+        ghostLabel: "Emergency\nContact",
+        ghostIcon: Warning,
+        targetX: width * 0.858,
+        targetY: actionY,
+        arrowDirection: -450,     // ← straight left
+        arrowLength: 80,
+        descriptionOffsetX: 16,
+        descriptionOffsetY: 0,
+      },
+      /* ── Messages ─────────────────────────────────────────── */
+      {
+        id: "messages",
+        title: "Messages",
+        description: "Chat with drivers and passengers in real-time.",
+        ghostType: "bottom-tab",
+        ghostLabel: "Messages",
+        ghostIcon: MessageIcon,
+        targetX: width * 0.625,
+        targetY: bottomTabY,
+        arrowDirection: 90,     // ↓ straight down
+        arrowLength: 120,
+        descriptionOffsetX: -190,
+        descriptionOffsetY: -80,// card sits above arrow tail
+      },
+    ];
+  }, [insets.top, insets.bottom, width, height]);
+
   const [stepIndex, setStepIndex] = useState(0);
+  const currentStep = steps[stepIndex];
+  const isLastStep = stepIndex === steps.length - 1;
 
-  const dimOpacity = useRef(new Animated.Value(0)).current;
-  const contentOpacity = useRef(new Animated.Value(0)).current;
-  const bounceAnim = useRef(new Animated.Value(0)).current;
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const contentOpacity = useRef(new Animated.Value(1)).current;
 
-  const currentStep = TUTORIAL_STEPS[stepIndex];
-
-  const animCX = useRef(new Animated.Value(TUTORIAL_STEPS[0].x * W)).current;
-  const animCY = useRef(new Animated.Value(TUTORIAL_STEPS[0].y * H)).current;
-  const animR = useRef(new Animated.Value(0)).current;
-
+  /* Entrance fade */
   useEffect(() => {
-    Animated.timing(dimOpacity, {
+    Animated.timing(overlayOpacity, {
       toValue: 1,
       duration: 400,
-      useNativeDriver: false,
+      useNativeDriver: true,
+      easing: Easing.out(Easing.ease),
     }).start();
+  }, [overlayOpacity]);
 
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(bounceAnim, { toValue: 1, duration: 500, useNativeDriver: false }),
-        Animated.timing(bounceAnim, { toValue: 0, duration: 500, useNativeDriver: false }),
-      ])
-    ).start();
-  }, [dimOpacity, bounceAnim]);
+  /* Step transition */
+  const goToStep = useCallback(
+    (nextIndex: number) => {
+      if (nextIndex < 0 || nextIndex >= steps.length) return;
 
-  useEffect(() => {
-    const targetX = currentStep.x * W;
-    const targetY = currentStep.y * H;
-    const targetR = currentStep.type === "circle" ? (currentStep.radius ?? 40) : 0;
-
-    Animated.sequence([
       Animated.timing(contentOpacity, {
         toValue: 0,
-        duration: 120,
-        useNativeDriver: false,
-      }),
-      Animated.parallel([
-        Animated.spring(animCX, { toValue: targetX, friction: 9, tension: 60, useNativeDriver: false }),
-        Animated.spring(animCY, { toValue: targetY, friction: 9, tension: 60, useNativeDriver: false }),
-        Animated.spring(animR, { toValue: targetR, friction: 9, tension: 60, useNativeDriver: false }),
-      ]),
-      Animated.timing(contentOpacity, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: false,
-      }),
-    ]).start();
-  }, [stepIndex, currentStep, contentOpacity, animCX, animCY, animR]);
-
-  const handleComplete = useCallback(() => {
-    Animated.parallel([
-      Animated.timing(dimOpacity, { toValue: 0, duration: 250, useNativeDriver: false }),
-      Animated.timing(contentOpacity, { toValue: 0, duration: 250, useNativeDriver: false }),
-    ]).start(() => onComplete());
-  }, [onComplete, dimOpacity, contentOpacity]);
+        duration: 180,
+        useNativeDriver: true,
+        easing: Easing.ease,
+      }).start(() => {
+        setStepIndex(nextIndex);
+        Animated.timing(contentOpacity, {
+          toValue: 1,
+          duration: 280,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.ease),
+        }).start();
+      });
+    },
+    [contentOpacity, steps.length]
+  );
 
   const handleNext = useCallback(() => {
-    if (stepIndex < TUTORIAL_STEPS.length - 1) {
-      setStepIndex((i) => i + 1);
+    if (isLastStep) {
+      handleDismiss();
     } else {
-      handleComplete();
+      goToStep(stepIndex + 1);
     }
-  }, [stepIndex, handleComplete]);
+  }, [isLastStep, stepIndex, goToStep]);
 
-  const renderTooltipContent = () => {
-    const offset = (currentStep.radius ?? 0) + 15;
-    const TOOLTIP_W = 280;
+  const handleDismiss = useCallback(() => {
+    Animated.timing(overlayOpacity, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+      easing: Easing.ease,
+    }).start(() => {
+      onComplete();
+    });
+  }, [overlayOpacity, onComplete]);
 
-    let containerStyle: any = {};
-    let flexDir: any = "column";
+  /* -- Arrow geometry (single unified formula) -- */
+  const arrowGeometry = useMemo(() => {
+    const offset = 35; // px gap between arrow head and target
+    const rad = (currentStep.arrowDirection * Math.PI) / 180;
 
-    if (currentStep.arrowDirection === "up") {
-      containerStyle = { top: offset, width: TOOLTIP_W, left: -TOOLTIP_W / 2, alignItems: "center" };
-      flexDir = "column";
-    } else if (currentStep.arrowDirection === "down") {
-      containerStyle = { bottom: offset, width: TOOLTIP_W, left: -TOOLTIP_W / 2, alignItems: "center" };
-      flexDir = "column-reverse";
-    } else if (currentStep.arrowDirection === "left") {
-      containerStyle = { top: -20, left: offset, width: TOOLTIP_W, alignItems: "center" };
-      flexDir = "row";
-    } else if (currentStep.arrowDirection === "right") {
-      containerStyle = { top: -20, right: offset, width: TOOLTIP_W, justifyContent: "flex-end", alignItems: "center" };
-      flexDir = "row-reverse";
-    }
+    // Head sits just before the target, back along the arrow direction
+    const headX = currentStep.targetX - Math.cos(rad) * offset;
+    const headY = currentStep.targetY - Math.sin(rad) * offset;
 
-    const bounceDistance = 8;
-    let translateY = bounceAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0] });
-    let translateX = bounceAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0] });
+    // Tail sits behind the head by arrowLength
+    const tailX = headX - Math.cos(rad) * currentStep.arrowLength;
+    const tailY = headY - Math.sin(rad) * currentStep.arrowLength;
 
-    if (currentStep.arrowDirection === "up") translateY = bounceAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -bounceDistance] });
-    if (currentStep.arrowDirection === "down") translateY = bounceAnim.interpolate({ inputRange: [0, 1], outputRange: [0, bounceDistance] });
-    if (currentStep.arrowDirection === "left") translateX = bounceAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -bounceDistance] });
-    if (currentStep.arrowDirection === "right") translateX = bounceAnim.interpolate({ inputRange: [0, 1], outputRange: [0, bounceDistance] });
+    return { tailX, tailY, headX, headY };
+  }, [currentStep]);
+
+  /* -- Description position (anchored to arrow tail) -- */
+  const descPosition = useMemo(() => {
+    const { tailX, tailY } = arrowGeometry;
+    const cardWidth = 220;
+
+    const left =
+      tailX + (currentStep.descriptionOffsetX || 0);
+    const top =
+      tailY + (currentStep.descriptionOffsetY || 0);
+
+    return {
+      left: Math.max(16, Math.min(width - cardWidth - 36, left)),
+      top: Math.max(insets.top + 10, Math.min(height - 180, top)),
+    };
+  }, [arrowGeometry, currentStep, width, height, insets.top]);
+
+  const renderGhost = () => {
+    const { ghostType, ghostLabel, ghostIcon, isActive, targetX, targetY } = currentStep;
+    const left = targetX - (ghostType === "action" ? 40 : ghostType === "bottom-tab" ? 35 : 25);
+    const top = targetY - (ghostType === "action" ? 50 : ghostType === "bottom-tab" ? -2 : 20);
 
     return (
-      <View style={[styles.tooltipWrapper, containerStyle, { flexDirection: flexDir }]}>
-        <Animated.View style={{ transform: [{ translateX }, { translateY }] }}>
-          <GamingArrow direction={currentStep.arrowDirection} />
-        </Animated.View>
-
-        <View 
-          style={[
-            styles.gamingTextBox, 
-            currentStep.arrowDirection === "left" || currentStep.arrowDirection === "right" 
-              ? { marginHorizontal: 12 } 
-              : { marginVertical: 8 }
-          ]}
-        >
-          <Text style={styles.stepBody}>{currentStep.body}</Text>
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <View style={{ position: "absolute", left, top }}>
+          {ghostType === "top-tab" && <GhostTopTab label={ghostLabel} isActive={isActive} />}
+          {ghostType === "action" && <GhostActionButton icon={ghostIcon} label={ghostLabel} />}
+          {ghostType === "bottom-tab" && <GhostBottomTab icon={ghostIcon} label={ghostLabel} />}
         </View>
       </View>
     );
   };
 
-  const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
   return (
-    <View style={styles.root} pointerEvents="box-none">
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: dimOpacity }]}>
-        <Svg width="100%" height="100%">
-          <Defs>
-            <Mask id="gamingSpotlight">
-              <Rect x="0" y="0" width="100%" height="100%" fill="white" />
-              <AnimatedCircle cx={animCX} cy={animCY} r={animR} fill="black" />
-            </Mask>
-          </Defs>
-          <Rect x="0" y="0" width="100%" height="100%" fill="rgba(6, 9, 20, 0.88)" mask="url(#gamingSpotlight)" />
-        </Svg>
-      </Animated.View>
+    <Animated.View
+      style={[StyleSheet.absoluteFill, { opacity: overlayOpacity, zIndex: 999 }]}
+      pointerEvents="box-none"
+    >
+      {/* Dimming layer */}
+      <Pressable style={StyleSheet.absoluteFill} onPress={() => {}} pointerEvents="auto">
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.78)" }]} />
+      </Pressable>
 
-      {currentStep.type === "none" && currentStep.displayText && (
-        <Animated.View
-          style={[
-            styles.foregroundItemAnchor,
-            { opacity: contentOpacity, left: currentStep.x * W, top: currentStep.y * H },
-          ]}
-        >
-          <Text style={styles.itemRawText}>{currentStep.displayText}</Text>
-        </Animated.View>
-      )}
-
+      {/* Tutorial content */}
       <Animated.View
-        style={[
-          styles.dynamicAnchor,
-          {
-            transform: [{ translateX: animCX }, { translateY: animCY }],
-          },
-        ]}
+        style={[StyleSheet.absoluteFill, { opacity: contentOpacity }]}
         pointerEvents="box-none"
       >
-        <Animated.View style={{ opacity: contentOpacity }} pointerEvents="box-none">
-          {renderTooltipContent()}
-        </Animated.View>
+        {renderGhost()}
+
+        <SvgArrow
+          tailX={arrowGeometry.tailX}
+          tailY={arrowGeometry.tailY}
+          headX={arrowGeometry.headX}
+          headY={arrowGeometry.headY}
+          ArrowShape={currentStep.ArrowShape || ArrowDefault}
+        />
+
+        {/* Description card — tail tip (accent bar) sits flush to arrow tail */}
+        <View
+          style={{
+            position: "absolute",
+            left: descPosition.left,
+            top: descPosition.top,
+            // maxWidth: 230,
+            backgroundColor: "rgb(105 104 104)",
+            // borderWidth: 2, borderColor: 'blue',
+            flexDirection: "row",
+            justifyContent: 'center'
+          }}
+        >
+          {/* Accent bar — the "tail tip" of the description card */}
+          <View
+            style={{
+              alignItems: 'center',
+              justifyContent:'center'
+            }}
+          ><View style={{backgroundColor: Colors.textWhite, padding: 0, width: 4, height: 30, borderRadius: 50}}/></View>
+          <View
+            style={{
+              flexDirection: "column",
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              maxWidth: 230,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: "Poppins_600SemiBold",
+                fontSize: 15,
+                color: "#141313",
+              }}
+            >
+              {currentStep.title}
+            </Text>
+            <Text
+              style={{
+                fontFamily: "Poppins_400Regular",
+                fontSize: 12,
+                color: "#141313",
+                marginTop: 4,
+                lineHeight: 18,
+              }}
+            >
+              {currentStep.description}
+            </Text>
+          </View>
+          
+          <View
+            style={{
+              alignItems: 'center',
+              justifyContent:'center'
+            }}
+          ><View style={{backgroundColor: Colors.textWhite, padding: 0, width: 4, height: 30, borderRadius: 50}}/></View>
+        </View>
       </Animated.View>
 
-      <View style={styles.footerContainer} pointerEvents="box-none">
+      {/* Bottom controls */}
+      <View
+        style={{
+          position: "absolute",
+          bottom: insets.bottom + 64,
+          left: 60,
+          right: 40,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          zIndex: 1000,
+        }}
+        pointerEvents="box-none"
+      >
         <Pressable
-          style={({ pressed }) => [styles.navBtn, pressed && styles.btnPressed]}
-          onPress={handleComplete}
+          onPress={handleDismiss}
+          hitSlop={16}
+          style={{ paddingVertical: 8, paddingHorizontal: 4 }}
         >
-          <Text style={styles.skipBtnText}>Skip</Text>
+          <Text
+            style={{
+              fontFamily: "Poppins_500Medium",
+              fontSize: 16,
+              color: "#fff",
+              // borderBottomWidth: 2,
+              // borderBottomColor: 'white',
+            }}
+          >
+            Skip
+          </Text>
         </Pressable>
 
         <Pressable
-          style={({ pressed }) => [styles.navBtn, pressed && styles.btnPressed]}
           onPress={handleNext}
+          hitSlop={16}
+          style={{
+            paddingVertical: 12,
+            paddingHorizontal: 28,    
+          }}
         >
-          <Text style={styles.nextBtnText}>Next</Text>
+          <Text
+            style={{
+              fontFamily: "Poppins_600SemiBold",
+              fontSize: 15,
+              color: "#FFFFFF",
+              borderBottomWidth: 2,
+              borderBottomColor: 'white',
+            }}
+          >
+            {isLastStep ? "Done" : "Next"}
+          </Text>
         </Pressable>
       </View>
-    </View>
+    </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 99999,
-  },
-  foregroundItemAnchor: {
-    position: "absolute",
-    width: 0,
-    height: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 100000,
-  },
-  itemRawText: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 20,
-    color: Colors.primary,
-    position: "absolute",
-  },
-  dynamicAnchor: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: 0,
-    height: 0,
-    zIndex: 100001,
-  },
-  tooltipWrapper: {
-    position: "absolute",
-  },
-  gamingTextBox: {
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    maxWidth: 240,
-  },
-  stepBody: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    color: "#FFFFFF",
-    lineHeight: 20,
-    textAlign: "left",
-  },
-  footerContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 32,
-    paddingBottom: Platform.OS === "ios" ? 50 : 30,
-  },
-  navBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-  },
-  btnPressed: {
-    opacity: 0.6,
-  },
-  skipBtnText: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 16,
-    color: "#7E8494",
-    letterSpacing: 0.5,
-  },
-  nextBtnText: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 16,
-    color: Colors.primary,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-  },
-});
