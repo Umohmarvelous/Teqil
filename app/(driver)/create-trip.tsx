@@ -328,48 +328,66 @@ export default function CreateTripScreen() {
           {/* Route card */}
           <View style={styles.card}>
             {/* <Text style={styles.cardHeading}>Route</Text> */}
-            <View style={[styles.routeVisual, {backgroundColor: inputBgColor}, {borderRadius: 25, paddingHorizontal: 10, paddingVertical: 25, }]}>
-              <View style={styles.routeTrack}>
-                <View style={styles.routeDotGreen} />
-                <View style={styles.routeLine} />
-                <View style={styles.routeDotRed} />
+            <View style={[ {backgroundColor: inputBgColor}, {borderRadius: 25, paddingHorizontal: 10, paddingVertical: 25, flexDirection: column}]}>
+
+              <View style={[styles.routeVisual, {backgroundColor: inputBgColor}, {borderRadius: 25, paddingHorizontal: 10, paddingVertical: 25, }]}>
+                <View style={styles.routeTrack}>
+                  <View style={styles.routeDotGreen} />
+                  <View style={styles.routeLine} />
+                  <View style={styles.routeDotRed} />
+                </View>
+                <View style={styles.routeInputs}>
+                  {/* Origin with GPS button */}
+                
+                  <AnimatedInput
+                    label={t("trip.origin")}
+                    icon="location"
+                    value={origin}
+                    onChangeText={(v) => { setOrigin(v); setErrors((e) => ({ ...e, origin: "" })); }}
+                    placeholder={locationLoading ? "Detecting location..." : t("trip.originPlaceholder")}
+                    error={errors.origin}
+                    delay={80}
+                    rightElement={
+                      <Pressable
+                        onPress={detectLocation}
+                        style={styles.gpsBtn}
+                        hitSlop={8}
+                        disabled={locationLoading}
+                      >
+                        {locationLoading ? (
+                          <ActivityIndicator size="small" color={Colors.primary} />
+                        ) : (
+                          <Ionicons name="navigate" size={20} color={Colors.primary} />
+                        )}
+                      </Pressable>
+                    }
+                  />
+
+
+                  <AnimatedInput
+                    label={t("trip.destination")}
+                    icon="flag"
+                    value={destination}
+                    onChangeText={(v) => { setDestination(v); setErrors((e) => ({ ...e, destination: "" })); }}
+                    placeholder={t("trip.destinationPlaceholder")}
+                    error={errors.destination}
+                    delay={160}
+                  />
+                </View>
               </View>
-              <View style={styles.routeInputs}>
-                {/* Origin with GPS button */}
-              
-                <AnimatedInput
-                  label={t("trip.origin")}
-                  icon="location"
-                  value={origin}
-                  onChangeText={(v) => { setOrigin(v); setErrors((e) => ({ ...e, origin: "" })); }}
-                  placeholder={locationLoading ? "Detecting location..." : t("trip.originPlaceholder")}
-                  error={errors.origin}
-                  delay={80}
-                  rightElement={
-                    <Pressable
-                      onPress={detectLocation}
-                      style={styles.gpsBtn}
-                      hitSlop={8}
-                      disabled={locationLoading}
-                    >
-                      {locationLoading ? (
-                        <ActivityIndicator size="small" color={Colors.primary} />
-                      ) : (
-                        <Ionicons name="navigate" size={20} color={Colors.primary} />
-                      )}
-                    </Pressable>
-                  }
-                />
 
-
+              {/* Trip details card */}
+              <View style={[styles.card, styles.cardMt, {backgroundColor: cardBg}]}>
+                <Text style={styles.cardHeading}>Trip Details</Text>
                 <AnimatedInput
-                  label={t("trip.destination")}
-                  icon="flag"
-                  value={destination}
-                  onChangeText={(v) => { setDestination(v); setErrors((e) => ({ ...e, destination: "" })); }}
-                  placeholder={t("trip.destinationPlaceholder")}
-                  error={errors.destination}
-                  delay={160}
+                  label={t("trip.capacity")}
+                  icon="people"
+                  value={capacity}
+                  onChangeText={(v) => { setCapacity(v); setErrors((e) => ({ ...e, capacity: "" })); }}
+                  placeholder="e.g. 4"
+                  error={errors.capacity}
+                  keyboardType="number-pad"
+                  delay={240}
                 />
               </View>
             </View>
@@ -385,20 +403,7 @@ export default function CreateTripScreen() {
             )}
           </View>
 
-          {/* Trip details card */}
-          <View style={[styles.card, styles.cardMt, {backgroundColor: cardBg}]}>
-            <Text style={styles.cardHeading}>Trip Details</Text>
-            <AnimatedInput
-              label={t("trip.capacity")}
-              icon="people"
-              value={capacity}
-              onChangeText={(v) => { setCapacity(v); setErrors((e) => ({ ...e, capacity: "" })); }}
-              placeholder="e.g. 4"
-              error={errors.capacity}
-              keyboardType="number-pad"
-              delay={240}
-            />
-          </View>
+        
 
           {/* Info banner */}
           <View style={styles.infoBanner}>
