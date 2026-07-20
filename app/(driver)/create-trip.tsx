@@ -328,59 +328,72 @@ export default function CreateTripScreen() {
           {/* Route card */}
           <View style={styles.card}>
             {/* <Text style={styles.cardHeading}>Route</Text> */}
-            <View style={[ {backgroundColor: inputBgColor}, {borderRadius: 25, paddingHorizontal: 10, paddingVertical: 25, flexDirection: column}]}>
+            <View style={[ {backgroundColor: inputBgColor}, {borderRadius: 45, paddingHorizontal: 10, paddingVertical: 25, flexDirection: 'column', paddingBottom: 50}]}>
 
-              <View style={[styles.routeVisual, {backgroundColor: inputBgColor}, {borderRadius: 25, paddingHorizontal: 10, paddingVertical: 25, }]}>
-                <View style={styles.routeTrack}>
-                  <View style={styles.routeDotGreen} />
-                  <View style={styles.routeLine} />
-                  <View style={styles.routeDotRed} />
+              <View>
+                <View style={[styles.routeVisual, {borderRadius: 35, paddingHorizontal: 10, paddingVertical: 25,paddingBottom: 0 }]}>
+                  <View style={styles.routeTrack}>
+                    <View style={styles.routeDotGreen} />
+                    <View style={styles.routeLine} />
+                    <View style={styles.routeDotRed} />
+                  </View>
+                  <View style={styles.routeInputs}>
+                    {/* Origin with GPS button */}
+                    <AnimatedInput
+                      label={t("trip.origin")}
+                      icon="location"
+                      value={origin}
+                      onChangeText={(v) => { setOrigin(v); setErrors((e) => ({ ...e, origin: "" })); }}
+                      placeholder={locationLoading ? "Detecting location..." : t("trip.originPlaceholder")}
+                      error={errors.origin}
+                      delay={80}
+                      rightElement={
+                        <Pressable
+                          onPress={detectLocation}
+                          style={styles.gpsBtn}
+                          hitSlop={8}
+                          disabled={locationLoading}
+                        >
+                          {locationLoading ? (
+                            <ActivityIndicator size="small" color={Colors.primary} />
+                          ) : (
+                            <Ionicons name="navigate" size={20} color={Colors.primary} />
+                          )}
+                        </Pressable>
+                      }
+                    />
+
+
+                    <AnimatedInput
+                      label={t("trip.destination")}
+                      icon="flag"
+                      value={destination}
+                      onChangeText={(v) => { setDestination(v); setErrors((e) => ({ ...e, destination: "" })); }}
+                      placeholder={t("trip.destinationPlaceholder")}
+                      error={errors.destination}
+                      delay={160}
+                    />
+                  </View>
                 </View>
-                <View style={styles.routeInputs}>
-                  {/* Origin with GPS button */}
                 
-                  <AnimatedInput
-                    label={t("trip.origin")}
-                    icon="location"
-                    value={origin}
-                    onChangeText={(v) => { setOrigin(v); setErrors((e) => ({ ...e, origin: "" })); }}
-                    placeholder={locationLoading ? "Detecting location..." : t("trip.originPlaceholder")}
-                    error={errors.origin}
-                    delay={80}
-                    rightElement={
-                      <Pressable
-                        onPress={detectLocation}
-                        style={styles.gpsBtn}
-                        hitSlop={8}
-                        disabled={locationLoading}
-                      >
-                        {locationLoading ? (
-                          <ActivityIndicator size="small" color={Colors.primary} />
-                        ) : (
-                          <Ionicons name="navigate" size={20} color={Colors.primary} />
-                        )}
-                      </Pressable>
-                    }
-                  />
-
-
-                  <AnimatedInput
-                    label={t("trip.destination")}
-                    icon="flag"
-                    value={destination}
-                    onChangeText={(v) => { setDestination(v); setErrors((e) => ({ ...e, destination: "" })); }}
-                    placeholder={t("trip.destinationPlaceholder")}
-                    error={errors.destination}
-                    delay={160}
-                  />
-                </View>
+                {/* Show detected coords as a small info pill */}
+                {locationCoords && (
+                  <View style={[styles.coordsPill, {backgroundColor: inputBgColor, borderColor}]}>
+                    <Ionicons name="checkmark-circle" size={14} color={Colors.primary} />
+                    <Text style={styles.coordsText}>
+                      GPS: {locationCoords.latitude.toFixed(4)}, {locationCoords.longitude.toFixed(4)}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Trip details card */}
-              <View style={[styles.card, styles.cardMt, {backgroundColor: cardBg}]}>
+              <View style={[styles.card, styles.cardMt, 
+                // {backgroundColor: cardBg}
+                ]}>
                 <Text style={styles.cardHeading}>Trip Details</Text>
                 <AnimatedInput
-                  label={t("trip.capacity")}
+                  // label={t("trip.capacity")}
                   icon="people"
                   value={capacity}
                   onChangeText={(v) => { setCapacity(v); setErrors((e) => ({ ...e, capacity: "" })); }}
@@ -392,15 +405,28 @@ export default function CreateTripScreen() {
               </View>
             </View>
 
-            {/* Show detected coords as a small info pill */}
-            {locationCoords && (
-              <View style={[styles.coordsPill, ]}>
-                <Ionicons name="checkmark-circle" size={14} color={Colors.primary} />
-                <Text style={styles.coordsText}>
-                  GPS: {locationCoords.latitude.toFixed(4)}, {locationCoords.longitude.toFixed(4)}
-                </Text>
-              </View>
-            )}
+
+
+            {/* Submit */}
+            <Animated.View style={[styles.btnWrapper, btnStyle]}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.submitBtn,
+                  pressed && styles.submitBtnPressed,
+                  isLoading && styles.submitBtnLoading,
+                ]}
+                onPress={handleCreate}
+                disabled={isLoading}
+              >
+                {!isLoading && <Ionicons name="navigate" size={40} color="#fff" />}
+                {/* <Text style={styles.submitBtnText}>
+                  {isLoading ? "Creating..." : t("trip.startTrip")}
+                </Text> */}
+              </Pressable>
+            </Animated.View>
+
+
+            
           </View>
 
         
@@ -421,23 +447,7 @@ export default function CreateTripScreen() {
             </Text>
           </Pressable> */}
 
-          {/* Submit */}
-          <Animated.View style={[styles.btnWrapper, btnStyle]}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.submitBtn,
-                pressed && styles.submitBtnPressed,
-                isLoading && styles.submitBtnLoading,
-              ]}
-              onPress={handleCreate}
-              disabled={isLoading}
-            >
-              {!isLoading && <Ionicons name="navigate" size={20} color="#fff" />}
-              <Text style={styles.submitBtnText}>
-                {isLoading ? "Creating..." : t("trip.startTrip")}
-              </Text>
-            </Pressable>
-          </Animated.View>
+        
           
 
           <View style={{ height: 80 + Math.max(insets.bottom, 16) }} />
@@ -465,31 +475,30 @@ const styles = StyleSheet.create({
   headerTitle: { flex: 1, textAlign: "center", fontFamily: "Poppins_600SemiBold", fontSize: 16, color: "#000" },
   headerSpacer: { width: 38 },
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 12, paddingTop: 24 },
+  scrollContent: { paddingHorizontal: 12, paddingTop: 24, borderWidth:2, borderColor:'red', justifyContent:'space-between', flexDirection:'column', gap:50 },
   heroRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 20 },
   heroDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
   heroLabel: { fontFamily: "Poppins_400Regular", fontSize: 13, color: "#8E8E93" },
   card: {
-    // backgroundColor: Colors.surface,
     borderRadius: 20,
-    padding: 10,
+    padding: 0,
     // shadowColor: "#000",
     // shadowOffset: { width: 0, height: 4 },
     // shadowOpacity: 0.12,
     // shadowRadius: 10,
     // elevation: 4,
   },
-  cardMt: { marginTop: 16, padding: 20 },
+  cardMt: { marginTop: 16, padding: 10 },
   cardHeading: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 13,
     color: "#8E8E93",
     textTransform: "uppercase",
     letterSpacing: 0.8,
-    marginBottom: 16, marginLeft: 10
+    marginLeft: 10
   },
   routeVisual: { flexDirection: "row", gap: 14, flex: 1 },
-  routeTrack: { alignItems: "center", paddingTop: 3, paddingBottom: 63, width: 16, paddingLeft: 0 },
+  routeTrack: { alignItems: "center", paddingTop: 3, paddingBottom: 3, width: 16, paddingLeft: 0 },
   routeDotGreen: { width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.primary },
   routeLine: { flex: 1, width: 2, backgroundColor: "rgba(255 255 255 / 0.36)", marginVertical: 4, borderRadius: 1 },
   routeDotRed: { width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.primary },
@@ -545,20 +554,12 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   infoText: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 12, lineHeight: 18, textAlign: 'center' },
-  btnWrapper: { marginTop: 28 },
+  btnWrapper: { flex: 1, alignItems:'center', justifyContent:'center', position: 'relative', top: -35, bottom: 0, left: 0, right:0,
+ },
   submitBtn: {
     backgroundColor: Colors.primary,
-    borderRadius: 18,
-    height: 58,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 16,
-    elevation: 10,
+    borderRadius: 58,
+    padding: 15,
   },
   submitBtnPressed: { opacity: 0.88 },
   submitBtnLoading: { opacity: 0.65 },
