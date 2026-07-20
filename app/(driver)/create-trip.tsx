@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -70,7 +70,8 @@ function AnimatedInput({
   const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
   const inputBgColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
   const borderColor = error ? Colors.error : focused ? Colors.primary : "transparent";
-  
+  const inputRef = useRef<TextInput>(null);
+
   useEffect(() => {
     opacity.value = withDelay(delay, withTiming(1, { duration: 400 }));
     translateY.value = withDelay(delay, withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) }));
@@ -81,35 +82,53 @@ function AnimatedInput({
     transform: [{ translateY: translateY.value }],
   }));
   
-// borderWidth: 1, borderColor:'red'
 
   return (
     <Animated.View style={[styles.inputBlock, containerStyle, ]}
     >
       <Pressable     
       style={[
-        // {backgroundColor: inputBgColor}, 
+      //   {backgroundColor: inputBgColor}, 
       // {borderRadius: 25, paddingHorizontal: 10, paddingVertical: 25, }
       ]}>
         <Text style={[styles.inputLabel,{color: textColor}]}>{label}</Text>
-        <View style={[styles.inputRow, { borderColor }, error ? styles.inputRowError : null, !editable && styles.inputRowDisabled, {paddingHorizontal: 10}, {backgroundColor: Colors.overlayLight}]}>
-          <Ionicons
-            name={icon}
-            size={18}
-            color={focused ? Colors.primary : "#8E8E93"}
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={[styles.textInput, !editable && { color: textColor }, {paddingVertical: 8}]}
-            placeholder={placeholder}
-            placeholderTextColor={textColor}
-            value={value}
-            onChangeText={onChangeText}
-            keyboardType={keyboardType}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            editable={editable}
-          />
+        <View style={{flexDirection: 'row'}}>
+          <View style={[styles.inputRow, { borderColor }, error ? styles.inputRowError : null, !editable &&  styles.inputRowDisabled, {paddingHorizontal: 10}, {backgroundColor: Colors.overlayLight}]}>
+
+
+            <TextInput
+              style={[styles.textInput, !editable && { color: textColor }, {paddingVertical: 8}]}
+              placeholder={placeholder}
+              placeholderTextColor={textColor}
+              value={value}
+              onChangeText={onChangeText}
+              keyboardType={keyboardType}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              editable={editable}
+              />
+
+
+              {value.length > 0 ? (
+                  <Pressable
+                    hitSlop={8}
+                    onPress={() => {
+                      onChangeText("");
+                      inputRef.current?.focus();
+                    }}
+                  >
+                    <Ionicons name="close-circle" size={26} color={textColor} />
+                  </Pressable>
+                ) : (
+                    // <Ionicons
+                    //   name={icon}
+                    //   size={18}
+                    //   color={focused ? Colors.primary : textColor}
+                    //   style={styles.inputIcon}
+                    // />
+                    <View style={{paddingLeft: 20}}/>
+              )}
+          </View>
           {rightElement}
         </View>
       </Pressable>
@@ -117,6 +136,8 @@ function AnimatedInput({
     </Animated.View>
   );
 }
+
+// Texas Metal - S4 E6
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function CreateTripScreen() {
@@ -315,45 +336,31 @@ export default function CreateTripScreen() {
               </View>
               <View style={styles.routeInputs}>
                 {/* Origin with GPS button */}
-                <View
-                  style={[styles.textInputTik, { color: textColor }, {backgroundColor: 'transparent'}]}
-                >
-                  <AnimatedInput
-                    label={t("trip.origin")}
-                    icon="location"
-                    value={origin}
-                    onChangeText={(v) => { setOrigin(v); setErrors((e) => ({ ...e, origin: "" })); }}
-                    placeholder={locationLoading ? "Detecting location..." : t("trip.originPlaceholder")}
-                    error={errors.origin}
-                    delay={80}
-                    // rightElement={
-                    //   <Pressable
-                    //     onPress={detectLocation}
-                    //     style={styles.gpsBtn}
-                    //     hitSlop={8}
-                    //     disabled={locationLoading}
-                    //   >
-                    //     {locationLoading ? (
-                    //       <ActivityIndicator size="small" color={Colors.primary} />
-                    //     ) : (
-                    //       <Ionicons name="navigate" size={20} color={Colors.primary} />
-                    //     )}
-                    //   </Pressable>
-                    // }
-                  />
-                  <Pressable
-                        onPress={detectLocation}
-                        style={styles.gpsBtn}
-                        hitSlop={8}
-                        disabled={locationLoading}
-                      >
-                        {locationLoading ? (
-                          <ActivityIndicator size="small" color={Colors.primary} />
-                        ) : (
-                          <Ionicons name="navigate" size={20} color={Colors.primary} />
-                        )}
-                      </Pressable>
-                </View>
+              
+                <AnimatedInput
+                  label={t("trip.origin")}
+                  icon="location"
+                  value={origin}
+                  onChangeText={(v) => { setOrigin(v); setErrors((e) => ({ ...e, origin: "" })); }}
+                  placeholder={locationLoading ? "Detecting location..." : t("trip.originPlaceholder")}
+                  error={errors.origin}
+                  delay={80}
+                  rightElement={
+                    <Pressable
+                      onPress={detectLocation}
+                      style={styles.gpsBtn}
+                      hitSlop={8}
+                      disabled={locationLoading}
+                    >
+                      {locationLoading ? (
+                        <ActivityIndicator size="small" color={Colors.primary} />
+                      ) : (
+                        <Ionicons name="navigate" size={20} color={Colors.primary} />
+                      )}
+                    </Pressable>
+                  }
+                />
+
 
                 <AnimatedInput
                   label={t("trip.destination")}
@@ -379,7 +386,7 @@ export default function CreateTripScreen() {
           </View>
 
           {/* Trip details card */}
-          <View style={[styles.card, styles.cardMt]}>
+          <View style={[styles.card, styles.cardMt, {backgroundColor: cardBg}]}>
             <Text style={styles.cardHeading}>Trip Details</Text>
             <AnimatedInput
               label={t("trip.capacity")}
@@ -467,14 +474,14 @@ const styles = StyleSheet.create({
     // shadowRadius: 10,
     // elevation: 4,
   },
-  cardMt: { marginTop: 16 },
+  cardMt: { marginTop: 16, padding: 20 },
   cardHeading: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 13,
     color: "#8E8E93",
     textTransform: "uppercase",
     letterSpacing: 0.8,
-    marginBottom: 16
+    marginBottom: 16, marginLeft: 10
   },
   routeVisual: { flexDirection: "row", gap: 14, flex: 1 },
   routeTrack: { alignItems: "center", paddingTop: 3, paddingBottom: 63, width: 16, paddingLeft: 0 },
@@ -485,20 +492,21 @@ const styles = StyleSheet.create({
   inputBlock: { flex: 1, },
   inputLabel: { fontFamily: "Poppins_500Medium", fontSize: 12, marginBottom: 7, marginLeft: -8, letterSpacing: 0.3 },
   inputRow: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.borderLight,
     borderRadius: 24,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    borderWidth: 1.5,
+    borderWidth: .8,
     borderColor: "transparent",
+    gap: 6
   },
   inputRowError: { borderColor: Colors.error },
   inputRowDisabled: { opacity: 0.7 },
   inputIcon: { marginRight: 10 },
-  textInput: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 15, color: "#0F0F0F", },
-  textInputTik: { padding: 0, margin: 0, flexDirection: 'row', alignItems: 'flex-end' },
+  textInput: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 15, color: "#FFFFFF",marginLeft: 10 },
   gpsBtn: {
     width: 55,
     height: 55,
@@ -531,7 +539,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     alignItems: "flex-start",
   },
-  infoText: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 12, lineHeight: 18 },
+  infoText: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 12, lineHeight: 18, textAlign: 'center' },
   btnWrapper: { marginTop: 28 },
   submitBtn: {
     backgroundColor: Colors.primary,

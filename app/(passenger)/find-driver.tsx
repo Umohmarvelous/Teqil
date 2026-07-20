@@ -14,7 +14,6 @@ import {
   Pressable,
   Image,
   ActivityIndicator,
-  Platform,
   Alert,
   Keyboard,
 } from "react-native";
@@ -29,9 +28,7 @@ import { useMessagesStore } from "@/src/store/useMessagesStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { Colors } from "@/constants/colors";
 import { getInitials } from "@/src/utils/helpers";
-import { HugeiconsIcon } from "@hugeicons/react-native";
-import { Rocket } from "@hugeicons/core-free-icons";
-import { text } from "node:stream/consumers";
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

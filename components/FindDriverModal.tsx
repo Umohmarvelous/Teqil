@@ -27,7 +27,7 @@ export default function FindDriverModal({
 
   const { theme } = useSettingsStore();
   
-  const isDark                               = theme === "dark";
+  const isDark = theme === "dark";
 
   const bg = isDark ? Colors.text : Colors.border;
   // const textColor = isDark ? Colors.textWhite : Colors.text;
