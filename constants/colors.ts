@@ -15,7 +15,8 @@ export const Colors = {
   gold: GOLD,
   goldLight: GOLD_LIGHT,
 
-  background:  "#151515",
+  background:  "#070707",
+  // background:  "#151515",
   surface: "#FFFFFF",
   surfaceSecondary: "#F5F5F5",
 

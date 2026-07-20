@@ -13,7 +13,8 @@
     "start": "npx expo start",
     "expo:remote": "node scripts/start-remote.js",
     "lint": "npx expo lint",
-    "lint:fix": "npx expo lint --fix"
+    "lint:fix": "npx expo lint --fix",
+    "ls": "tree -I 'node_modules|.git|.env|.expo|dist|build|.config|.agents|.cursor|.vscode'"
   },
   "dependencies": {
     "@expo-google-fonts/poppins": "^0.4.1",

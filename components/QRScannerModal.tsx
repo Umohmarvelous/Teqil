@@ -11,9 +11,9 @@ import { useEffect, useRef, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View,   Animated,
   Easing, } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Colors } from "@/constants/colors";
 import * as Haptics from "expo-haptics";
-
+import { Colors } from "@/constants/colors";
+import { useSettingsStore } from "@/src/store/useSettingsStore";
 
 // ─── Camera module — loaded at module level, not inside a component ───────────
 // We need the hook (useCameraPermissions) to be available unconditionally so it
@@ -41,6 +41,17 @@ export default function QRScannerModal({
   onScan: (data: string) => void;
 }) {
   const insets = useSafeAreaInsets();
+
+
+
+  const { theme } = useSettingsStore();
+  const isDark = theme === "dark";
+  // const tabBarBg = isDark ? Colors.background : Colors.textWhite;
+  // const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  // const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
+
+
 
   // Always call the hook unconditionally. If the module isn't available,
   // _useCameraPermissions is null so we fall back to a no-op.
@@ -91,7 +102,7 @@ export default function QRScannerModal({
       <Modal
         transparent
         visible={visible}
-        animationType="slide"
+        // animationType="fade"
         onRequestClose={onClose}
       >
         <View style={scanStyles.overlay}>
@@ -106,7 +117,7 @@ export default function QRScannerModal({
               Run: npx expo install expo-camera{"\n"}to enable QR scanning
             </Text>
             <Pressable style={scanStyles.noCameraBtn} onPress={onClose}>
-              <Text style={scanStyles.noCameraBtnText}>Close</Text>
+              <Text style={[scanStyles.noCameraBtnText, {color:Colors.error}]}>Close</Text>
             </Pressable>
           </View>
         </View>
@@ -120,7 +131,7 @@ export default function QRScannerModal({
       <Modal
         transparent
         visible={visible}
-        animationType="slide"
+        // animationType="fade"
         onRequestClose={onClose}
       >
         <View style={scanStyles.overlay}>
@@ -137,12 +148,13 @@ export default function QRScannerModal({
               style={scanStyles.noCameraBtn}
               onPress={() => requestPermissionRef.current()}
             >
-              <Text style={scanStyles.noCameraBtnText}>Grant Access</Text>
+              <Text style={[scanStyles.noCameraBtnText, {color:Colors.textWhite}]}>Grant Access</Text>
             </Pressable>
-            <Pressable onPress={onClose} style={{ marginTop: 12 }}>
+            <Pressable onPress={onClose} style={{ marginTop: 12, flexDirection: 'row',gap:10 }}>
+              {/* <Ionicons name="close" size={20} color={Colors.error} /> */}
               <Text
                 style={{
-                  color: "rgba(255,255,255,0.4)",
+                  color: Colors.error,
                   fontFamily: "Poppins_400Regular",
                 }}
               >
@@ -171,7 +183,7 @@ export default function QRScannerModal({
           <Pressable style={scanStyles.closeBtn} onPress={onClose}>
             <Ionicons name="close" size={22} color="#fff" />
           </Pressable>
-          <Text style={scanStyles.topBarTitle}>Scan Driver QR Code</Text>
+          <Text style={[scanStyles.topBarTitle, {color:textColor}]}>Scan Driver QR Code</Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -243,7 +255,7 @@ const scanStyles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.9)",
+    backgroundColor: "rgba(0 0 0 / 0.46)",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 32,
@@ -264,7 +276,6 @@ const scanStyles = StyleSheet.create({
   topBarTitle: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 16,
-    color: "#fff",
   },
   closeBtn: {
     width: 40,
@@ -294,30 +305,30 @@ const scanStyles = StyleSheet.create({
   cornerTL: {
     top: 0,
     left: 0,
-    borderTopWidth: 3,
-    borderLeftWidth: 3,
-    borderTopLeftRadius: 6,
+    borderTopWidth: 5,
+    borderLeftWidth: 5,
+    borderTopLeftRadius: 16,
   },
   cornerTR: {
     top: 0,
     right: 0,
-    borderTopWidth: 3,
-    borderRightWidth: 3,
-    borderTopRightRadius: 6,
+    borderTopWidth: 5,
+    borderRightWidth: 5,
+    borderTopRightRadius: 16,
   },
   cornerBL: {
     bottom: 0,
     left: 0,
-    borderBottomWidth: 3,
-    borderLeftWidth: 3,
-    borderBottomLeftRadius: 6,
+    borderBottomWidth: 5,
+    borderLeftWidth: 5,
+    borderBottomLeftRadius: 16,
   },
   cornerBR: {
     bottom: 0,
     right: 0,
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
-    borderBottomRightRadius: 6,
+    borderBottomWidth: 5,
+    borderRightWidth: 5,
+    borderBottomRightRadius: 16,
   },
   scanLine: {
     position: "absolute",
@@ -364,8 +375,10 @@ const scanStyles = StyleSheet.create({
     lineHeight: 20,
   },
   noCameraBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
+    backgroundColor: Colors.overlayLight,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    borderRadius: 32,
     paddingHorizontal: 28,
     paddingVertical: 12,
     marginTop: 6,
@@ -373,6 +386,5 @@ const scanStyles = StyleSheet.create({
   noCameraBtnText: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 14,
-    color: "#fff",
   },
 });

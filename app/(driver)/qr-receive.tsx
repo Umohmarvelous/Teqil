@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
+import { StatusBar } from "expo-status-bar";
 
 export default function QRReceiveScreen() {
   const { user } = useAuthStore();
@@ -16,8 +17,10 @@ export default function QRReceiveScreen() {
   const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.border;
   const textColor = isDark ? Colors.textWhite : Colors.text;
-  const subTextColor = isDark ? Colors.textSecondary : Colors.textSecondary;
+  const subTextColor = isDark ? Colors.textSecondary : Colors.overlay;
   const cardBg = isDark ? Colors.overlayLight : "#FFFFFF";
+  const avatarBg = isDark ? Colors.text : Colors.textWhite;
+
 
   const driverIdStr = user?.driver_id || user?.id || "";
 
@@ -40,8 +43,10 @@ export default function QRReceiveScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 15 }, { backgroundColor: bg }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'}  />
+
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', alignSelf: 'center'}}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
+        <Pressable style={[styles.backBtn, {backgroundColor: cardBg}]} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color={textColor} />
         </Pressable>
 
@@ -50,34 +55,50 @@ export default function QRReceiveScreen() {
           <Text style={[styles.subtext, {color: subTextColor}]}>Scan to start a trip.</Text>
         </View>
 
-        <View  style={styles.backBtn} />
+        {/* <View  style={styles.backBtn} /> */}
+        <Pressable style={[styles.shareButton, {backgroundColor: cardBg}]} onPress={handleShare}>
+          <Ionicons name="share-outline" size={25} color={textColor} />
+        </Pressable>
       </View>
 
-      <View style={[styles.qrContainer, {backgroundColor: cardBg}]}>
-        <QRCode
-          value={qrValue}
-          size={240}
-          color={cardBg}
-          backgroundColor={textColor}
-        />
+      <View style={[styles.qrBig, {backgroundColor: avatarBg}]}>
+
+        <View style={{borderWidth:2, borderColor: avatarBg, backgroundColor: avatarBg, width: 70, height: 70, position:'absolute', top: -40, bottom: 0, borderRadius: 40, alignItems:'center', justifyContent:'center' }}>
+          {user?.profile_photo ?
+              <Image 
+              source={{ uri: user?.profile_photo || 'https://via.placeholder.com/150' }} 
+              style={[styles.avatar]} 
+              />
+              :
+              (<>
+                <Image 
+                  source={require ("../../assets/images/pic1.jpg")}
+                  style={[styles.avatar]} 
+                />
+
+            </>)
+          }
+        </View>
+
+        <Text style={[styles.driverName, {color: Colors.primary}]}>{user?.full_name || 'Unknown ID'}</Text>  
+        <Text style={[styles.driverId, {color: subTextColor}]}>{user?.driver_id || user?.id?.slice(0, 8) || '-  -'}</Text>
+
+        <View style={[styles.qrContainer, {backgroundColor: isDark ? Colors.textWhite : Colors.text}]}>
+          <QRCode
+            value={qrValue}
+            size={190}
+            color={isDark ? Colors.textWhite : Colors.text}
+            backgroundColor={isDark ? Colors.text : "#fff"}
+          />
+        </View>
       </View>
 
 
       <View style={styles.profileContainer}>
-        <Image 
-          source={{ uri: user?.profile_photo || 'https://via.placeholder.com/150' }} 
-          style={styles.avatar} 
-        />
-        <Text style={[styles.driverName, {color: textColor}]}>{user?.full_name || 'Driver'}</Text>
-        
-        <Text style={[styles.driverId, {color: textColor}]}>{user?.driver_id || user?.id?.slice(0, 8)}</Text>
+        {/* <Ionicons name="warning" size={25} color={textColor} /> */}
+        <Text style={[styles.shareText, {color: subTextColor}]}>Your QR code is private. Do not share it with anyone, they can scan it with their phone camera to see your details.</Text>
       </View>
 
-
-      <Pressable style={[styles.shareButton, {backgroundColor: cardBg}]} onPress={handleShare}>
-        <Ionicons name="share-outline" size={20} color={textColor} />
-        <Text style={[styles.shareText, {color: textColor}]}>Share QR Code</Text>
-      </Pressable>
     </View>
   );
 }
@@ -86,48 +107,57 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1, 
     alignItems: 'center', 
-    paddingHorizontal: 24,
+    paddingHorizontal: 14,
     paddingBottom: 40,
+    justifyContent: 'space-between'
   },
   backBtn: {
-    borderRadius: 20,
+    borderRadius: 50,
     justifyContent: 'center',
+    padding: 10,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
   },
   heading: { 
-    fontSize: 18, 
+    fontSize: 15, 
     fontFamily: 'Poppins_700Bold', 
-    // marginBottom: 8,
-    // marginTop: 20,
   },
   subtext: { 
-    fontSize: 14, 
+    fontSize: 13, 
     fontFamily: 'Poppins_400Regular',
     marginBottom: 'auto', 
     textAlign: 'center' 
   },
+  qrBig:{
+    padding: 50,
+    paddingBottom: 30,
+    paddingTop: 40,
+    marginTop: 50,
+    borderRadius: 30,
+    alignItems:'center',
+  },
   qrContainer: {
     padding: 24,
-    borderRadius: 24,
-    marginTop: 'auto',
-    marginBottom: 'auto',
+    borderRadius: 20,
+    alignItems:'center'
   },
   profileContainer: {
     alignItems: 'center',
-    // marginTop: 'auto',
-    marginVertical: 30,
+    // marginVertical: 30,
+    flexDirection: 'column',
+    gap:20,
+    padding: 30
   },
   avatar: {
-    width: 80,
-    height: 80,
+    width: 60,
+    height: 60,
     borderRadius: 40,
-    borderWidth: 3,
-    borderColor: Colors.primary,
-    marginBottom: 16,
   },
   driverName: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: 'Poppins_700Bold',
-    marginBottom: 4,
+    // marginBottom: 4,
   },
   vehicleText: {
     fontSize: 14,
@@ -135,24 +165,22 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   driverId: { 
-    fontSize: 12, 
-    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 14, 
+    fontFamily: 'Poppins_500Medium',
     marginBottom: 20,
+    textAlign:'center',
   },
   shareButton: {
+    borderRadius: 54,
+    padding: 10,
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 30,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    width: '100%',
-    justifyContent: 'center',
+    borderColor: "rgba(255,255,255,0.08)",
   },
   shareText: { 
-    fontFamily: 'Poppins_600SemiBold', 
-    fontSize: 16 
+    fontFamily: 'Poppins_500Medium',
+    fontSize: 13,
+    marginBottom: 20,
+    textAlign:'center',
   },
 });

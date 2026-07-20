@@ -20,6 +20,8 @@ import { HugeiconsIcon } from "@hugeicons/react-native";
 import { BarcodeScanIcon, Calendar, Star, Time01Icon } from "@hugeicons/core-free-icons";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+
 
 type FilterTab = "all" | "active" | "completed";
 
@@ -84,6 +86,7 @@ function FilterTabs({
   ];
   return (
     <View style={styles.filterRow}>
+
       {tabs.map((tab) => (
         <Pressable
           key={tab.key}
@@ -204,19 +207,19 @@ function EmptyState({ filter }: { filter: FilterTab }) {
     active: {
       icon: "navigate-circle",
       title: "No active trips",
-      sub: "Start a trip from the dashboard to see it here",
+      sub: "Start a trip to view it here",
     },
     completed: {
       icon: "checkmark-circle",
       title: "No completed trips",
-      sub: "Finished trips will be shown here",
+      sub: "All successful trips will appear here",
     },
   };
   const msg = messages[filter];
   return (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconBg}>
-        <Ionicons name={msg.icon} size={60} color={Colors.textSecondary} />
+        <Ionicons name={msg.icon} size={80} color={Colors.primary} />
       </View>
       <Text style={styles.emptyTitle}>{msg.title}</Text>
       <Text style={styles.emptySubtitle}>{msg.sub}</Text>
@@ -289,26 +292,25 @@ export default function DriverHistoryScreen() {
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.textWhite;
-  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
-    const tabBarBg = isDark ? Colors.background : Colors.textWhite;
+  const tabBarBg = isDark ? Colors.background : Colors.textWhite;
   const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-
+  const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
 
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, {backgroundColor: tabBarBg}]}>
+      <StatusBar style={isDark ? 'light' : 'dark'}  />
+
       {/* Header */}
-
-
-      <View style={[styles.header, { paddingTop: topPadding + 16 }, {backgroundColor: tabBarBg, borderColor}]}>
+      <View style={[styles.header, { paddingTop: topPadding + 10 }, {backgroundColor: tabBarBg, borderColor}]}>
         <Pressable style={styles.sideElement} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={24} color={Colors.text} />
+          <Ionicons name="chevron-back" size={24} color={Colors.textColor} />
         </Pressable>
         <View style={{alignItems: 'center'}}>
-          <Text style={styles.headerTitle}>{t("history.title")}</Text>
-          <Text style={styles.headerSubtitle}>{allTrips.length} {allTrips.length === 1 ? "trip" : "trips"} so far</Text>
+          <Text style={[styles.headerTitle, {color: textColor}]}>{t("history.title")}</Text>
+          <Text style={[styles.headerSubtitle, {color: Colors.primary}]}>{allTrips.length} {allTrips.length === 1 ? "trip" : "trips"} so far</Text>
         </View>
         <View style={styles.sideElement} />
       </View>
@@ -317,10 +319,10 @@ export default function DriverHistoryScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, {backgroundColor: tabBarBg}]}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) =>
-          <View style={styles.scrollContent}>
+          <View style={[styles.scrollContent, {backgroundColor: tabBarBg}]}>
             <TripCard trip={item} />
           </View>
         }
@@ -335,7 +337,7 @@ export default function DriverHistoryScreen() {
           />
         }
         ListHeaderComponent={
-          <View style={ styles.FilterTabHolder}>
+          <View style={[styles.FilterTabHolder, {backgroundColor: tabBarBg, borderBottomColor: borderColor}]}>
             {allTrips.length > 0 && (
               <StatSummary
               totalTrips={allTrips.length}
@@ -358,7 +360,7 @@ export default function DriverHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 , backgroundColor: Colors.textWhite},
+  container: { flex: 1 },
 
 
     // Header
@@ -366,7 +368,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
+    paddingHorizontal: 14,
     paddingBottom: 16,
     // borderBottomWidth: 1,
   },
@@ -432,12 +434,15 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.10,
     shadowRadius: 5,
-    elevation: 1, borderBottomColor: Colors.text, borderBottomWidth:.2
+    elevation: 1, 
+    borderBottomWidth:.5,
   },
   filterRow: {
     flexDirection: "row",
     gap: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 10,    
+    justifyContent: 'space-evenly'
+
   },
   filterTab: {
     flexDirection: "row",
@@ -633,7 +638,7 @@ const styles = StyleSheet.create({
   // Empty state
   emptyState: {
     alignItems: "center",
-    paddingTop: 130,
+    paddingTop: 220,
     gap: 12,
     paddingHorizontal: 40,
     justifyContent: 'center',

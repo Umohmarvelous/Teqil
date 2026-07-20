@@ -1,21 +1,21 @@
 {
   "expo": {
-    "name": "TEQIL",
-    "slug": "teqil",
+    "name": "EMILGO",
+    "slug": "emilgo",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/black_logo_with_transparent_background.png",
+    "icon": "",
     "scheme": "teqil",
     "userInterfaceStyle": "black",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/black_logo_with_transparent_background.png",
+      "image": "./assets/images/emilgo_logo_green.png",
       "resizeMode": "contain",
-      "backgroundColor": "#00A651"
+      "backgroundColor": "#009A43"
     },
     "ios": {
       // "config": {
-      //   "googleMaps": {
+      // "googleMaps": {
       //     "apiKey": "your_actual_key_here"
       //   }
       // },
@@ -31,13 +31,13 @@
     },
     "android": {
       // "config": {
-      //   "googleMaps": {
+      // "googleMaps": {
       //     "apiKey": "your_actual_key_here"
       //   }
       // },
       "package": "com.teqil.app",
       "adaptiveIcon": {
-        "backgroundColor": "#00A651",
+        "backgroundColor": "#0A0A0A",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -53,7 +53,6 @@
       ]
     },
     "web": {
-      // "favicon": "./assets/images/favicon.png"
       "favicon": "./assets/images/black_logo_with_transparent_background.png"
     },
     "plugins": [

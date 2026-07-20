@@ -11,7 +11,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/src/store/useStore";
-import { Colors } from "@/constants/colors";
 import { PassengersStorage, TripsStorage } from "@/src/services/storage";
 import { formatDate } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
@@ -19,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { Time02Icon } from "@hugeicons/core-free-icons";
 import { router } from "expo-router";
+import { Colors } from "@/constants/colors";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 
 interface TripCardProps {
@@ -132,6 +132,8 @@ export default function PassengerHistoryScreen() {
   const isDark = theme === "dark";
   const tabBarBg = isDark ? Colors.background : Colors.textWhite;
   const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
 
 
 
@@ -161,15 +163,15 @@ export default function PassengerHistoryScreen() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, {backgroundColor: tabBarBg}]}>
 
       <View style={[styles.header, { paddingTop: topPadding + 10 }, {backgroundColor: tabBarBg, borderColor}]}>
         <Pressable style={styles.sideElement} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={24} color={Colors.text} />
+          <Ionicons name="chevron-back" size={24} color={textColor} />
         </Pressable>
         <View style={{alignItems: 'center'}}>
-          <Text style={styles.headerTitle}>{t("history.title")}</Text>
-          <Text style={styles.headerSubtitle}>{trips.length} {trips.length === 1 ? "trip" : "trips"}</Text>
+          <Text style={[styles.headerTitle, {color:textColor}]}>{t("history.title")}</Text>
+          <Text style={[styles.headerSubtitle,{color:Colors.primary}]}>{trips.length} {trips.length === 1 ? "trips" : "trip"}</Text>
         </View>
         <View style={styles.sideElement} />
       </View>
@@ -178,7 +180,7 @@ export default function PassengerHistoryScreen() {
         data={trips}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <TripCard trip={item} />}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent]}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!!trips.length}
         refreshControl={
@@ -189,16 +191,16 @@ export default function PassengerHistoryScreen() {
           />
         }
         ListEmptyComponent={
-          <View style={styles.emptyState}>
+          <View style={[styles.emptyState]}>
             <View style={styles.emptyIconWrap}>
               <HugeiconsIcon
                 icon={Time02Icon}
                 size={80}
-                color={Colors.textWhite}
-                fill={Colors.textSecondary}
+                color={Colors.primary}
+                // fill={Colors.textSecondary}
               />
             </View>
-            <Text style={styles.emptyTitle}>{t("history.noHistory")}</Text>
+            <Text style={[styles.emptyTitle,{color:Colors.primary}]}>{t("history.noHistory")}</Text>
             <Text style={styles.emptySubtitle}>
               Trips you join will appear here
             </Text>
@@ -227,19 +229,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
+    paddingHorizontal: 14,
     paddingBottom: 16,
     borderBottomWidth: 1,
   },
   headerTitle: {
     fontFamily: "Inter-Black",
     fontSize: 19,
-    color: Colors.text, 
   },
   headerSubtitle: {
     fontFamily: "Poppins_400Regular",
     fontSize: 12,
-    color: Colors.textSecondary,
   },
   sideElement: {
     width: 40, // Fixed width ensures the left and right take up equal space

@@ -16,7 +16,6 @@ import {
   TextInput,
   RefreshControl,
   Animated,
-  Modal,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -24,7 +23,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useAuthStore } from "@/src/store/useStore";
-import { Colors } from "@/constants/colors";
 import { TripsStorage, BroadcastsStorage, PassengersStorage } from "@/src/services/storage";
 import { syncAll } from "@/src/services/sync";
 import { generateId, formatNaira, coinsToNaira } from "@/src/utils/helpers";

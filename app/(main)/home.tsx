@@ -17,7 +17,7 @@ import { formatDate } from "@/src/utils/helpers";
 import { Colors } from "@/constants/colors";
 import type { Trip } from "@/src/models/types";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { Car02Icon, CheckmarkCircle01Icon, ChevronRight, History, Message01Icon, Message02Icon, Navigation01Icon,  Plus,  QrCodeIcon,  Share01Icon,  ShieldCheck, Warning,
+import { CheckmarkCircle01Icon, ChevronRight, History, Message01Icon, Message02Icon, Navigation01Icon,  Plus,  QrCodeIcon,  Share01Icon,  ShieldCheck, Warning,
  } from "@hugeicons/core-free-icons";
 import { StatusBar } from "expo-status-bar";
 import QuickTransferModal from "@/components/QuickTransferModal";
@@ -30,7 +30,6 @@ import ActiveTripBanner from "@/components/ActiveTripBanner";
 import TripListener from "@/components/TripListener";
 
 
-
 export default function HomeTab() {
   const { theme } = useSettingsStore();
   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
@@ -39,7 +38,7 @@ export default function HomeTab() {
   
 
   const handlePayAction = () => {
-      router.push('/(passenger)/pay-fare');
+      // router.push('/(passenger)/pay-fare');
   };
 
   const { conversations } = useMessagesStore();
@@ -59,7 +58,7 @@ export default function HomeTab() {
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
 
-  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
+  const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
   const [quickTransferVisible, setQuickTransferVisible] = useState(false);
@@ -98,7 +97,7 @@ export default function HomeTab() {
     // { id: "find", icon: Search , label: "Find Trip",   color: Colors.textWhite },
     { id: "share", icon: Share01Icon, label: "Share Trip", color: Colors.textWhite },
     
-    // { id: "pay", icon: Wallet01Icon , label: "Pay Now", color: Colors.textWhite, },
+    // { id: "pay", icon: Warning , label: "DTC", color: Colors.error, },
     { id: "history", icon: History, label: "History", color: Colors.textWhite },
     { id: "sos", icon: Warning, label: "Emergency Contact", color: Colors.textWhite },
   ] ;
@@ -177,7 +176,7 @@ export default function HomeTab() {
   }, [loadTrips]);
 
   return (
-    <View style={[styles.root, { backgroundColor: bg }, ]}>
+    <View style={[styles.root, { backgroundColor: bg } ]}>
       <StatusBar style={isDark ? 'light' : 'dark'}  />
 
 
@@ -198,9 +197,9 @@ export default function HomeTab() {
         <ActiveTripBanner />
 
         {/* Role-specific shortcuts */}
-        <View style={[styles.shortcutRow, isDark ? { backgroundColor: cardBg, borderColor, borderWidth: 1 } : {
+        <View style={[styles.shortcutRow, isDark ? { backgroundColor: 'transparent', borderColor} : {
           backgroundColor: 'transparent' } ]}>
-        {/* <Text style={[styles.sectionTitle, { color: textColor }]}>{!user ? 'Quick Transfer' : 'Quick Actions'}</Text> */}
+        <Text style={[styles.sectionTitle, { color: textColor }]}>{!user ? 'Quick Transfer' : 'Quick Actions'}</Text>
 
           {(!user || user?.role === "passenger") && (
             <View style={[styles.shortcut]}>
@@ -217,7 +216,8 @@ export default function HomeTab() {
             </View>
           )}
 
-          {user?.role === "driver" && (
+          {/* {user?.role === "driver" && ( */}
+          {!user?.role && (
             <>
               <View style={styles.shortcut}>
                 {DRIVERSACTIONSBUTTON.map((action) => (
@@ -233,9 +233,7 @@ export default function HomeTab() {
               </View>
             </>
           )}
-          
         </View>
-
 
 
         {userUnreadCount > 0 && (
@@ -320,15 +318,17 @@ export default function HomeTab() {
         /* Empty state */}
         {recentTrips.length === 0 && (
           <View style={[styles.card, { backgroundColor: cardBg, borderColor, alignItems: "center", paddingVertical: 32 }]}>
-            <HugeiconsIcon icon={Car02Icon} size={40} color={Colors.primary} />
-            <Text style={[styles.emptyText, { color: textColor }]}>
-              No trips yet
-            </Text>
-            <Text style={[styles.emptySub, { color: textColor }]}>
-              {user?.role === "driver"
-                ? "Tap 'Start Trip' to create your first trip"
-                : "Tap 'Find Trip' to join a trip"}
-            </Text>
+            <HugeiconsIcon icon={Warning} size={40} color={Colors.warning} />
+            <View style={{textAlign:'center', alignItems:'center'}}>
+              <Text style={[styles.emptyText, { color: Colors.warning }]}>
+                No trips yet
+              </Text>
+              <Text style={[styles.emptySub, { color: textColor }]}>
+                {user?.role === "driver"
+                  ? "Tap 'Start Trip' to create your first trip"
+                  : "Tap 'Find Trip' to join a trip"}
+              </Text>
+            </View>
           </View>
         )}
 
@@ -336,8 +336,10 @@ export default function HomeTab() {
         
         <View style={[styles.promoBanner]}>
           <View
-            style={[styles.promoGradient, styles.card, {backgroundColor: cardBg, borderColor}]}  >
-            <HugeiconsIcon icon={ShieldCheck} size={36} color={Colors.primary} />
+            style={[styles.promoGradient, styles.card, 
+            {backgroundColor: cardBg, borderColor}
+            ]} >
+            <HugeiconsIcon icon={ShieldCheck} size={36} color={Colors.textWhite} />
             <View style={styles.promoText}>
               <Text style={[styles.promoTitle, {color: textColor}]}>Travel Safe, Always</Text>
               <Text style={[styles.promoSub, {color: textColor}]}>
@@ -346,6 +348,7 @@ export default function HomeTab() {
             </View>
           </View>
         </View>
+
       </ScrollView>
 
       <QuickTransferModal
@@ -373,29 +376,26 @@ export default function HomeTab() {
 
 const styles = StyleSheet.create({
   root: { flex: 1},
-
   searchWrap: { zIndex: 100, flexDirection:'row', 
-
   },
   scrollContent: { 
-    paddingHorizontal: 15,
-    paddingTop: 15, 
+    paddingHorizontal: 8,
+    paddingTop: 25, 
     gap: 15, 
   },
-
   card: {
     justifyContent: 'space-between', 
     borderRadius: 30,
     paddingVertical: 18,
     // paddingBottom: 30,
-    borderWidth: 1,
+    // borderWidth: 1,
     gap: 20,
   },
   sectionTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, marginBottom: 0 },
   shortcutRow: {
     justifyContent: 'space-between',
     borderRadius: 30, 
-    paddingVertical: 18,
+    paddingVertical: 15,
     // paddingBottom: 30,
     // borderWidth: 1,
     gap: 20,

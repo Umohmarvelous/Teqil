@@ -3,7 +3,7 @@ import { Colors } from "@/constants/colors";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import React, { useCallback, useRef, useEffect } from "react";
 import {
-  View,
+  // View,
   StyleSheet,
   Modal,
   Pressable,
@@ -29,8 +29,8 @@ export default function FindDriverModal({
   
   const isDark                               = theme === "dark";
 
-  const bg = isDark ? Colors.background : Colors.border;
-  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const bg = isDark ? Colors.text : Colors.border;
+  // const textColor = isDark ? Colors.textWhite : Colors.text;
 
 
 
@@ -104,7 +104,7 @@ export default function FindDriverModal({
         ]}
       >
         {/* Handle */}
-        <View style={[rStyles.handle, {backgroundColor: textColor}]} />
+        {/* <View style={[rStyles.handle, {backgroundColor: textColor}]} /> */}
 
         <ScrollView
           showsVerticalScrollIndicator={false}

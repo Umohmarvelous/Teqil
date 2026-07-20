@@ -8,6 +8,7 @@ import {
   Platform,
   Alert,
   TextInput,
+  // KeyboardAvoidingView,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -59,6 +60,9 @@ import {
 } from "@/src/utils/helpers";
 import BalanceCard from "@/components/BalanceCard";
 
+import FindDriverModal from "@/components/FindDriverModal";
+
+
 // Reusable InfoRow with Hugeicons
 function InfoRow({
   icon,
@@ -89,12 +93,12 @@ function InfoRow({
       <View style={infoStyles.textBlock}>
         <Text style={[infoStyles.label, { color: textColor }]}>{label}</Text>
         <Text style={[infoStyles.value, { color: subTextColor }]} numberOfLines={1}>
-          {value || "—"}
+          {value || "- -"}
         </Text>
       </View>
       {editable && (
         <Pressable onPress={onEdit} hitSlop={8}>
-          <HugeiconsIcon icon={ Edit02Icon } size={18} color={Colors.primary} />
+          <HugeiconsIcon icon={ Edit02Icon } fill={Colors.primary} size={18} color={Colors.primary} />
         </Pressable>
       )}
     </View>
@@ -145,13 +149,19 @@ export default function ProfileTab() {
 
   const [totalEarnedCoins, setTotalEarnedCoins] = useState(0);
 
+  const [finderVisible, setFinderVisible] = useState(false);
+
+
 
   const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.border;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
+  const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+  const modalBg = isDark ? Colors.text : Colors.textWhite;
+
+
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const [receiveVisible, setReceiveVisible] = useState(false);
   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
@@ -246,6 +256,10 @@ export default function ProfileTab() {
     updateUser({ emergency_contacts: updated } as any);
   };
 
+  const toggleSearch = () => {
+    setFinderVisible(true);
+  };
+
 
   return (
     <ScrollView style={[styles.root, { backgroundColor: bg }]}>
@@ -290,31 +304,48 @@ export default function ProfileTab() {
           <View style={{ flexDirection: 'row-reverse', alignItems: 'flex-start', justifyContent:'center', gap: 15, marginTop: 7}}>
             {/* Sign Out Button */}
             <Pressable
-              style={[styles.signOutBtn, { borderColor: "transparent" }]}
-              onPress={() => {
-                Alert.alert("Sign Out", "Are you sure?", [
-                  { text: "Cancel", style: "cancel" },
+                style={[
+                  styles.menuList,
                   {
-                    text: "Sign Out",
-                    style: "destructive",
-                    onPress: async () => {
-                      const { signOut } = await import("@/src/services/supabase");
-                      const { logout } = useAuthStore.getState();
-                      await signOut();
-                      logout();
-                      router.replace("/(auth)/login");
-                    },
+                    backgroundColor: isDark
+                      ? Colors.overlayLight
+                      : Colors.textWhite,
+                    borderColor,
                   },
-                ]);
-              }}>
-              <HugeiconsIcon icon={LogoutIcon} fill={'#000'} size={23} color={textColor} />
-              {/* <Text style={styles.signOutText}>Sign Out</Text> */}
+                  // {padding: 20}
+                ]}
+            >
+              <Pressable                 
+              onPress={toggleSearch}
+              >
+                <HugeiconsIcon icon={Search02Icon} size={21} color={textColor} />
+              </Pressable>
+
+
+              <Pressable
+                style={[styles.signOutBtn, { borderColor: "transparent" }]}
+                onPress={() => {
+                  Alert.alert("Sign Out", "Are you sure?", [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Sign Out",
+                      style: "destructive",
+                      onPress: async () => {
+                        const { signOut } = await import("@/src/services/supabase");
+                        const { logout } = useAuthStore.getState();
+                        await signOut();
+                        logout();
+                        router.replace("/(auth)/login");
+                      },
+                    },
+                  ]);
+                }}>
+                <HugeiconsIcon icon={LogoutIcon} size={21} color={textColor} />
+                {/* <Text style={styles.signOutText}>Sign Out</Text> */}
+              </Pressable>
             </Pressable>
 
-            <Pressable>
-              <HugeiconsIcon icon={Search02Icon} size={23} color={textColor} />
-            </Pressable>
-            
+
             {user?.role === "driver" && (
               <Pressable onPress={() => setReceiveVisible(true)}>
                 <HugeiconsIcon icon={QrCode01Icon} size={23} color={textColor} />
@@ -326,16 +357,16 @@ export default function ProfileTab() {
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           { user?.role === "driver" ?
             (
-              <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderColor }]}>
+              <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
                   <DriverDashboard />
               </View>
             )
             : user?.role === "passenger" ? (
-                <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderColor }]}>
+                <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
                   <PassengerDashboard />
                 </View>
             ) : (
-                <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderColor }]}>
+                <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
                   <BalanceCard
                     coins={totalEarnedCoins}
                     // onQuickTransferPress={() => setQuickTransferVisible(true)}
@@ -346,6 +377,7 @@ export default function ProfileTab() {
 
           {/* ── Earnings summary strip ── */}
           {user?.role === "driver" && (
+          // {!user?.role  && (
             <View style={styles.statsStrip}>
               <View style={[ styles.statInner ]}>
                 <StatPill
@@ -380,7 +412,7 @@ export default function ProfileTab() {
           )}
         
           {/* Personal Information */}
-          <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg, borderColor }]}>
+          <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
             <Pressable style={{
               flexDirection: 'row', 
               alignItems:'flex-start', 
@@ -391,7 +423,10 @@ export default function ProfileTab() {
               onPress={() =>  setShowPersonalInfo(v => !v)} hitSlop={8}
               
             >
-              <Text style={[styles.cardTitle, { color: textColor }]}>Personal Information</Text>
+              <View style={{flexDirection: 'row', gap: 10, marginHorizontal: 7}}>
+                <HugeiconsIcon icon={UserIcon} size={20} color={textColor} />
+                <Text style={[styles.cardTitle, { color: textColor }]}>Personal Information</Text>
+              </View>
               <HugeiconsIcon icon={showPersonalInfo ? ChevronRight : ChevronDown} size={22} color={textColor}/>
             </Pressable>
 
@@ -440,7 +475,7 @@ export default function ProfileTab() {
           {/* Driver Details */}
           {user?.role === "driver" && (
             <View>
-              <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg, borderColor }]}>
+              <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
                 <Pressable style={{
                   flexDirection: 'row', 
                   alignItems:'flex-start', 
@@ -503,7 +538,7 @@ export default function ProfileTab() {
           {/* Park Owner Details */}
           {user?.role === "park_owner" && (
             <View>
-              <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg, borderColor }]}>
+              <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
                 <Pressable style={{
                   flexDirection: 'row', 
                   alignItems:'flex-start', 
@@ -548,10 +583,11 @@ export default function ProfileTab() {
           )}
 
           {/* Emergency Contacts (Passenger) */}
-          {user?.role === "passenger" && (
+          {/* {user?.role === "passenger" && ( */}
+          {!user?.role && (
             <View>
+              <View style={[styles.card, { backgroundColor: cardBg }]}>
               <Text style={[styles.cardTitle, { color: textColor }]}>Emergency Contacts</Text>
-              <View style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
                 {((user as any)?.emergency_contacts as EmergencyContact[] || []).map((c, idx) => (
                   <View key={idx} style={[styles.contactRow, { borderBottomColor: borderColor }]}>
                     <View style={[styles.contactAvatar, { backgroundColor: Colors.primaryLight }]}>
@@ -568,22 +604,22 @@ export default function ProfileTab() {
                 ))}
                 <View style={styles.addContactRow}>
                   <TextInput
-                    style={[styles.addInput, { backgroundColor: isDark ? "#0D1117" : "#F6F6F6", color: textColor, borderColor }]}
+                    style={[styles.addInput, { backgroundColor: cardBg }]}
                     placeholder="Name"
-                    placeholderTextColor={subTextColor}
+                    placeholderTextColor={textColor}
                     value={newContactName}
                     onChangeText={setNewContactName}
                   />
                   <TextInput
-                    style={[styles.addInput, { flex: 1.5, backgroundColor: isDark ? "#0D1117" : "#F4F6FA", color: textColor, borderColor }]}
+                    style={[styles.addInput, { flex: 1.5, backgroundColor: cardBg }]}
                     placeholder="Phone"
-                    placeholderTextColor={subTextColor}
+                    placeholderTextColor={textColor}
                     keyboardType="phone-pad"
                     value={newContactPhone}
                     onChangeText={setNewContactPhone}
                   />
                   <Pressable style={[styles.addBtn, { backgroundColor: Colors.primary }]} onPress={addEmergencyContact}>
-                    <HugeiconsIcon icon={AddCircleIcon} size={20} color="#fff" />
+                    <HugeiconsIcon icon={AddCircleIcon} size={30} color="#fff" />
                   </Pressable>
                 </View>
               </View>
@@ -595,29 +631,36 @@ export default function ProfileTab() {
       </View>
 
       {/* Edit Modal */}
+        
       {editField && (
         <View style={styles.editOverlay}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setEditField(null)} />
-          <View style={[styles.editSheet, { backgroundColor: cardBg }]}>
-            <Text style={[styles.editTitle, { color: textColor }]}>Edit {editField.replace("_", " ")}</Text>
-            <TextInput
-              style={[styles.editInput, { color: textColor, borderColor, backgroundColor: cardBg }]}
-              value={editValue}
-              onChangeText={setEditValue}
-              autoFocus
-              onSubmitEditing={saveEdit}
-            />
-            <View style={styles.editActions}>
-              <Pressable style={[styles.editCancelBtn, { borderColor }]} onPress={() => setEditField(null)}>
-                <Text style={[styles.editCancelText, { color: textColor }]}>Cancel</Text>
-              </Pressable>
-              <Pressable style={[styles.editSaveBtn, { backgroundColor: bg }]} onPress={saveEdit} disabled={saving}>
-                <Text style={[styles.editSaveText, { color: textColor }]}>{saving ? "Saving..." : "Save"}</Text>
-              </Pressable>
+            <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setEditField(null)} />
+            <View style={[styles.editSheet, { backgroundColor: modalBg }]}>
+              <Text style={[styles.editTitle, { color: textColor }]}>Edit {editField.replace("_", " ")}</Text>
+              <TextInput
+                style={[styles.editInput, { color: textColor, borderColor, backgroundColor: cardBg }]}
+                value={editValue}
+                onChangeText={setEditValue}
+                autoFocus
+                onSubmitEditing={saveEdit}
+              />
+              <View style={styles.editActions}>
+                <Pressable style={[styles.editCancelBtn, { borderColor }]} onPress={() => setEditField(null)}>
+                  <Text style={[styles.editCancelText, { color: textColor }]}>Cancel</Text>
+                </Pressable>
+                <Pressable style={[styles.editSaveBtn, { backgroundColor: bg }]} onPress={saveEdit} disabled={saving}>
+                  <Text style={[styles.editSaveText, { color: textColor }]}>{saving ? "Saving..." : "Save"}</Text>
+                </Pressable>
+              </View>
             </View>
-          </View>
         </View>
       )}
+
+
+      <FindDriverModal
+        visible={finderVisible}
+        onClose={() => setFinderVisible(false)}
+      />
 
       {/* Quick Receive modal */}
       <QuickReceiveModal
@@ -649,7 +692,7 @@ const styles = StyleSheet.create({
     // borderRadius: 80
   },
   mainContainer: {
-    paddingHorizontal: 5,
+    paddingHorizontal: 8,
     justifyContent: 'space-between'
   },
   hero: {
@@ -720,15 +763,15 @@ const styles = StyleSheet.create({
 
 
   scrollContent: {
-    paddingBottom: 32,
-    paddingHorizontal: 15,
+    paddingBottom: 132,
+    paddingHorizontal: 0,
     flex: 1,
   },
   coinbalanceSection: {
-    borderWidth: 1,
+    // borderWidth: 1,
     padding: 20,
     borderRadius: 30,
-    // marginBottom: 20,
+    marginBottom: 10,
     shadowColor: "#000",
     shadowOffset: { width: 1, height: 1 },
     shadowOpacity: 0.04,
@@ -766,14 +809,14 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 30,
     padding: 28,
-    borderWidth: 1,
-    borderColor: '#fff',
+    // borderWidth: 1,
+    // borderColor: '#fff',
     shadowColor: "#000",
     shadowOffset: { width: 1, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 0,
     elevation: 2,
-    marginBottom: 20,
+    marginBottom: 10,
     marginTop: 5
   },
   cardTitle: { 
@@ -790,19 +833,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     paddingVertical: 12,
-    borderBottomWidth: 1,
   },
   contactAvatar: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
   contactInitial: { fontFamily: "Poppins_700Bold", fontSize: 15 },
   contactName: { fontFamily: "Poppins_500Medium", fontSize: 14 },
   contactPhone: { fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 2 },
   addContactRow: { flexDirection: "row", gap: 8, marginTop: 12, alignItems: "center" },
-  addInput: { flex: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontFamily: "Poppins_400Regular", fontSize: 13, borderWidth: 1 },
-  addBtn: { width: 42, height: 42, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  signOutBtn: { flexDirection: "row", alignItems: "center", justifyContent: "space-between",},
+  addInput: { flex: 1, borderRadius: 30, paddingHorizontal: 12, paddingVertical: 10, fontFamily: "Poppins_400Regular", fontSize: 13 },
+  addBtn: { width: 40, height: 40, borderRadius: 30, alignItems: "center", justifyContent: "center" },
+  signOutBtn: { flexDirection: "column", alignItems: "center", justifyContent: "space-between",},
   signOutText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: Colors.error },
+  menuList: {
+    borderRadius: 30,
+    padding: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 30,
+    borderWidth: 1,
+  },
   editOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0 0 0 / 0.77)", justifyContent: "flex-end", zIndex: 200 },
-  editSheet: { borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 34, paddingBottom: 40, gap: 16 },
+  // scrollContent: {
+  //   paddingHorizontal: 10,
+  //   gap: 16,
+  //   // borderWidth: 2, borderColor: 'red',
+  //   backgroundColor: Colors.textInverse
+    
+  // },
+  editSheet: { borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 34, paddingBottom: 90, gap: 16 },
   editTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 16, textTransform: "capitalize" },
   editInput: { borderWidth: 1.5, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, fontFamily: "Poppins_400Regular", fontSize: 15 },
   editActions: { flexDirection: "row", gap: 12 },

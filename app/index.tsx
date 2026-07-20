@@ -10,7 +10,8 @@ export default function IndexScreen() {
   useEffect(() => {
     if (!isAuthenticated || !user) {
       // Not logged in → go to login screen
-      router.replace("/(main)");
+      // router.replace("/(main)");
+      router.navigate("/(driver)/create-trip");
       return;
     }
 
@@ -19,7 +20,8 @@ export default function IndexScreen() {
     if (user.role === "driver" && !user.profile_complete) {
       router.replace("/(auth)/driver-profile");
     } else {
-      router.replace("/(main)");
+      // router.replace("/(main)");
+      router.navigate("/(driver)/create-trip");
     }
   }, [isAuthenticated, user]);
 

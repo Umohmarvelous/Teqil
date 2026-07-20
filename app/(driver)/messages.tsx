@@ -16,9 +16,11 @@ import { formatDateTime } from "@/src/utils/helpers";
 import type { Broadcast } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { Notification01Icon } from "@hugeicons/core-free-icons";
+import { Chat } from "@hugeicons/core-free-icons";
 import { router } from "expo-router";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
+import { StatusBar } from "expo-status-bar";
+
 
 function MessageCard({ broadcast }: { broadcast: Broadcast }) {
   return (
@@ -65,44 +67,48 @@ export default function MessagesScreen() {
   const isDark = theme === "dark";
   const tabBarBg = isDark ? Colors.background : Colors.textWhite;
   const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
 
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   return (
     <View style={styles.container}>
+      <StatusBar style={isDark ? 'light' : 'dark'}  />
 
       <View style={[styles.header, { paddingTop: topPadding + 16 }, {backgroundColor: tabBarBg, borderColor}]}>
         <Pressable style={styles.sideElement} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={24} color={Colors.text} />
+          <Ionicons name="chevron-back" size={24} color={textColor} />
         </Pressable>
         <View style={{alignItems: 'center'}}>
-          <Text style={styles.headerTitle}>{t("driver.messages")}</Text>
-          <Text style={styles.headerSubtitle}>Messages from your park</Text>
+          <Text style={[styles.headerTitle, {color: textColor}]}>{t("driver.messages")}</Text>
         </View>
-        <View style={styles.sideElement} />
+        <View style={[styles.sideElement, {borderWidth: 'none'}]} />
       </View>
 
       <FlatList
         data={messages}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <MessageCard broadcast={item} />}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent,{backgroundColor: tabBarBg}]}
         showsVerticalScrollIndicator={false}
         scrollEnabled={messages.length > 0}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={Colors.primary}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={Colors.primary}
           />
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <View style={styles.emptyIconBg}>
-              <HugeiconsIcon icon={Notification01Icon} size={40}  color={Colors.textSecondary}/>
+              <HugeiconsIcon icon={Chat} size={60}  color={Colors.primary}/>
             </View>
-            <Text style={styles.emptyTitle}>Opps....No messages yet!!</Text>
+            <Text style={[styles.emptyTitle,{color: Colors.primary}]}>No messages yet!</Text>
+            <Text style={[styles.emptySubtitle, {color: subTextColor}]}>Recent messages from passenger will appear here</Text>
           </View>
         }
         ListFooterComponent={
@@ -121,26 +127,23 @@ const styles = StyleSheet.create({
   container: { flex: 1 , backgroundColor: Colors.border},
 
 
-
-
   // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingBottom: 16,
+    paddingHorizontal: 14,
+    paddingBottom: 23,
     borderBottomWidth: 1,
   },
   headerTitle: {
     fontFamily: "Inter-Black",
-    fontSize: 19,
-    color: Colors.text, 
+    fontSize: 19, alignSelf:'center',
+    textAlign: 'center',
   },
   headerSubtitle: {
     fontFamily: "Poppins_400Regular",
-    fontSize: 12,
-    color: Colors.textSecondary,
+    fontSize: 12, 
   },
   sideElement: {
     width: 40, // Fixed width ensures the left and right take up equal space
@@ -159,7 +162,6 @@ const styles = StyleSheet.create({
   // Message card
   messageCard: {
     flexDirection: "row",
-    backgroundColor: Colors.surface,
     borderRadius: 16,
     padding: 16,
     gap: 14,
@@ -214,8 +216,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   emptyTitle: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 18,
+    fontFamily: "Poppins_500Medium",
+    fontSize: 16,
     color: Colors.text,
     textAlign: "center",
   },
@@ -224,6 +226,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
     textAlign: "center",
-    lineHeight: 22,
+    // lineHeight: 10,
+    paddingVertical: 15
   },
 });

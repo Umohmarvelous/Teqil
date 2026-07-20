@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -240,8 +240,8 @@ export default function CreateTripScreen() {
 
       try {
         await router.push(`/live-trip-code/${tripCode}`);
-      } catch (navError) {
-        Alert.alert("Trip Created!", `Trip code: ${tripCode}`, [{ text: "OK", onPress: () => router.back() }]);
+      } catch (e) {
+        Alert.alert("Trip Created!", `Trip code: ${tripCode}`, [{ text: "OK", onPress: () => router.back() }], e);
       }
     } catch (err) {
       console.error("[CreateTrip] Error:", err);
@@ -356,6 +356,14 @@ export default function CreateTripScreen() {
             </Text>
           </View>
 
+          <Pressable
+            onPress={()=>router.push(`/live-trip-code/${tripCode}`)}
+           style={[styles.submitBtn, btnStyle,{marginTop: 10}]}>
+            <Text>
+              Search By ID
+            </Text>
+          </Pressable>
+
           {/* Submit */}
           <Animated.View style={[styles.btnWrapper, btnStyle]}>
             <Pressable
@@ -373,6 +381,7 @@ export default function CreateTripScreen() {
               </Text>
             </Pressable>
           </Animated.View>
+          
 
           <View style={{ height: 80 + Math.max(insets.bottom, 16) }} />
         </Animated.View>
@@ -386,17 +395,14 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 14,
     paddingBottom: 14,
     backgroundColor: Colors.borderLight,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(0,0,0,0.06)",
   },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: "rgba(0,0,0,0.06)",
+    width: 40,
     alignItems: "center",
     justifyContent: "center",
   },

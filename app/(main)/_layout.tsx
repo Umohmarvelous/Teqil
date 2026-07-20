@@ -33,7 +33,7 @@ import {
   MessageIcon,
   Message01Icon,
   Menu02Icon,
-  SearchIcon,
+  Search02Icon,
 } from "@hugeicons/core-free-icons";
 import BottomSheet from "@gorhom/bottom-sheet";
 import { CommentSheet } from "@/components/CommentSheet";
@@ -101,8 +101,14 @@ export default function MainLayout() {
     extrapolate: "clamp",
   });
 
-  const actualHeaderTranslateY = Animated.multiply(rawHeaderTranslateY, hideMultiplier);
-  const actualBottomTranslateY = Animated.multiply(rawBottomTranslateY, hideMultiplier);
+  const actualHeaderTranslateY = Animated.multiply(
+    rawHeaderTranslateY,
+    hideMultiplier,
+  );
+  const actualBottomTranslateY = Animated.multiply(
+    rawBottomTranslateY,
+    hideMultiplier,
+  );
   // -----------------------------
 
   const openSidebar = useCallback(() => {
@@ -181,7 +187,7 @@ export default function MainLayout() {
         }
         isSidebarGesture.current = false;
       },
-    })
+    }),
   ).current;
 
   const overlayOpacity = sidebarAnim.interpolate({
@@ -211,10 +217,13 @@ export default function MainLayout() {
   const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
   const mainBg = isDark ? Colors.background : "transparent";
 
-
-  const [commentSheetPost, setCommentSheetPost] = useState<FeedItem | null>(null);
+  const [commentSheetPost, setCommentSheetPost] = useState<FeedItem | null>(
+    null,
+  );
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const onAddCommentRef = useRef<((postId: string, text: string) => void) | null>(null);
+  const onAddCommentRef = useRef<
+    ((postId: string, text: string) => void) | null
+  >(null);
 
   const openCommentSheet = useCallback((post: FeedItem) => {
     setCommentSheetPost(post);
@@ -229,7 +238,7 @@ export default function MainLayout() {
 
   const totalUnread = conversations.reduce(
     (s, c) => s + (c.unread_count ?? c.unreadCount ?? 0),
-    0
+    0,
   );
 
   const handleTabPress = (tab: Tab) => {
@@ -241,8 +250,8 @@ export default function MainLayout() {
     setFinderVisible(true);
   };
 
-  const HEADER_HEIGHT = topPadding + 85; 
-  // const HEADER_HEIGHT = topPadding + 110; 
+  const HEADER_HEIGHT = topPadding + 85;
+  // const HEADER_HEIGHT = topPadding + 110;
   const BOTTOM_HEIGHT = TAB_HEIGHT + Math.max(insets.bottom, 16);
 
   const renderMainContent = () => {
@@ -268,18 +277,23 @@ export default function MainLayout() {
         bounces={false}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-          { useNativeDriver: true }
+          { useNativeDriver: true },
         )}
         scrollEventThrottle={16}
         onMomentumScrollEnd={(e) => {
-          const page = Math.round(
-            e.nativeEvent.contentOffset.x / SCREEN_WIDTH
-          );
+          const page = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
           setActiveTopTab(page === 0 ? "home" : "discover");
         }}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={{ width: SCREEN_WIDTH, flex: 1, paddingTop: HEADER_HEIGHT, paddingBottom: BOTTOM_HEIGHT }}>
+        <View
+          style={{
+            width: SCREEN_WIDTH,
+            flex: 1,
+            paddingTop: HEADER_HEIGHT,
+            paddingBottom: BOTTOM_HEIGHT,
+          }}
+        >
           <MainTab />
         </View>
         <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
@@ -296,7 +310,7 @@ export default function MainLayout() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: mainBg } ]}>
+    <View style={[styles.root, { backgroundColor: mainBg }]}>
       <Animated.View
         style={[
           styles.sideBySideWrapper,
@@ -333,26 +347,30 @@ export default function MainLayout() {
                 style={[
                   styles.header,
                   {
-                    paddingTop: topPadding + 2,
+                    paddingTop: topPadding + 5,
                     backgroundColor: tabBarBg,
                   },
                 ]}
               >
                 <Pressable onPress={openSidebar} style={styles.menuBtn}>
-                  <HugeiconsIcon icon={Menu02Icon} size={22} color={textColor} />
+                  <HugeiconsIcon
+                    icon={Menu02Icon}
+                    size={22}
+                    color={textColor}
+                  />
                 </Pressable>
                 <Pressable style={styles.logoBtn}>
                   <Image
                     source={
                       isDark
-                        // ? require("@/assets/images/Logo_with_transparent_background.png")
-                        // : require("@/assets/images/Black_logo_with_white_background.png")
-                        ? require("@/assets/images/white_logo_with_transparent_background.png")
-                        : require("@/assets/images/black_logo_with_transparent_background.png")
+                        ? // ? require("@/assets/images/Logo_with_transparent_background.png")
+                          // : require("@/assets/images/Black_logo_with_white_background.png")
+                          require("../../assets/images/emilgo_logo_white.png")
+                        : require("../../assets/images/emilgo_logo_black.png")
                     }
                     style={styles.photoImg}
                     resizeMode="contain"
-                    width={120}
+                    width={25}
                   />
                 </Pressable>
                 <Pressable
@@ -368,7 +386,7 @@ export default function MainLayout() {
                   ]}
                 >
                   <HugeiconsIcon
-                    icon={SearchIcon}
+                    icon={Search02Icon}
                     size={20}
                     color={textColor}
                   />
@@ -454,7 +472,12 @@ export default function MainLayout() {
                 height: BOTTOM_HEIGHT,
                 backgroundColor: tabBarBg,
                 // Make sure bottom bar isn't tucked when visiting profile, settings, etc
-                transform: [{ translateY: activeTab === "home" ? actualBottomTranslateY : 0 }],
+                transform: [
+                  {
+                    translateY:
+                      activeTab === "home" ? actualBottomTranslateY : 0,
+                  },
+                ],
               },
             ]}
           >
@@ -510,8 +533,8 @@ export default function MainLayout() {
                         activeTab === "profile"
                           ? Colors.primary
                           : isDark
-                          ? "#FFFFFF"
-                          : Colors.textSecondary,
+                            ? "#FFFFFF"
+                            : Colors.textSecondary,
                       fontFamily:
                         activeTab === "profile"
                           ? "Poppins_600SemiBold"
@@ -536,8 +559,8 @@ export default function MainLayout() {
                       activeTab === "messages"
                         ? Colors.primary
                         : isDark
-                        ? "#FFFFFF"
-                        : Colors.textSecondary
+                          ? "#FFFFFF"
+                          : Colors.textSecondary
                     }
                   />
                   {totalUnread > 0 && (
@@ -556,8 +579,8 @@ export default function MainLayout() {
                         activeTab === "messages"
                           ? Colors.primary
                           : isDark
-                          ? "#FFFFFF"
-                          : Colors.textSecondary,
+                            ? "#FFFFFF"
+                            : Colors.textSecondary,
                       fontFamily:
                         activeTab === "messages"
                           ? "Poppins_600SemiBold"
@@ -566,7 +589,6 @@ export default function MainLayout() {
                   ]}
                 >
                   Messages
-                  
                 </Text>
               </Pressable>
               <TabItem
@@ -596,9 +618,7 @@ export default function MainLayout() {
         onClose={() => setFinderVisible(false)}
       />
 
-      {isLoaded && shouldShow && (
-        <OnboardingOverlay onComplete={complete} />
-      )}
+      {isLoaded && shouldShow && <OnboardingOverlay onComplete={complete} />}
     </View>
   );
 }
@@ -614,8 +634,8 @@ function TabItem({
   const color = active
     ? Colors.primary
     : isDark
-    ? "#FFFFFF"
-    : Colors.textSecondary;
+      ? "#FFFFFF"
+      : Colors.textSecondary;
   return (
     <Pressable style={styles.tabItem} onPress={onPress}>
       <HugeiconsIcon
@@ -640,7 +660,7 @@ function TabItem({
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1, 
+    flex: 1,
   },
   sideBySideWrapper: {
     flex: 1,
@@ -670,7 +690,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    
   },
   menuList: {
     borderRadius: 30,
@@ -678,7 +697,7 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     alignItems: "center",
     gap: 10,
-    borderWidth: 1,
+    // borderWidth: 1,
   },
   menuBtn: {
     width: 38,
@@ -701,13 +720,13 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     borderBottomWidth: 0.5,
     position: "relative",
-    paddingTop: 5,
+    paddingTop: 15,
   },
   topTabItemContainer: { flexDirection: "row" },
   topTabItem: {
     flex: 1,
     alignItems: "center",
-    paddingBottom: 14,
+    paddingBottom: 9,
   },
   topTabText: { fontSize: 16, letterSpacing: 0 },
   topTabIndicator: {
@@ -716,7 +735,7 @@ const styles = StyleSheet.create({
     left: 0,
     height: 3.5,
     width: "10%",
-    borderRadius: 2,
+    borderRadius: 50,
   },
   tabBar: { position: "relative", overflow: "hidden" },
   tabBarBorder: {
@@ -728,7 +747,7 @@ const styles = StyleSheet.create({
   },
   tabBarInner: {
     flexDirection: "row",
-    paddingTop: 8,
+    paddingTop: 10,
     paddingHorizontal: 8,
   },
   tabItem: {
