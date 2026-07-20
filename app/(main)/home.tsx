@@ -11,10 +11,10 @@ import {
 import { router } from "expo-router";
 import { useAuthStore } from "@/src/store/useStore";
 import * as Haptics from "expo-haptics";
+import { Colors } from "@/constants/colors";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { TripsStorage, PassengersStorage } from "@/src/services/storage";
 import { formatDate } from "@/src/utils/helpers";
-import { Colors } from "@/constants/colors";
 import type { Trip } from "@/src/models/types";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { CheckmarkCircle01Icon, ChevronRight, History, Message01Icon, Message02Icon, Navigation01Icon,  Plus,  QrCodeIcon,  Share01Icon,  ShieldCheck, Warning,

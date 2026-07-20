@@ -24,13 +24,14 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import { useAuthStore, useTripStore } from "@/src/store/useStore";
-import { Colors } from "@/constants/colors";
 import { TripsStorage } from "@/src/services/storage";
 import { syncAll } from "@/src/services/sync";
 import { generateTripCode, generateId } from "@/src/utils/helpers";
 import { useTranslation } from "react-i18next";
 import type { Trip } from "@/src/models/types";
 
+import { Colors } from "@/constants/colors";
+import { useSettingsStore } from "@/src/store/useSettingsStore";
 // ─── Animated Input ───────────────────────────────────────────────────────────
 interface AnimatedInputProps {
   label: string;
@@ -61,6 +62,15 @@ function AnimatedInput({
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(16);
 
+  const { theme } = useSettingsStore();
+  const isDark = theme === "light";
+  const bg = isDark ? Colors.background : Colors.border;
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
+  const inputBgColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+  const borderColor = error ? Colors.error : focused ? Colors.primary : "transparent";
+  
   useEffect(() => {
     opacity.value = withDelay(delay, withTiming(1, { duration: 400 }));
     translateY.value = withDelay(delay, withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) }));
@@ -70,32 +80,36 @@ function AnimatedInput({
     opacity: opacity.value,
     transform: [{ translateY: translateY.value }],
   }));
-
-  const borderColor = error ? Colors.error : focused ? Colors.primary : "transparent";
+  
+// borderWidth: 1, borderColor:'red'
 
   return (
-    <Animated.View style={[styles.inputBlock, containerStyle]}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <View style={[styles.inputRow, { borderColor }, error ? styles.inputRowError : null, !editable && styles.inputRowDisabled]}>
-        <Ionicons
-          name={icon}
-          size={18}
-          color={focused ? Colors.primary : "#8E8E93"}
-          style={styles.inputIcon}
-        />
-        <TextInput
-          style={[styles.textInput, !editable && { color: Colors.textSecondary }]}
-          placeholder={placeholder}
-          placeholderTextColor="#888"
-          value={value}
-          onChangeText={onChangeText}
-          keyboardType={keyboardType}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          editable={editable}
-        />
-        {rightElement}
-      </View>
+    <Animated.View style={[styles.inputBlock, containerStyle, ]}
+    >
+      <Pressable     
+      style={[{backgroundColor: inputBgColor}, {borderRadius: 25, paddingHorizontal: 10, paddingVertical: 25, }]}>
+        <Text style={[styles.inputLabel,{color: textColor}]}>{label}</Text>
+        <View style={[styles.inputRow, { borderColor }, error ? styles.inputRowError : null, !editable && styles.inputRowDisabled, {paddingHorizontal: 10}, {backgroundColor: Colors.overlayLight}]}>
+          <Ionicons
+            name={icon}
+            size={18}
+            color={focused ? Colors.primary : "#8E8E93"}
+            style={styles.inputIcon}
+          />
+          <TextInput
+            style={[styles.textInput, !editable && { color: textColor }, {paddingVertical: 8}]}
+            placeholder={placeholder}
+            placeholderTextColor={textColor}
+            value={value}
+            onChangeText={onChangeText}
+            keyboardType={keyboardType}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            editable={editable}
+          />
+          {rightElement}
+        </View>
+      </Pressable>
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </Animated.View>
   );
@@ -119,6 +133,16 @@ export default function CreateTripScreen() {
   const pageOpacity = useSharedValue(0);
   const pageY = useSharedValue(24);
   const btnScale = useSharedValue(1);
+
+
+  const { theme } = useSettingsStore();
+  const isDark = theme === "light";
+  const bg = isDark ? Colors.background : Colors.border;
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+
+  const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
   useEffect(() => {
     pageOpacity.value = withTiming(1, { duration: 480 });
@@ -254,13 +278,13 @@ export default function CreateTripScreen() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, {backgroundColor: bg}]}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
+      <View style={[styles.header, { paddingTop: topPadding + 12 }, {backgroundColor: bg}]}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={22} color="#000" />
+          <Ionicons name="chevron-back" size={22} color={textColor} />
         </Pressable>
-        <Text style={styles.headerTitle}>{t("trip.createTrip")}</Text>
+        <Text style={[styles.headerTitle, {color: textColor}]}>{t("trip.createTrip")}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -272,19 +296,19 @@ export default function CreateTripScreen() {
       >
         <Animated.View style={pageStyle}>
           <View style={styles.heroRow}>
-            <View style={styles.heroDot} />
+            {/* <View style={styles.heroDot} /> */}
             <Text style={styles.heroLabel}>Fill in your trip details</Text>
           </View>
 
           {/* Route card */}
           <View style={styles.card}>
-            <Text style={styles.cardHeading}>Route</Text>
+            {/* <Text style={styles.cardHeading}>Route</Text> */}
             <View style={styles.routeVisual}>
-              <View style={styles.routeTrack}>
+              {/* <View style={styles.routeTrack}>
                 <View style={styles.routeDotGreen} />
                 <View style={styles.routeLine} />
                 <View style={styles.routeDotRed} />
-              </View>
+              </View> */}
               <View style={styles.routeInputs}>
                 {/* Origin with GPS button */}
                 <AnimatedInput
@@ -305,7 +329,7 @@ export default function CreateTripScreen() {
                       {locationLoading ? (
                         <ActivityIndicator size="small" color={Colors.primary} />
                       ) : (
-                        <Ionicons name="navigate" size={18} color={Colors.primary} />
+                        <Ionicons name="navigate" size={20} color={Colors.primary} />
                       )}
                     </Pressable>
                   }
@@ -324,7 +348,7 @@ export default function CreateTripScreen() {
 
             {/* Show detected coords as a small info pill */}
             {locationCoords && (
-              <View style={styles.coordsPill}>
+              <View style={[styles.coordsPill, {borderColor: borderColor}, {backgroundColor: cardBg}]}>
                 <Ionicons name="checkmark-circle" size={13} color={Colors.primary} />
                 <Text style={styles.coordsText}>
                   GPS: {locationCoords.latitude.toFixed(4)}, {locationCoords.longitude.toFixed(4)}
@@ -351,18 +375,18 @@ export default function CreateTripScreen() {
           {/* Info banner */}
           <View style={styles.infoBanner}>
             <Ionicons name="information-circle" size={16} color={Colors.primary} />
-            <Text style={styles.infoText}>
+            <Text style={[styles.infoText, {color: subTextColor}]}>
               A unique 6-character trip code will be generated. Passengers use it to join and track your trip.
             </Text>
           </View>
 
-          <Pressable
-            onPress={()=>router.push(`/live-trip-code/${tripCode}`)}
+          {/* <Pressable
+            // onPress={()=>router.push(`/live-trip-code/${tripCode}`)}
            style={[styles.submitBtn, btnStyle,{marginTop: 10}]}>
             <Text>
               Search By ID
             </Text>
-          </Pressable>
+          </Pressable> */}
 
           {/* Submit */}
           <Animated.View style={[styles.btnWrapper, btnStyle]}>
@@ -391,13 +415,12 @@ export default function CreateTripScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.border },
+  screen: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 14,
     paddingBottom: 14,
-    backgroundColor: Colors.borderLight,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(0,0,0,0.06)",
   },
@@ -409,19 +432,19 @@ const styles = StyleSheet.create({
   headerTitle: { flex: 1, textAlign: "center", fontFamily: "Poppins_600SemiBold", fontSize: 16, color: "#000" },
   headerSpacer: { width: 38 },
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 24 },
+  scrollContent: { paddingHorizontal: 12, paddingTop: 24 },
   heroRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 20 },
   heroDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
   heroLabel: { fontFamily: "Poppins_400Regular", fontSize: 13, color: "#8E8E93" },
   card: {
-    backgroundColor: Colors.surface,
+    // backgroundColor: Colors.surface,
     borderRadius: 20,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 4,
+    padding: 10,
+    // shadowColor: "#000",
+    // shadowOffset: { width: 0, height: 4 },
+    // shadowOpacity: 0.12,
+    // shadowRadius: 10,
+    // elevation: 4,
   },
   cardMt: { marginTop: 16 },
   cardHeading: {
@@ -430,63 +453,63 @@ const styles = StyleSheet.create({
     color: "#8E8E93",
     textTransform: "uppercase",
     letterSpacing: 0.8,
-    marginBottom: 16,
+    marginBottom: 16
   },
-  routeVisual: { flexDirection: "row", gap: 14 },
-  routeTrack: { alignItems: "center", paddingTop: 38, paddingBottom: 4, width: 16 },
+  routeVisual: { flexDirection: "row", gap: 14, flex: 1 },
+  routeTrack: { alignItems: "center", paddingTop: 38, paddingBottom: 4, width: 16, },
   routeDotGreen: { width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.primary },
   routeLine: { flex: 1, width: 2, backgroundColor: "rgba(0,0,0,0.12)", marginVertical: 4, borderRadius: 1 },
   routeDotRed: { width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.error },
-  routeInputs: { flex: 1, gap: 4 },
-  inputBlock: { marginBottom: 12 },
-  inputLabel: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "#8E8E93", marginBottom: 7, letterSpacing: 0.3 },
+  routeInputs: { flex: 1, gap: 4, flexDirection: 'column', },
+  inputBlock: { marginBottom: 12, flex: 1 },
+  inputLabel: { fontFamily: "Poppins_500Medium", fontSize: 12, marginBottom: 7, marginLeft: 10, letterSpacing: 0.3 },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.borderLight,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+    borderRadius: 24,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderWidth: 1.5,
     borderColor: "transparent",
   },
   inputRowError: { borderColor: Colors.error },
   inputRowDisabled: { opacity: 0.7 },
   inputIcon: { marginRight: 10 },
-  textInput: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 15, color: "#0F0F0F" },
+  textInput: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 15, color: "#0F0F0F", },
   gpsBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    // width: 32,
+    // height: 32,
+    padding: 9,
+    borderRadius: 56,
     backgroundColor: `${Colors.primary}18`,
     alignItems: "center",
     justifyContent: "center",
   },
+
   coordsPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
     marginTop: 10,
-    backgroundColor: `${Colors.primary}12`,
-    borderRadius: 8,
+    // backgroundColor: `${Colors.primary}12`,
+    borderRadius: 38,
+    borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 6,
     alignSelf: "flex-start",
   },
-  coordsText: { fontFamily: "Poppins_400Regular", fontSize: 11, color: Colors.primary },
+  coordsText: { fontFamily: "Poppins_400Regular", fontSize: 13, color: Colors.primary },
   errorText: { fontFamily: "Poppins_400Regular", fontSize: 11, color: Colors.error, marginTop: 5 },
   infoBanner: {
     flexDirection: "row",
     gap: 10,
-    backgroundColor: `${Colors.primary}15`,
     borderRadius: 14,
     padding: 14,
     marginTop: 16,
-    borderWidth: 1,
-    borderColor: `${Colors.primary}30`,
     alignItems: "flex-start",
   },
-  infoText: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 12, color: Colors.primaryDark, lineHeight: 18 },
+  infoText: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 12, lineHeight: 18 },
   btnWrapper: { marginTop: 28 },
   submitBtn: {
     backgroundColor: Colors.primary,
