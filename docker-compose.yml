@@ -1,0 +1,128 @@
+version: '3.8'
+
+services:
+  # API Gateway
+  gateway:
+    image: nginx:alpine
+    ports:
+      - "5000:80"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - auth-service
+      - trip-service
+      - payment-service
+      - engagement-service
+      - ad-analytics-service
+      - notification-service
+    networks:
+      - teqil-network
+
+  # Message Broker for asynchronous communication
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"   # Message broker port
+      - "15672:15672" # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+    networks:
+      - teqil-network
+
+  # Cache & Session Store
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - teqil-network
+
+  # Database (Optional local Postgres if not connecting directly to Supabase cloud)
+  # postgres:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgrespassword
+  #     POSTGRES_DB: teqil
+  #   ports:
+  #     - "5432:5432"
+  #   networks:
+  #     - teqil-network
+
+  # Microservices
+  auth-service:
+    build:
+      context: ./services/auth-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - SUPABASE_URL=${EXPO_PUBLIC_SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    networks:
+      - teqil-network
+
+  trip-service:
+    build:
+      context: ./services/trip-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
+    depends_on:
+      - rabbitmq
+    networks:
+      - teqil-network
+
+  payment-service:
+    build:
+      context: ./services/payment-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3003
+      - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
+      - PAYSTACK_SECRET_KEY=${PAYSTACK_SECRET_KEY}
+    depends_on:
+      - rabbitmq
+    networks:
+      - teqil-network
+
+  engagement-service:
+    build:
+      context: ./services/engagement-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3004
+      - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
+    depends_on:
+      - rabbitmq
+    networks:
+      - teqil-network
+
+  ad-analytics-service:
+    build:
+      context: ./services/ad-analytics-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3005
+      - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
+    depends_on:
+      - rabbitmq
+    networks:
+      - teqil-network
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3006
+      - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
+    depends_on:
+      - rabbitmq
+    networks:
+      - teqil-network
+
+networks:
+  teqil-network:
+    driver: bridge

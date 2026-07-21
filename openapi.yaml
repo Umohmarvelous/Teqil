@@ -1,0 +1,98 @@
+openapi: 3.0.3
+info:
+  title: Teqil Microservices API
+  version: 1.0.0
+  description: OpenAPI specifications for the Teqil microservices architecture accessed via API Gateway.
+servers:
+  - url: http://localhost:5000/api
+    description: Local API Gateway
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '201':
+          description: User registered successfully
+
+  /trips:
+    post:
+      summary: Create a new trip
+      tags:
+        - Trips
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                destination:
+                  type: string
+                price:
+                  type: number
+      responses:
+        '201':
+          description: Trip created
+
+  /payments/credit:
+    post:
+      summary: Add credit to wallet (Paystack webhook/topup)
+      tags:
+        - Payments
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+      responses:
+        '200':
+          description: Credit added
+
+  /ads/event:
+    post:
+      summary: Ingest ad impression/click event
+      tags:
+        - Ad Analytics
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                adId:
+                  type: string
+                eventType:
+                  type: string
+                  enum: [impression, click]
+      responses:
+        '202':
+          description: Event accepted for processing
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

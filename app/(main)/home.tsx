@@ -216,8 +216,8 @@ export default function HomeTab() {
             </View>
           )}
 
-          {/* {user?.role === "driver" && ( */}
-          {!user?.role && (
+          {user?.role === "driver" && (
+          // {!user?.role && (
             <>
               <View style={styles.shortcut}>
                 {DRIVERSACTIONSBUTTON.map((action) => (

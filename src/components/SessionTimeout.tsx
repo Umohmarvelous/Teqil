@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
 
 
     // backgroundColor: "#1A1A1A",
-    // borderRadius: 24,
+    borderRadius: 40,
     // padding: 32,
     // alignItems: "center",
     borderWidth: 1,

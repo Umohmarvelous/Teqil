@@ -301,7 +301,7 @@ export default function ProfileTab() {
             </View>
           </View>
 
-          <View style={{ flexDirection: 'row-reverse', alignItems: 'flex-start', justifyContent:'center', gap: 15, marginTop: 7}}>
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 15,  padding: 10, paddingTop:0}}>
             {/* Sign Out Button */}
             <Pressable
                 style={[
@@ -675,11 +675,11 @@ export default function ProfileTab() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    marginHorizontal: 5,
   },
   profileHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginHorizontal: 20,
     marginBottom: 50,
     
     

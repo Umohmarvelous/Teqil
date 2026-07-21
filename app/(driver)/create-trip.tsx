@@ -63,12 +63,11 @@ function AnimatedInput({
   const translateY = useSharedValue(16);
 
   const { theme } = useSettingsStore();
-  const isDark = theme === "light";
+  const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.border;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
-  const inputBgColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+  const cardBg = isDark ? "rgba(255,255,255,0.08)" : Colors.border;
   const borderColor = error ? Colors.error : focused ? Colors.primary : "transparent";
   const inputRef = useRef<TextInput>(null);
 
@@ -93,13 +92,13 @@ function AnimatedInput({
       ]}>
         <Text style={[styles.inputLabel,{color: textColor}]}>{label}</Text>
         <View style={{flexDirection: 'row'}}>
-          <View style={[styles.inputRow, { borderColor }, error ? styles.inputRowError : null, !editable &&  styles.inputRowDisabled, {paddingHorizontal: 10}, {backgroundColor: Colors.overlayLight}]}>
+          <View style={[styles.inputRow, { borderColor }, error ? styles.inputRowError : null, !editable &&  styles.inputRowDisabled, {paddingHorizontal: 10}, {backgroundColor: cardBg}]}>
 
 
             <TextInput
-              style={[styles.textInput, !editable && { color: textColor }, {paddingVertical: 8}]}
+              style={[styles.textInput, !editable && { color: 'textColor' }, {paddingVertical: 8}, {color: textColor}]}
               placeholder={placeholder}
-              placeholderTextColor={textColor}
+              placeholderTextColor={subTextColor}
               value={value}
               onChangeText={onChangeText}
               keyboardType={keyboardType}
@@ -117,7 +116,7 @@ function AnimatedInput({
                       inputRef.current?.focus();
                     }}
                   >
-                    <Ionicons name="close-circle" size={26} color={textColor} />
+                    <Ionicons name="close-circle" size={26} color={Colors.error} />
                   </Pressable>
                 ) : (
                     // <Ionicons
@@ -128,8 +127,8 @@ function AnimatedInput({
                     // />
                     <View style={{paddingLeft: 20}}/>
               )}
-          </View>
           {rightElement}
+          </View>
         </View>
       </Pressable>
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -148,7 +147,7 @@ export default function CreateTripScreen() {
 
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
-  const [capacity, setCapacity] = useState("4");
+  const [capacity, setCapacity] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [locationLoading, setLocationLoading] = useState(false);
@@ -160,14 +159,13 @@ export default function CreateTripScreen() {
 
 
   const { theme } = useSettingsStore();
-  const isDark = theme === "light";
+  const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.border;
   const textColor = isDark ? Colors.textWhite : Colors.text;
-  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const inputBgColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+  const subTextColor = isDark ? Colors.overlayColored : Colors.textTertiary;
+  const inputBgColor = isDark ? Colors.overlayColored : Colors.textWhite;
 
-  const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
-  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+  const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#e8ecf0";
 
   useEffect(() => {
     pageOpacity.value = withTiming(1, { duration: 480 });
@@ -334,7 +332,7 @@ export default function CreateTripScreen() {
                 <View style={[styles.routeVisual, {borderRadius: 35, paddingHorizontal: 10, paddingVertical: 25,paddingBottom: 0 }]}>
                   <View style={styles.routeTrack}>
                     <View style={styles.routeDotGreen} />
-                    <View style={styles.routeLine} />
+                    <View style={[styles.routeLine, {backgroundColor: Colors.overlayLight}]} />
                     <View style={styles.routeDotRed} />
                   </View>
                   <View style={styles.routeInputs}>
@@ -350,14 +348,14 @@ export default function CreateTripScreen() {
                       rightElement={
                         <Pressable
                           onPress={detectLocation}
-                          style={styles.gpsBtn}
+                          style={[styles.gpsBtn, {backgroundColor: Colors.primary}]}
                           hitSlop={8}
                           disabled={locationLoading}
                         >
                           {locationLoading ? (
-                            <ActivityIndicator size="small" color={Colors.primary} />
+                            <ActivityIndicator size={20} color={textColor} />
                           ) : (
-                            <Ionicons name="navigate" size={20} color={Colors.primary} />
+                            <Ionicons name="navigate" size={20} color={textColor} />
                           )}
                         </Pressable>
                       }
@@ -378,7 +376,10 @@ export default function CreateTripScreen() {
                 
                 {/* Show detected coords as a small info pill */}
                 {locationCoords && (
-                  <View style={[styles.coordsPill, {backgroundColor: inputBgColor, borderColor}]}>
+                  <View style={[styles.coordsPill, 
+                  // {borderWidth: 1},
+                  // {backgroundColor: inputBgColor, borderColor}
+                  ]}>
                     <Ionicons name="checkmark-circle" size={14} color={Colors.primary} />
                     <Text style={styles.coordsText}>
                       GPS: {locationCoords.latitude.toFixed(4)}, {locationCoords.longitude.toFixed(4)}
@@ -391,13 +392,13 @@ export default function CreateTripScreen() {
               <View style={[styles.card, styles.cardMt, 
                 // {backgroundColor: cardBg}
                 ]}>
-                <Text style={styles.cardHeading}>Trip Details</Text>
+                <Text style={styles.cardHeading}>Passenger Capacity</Text>
                 <AnimatedInput
                   // label={t("trip.capacity")}
                   icon="people"
                   value={capacity}
                   onChangeText={(v) => { setCapacity(v); setErrors((e) => ({ ...e, capacity: "" })); }}
-                  placeholder="e.g. 4"
+                  placeholder="Enter No of passenger seat"
                   error={errors.capacity}
                   keyboardType="number-pad"
                   delay={240}
@@ -414,26 +415,25 @@ export default function CreateTripScreen() {
                   styles.submitBtn,
                   pressed && styles.submitBtnPressed,
                   isLoading && styles.submitBtnLoading,
-                ]}
+                  {backgroundColor: Colors.primary}
+                ]
+              }
                 onPress={handleCreate}
                 disabled={isLoading}
               >
-                {!isLoading && <Ionicons name="navigate" size={40} color="#fff" />}
+                {!isLoading && <Ionicons name="navigate" size={25} color="#fff" />}
                 {/* <Text style={styles.submitBtnText}>
                   {isLoading ? "Creating..." : t("trip.startTrip")}
                 </Text> */}
               </Pressable>
             </Animated.View>
-
-
-            
           </View>
 
         
 
           {/* Info banner */}
           <View style={styles.infoBanner}>
-            <Ionicons name="information-circle" size={16} color={Colors.primary} />
+            <Ionicons name="information-circle" size={20} color={Colors.error} />
             <Text style={[styles.infoText, {color: subTextColor}]}>
               A unique 6-character trip code will be generated. Passengers use it to join and track your trip.
             </Text>
@@ -450,7 +450,7 @@ export default function CreateTripScreen() {
         
           
 
-          <View style={{ height: 80 + Math.max(insets.bottom, 16) }} />
+          <View style={{ height: 0 + Math.max(insets.bottom, 16) }} />
         </Animated.View>
       </ScrollView>
     </View>
@@ -475,8 +475,8 @@ const styles = StyleSheet.create({
   headerTitle: { flex: 1, textAlign: "center", fontFamily: "Poppins_600SemiBold", fontSize: 16, color: "#000" },
   headerSpacer: { width: 38 },
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 12, paddingTop: 24, borderWidth:2, borderColor:'red', justifyContent:'space-between', flexDirection:'column', gap:50 },
-  heroRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 20 },
+  scrollContent: { paddingHorizontal: 12, paddingTop: 24, justifyContent:'space-between', flexDirection:'column', gap: 10 },
+  heroRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 20, textAlign:'center', alignSelf:'center'},
   heroDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
   heroLabel: { fontFamily: "Poppins_400Regular", fontSize: 13, color: "#8E8E93" },
   card: {
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
   routeVisual: { flexDirection: "row", gap: 14, flex: 1 },
   routeTrack: { alignItems: "center", paddingTop: 3, paddingBottom: 3, width: 16, paddingLeft: 0 },
   routeDotGreen: { width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.primary },
-  routeLine: { flex: 1, width: 2, backgroundColor: "rgba(255 255 255 / 0.36)", marginVertical: 4, borderRadius: 1 },
+  routeLine: { flex: 1, width: 2, marginVertical: 4, borderRadius: 1 },
   routeDotRed: { width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.primary },
   routeInputs: { flex: 1, gap: 15, flexDirection: 'column', },
   inputBlock: { flex: 1, },
@@ -510,9 +510,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.borderLight,
-    borderRadius: 24,
+    borderRadius: 94,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: 7,
     borderWidth: .8,
     borderColor: "transparent",
     gap: 6
@@ -520,14 +520,14 @@ const styles = StyleSheet.create({
   inputRowError: { borderColor: Colors.error },
   inputRowDisabled: { opacity: 0.7 },
   inputIcon: { marginRight: 10 },
-  textInput: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 15, color: "#FFFFFF",marginLeft: 10 },
+  textInput: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 15, marginLeft: 10 },
   gpsBtn: {
-    width: 55,
-    height: 55,
+    width: 40,
+    height: 40,
     marginLeft: 5,
     padding: 9,
     borderRadius: 56,
-    backgroundColor: `${Colors.primary}18`,
+    // backgroundColor: `${Colors.primary}18`,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -538,7 +538,6 @@ const styles = StyleSheet.create({
     gap: 5,
     marginTop: 10,
     borderRadius: 38,
-    borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 6,
     alignSelf: "flex-start",
@@ -547,19 +546,18 @@ const styles = StyleSheet.create({
   errorText: { fontFamily: "Poppins_400Regular", fontSize: 11, color: Colors.error, marginTop: 5 },
   infoBanner: {
     flexDirection: "row",
-    gap: 10,
+    gap: 0,
+    padding: 20,
     borderRadius: 14,
-    padding: 14,
-    marginTop: 16,
+    marginTop: 36,
     alignItems: "flex-start",
   },
-  infoText: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 12, lineHeight: 18, textAlign: 'center' },
+  infoText: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 15, lineHeight: 18, textAlign: 'center' },
   btnWrapper: { flex: 1, alignItems:'center', justifyContent:'center', position: 'relative', top: -35, bottom: 0, left: 0, right:0,
  },
   submitBtn: {
-    backgroundColor: Colors.primary,
     borderRadius: 58,
-    padding: 15,
+    padding: 22,
   },
   submitBtnPressed: { opacity: 0.88 },
   submitBtnLoading: { opacity: 0.65 },

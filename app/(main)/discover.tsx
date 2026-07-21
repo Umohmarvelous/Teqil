@@ -759,17 +759,19 @@
 /**
  * app/(main)/discover.tsx
  *
- * Instagram‑style feed with:
+ * Social Feed ("For You" tab) with:
  * - Shimmer skeleton loading
  * - Real Reddit data from transport subreddits
  * - Dynamic image/video sizing
- * - Full‑screen expand on tap
- * - Video auto‑play with mute/duration
- * - Real comment fetching (moved to layout)
- * - Like / Save / Share actions
+ * - Full‑screen video player with swipe-to-dismiss
+ * - Twitter/Threads–style comment thread modal with reply support
+ * - Interstitial ads every 4 comments
+ * - Post creation UI
+ * - Credit indicators on action buttons (🪙10 Like, 🪙30 Comment, 🪙50 Share)
+ * - Once-per-action credit earning
  */
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -783,7 +785,11 @@ import {
   Dimensions,
   Modal,
   ScrollView,
-  Animated as RNAnimated, // Aliased native Animated
+  TextInput,
+  KeyboardAvoidingView,
+  FlatList,
+  Animated as RNAnimated,
+  PanResponder,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Video, ResizeMode } from "expo-av";
@@ -793,7 +799,7 @@ import { useCreditsStore } from "@/src/store/useCreditsStore";
 import { Colors } from "@/constants/colors";
 import { router } from "expo-router";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context"; // Needed for Layout Paddings
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Comment01Icon,
   Share01Icon,
@@ -813,29 +819,45 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { text } from "node:stream/consumers";
 
 // ----------------------------------------------------------------------
-// Types (same as before)
+// Credit Constants
 // ----------------------------------------------------------------------
-interface User {
+const CREDIT_LIKE = 10;
+const CREDIT_COMMENT = 30;
+const CREDIT_SHARE = 50;
+const CREDIT_REPLY = 5;
+
+// ----------------------------------------------------------------------
+// Types
+// ----------------------------------------------------------------------
+interface FeedUser {
   id: string;
   username: string;
   avatarUrl: string;
 }
 
-export interface Comment {
+export interface Reply {
   id: string;
-  user: User;
+  user: FeedUser;
   text: string;
   timestamp: string;
   likes: number;
 }
 
+export interface Comment {
+  id: string;
+  user: FeedUser;
+  text: string;
+  timestamp: string;
+  likes: number;
+  replies: Reply[];
+}
+
 export interface FeedItem {
   id: string;
   type: "content" | "ad";
-  user?: User;
+  user?: FeedUser;
   imageUrl?: string;
   videoUrl?: string;
   isVideo?: boolean;
@@ -857,23 +879,52 @@ const SUBREDDITS = ["cars", "driving", "roadtrip", "motorcycles", "travel", "car
 const REDDIT_BASE = "https://api.reddit.com/r";
 
 // ----------------------------------------------------------------------
-// Ad Card (unchanged)
+// Compact Ad Card (for comment thread interstitials)
+// ----------------------------------------------------------------------
+function CompactAdCard({ isDark }: { isDark: boolean }) {
+  const subColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
+  return (
+    <View style={[compactAdStyles.container, { backgroundColor: borderColor }]}>
+      <View style={compactAdStyles.row}>
+        <View style={[compactAdStyles.iconCircle, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#F0F0F0" }]}>
+          <HugeiconsIcon icon={FlashIcon} size={16} color={Colors.primary} />
+        </View>
+        <View style={compactAdStyles.textCol}>
+          <Text style={[compactAdStyles.label, { color: subColor }]}>Sponsored</Text>
+          <Text style={[compactAdStyles.cta, { color: Colors.primary }]}>Earn more with Teqil →</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const compactAdStyles = StyleSheet.create({
+  container: { marginVertical: 8, marginHorizontal: 4, borderRadius: 14, padding: 12 },
+  row: { flexDirection: "row", alignItems: "center", gap: 10 },
+  iconCircle: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  textCol: { flex: 1 },
+  label: { fontFamily: "Poppins_400Regular", fontSize: 10 },
+  cta: { fontFamily: "Poppins_600SemiBold", fontSize: 12, marginTop: 1 },
+});
+
+// ----------------------------------------------------------------------
+// Feed Ad Card (every 5th post)
 // ----------------------------------------------------------------------
 function NativeAdCard({ isDark }: { isDark: boolean }) {
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subColor = isDark ? Colors.textSecondary : Colors.textTertiary;
   const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
 
-
   return (
-    <View style={[styles.igCard, { backgroundColor: borderColor }, {paddingHorizontal: 0}]}>
+    <View style={[styles.igCard, { backgroundColor: borderColor }, { paddingHorizontal: 0 }]}>
       <View style={styles.igHeader}>
         <View style={styles.igHeaderLeft}>
-          <View style={[styles.igAvatar, { padding: 20, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: textColor }]}>
+          <View style={[styles.igAvatar, { padding: 20, borderRadius: 50, alignItems: "center", justifyContent: "center" }, { backgroundColor: textColor }]}>
             <HugeiconsIcon icon={AdvertisimentFreeIcons} size={23} color={subColor} />
           </View>
           <View>
-            <Text style={[styles.igUsername, {fontSize: 15}, { color: textColor }]}>Ads</Text>
+            <Text style={[styles.igUsername, { fontSize: 15 }, { color: textColor }]}>Ads</Text>
             <Text style={[styles.igLocation, { color: subColor }]}>Sponsored</Text>
           </View>
         </View>
@@ -881,7 +932,7 @@ function NativeAdCard({ isDark }: { isDark: boolean }) {
           <HugeiconsIcon icon={MoreVerticalCircle01Icon} fill={textColor} size={20} color={textColor} />
         </Pressable>
       </View>
-      <View style={[styles.adImageContainer, {marginHorizontal: 10}]}>
+      <View style={[styles.adImageContainer, { marginHorizontal: 10 }]}>
         <HugeiconsIcon icon={FlashIcon} size={48} color={Colors.primary} />
         <Text style={[styles.adImageText, { color: subColor }]}>Grow your earnings</Text>
         <Pressable style={styles.adCtaButton} onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}>
@@ -909,12 +960,110 @@ function NativeAdCard({ isDark }: { isDark: boolean }) {
 }
 
 // ----------------------------------------------------------------------
-// Full‑Screen Modal (unchanged)
+// Full‑Screen Video Player (swipe-down to dismiss)
 // ----------------------------------------------------------------------
-function FullScreenPost({ item, visible, onClose, isDark }: { item: FeedItem | null; visible: boolean; onClose: () => void; isDark: boolean }) {
+function FullScreenVideoPlayer({
+  item,
+  visible,
+  onClose,
+}: {
+  item: FeedItem | null;
+  visible: boolean;
+  onClose: () => void;
+}) {
+  const [isMuted, setIsMuted] = useState(false);
+  const translateY = useRef(new RNAnimated.Value(0)).current;
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dy) > 10,
+        onPanResponderMove: (_, gs) => {
+          if (gs.dy > 0) translateY.setValue(gs.dy);
+        },
+        onPanResponderRelease: (_, gs) => {
+          if (gs.dy > 120) {
+            RNAnimated.timing(translateY, { toValue: SCREEN_HEIGHT, duration: 250, useNativeDriver: true }).start(onClose);
+          } else {
+            RNAnimated.spring(translateY, { toValue: 0, useNativeDriver: true }).start();
+          }
+        },
+      }),
+    [onClose, translateY]
+  );
+
+  useEffect(() => {
+    if (visible) translateY.setValue(0);
+  }, [visible, translateY]);
+
+  if (!item) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+      <RNAnimated.View
+        style={[fullVidStyles.overlay, { transform: [{ translateY }] }]}
+        {...panResponder.panHandlers}
+      >
+        {/* Swipe indicator */}
+        <View style={fullVidStyles.swipeBar} />
+        <Video
+          source={{ uri: item.videoUrl! }}
+          style={fullVidStyles.video}
+          resizeMode={ResizeMode.CONTAIN}
+          shouldPlay
+          isLooping
+          isMuted={isMuted}
+          useNativeControls={false}
+        />
+        {/* Controls overlay */}
+        <View style={fullVidStyles.controls}>
+          <View style={fullVidStyles.captionArea}>
+            <Text style={fullVidStyles.username}>@{item.user?.username}</Text>
+            <Text style={fullVidStyles.caption} numberOfLines={3}>{item.caption}</Text>
+          </View>
+          <View style={fullVidStyles.sideActions}>
+            <Pressable style={fullVidStyles.actionBtn} onPress={() => setIsMuted(!isMuted)}>
+              <HugeiconsIcon icon={isMuted ? VolumeMuteIcon : VolumeHighIcon} size={26} color="#FFF" />
+            </Pressable>
+          </View>
+        </View>
+        <Pressable style={fullVidStyles.closeBtn} onPress={onClose} hitSlop={12}>
+          <Text style={{ color: "#FFF", fontSize: 20, fontFamily: "Poppins_600SemiBold" }}>✕</Text>
+        </Pressable>
+      </RNAnimated.View>
+    </Modal>
+  );
+}
+
+const fullVidStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "#000" },
+  swipeBar: { width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.4)", alignSelf: "center", marginTop: 12 },
+  video: { flex: 1 },
+  controls: { position: "absolute", bottom: 80, left: 0, right: 0, flexDirection: "row", paddingHorizontal: 16, alignItems: "flex-end" },
+  captionArea: { flex: 1, marginRight: 16 },
+  username: { color: "#FFF", fontFamily: "Poppins_700Bold", fontSize: 15, marginBottom: 4 },
+  caption: { color: "rgba(255,255,255,0.85)", fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 18 },
+  sideActions: { alignItems: "center", gap: 20 },
+  actionBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
+  closeBtn: { position: "absolute", top: 50, right: 20, width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center" },
+});
+
+// ----------------------------------------------------------------------
+// Full‑Screen Image Modal (unchanged)
+// ----------------------------------------------------------------------
+function FullScreenPost({
+  item,
+  visible,
+  onClose,
+  isDark,
+}: {
+  item: FeedItem | null;
+  visible: boolean;
+  onClose: () => void;
+  isDark: boolean;
+}) {
   const scale = useSharedValue(0.9);
   const opacity = useSharedValue(0);
-  const [isMuted, setIsMuted] = useState(true);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -938,23 +1087,7 @@ function FullScreenPost({ item, visible, onClose, isDark }: { item: FeedItem | n
       <View style={styles.fullScreenOverlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <Animated.View style={[styles.fullScreenContent, animatedStyle]}>
-          {item.isVideo ? (
-            <View style={styles.fullScreenVideoContainer}>
-              <Video
-                source={{ uri: item.videoUrl! }}
-                style={styles.fullScreenVideo}
-                resizeMode={ResizeMode.CONTAIN}
-                shouldPlay
-                isMuted={isMuted}
-                useNativeControls={false}
-              />
-              <Pressable style={styles.muteButton} onPress={() => setIsMuted(!isMuted)}>
-                <HugeiconsIcon icon={isMuted ? VolumeMuteIcon : VolumeHighIcon} size={28} color="#FFF" />
-              </Pressable>
-            </View>
-          ) : (
-            <Image source={{ uri: item.imageUrl }} style={styles.fullScreenImage} resizeMode="contain" />
-          )}
+          <Image source={{ uri: item.imageUrl }} style={styles.fullScreenImage} resizeMode="contain" />
           <View style={styles.fullScreenActions}>
             <Text style={styles.fullScreenCaption}>{item.caption}</Text>
             <Text style={styles.fullScreenUsername}>@{item.user?.username}</Text>
@@ -969,7 +1102,284 @@ function FullScreenPost({ item, visible, onClose, isDark }: { item: FeedItem | n
 }
 
 // ----------------------------------------------------------------------
-// Content Card (unchanged)
+// Comment Thread Modal (Twitter/Threads style)
+// ----------------------------------------------------------------------
+function CommentThreadModal({
+  post,
+  visible,
+  onClose,
+  isDark,
+  onAddComment,
+  onAddReply,
+}: {
+  post: FeedItem | null;
+  visible: boolean;
+  onClose: () => void;
+  isDark: boolean;
+  onAddComment: (postId: string, text: string) => void;
+  onAddReply: (postId: string, commentId: string, text: string) => void;
+}) {
+  const [newComment, setNewComment] = useState("");
+  const [replyTarget, setReplyTarget] = useState<{ commentId: string; username: string } | null>(null);
+  const inputRef = useRef<TextInput>(null);
+
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const bg = isDark ? Colors.background : "#FFF";
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+  const inputBg = isDark ? "rgba(255,255,255,0.06)" : "#F5F6F8";
+
+  const handleSubmit = () => {
+    const text = newComment.trim();
+    if (!text || !post) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (replyTarget) {
+      onAddReply(post.id, replyTarget.commentId, text);
+      setReplyTarget(null);
+    } else {
+      onAddComment(post.id, text);
+    }
+    setNewComment("");
+  };
+
+  const handleReplyPress = (commentId: string, username: string) => {
+    setReplyTarget({ commentId, username });
+    setNewComment(`@${username} `);
+    setTimeout(() => inputRef.current?.focus(), 100);
+  };
+
+  // Build flat list: comments + replies with interstitial ads every 4 items
+  const threadItems = useMemo(() => {
+    if (!post) return [];
+    const items: Array<{ type: "comment" | "reply" | "ad"; data?: Comment | Reply; parentId?: string; parentUser?: string }> = [];
+    let counter = 0;
+
+    // Always show at least one ad even if no comments
+    if (post.comments.length === 0) {
+      items.push({ type: "ad" });
+      return items;
+    }
+
+    for (const comment of post.comments) {
+      items.push({ type: "comment", data: comment });
+      counter++;
+      if (counter % 4 === 0) items.push({ type: "ad" });
+
+      for (const reply of (comment.replies || [])) {
+        items.push({ type: "reply", data: reply, parentId: comment.id, parentUser: comment.user.username });
+        counter++;
+        if (counter % 4 === 0) items.push({ type: "ad" });
+      }
+    }
+    return items;
+  }, [post]);
+
+  if (!post) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+        <Pressable style={threadStyles.dimOverlay} onPress={onClose} />
+        <View style={[threadStyles.sheet, { backgroundColor: bg }]}>
+          {/* Header */}
+          <View style={[threadStyles.header, { borderBottomColor: borderColor }]}>
+            <View style={threadStyles.handleBar} />
+            <Text style={[threadStyles.headerTitle, { color: textColor }]}>
+              {post.comments.length} {post.comments.length === 1 ? "Comment" : "Comments"}
+            </Text>
+          </View>
+
+          {/* Thread List */}
+          <FlatList
+            data={threadItems}
+            keyExtractor={(item, index) => {
+              if (item.type === "ad") return `thread-ad-${index}`;
+              return (item.data as any)?.id || `item-${index}`;
+            }}
+            renderItem={({ item }) => {
+              if (item.type === "ad") return <CompactAdCard isDark={isDark} />;
+
+              const isReply = item.type === "reply";
+              const c = item.data as (Comment | Reply);
+
+              return (
+                <View style={[threadStyles.commentRow, isReply && threadStyles.replyIndent]}>
+                  {isReply && <View style={[threadStyles.threadLine, { backgroundColor: borderColor }]} />}
+                  <Image source={{ uri: c.user.avatarUrl }} style={threadStyles.avatar} />
+                  <View style={threadStyles.commentBody}>
+                    <View style={threadStyles.commentMeta}>
+                      <Text style={[threadStyles.commentUser, { color: textColor }]}>{c.user.username}</Text>
+                      <Text style={[threadStyles.commentTime, { color: subColor }]}>{c.timestamp}</Text>
+                    </View>
+                    <Text style={[threadStyles.commentText, { color: textColor }]}>{c.text}</Text>
+                    <View style={threadStyles.commentActions}>
+                      <Pressable hitSlop={8}>
+                        <Text style={[threadStyles.actionText, { color: subColor }]}>{c.likes} ♥</Text>
+                      </Pressable>
+                      {!isReply && (
+                        <Pressable
+                          hitSlop={8}
+                          onPress={() => handleReplyPress((c as Comment).id, c.user.username)}
+                        >
+                          <Text style={[threadStyles.actionText, { color: subColor }]}>Reply 🪙{CREDIT_REPLY}</Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              );
+            }}
+            contentContainerStyle={{ paddingBottom: 16 }}
+            showsVerticalScrollIndicator={false}
+          />
+
+          {/* Input Bar */}
+          <View style={[threadStyles.inputBar, { borderTopColor: borderColor, backgroundColor: bg }]}>
+            {replyTarget && (
+              <View style={threadStyles.replyIndicator}>
+                <Text style={[threadStyles.replyIndicatorText, { color: subColor }]}>
+                  Replying to @{replyTarget.username}
+                </Text>
+                <Pressable onPress={() => { setReplyTarget(null); setNewComment(""); }} hitSlop={8}>
+                  <Text style={{ color: subColor, fontSize: 14 }}>✕</Text>
+                </Pressable>
+              </View>
+            )}
+            <View style={[threadStyles.inputRow, { backgroundColor: inputBg }]}>
+              <TextInput
+                ref={inputRef}
+                style={[threadStyles.input, { color: textColor }]}
+                placeholder={replyTarget ? `Reply to @${replyTarget.username}...` : "Add a comment..."}
+                placeholderTextColor={subColor}
+                value={newComment}
+                onChangeText={setNewComment}
+                multiline
+                maxLength={500}
+              />
+              <Pressable
+                onPress={handleSubmit}
+                disabled={!newComment.trim()}
+                style={[threadStyles.sendBtn, !newComment.trim() && { opacity: 0.4 }]}
+              >
+                <Text style={threadStyles.sendBtnText}>
+                  {replyTarget ? `🪙${CREDIT_REPLY}` : `🪙${CREDIT_COMMENT}`} Post
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+const threadStyles = StyleSheet.create({
+  dimOverlay: { flex: 0.2, backgroundColor: "rgba(0,0,0,0.4)" },
+  sheet: { flex: 0.8, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  header: { alignItems: "center", paddingVertical: 12, borderBottomWidth: 1 },
+  handleBar: { width: 36, height: 4, borderRadius: 2, backgroundColor: "rgba(128,128,128,0.3)", marginBottom: 10 },
+  headerTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
+  commentRow: { flexDirection: "row", paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
+  replyIndent: { paddingLeft: 56 },
+  threadLine: { position: "absolute", left: 42, top: -10, bottom: 10, width: 2, borderRadius: 1 },
+  avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: "#E5E5E5" },
+  commentBody: { flex: 1 },
+  commentMeta: { flexDirection: "row", alignItems: "center", gap: 8 },
+  commentUser: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
+  commentTime: { fontFamily: "Poppins_400Regular", fontSize: 11 },
+  commentText: { fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 19, marginTop: 3 },
+  commentActions: { flexDirection: "row", gap: 16, marginTop: 6 },
+  actionText: { fontFamily: "Poppins_500Medium", fontSize: 12 },
+  inputBar: { paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1 },
+  replyIndicator: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+  replyIndicatorText: { fontFamily: "Poppins_400Regular", fontSize: 12 },
+  inputRow: { flexDirection: "row", alignItems: "center", borderRadius: 22, paddingHorizontal: 14, paddingVertical: 8, gap: 8 },
+  input: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 14, maxHeight: 80 },
+  sendBtn: { backgroundColor: Colors.primary, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 8 },
+  sendBtnText: { color: "#FFF", fontFamily: "Poppins_600SemiBold", fontSize: 12 },
+});
+
+// ----------------------------------------------------------------------
+// Post Creation Modal
+// ----------------------------------------------------------------------
+function CreatePostModal({
+  visible,
+  onClose,
+  onPost,
+  isDark,
+  userAvatar,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onPost: (text: string) => void;
+  isDark: boolean;
+  userAvatar: string;
+}) {
+  const [text, setText] = useState("");
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const bg = isDark ? Colors.background : "#FFF";
+  const inputBg = isDark ? "rgba(255,255,255,0.06)" : "#F5F6F8";
+
+  const handlePost = () => {
+    if (!text.trim()) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onPost(text.trim());
+    setText("");
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+        <Pressable style={{ flex: 0.3, backgroundColor: "rgba(0,0,0,0.4)" }} onPress={onClose} />
+        <View style={[createStyles.sheet, { backgroundColor: bg }]}>
+          <View style={createStyles.header}>
+            <Pressable onPress={onClose}>
+              <Text style={[createStyles.cancelText, { color: subColor }]}>Cancel</Text>
+            </Pressable>
+            <Text style={[createStyles.title, { color: textColor }]}>New Post</Text>
+            <Pressable
+              onPress={handlePost}
+              disabled={!text.trim()}
+              style={[createStyles.postBtn, !text.trim() && { opacity: 0.4 }]}
+            >
+              <Text style={createStyles.postBtnText}>Post</Text>
+            </Pressable>
+          </View>
+          <View style={createStyles.body}>
+            <Image source={{ uri: userAvatar }} style={createStyles.avatar} />
+            <TextInput
+              style={[createStyles.input, { color: textColor }]}
+              placeholder="What's on your mind?"
+              placeholderTextColor={subColor}
+              value={text}
+              onChangeText={setText}
+              multiline
+              autoFocus
+              maxLength={1000}
+            />
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+const createStyles = StyleSheet.create({
+  sheet: { flex: 0.7, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "rgba(128,128,128,0.15)" },
+  cancelText: { fontFamily: "Poppins_500Medium", fontSize: 14 },
+  title: { fontFamily: "Poppins_600SemiBold", fontSize: 16 },
+  postBtn: { backgroundColor: Colors.primary, borderRadius: 16, paddingHorizontal: 20, paddingVertical: 8 },
+  postBtnText: { color: "#FFF", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
+  body: { flexDirection: "row", padding: 18, gap: 12, flex: 1 },
+  avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#E5E5E5" },
+  input: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 15, lineHeight: 22, textAlignVertical: "top" },
+});
+
+// ----------------------------------------------------------------------
+// Content Card
 // ----------------------------------------------------------------------
 function ContentCard({
   item,
@@ -1017,9 +1427,7 @@ function ContentCard({
 
   return (
     <>
-      <View style={[styles.igCard,
-        // { backgroundColor: borderColor }
-      ]}>
+      <View style={styles.igCard}>
         <View style={styles.igHeader}>
           <Pressable style={styles.igHeaderLeft}>
             <Image source={{ uri: item.user?.avatarUrl }} style={styles.igAvatar} />
@@ -1043,7 +1451,7 @@ function ContentCard({
 
         <Pressable onPress={() => onFullScreen(item)}>
           {item.isVideo ? (
-            <View style={[styles.videoContainer,  { height: imageHeight }]}>
+            <View style={[styles.videoContainer, { height: imageHeight }]}>
               <Video
                 source={{ uri: item.videoUrl! }}
                 style={styles.videoPlayer}
@@ -1061,27 +1469,31 @@ function ContentCard({
           ) : (
             <Image
               source={{ uri: item.imageUrl }}
-              style={[styles.igImage, { height: imageHeight }, {backgroundColor: borderColor}]}
+              style={[styles.igImage, { height: imageHeight }, { backgroundColor: borderColor }]}
               resizeMode="cover"
             />
           )}
         </Pressable>
 
+        {/* Action buttons with credit indicators */}
         <View style={styles.igActions}>
           <View style={styles.igActionLeft}>
-            <Pressable hitSlop={10} onPress={handleLike}>
+            <Pressable hitSlop={10} onPress={handleLike} style={styles.actionWithBadge}>
               <HugeiconsIcon
                 icon={Heart}
                 size={24}
                 color={item.isLiked ? "#FF3B30" : iconColor}
                 fill={item.isLiked ? "#FF3B30" : "none"}
               />
+              <Text style={[styles.creditBadge, { color: Colors.primary }]}>🪙{CREDIT_LIKE}</Text>
             </Pressable>
-            <Pressable hitSlop={10} onPress={() => onCommentPress(item)}>
+            <Pressable hitSlop={10} onPress={() => onCommentPress(item)} style={styles.actionWithBadge}>
               <HugeiconsIcon icon={Comment01Icon} size={24} color={iconColor} />
+              <Text style={[styles.creditBadge, { color: Colors.primary }]}>🪙{CREDIT_COMMENT}</Text>
             </Pressable>
-            <Pressable hitSlop={10} onPress={() => onSharePress(item)}>
+            <Pressable hitSlop={10} onPress={() => onSharePress(item)} style={styles.actionWithBadge}>
               <HugeiconsIcon icon={Share01Icon} size={24} color={iconColor} />
+              <Text style={[styles.creditBadge, { color: Colors.primary }]}>🪙{CREDIT_SHARE}</Text>
             </Pressable>
           </View>
         </View>
@@ -1109,13 +1521,13 @@ function ContentCard({
 
         <Text style={[styles.igTimestamp, { color: subColor }]}>{item.timestamp}</Text>
       </View>
-      <View style={{ borderWidth: .5, borderColor: borderColor, height: 1, width: '100%' }}/>
+      <View style={{ borderWidth: 0.5, borderColor, height: 1, width: "100%" }} />
     </>
   );
 }
 
 // ----------------------------------------------------------------------
-// Auth Prompt Overlay (unchanged)
+// Auth Prompt Overlay
 // ----------------------------------------------------------------------
 function AuthPromptOverlay({ visible, onDismiss }: { visible: boolean; onDismiss: () => void }) {
   if (!visible) return null;
@@ -1163,16 +1575,18 @@ export default function DiscoverTab({
   const [hasMore, setHasMore] = useState(true);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [fullScreenPost, setFullScreenPost] = useState<FeedItem | null>(null);
+  const [fullScreenVideoPost, setFullScreenVideoPost] = useState<FeedItem | null>(null);
   const [feedError, setFeedError] = useState(false);
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
+  const [showCreatePost, setShowCreatePost] = useState(false);
+  const [threadPost, setThreadPost] = useState<FeedItem | null>(null);
 
   const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.border;
 
-  // Safe area setup for absolute positioned headers and footers
   const insets = useSafeAreaInsets();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
-  const HEADER_HEIGHT = topPadding + 110; 
+  const HEADER_HEIGHT = topPadding + 110;
   const BOTTOM_HEIGHT = 60 + Math.max(insets.bottom, 16) + 20;
 
   const viewabilityConfig = { itemVisiblePercentThreshold: 50 };
@@ -1274,6 +1688,7 @@ export default function DiscoverTab({
     fetchFeed("paginate");
   }, [hasMore, isPaginating, isInitialLoading, fetchFeed]);
 
+  // ─── Credit‑earning handlers ────────────────────────────────────────
   const handleLikeToggle = useCallback(
     (postId: string) => {
       if (!isAuthenticated) { setShowAuthPrompt(true); return; }
@@ -1282,8 +1697,8 @@ export default function DiscoverTab({
           if (item.id === postId && item.type === "content") {
             const isNowLiked = !item.isLiked;
             if (isNowLiked && user) {
-              addCredit('like', 2, user.id, postId);
-              addFloatingAnimation(2, SCREEN_WIDTH / 2 - 20, SCREEN_HEIGHT / 2);
+              addCredit("like", CREDIT_LIKE, user.id, postId);
+              addFloatingAnimation(CREDIT_LIKE, SCREEN_WIDTH / 2 - 20, SCREEN_HEIGHT / 2);
             }
             return { ...item, isLiked: isNowLiked, likes: isNowLiked ? item.likes + 1 : item.likes - 1 };
           }
@@ -1309,47 +1724,141 @@ export default function DiscoverTab({
   const handleCommentPress = useCallback(
     (post: FeedItem) => {
       if (!isAuthenticated) { setShowAuthPrompt(true); return; }
-      if (onCommentPress) onCommentPress(post);
+      setThreadPost(post);
     },
-    [isAuthenticated, onCommentPress]
+    [isAuthenticated]
   );
 
-  const handleSharePress = useCallback(async (post: FeedItem) => {
-    try {
-      const result = await Share.share({
-        message: `Check out this post from ${post.user?.username} on Teqil`,
-      });
-      if (result.action === Share.sharedAction && user) {
-        addCredit('share', 5, user.id, post.id);
-        addFloatingAnimation(5, SCREEN_WIDTH / 2 - 20, SCREEN_HEIGHT / 2);
+  const handleSharePress = useCallback(
+    async (post: FeedItem) => {
+      try {
+        const result = await Share.share({
+          message: `Check out this post from ${post.user?.username} on Teqil`,
+        });
+        if (result.action === Share.sharedAction && user) {
+          addCredit("share", CREDIT_SHARE, user.id, post.id);
+          addFloatingAnimation(CREDIT_SHARE, SCREEN_WIDTH / 2 - 20, SCREEN_HEIGHT / 2);
+        }
+      } catch (err) {
+        console.error("Share error:", err);
       }
-    } catch (err) {
-      console.error('Error:', err)
-    }
-  }, [user, addCredit, addFloatingAnimation]);
+    },
+    [user, addCredit, addFloatingAnimation]
+  );
 
-  const handleAddComment = useCallback((postId: string, text: string) => {
-    const newComment: Comment = {
-      id: `c-${Date.now()}`,
-      user: { id: "current", username: "you", avatarUrl: "https://i.pravatar.cc/150?img=7" },
-      text,
-      timestamp: "Just now",
-      likes: 0,
-    };
-    
-    if (user) {
-      addCredit('comment', 5, user.id, postId);
-      addFloatingAnimation(5, SCREEN_WIDTH / 2 - 20, SCREEN_HEIGHT / 2);
-    }
+  const handleAddComment = useCallback(
+    (postId: string, text: string) => {
+      const newComment: Comment = {
+        id: `c-${Date.now()}`,
+        user: {
+          id: user?.id || "current",
+          username: user?.username || "you",
+          avatarUrl: "https://i.pravatar.cc/150?img=7",
+        },
+        text,
+        timestamp: "Just now",
+        likes: 0,
+        replies: [],
+      };
 
-    setFeedItems((prev) =>
-      prev.map((item) =>
-        item.id === postId && item.type === "content"
-          ? { ...item, comments: [newComment, ...item.comments] }
-          : item
-      )
-    );
-  }, [user, addCredit, addFloatingAnimation]);
+      if (user) {
+        addCredit("comment", CREDIT_COMMENT, user.id, postId);
+        addFloatingAnimation(CREDIT_COMMENT, SCREEN_WIDTH / 2 - 20, SCREEN_HEIGHT / 2);
+      }
+
+      setFeedItems((prev) =>
+        prev.map((item) =>
+          item.id === postId && item.type === "content"
+            ? { ...item, comments: [newComment, ...item.comments] }
+            : item
+        )
+      );
+
+      // Also update the thread post if it's currently open
+      setThreadPost((prev) => {
+        if (prev && prev.id === postId) {
+          return { ...prev, comments: [newComment, ...prev.comments] };
+        }
+        return prev;
+      });
+    },
+    [user, addCredit, addFloatingAnimation]
+  );
+
+  const handleAddReply = useCallback(
+    (postId: string, commentId: string, text: string) => {
+      const newReply: Reply = {
+        id: `r-${Date.now()}`,
+        user: {
+          id: user?.id || "current",
+          username: user?.username || "you",
+          avatarUrl: "https://i.pravatar.cc/150?img=7",
+        },
+        text,
+        timestamp: "Just now",
+        likes: 0,
+      };
+
+      if (user) {
+        addCredit("comment", CREDIT_REPLY, user.id, postId, commentId);
+        addFloatingAnimation(CREDIT_REPLY, SCREEN_WIDTH / 2 - 20, SCREEN_HEIGHT / 2);
+      }
+
+      const updateComments = (comments: Comment[]) =>
+        comments.map((c) =>
+          c.id === commentId ? { ...c, replies: [...(c.replies || []), newReply] } : c
+        );
+
+      setFeedItems((prev) =>
+        prev.map((item) =>
+          item.id === postId && item.type === "content"
+            ? { ...item, comments: updateComments(item.comments) }
+            : item
+        )
+      );
+
+      setThreadPost((prev) => {
+        if (prev && prev.id === postId) {
+          return { ...prev, comments: updateComments(prev.comments) };
+        }
+        return prev;
+      });
+    },
+    [user, addCredit, addFloatingAnimation]
+  );
+
+  // ─── Post creation ───────────────────────────────────────────────────
+  const handleCreatePost = useCallback(
+    (text: string) => {
+      if (!user) return;
+      const newPost: FeedItem = {
+        id: `local-${Date.now()}`,
+        type: "content",
+        user: {
+          id: user.id,
+          username: user.username || "you",
+          avatarUrl: "https://i.pravatar.cc/150?img=7",
+        },
+        caption: text,
+        likes: 0,
+        comments: [],
+        timestamp: "Just now",
+        isLiked: false,
+        isSaved: false,
+      };
+      setFeedItems((prev) => [newPost, ...prev]);
+    },
+    [user]
+  );
+
+  // ─── Full screen handler: video vs image ──────────────────────────────
+  const handleFullScreen = useCallback((item: FeedItem) => {
+    if (item.isVideo) {
+      setFullScreenVideoPost(item);
+    } else {
+      setFullScreenPost(item);
+    }
+  }, []);
 
   useEffect(() => {
     if (setCommentHandler) {
@@ -1368,19 +1877,43 @@ export default function DiscoverTab({
           onSaveToggle={handleSaveToggle}
           onCommentPress={handleCommentPress}
           onSharePress={handleSharePress}
-          onFullScreen={setFullScreenPost}
+          onFullScreen={handleFullScreen}
           isPlaying={item.id === playingVideoId}
         />
       );
     },
-    [isDark, handleLikeToggle, handleSaveToggle, handleCommentPress, handleSharePress, playingVideoId]
+    [isDark, handleLikeToggle, handleSaveToggle, handleCommentPress, handleSharePress, handleFullScreen, playingVideoId]
   );
 
   const keyExtractor = useCallback((item: FeedItem) => item.id, []);
 
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
+
+  // ─── Post creation header (shown at top of feed for signed-in users) ─
+  const ListHeaderComponent = useMemo(() => {
+    if (!isAuthenticated) return null;
+    return (
+      <Pressable
+        style={[styles.createPostBar, { borderBottomColor: borderColor }]}
+        onPress={() => setShowCreatePost(true)}
+      >
+        <Image
+          source={{ uri: "https://i.pravatar.cc/150?img=7" }}
+          style={styles.createPostAvatar}
+        />
+        <View style={[styles.createPostInput, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F5F6F8" }]}>
+          <Text style={[styles.createPostPlaceholder, { color: subColor }]}>
+            What's on your mind?
+          </Text>
+        </View>
+      </Pressable>
+    );
+  }, [isAuthenticated, isDark, borderColor, subColor]);
+
   // Error state with retry button
   if (feedError && feedItems.length === 0) {
-    const textColor = isDark ? Colors.textWhite : Colors.text;
     return (
       <View style={[styles.errorContainer, { backgroundColor: bg }]}>
         <Text style={{ color: textColor, marginBottom: 10 }}>{`Couldn't load posts.`}</Text>
@@ -1388,7 +1921,7 @@ export default function DiscoverTab({
           onPress={() => { setFeedError(false); fetchFeed("initial"); }}
           style={{ paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
         >
-          <Text style={[{fontWeight: 900} ,{ color: textColor }]}>Retry</Text>
+          <Text style={[{ fontWeight: "900" }, { color: textColor }]}>Retry</Text>
         </Pressable>
       </View>
     );
@@ -1413,7 +1946,7 @@ export default function DiscoverTab({
         data={feedItems}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        // Attaching the scroll animation correctly
+        ListHeaderComponent={ListHeaderComponent}
         onScroll={
           scrollY
             ? RNAnimated.event(
@@ -1428,7 +1961,9 @@ export default function DiscoverTab({
             <View style={styles.footerLoader}>
               <ActivityIndicator size="small" color={Colors.primary} />
             </View>
-          ) : <View style={{ height: 40 }} />
+          ) : (
+            <View style={{ height: 40 }} />
+          )
         }
         onEndReached={onEndReached}
         onEndReachedThreshold={0.5}
@@ -1438,7 +1973,6 @@ export default function DiscoverTab({
         contentContainerStyle={[
           styles.listContent,
           { paddingTop: HEADER_HEIGHT, paddingBottom: BOTTOM_HEIGHT },
-          // {borderBottomWidth: 1, borderBottomColor: 'red'},
         ]}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={Platform.OS === "android"}
@@ -1449,11 +1983,38 @@ export default function DiscoverTab({
         viewabilityConfig={viewabilityConfig}
       />
 
+      {/* Full-screen image modal */}
       <FullScreenPost
         item={fullScreenPost}
         visible={!!fullScreenPost}
         onClose={() => setFullScreenPost(null)}
         isDark={isDark}
+      />
+
+      {/* Full-screen video player */}
+      <FullScreenVideoPlayer
+        item={fullScreenVideoPost}
+        visible={!!fullScreenVideoPost}
+        onClose={() => setFullScreenVideoPost(null)}
+      />
+
+      {/* Comment thread modal */}
+      <CommentThreadModal
+        post={threadPost}
+        visible={!!threadPost}
+        onClose={() => setThreadPost(null)}
+        isDark={isDark}
+        onAddComment={handleAddComment}
+        onAddReply={handleAddReply}
+      />
+
+      {/* Post creation modal */}
+      <CreatePostModal
+        visible={showCreatePost}
+        onClose={() => setShowCreatePost(false)}
+        onPost={handleCreatePost}
+        isDark={isDark}
+        userAvatar="https://i.pravatar.cc/150?img=7"
       />
 
       <AuthPromptOverlay visible={showAuthPrompt} onDismiss={() => setShowAuthPrompt(false)} />
@@ -1464,14 +2025,21 @@ export default function DiscoverTab({
 const styles = StyleSheet.create({
   root: { flex: 1 },
   listContent: {
-    paddingBottom: 20, 
+    paddingBottom: 20,
   },
-  igHeaderTitle: {
+  // Post creation bar
+  createPostBar: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 19,
-    paddingTop: Platform.OS === "ios" ? 8 : 4,
-    paddingBottom: 4,
+    paddingVertical: 12,
+    gap: 12,
+    borderBottomWidth: 1,
   },
-  igLogo: { fontFamily: "Poppins_700Bold", fontSize: 28, letterSpacing: -0.5 },
+  createPostAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#E5E5E5" },
+  createPostInput: { flex: 1, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12 },
+  createPostPlaceholder: { fontFamily: "Poppins_400Regular", fontSize: 14 },
+  // Card
   igCard: {
     paddingBottom: 8,
     marginHorizontal: 19,
@@ -1491,15 +2059,15 @@ const styles = StyleSheet.create({
   igUsername: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
   igLocation: { fontFamily: "Poppins_400Regular", fontSize: 11, marginTop: 2 },
   igImage: {
-    width: "auto", 
+    width: "auto",
     borderRadius: 20,
-    // maxHeight: 350,
-    marginHorizontal: 10
+    marginHorizontal: 10,
   },
   videoContainer: {
-    width: "100%", backgroundColor: "#000",
-    borderRadius: 20, 
-   },
+    width: "100%",
+    backgroundColor: "#000",
+    borderRadius: 20,
+  },
   videoPlayer: { flex: 1 },
   durationBadge: {
     position: "absolute",
@@ -1516,9 +2084,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingVertical: 10
+    paddingVertical: 10,
   },
-  igActionLeft: { flexDirection: "row", gap: 16 },
+  igActionLeft: { flexDirection: "row", gap: 20 },
+  actionWithBadge: { alignItems: "center", gap: 2 },
+  creditBadge: { fontFamily: "Poppins_600SemiBold", fontSize: 10 },
   igLikesContainer: { paddingHorizontal: 12, marginTop: 8 },
   igLikes: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
   igCaptionContainer: { paddingHorizontal: 12, marginTop: 6 },
@@ -1537,16 +2107,6 @@ const styles = StyleSheet.create({
   },
   fullScreenContent: { width: "100%", alignItems: "center" },
   fullScreenImage: { width: SCREEN_WIDTH, height: SCREEN_WIDTH },
-  fullScreenVideoContainer: { width: SCREEN_WIDTH, height: SCREEN_WIDTH * 0.75 },
-  fullScreenVideo: { flex: 1 },
-  muteButton: {
-    position: "absolute",
-    bottom: 12,
-    right: 12,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderRadius: 20,
-    padding: 6,
-  },
   fullScreenActions: { paddingHorizontal: 20, marginTop: 10 },
   fullScreenCaption: { color: "#FFF", fontFamily: "Poppins_500Medium", fontSize: 15 },
   fullScreenUsername: { color: "#AAA", fontFamily: "Poppins_400Regular", fontSize: 13, marginTop: 4 },
