@@ -181,7 +181,7 @@ function FormField({
 }
 
 const fieldStyles = StyleSheet.create({
-  wrap: { marginBottom: 16 },
+  wrap: { marginBottom: 14 },
   label: {
     fontFamily: "Poppins_500Medium",
     fontSize: 13,
@@ -192,10 +192,10 @@ const fieldStyles = StyleSheet.create({
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 26,
+    borderRadius: 9,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderWidth: 1.5,
+    borderWidth: .2,
     borderColor: "transparent",
   },
   inputRowError: { borderColor: Colors.error },
@@ -288,7 +288,7 @@ const oauthStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    borderRadius: 26,
+    borderRadius: 9,
     height: 52,
     borderWidth: 1,
     flex: 1,
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-around",
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
     paddingBottom: 8,
   },
   pageHeaderContainer: { alignItems: "center", marginBottom: 0 },
@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
   },
   backText: { fontWeight: "600", fontSize: 15 },
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 44, paddingTop: 125, marginVertical:'auto' },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 125, marginVertical:'auto' },
   forgotBtn: { alignSelf: "flex-end", marginBottom: 24, marginTop: -8 },
   forgotText: {
     fontFamily: "Poppins_500Medium",
@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     borderWidth: 1,
-    borderRadius: 26,
+    borderRadius: 9,
     height: 56,
     flexDirection: "row",
     alignItems: "center",

@@ -319,7 +319,7 @@ export default function HomeTab() {
         {recentTrips.length === 0 && (
           <View style={[styles.card, { backgroundColor: cardBg, borderColor, alignItems: "center", paddingVertical: 32 }]}>
             <HugeiconsIcon icon={Warning} size={40} color={Colors.warning} />
-            <View style={{textAlign:'center', alignItems:'center'}}>
+            <View style={{alignItems:'center'}}>
               <Text style={[styles.emptyText, { color: Colors.warning }]}>
                 No trips yet
               </Text>

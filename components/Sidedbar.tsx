@@ -59,18 +59,28 @@ export default function SidedBar() {
 
   const [finderVisible, setFinderVisible] = useState(false);
 
-
+  // WhatsApp-style Spring & Fade Animation
   const toggleMenu = () => {
-    const toValue = menuOpen ? 0 : 2;
-    Animated.timing(menuAnim, {
-      toValue,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => setMenuOpen(!menuOpen));
+    if (menuOpen) {
+      Animated.timing(menuAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }).start(() => setMenuOpen(false));
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setMenuOpen(true);
+      Animated.spring(menuAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 80,
+        useNativeDriver: true,
+      }).start();
+    }
   };
 
   const toggleSearch = () => {
-    setFinderVisible(true)
+    setFinderVisible(true);
   };
 
   const handleLogout = () => {
@@ -114,26 +124,34 @@ export default function SidedBar() {
   const isDark = theme === "dark";
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  
+  // WhatsApp context menus must be solid to overlay background content cleanly
+  const menuBgColor = isDark ? "#232D36" : "#FFFFFF"; 
   const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
   const bg = isDark ? Colors.background : Colors.border;
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
-
   return (
     <View style={[styles.drawerTop, styles.containerTop, { backgroundColor: bg, paddingTop: insets.top + 5, paddingBottom: insets.bottom }]}>
+      
+      {/* WhatsApp style Invisible Dismiss Overlay */}
+      {menuOpen && (
+        <Pressable 
+          style={[StyleSheet.absoluteFill, { zIndex: 9 }]} 
+          onPress={toggleMenu} 
+        />
+      )}
+
       <View style={styles.drawer}>        
-        {/* <View style={{marginHorizontal: 12, width: 290, height: 0, borderWidth: .4, borderColor: subTextColor}} /> */}
         <View style={{paddingBottom:42}}>
           <Image
             source={
               isDark
-                ?
-                  require("../assets/images/emilgo_logo_white.png")
+                ? require("../assets/images/emilgo_logo_white.png")
                 : require("../assets/images/emilgo_logo_black.png")
             }
             style={styles.photoImg}
             resizeMode="contain"
-            width={25}
           />
         </View>
 
@@ -160,8 +178,6 @@ export default function SidedBar() {
         </ScrollView>
       </View>
 
-      {/* <Text style={[styles.version, { color: subTextColor }]}>Teqil v1.0.0</Text> */}
-
       <View style={[styles.drawerHeader, { backgroundColor: bg }]}>
           <View style={{ flexDirection: "row", gap: 10 }}>
             <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={48} />
@@ -185,18 +201,53 @@ export default function SidedBar() {
               <HugeiconsIcon icon={SearchIcon} size={20} color={textColor} />
             </Pressable>
             
+            {/* WhatsApp Styled Animated Dropdown */}
             {menuOpen && (
-              <Animated.View style={[styles.dropdown, { opacity: menuAnim, backgroundColor: cardBg}]}>
-                <Pressable style={styles.dropdownItem} onPress={() => { toggleMenu(); router.push("/(auth)/register"); }}>
-                  <HugeiconsIcon icon={Plus} size={25} color={textColor} />
-
-                  <Text style={[{fontSize: 15, fontWeight:'500'}, { color: textColor }]}>Create New Account</Text>
-              </Pressable>
-              <View style= {{height: .2, width: 'auto', borderColor: Colors.overlay, borderWidth: .3, marginVertical: 10}} />
-                <Pressable style={styles.dropdownItem} onPress={() => { toggleMenu(); router.push("/(auth)/login"); }}>
-                  <HugeiconsIcon icon={Contact} size={24} color={textColor} />
-
-                  <Text style={[{fontSize: 15, fontWeight:'500'}, { color: textColor }]}>Add an Existing Account Account</Text>
+              <Animated.View 
+                style={[
+                  styles.dropdown, 
+                  { 
+                    backgroundColor: menuBgColor,
+                    opacity: menuAnim,
+                    transform: [
+                      {
+                        scale: menuAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.6, 1],
+                        })
+                      },
+                      {
+                        translateX: menuAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [30, 0], // Grows from the right edge
+                        })
+                      },
+                      {
+                        translateY: menuAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [30, 0], // Grows from the bottom edge
+                        })
+                      }
+                    ]
+                  }
+                ]}
+              >
+                <Pressable 
+                  style={({ pressed }) => [styles.dropdownItem, pressed && { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)" }]} 
+                  onPress={() => { toggleMenu(); router.push("/(auth)/register"); }}
+                >
+                  <HugeiconsIcon icon={Plus} size={22} color={textColor} />
+                  <Text style={[styles.dropdownText, { color: textColor }]}>Create New Account</Text>
+                </Pressable>
+                
+                <View style={[styles.divider, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" }]} />
+                
+                <Pressable 
+                  style={({ pressed }) => [styles.dropdownItem, pressed && { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)" }]} 
+                  onPress={() => { toggleMenu(); router.push("/(auth)/login"); }}
+                >
+                  <HugeiconsIcon icon={Contact} size={22} color={textColor} />
+                  <Text style={[styles.dropdownText, { color: textColor }]}>Add Existing Account</Text>
                 </Pressable>
               </Animated.View>
             )}
@@ -207,22 +258,49 @@ export default function SidedBar() {
       <FindDriverModal
         visible={finderVisible}
         onClose={() => setFinderVisible(false)}
-        // onClose={handleFindDriverClose}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-
   drawerTop: { position: "absolute", top: 0, bottom: 0, left: 0, height: SCREEN_HEIGHT, width: SIDEBAR_WIDTH, zIndex: 2 },
   containerTop: { flex: 1, flexDirection: 'column', justifyContent: 'space-between' },
-  drawer: { flex: 1 , flexDirection: 'column' },
+  drawer: { flex: 1 , flexDirection: 'column', zIndex: 2 },
   drawerHeader: { paddingHorizontal: 20, paddingVertical: 30, paddingBottom: 20, flexDirection: "row", justifyContent: "space-between", zIndex: 10, borderTopWidth: 1, borderTopColor: "#6B6B6B3B" },
-  dropdown: { position: "absolute", bottom: 65, right: 0, width: 260, borderRadius: 30, padding: 20, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 5, elevation: 5 },
-  dropdownItem: {
-    paddingVertical: 15, flexDirection: 'row', gap: 15, alignItems: 'center', justifyContent: 'flex-start'
+  
+  // WhatsApp Style Dropdown UI
+  dropdown: { 
+    position: "absolute", 
+    bottom: 50, 
+    right: -10, 
+    width: 250, 
+    borderRadius: 16, 
+    paddingVertical: 8, 
+    shadowColor: "#000", 
+    shadowOpacity: 0.15, 
+    shadowRadius: 18, 
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+    zIndex: 100 
   },
+  dropdownItem: {
+    paddingVertical: 14, 
+    paddingHorizontal: 18,
+    flexDirection: 'row', 
+    gap: 16, 
+    alignItems: 'center', 
+    justifyContent: 'flex-start'
+  },
+  dropdownText: {
+    fontFamily: "Poppins_400Regular", 
+    fontSize: 15,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth, 
+    width: '100%', 
+  },
+
   roleContainer: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -238,10 +316,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     justifyContent:'center',
     borderWidth: 1,
-  },
-  logoBtn: {
-    width: 25,
-    height: 25,
   },
   photoImg: { width: 50, height: 50, alignSelf: "center" },
   navListcontainer: { borderRadius: 30, padding: 10, },
@@ -260,4 +334,3 @@ const styles = StyleSheet.create({
   signInsubText: { fontFamily: "Poppins_600SemiBold", fontSize: 16 },
   version: { textAlign: "center", padding: 30, paddingVertical: 12, fontSize: 11 },
 });
-

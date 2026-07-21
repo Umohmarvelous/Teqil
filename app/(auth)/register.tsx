@@ -190,11 +190,10 @@ const roleStyles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 20,
+    borderRadius: 9,
     paddingVertical: 20,
     paddingHorizontal: 10,
     gap: 6,
-    borderWidth: 1.5,
   },
   cardLabel: {
     fontFamily: "Poppins_600SemiBold",
@@ -407,7 +406,7 @@ const oauthStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    borderRadius: 26,
+    borderRadius: 9,
     height: 52,
     borderWidth: 1,
     flex: 1,
@@ -501,7 +500,7 @@ function FormField({
 }
 
 const fieldStyles = StyleSheet.create({
-  wrap: { marginBottom: 4 },
+  wrap: { marginBottom: 14 },
   label: {
     fontFamily: "Poppins_500Medium",
     fontSize: 13,
@@ -512,10 +511,10 @@ const fieldStyles = StyleSheet.create({
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 26,
+    borderRadius: 9,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderWidth: 1.5,
+    borderWidth: .2,
     borderColor: "transparent",
   },
   inputRowError: { borderColor: Colors.error },
@@ -761,7 +760,7 @@ export default function RegisterScreen() {
       keyboardVerticalOffset={0}
     >
       {/* Header — matches login.tsx header exactly */}
-      <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
+      <View style={[styles.header, { paddingTop: topPadding + 2 }, {backgroundColor:'transparent'}]}>
         <Pressable style={styles.backBtn} onPress={() => router.dismissTo("/(main)")}>
           <Ionicons name="chevron-back" size={22} color={textColor} />
         </Pressable>
@@ -999,8 +998,8 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "flex-start",
-    justifyContent: "space-around",
-    paddingHorizontal: 20,
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
     // paddingBottom: 8,
   },
   pageHeaderContainer: { alignItems: "center", marginBottom: 0 },
@@ -1022,10 +1021,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 5,
   },
-  scrollContent: { paddingHorizontal: 44, paddingTop: 24 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 24 },
   submitBtn: {
     borderWidth: 1,
-    borderRadius: 26,
+    borderRadius: 9,
     height: 56,
     flexDirection: "row",
     alignItems: "center",
