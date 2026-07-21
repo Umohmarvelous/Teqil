@@ -2,12 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const services = [
-  'auth-service',
-  'trip-service',
-  'payment-service',
-  'engagement-service',
-  'ad-analytics-service',
-  'notification-service'
+  'credits-service'
 ];
 
 const packageJsonTemplate = (name) => `{

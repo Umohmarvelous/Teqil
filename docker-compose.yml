@@ -15,6 +15,7 @@ services:
       - engagement-service
       - ad-analytics-service
       - notification-service
+      - credits-service
     networks:
       - teqil-network
 
@@ -120,6 +121,17 @@ services:
       - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
     depends_on:
       - rabbitmq
+    networks:
+      - teqil-network
+
+  credits-service:
+    build:
+      context: ./services/credits-service
+    environment:
+      - NODE_ENV=development
+      - PORT=3007
+      - SUPABASE_URL=${EXPO_PUBLIC_SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
     networks:
       - teqil-network
 

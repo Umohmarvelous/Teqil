@@ -69,6 +69,45 @@ paths:
         '200':
           description: Credit added
 
+  /credits/balance:
+    get:
+      summary: Get user's credit balance
+      tags:
+        - Credits
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Returned credit balance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  balance:
+                    type: number
+  
+  /credits/earn:
+    post:
+      summary: Earn credits through engagement
+      tags:
+        - Credits
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                actionType:
+                  type: string
+                  enum: [like, comment, share, ad_view]
+      responses:
+        '200':
+          description: Credits successfully earned
+
   /ads/event:
     post:
       summary: Ingest ad impression/click event
