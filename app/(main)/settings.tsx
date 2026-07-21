@@ -18,7 +18,7 @@ import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { Colors } from "@/constants/colors";
 import { supabase } from "@/src/services/supabase";
-import type { MapStyle, FontSize, HistoryRetention } from "@/src/store/useSettingsStore";
+import type { FontSize, HistoryRetention } from "@/src/store/useSettingsStore";
 import { StatusBar } from "expo-status-bar";
 import ReplayTutorialButton from "@/components/ReplayTutorialButton";
 import { HugeiconsIcon } from "@hugeicons/react-native";
@@ -27,7 +27,6 @@ import {
   Car02Icon, 
   Checkmark, 
   CheckmarkCircle03FreeIcons, 
-  ColorPickerIcon, 
   DatabaseSyncIcon,  
   DeleteThrowIcon, 
   Download, 
@@ -35,10 +34,8 @@ import {
   Fingerprint, 
   Font, 
   Gift, 
-  Languages, 
   Location, 
   Mail, 
-  MapsIcon, 
   Megaphone, 
   Money04Icon, 
   Moon02Icon, 
@@ -569,7 +566,7 @@ export default function SettingsTab() {
                     { text: "Cancel", style: "cancel" },
                     {
                       text: "Save",
-                      onPress: (v) =>
+                      onPress: (v: string | undefined) =>
                         settings.setDriverSettings({ defaultVehicle: v || "" }),
                     },
                   ],

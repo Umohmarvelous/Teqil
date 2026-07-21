@@ -37,8 +37,6 @@ import Animated, {
   withSpring,
   withDelay,
   Easing,
-  FadeIn,
-  FadeOut,
 } from "react-native-reanimated";
 
 import { useAuthStore } from "@/src/store/useStore";

@@ -8,12 +8,14 @@ import {
   Platform,
   Alert,
   TextInput,
-  // KeyboardAvoidingView,
+  Modal,
+  KeyboardAvoidingView,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import * as Clipboard from "expo-clipboard";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { supabase } from "@/src/services/supabase";
@@ -44,7 +46,7 @@ import {
   ChevronDown,
   Search02Icon,
   ChevronRight,
-
+  Copy01Icon,
 } from "@hugeicons/core-free-icons";
 import type { EmergencyContact, Trip } from "@/src/models/types";
 import { StatusBar } from "expo-status-bar";
@@ -54,14 +56,12 @@ import QuickReceiveModal from "@/components/quickrecieveModal";
 import StatPill from "@/components/StatPill";
 
 import {
-
   formatNaira,
   coinsToNaira,
 } from "@/src/utils/helpers";
 import BalanceCard from "@/components/BalanceCard";
 
 import FindDriverModal from "@/components/FindDriverModal";
-
 
 // Reusable InfoRow with Hugeicons
 function InfoRow({
@@ -82,8 +82,13 @@ function InfoRow({
   textColor: string;
   subTextColor: string;
   borderColor: string;
-  }) {
-
+}) {
+  const handleCopy = async () => {
+    if (value) {
+      await Clipboard.setStringAsync(value);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
 
   return (
     <View style={[infoStyles.row, { borderBottomColor: borderColor }]}>
@@ -97,9 +102,14 @@ function InfoRow({
         </Text>
       </View>
       {editable && (
-        <Pressable onPress={onEdit} hitSlop={8}>
-          <HugeiconsIcon icon={ Edit02Icon } fill={Colors.primary} size={18} color={Colors.primary} />
-        </Pressable>
+        <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
+          <Pressable onPress={handleCopy} hitSlop={12}>
+            <HugeiconsIcon icon={Copy01Icon as any} size={18} color={Colors.primary} />
+          </Pressable>
+          <Pressable onPress={onEdit} hitSlop={12}>
+            <HugeiconsIcon icon={Edit02Icon as any} fill={Colors.primary} size={18} color={Colors.primary} />
+          </Pressable>
+        </View>
       )}
     </View>
   );
@@ -143,15 +153,12 @@ export default function ProfileTab() {
   const [saving, setSaving] = useState(false);
   const [newContactName, setNewContactName] = useState("");
   const [newContactPhone, setNewContactPhone] = useState("");
-  const [parkExpanded, setParkExpanded] = useState(false)
+  const [parkExpanded, setParkExpanded] = useState(false);
   const [showPersonalInfo, setShowPersonalInfo] = useState(true);
   const [showDriverDetails, setShowDriverDetails] = useState(true);
 
   const [totalEarnedCoins, setTotalEarnedCoins] = useState(0);
-
   const [finderVisible, setFinderVisible] = useState(false);
-
-
 
   const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.border;
@@ -161,46 +168,40 @@ export default function ProfileTab() {
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
   const modalBg = isDark ? Colors.text : Colors.textWhite;
 
-
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const [receiveVisible, setReceiveVisible] = useState(false);
   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
 
   useEffect(() => {
-  if (!user?.id || user.role !== "driver") return;
-  const loadEarnings = async () => {
-    const trips = await TripsStorage.getByDriverId(user.id);
-    const completed = trips.filter(t => t.status === "completed");
-    // Calculate coins earned (using same logic as in driver history)
-    const earned = completed.reduce((sum, trip) => {
-      // Estimate coins: 5 base + 2 per passenger + duration bonus
-      const passengerCount = 0; // We don't have passenger count here easily; you could fetch
-      const durationMinutes = trip.end_time
-        ? (new Date(trip.end_time).getTime() - new Date(trip.start_time).getTime()) / 60000
-        : 0;
-      return sum + Math.round(5 + passengerCount * 2 + Math.floor(durationMinutes / 30));
-    }, 0);
-    setTotalEarnedCoins(earned);
-  };
-  loadEarnings();
+    if (!user?.id || user.role !== "driver") return;
+    const loadEarnings = async () => {
+      const trips = await TripsStorage.getByDriverId(user.id);
+      const completed = trips.filter(t => t.status === "completed");
+      const earned = completed.reduce((sum, trip) => {
+        const passengerCount = 0; 
+        const durationMinutes = trip.end_time
+          ? (new Date(trip.end_time).getTime() - new Date(trip.start_time).getTime()) / 60000
+          : 0;
+        return sum + Math.round(5 + passengerCount * 2 + Math.floor(durationMinutes / 30));
+      }, 0);
+      setTotalEarnedCoins(earned);
+    };
+    loadEarnings();
   }, [user]);
 
   const completedTrips = recentTrips.filter((t) => t.status === "completed").length;
-  // const coins = user?.points_balance || 0;
 
   useEffect(() => {
     if (!user?.id) return;
     TripsStorage.getByDriverId(user.id).then((trips) =>
       setRecentTrips(trips.slice(-5).reverse())
     );
-    
   }, [user?.id]);
-
 
   const pickPhoto = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -260,415 +261,409 @@ export default function ProfileTab() {
     setFinderVisible(true);
   };
 
-
   return (
-    <ScrollView style={[styles.root, { backgroundColor: bg }]}>
-      <StatusBar style={isDark ? 'light' : 'dark'}  />
-      <View style={ styles.mainContainer}>
+    <KeyboardAvoidingView 
+      style={{ flex: 1, backgroundColor: bg }} 
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+    >
+      <ScrollView 
+        style={styles.root} 
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <StatusBar style={isDark ? 'light' : 'dark'}  />
+        <View style={ styles.mainContainer}>
 
-        {/* Hero Section */}
-        <View style={ [styles.profileHeader, { marginTop: topPadding + 25 },  ]}>
-          <View style={[styles.hero]}>
-            <Pressable onPress={pickPhoto} >
-              <View style={styles.avatarWrap}>
-                <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={58} />
+          {/* Hero Section */}
+          <View style={ [styles.profileHeader, { marginTop: topPadding + 25 },  ]}>
+            <View style={[styles.hero]}>
+              <Pressable onPress={pickPhoto} >
+                <View style={styles.avatarWrap}>
+                  <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={58} />
+                </View>
+                <View style={styles.cameraBtn}>
+                  <HugeiconsIcon icon={Camera01Icon} size={14} color="#fff" />
+                </View>
+              </Pressable>
+              <View style={{alignItems: 'flex-start', justifyContent: 'flex-start', gap: 3 }}>
+                <Text style={[styles.heroName, {color: textColor} ]}>{user?.full_name || "No user"}</Text>
+                <View style={styles.roleBadge}>
+                  <Text style={styles.roleText}>
+                    {user?.role === "driver" ? (
+                      <View>
+                        {user?.driver_id && (
+                          <View style={styles.driverIdChip}>
+                            <HugeiconsIcon icon={IdentityCardFreeIcons} size={12} color={Colors.primary} />
+                            <Text style={styles.driverIdText}>{user.driver_id}</Text>
+                          </View>
+                        )}
+                      </View>
+                    ) : user?.role === "park_owner" ? "Park Owner" : (
+                      <View style={ styles.roleContainer}>
+                        <HugeiconsIcon icon={IdentityCardFreeIcons} size={16} color={Colors.gold} />
+                          <Text style={ [{color: Colors.gold} ]}>no role</Text>
+                      </View>
+                    )}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.cameraBtn}>
-                <HugeiconsIcon icon={Camera01Icon} size={14} color="#fff" />
-              </View>
-            </Pressable>
-            <View style={{alignItems: 'flex-start', justifyContent: 'flex-start', gap: 3 }}>
-              <Text style={[styles.heroName, {color: textColor} ]}>{user?.full_name || "No user"}</Text>
-              <View style={styles.roleBadge}>
-                <Text style={styles.roleText}>
-                  {user?.role === "driver" ? (
-                    <View>
-                      {user?.driver_id && (
-                        <View style={styles.driverIdChip}>
-                          <HugeiconsIcon icon={IdentityCardFreeIcons} size={12} color={Colors.primary} />
-                          <Text style={styles.driverIdText}>{user.driver_id}</Text>
-                        </View>
-                      )}
-                    </View>
-                  ) : user?.role === "park_owner" ? "Park Owner" : (
-                    <View style={ styles.roleContainer}>
-                      <HugeiconsIcon icon={IdentityCardFreeIcons} size={16} color={Colors.gold} />
-                        <Text style={ [{color: Colors.gold} ]}>no role</Text>
-                    </View>
-                  )}
-                </Text>
-              </View>
+            </View>
+
+            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 15,  padding: 10, paddingTop:0}}>
+              {/* Sign Out Button */}
+              <Pressable
+                  style={[
+                    styles.menuList,
+                    {
+                      backgroundColor: isDark
+                        ? Colors.overlayLight
+                        : Colors.textWhite,
+                      borderColor,
+                    },
+                  ]}
+              >
+                <Pressable onPress={toggleSearch}>
+                  <HugeiconsIcon icon={Search02Icon} size={21} color={textColor} />
+                </Pressable>
+
+                <Pressable
+                  style={[styles.signOutBtn, { borderColor: "transparent" }]}
+                  onPress={() => {
+                    Alert.alert("Sign Out", "Are you sure?", [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Sign Out",
+                        style: "destructive",
+                        onPress: async () => {
+                          const { signOut } = await import("@/src/services/supabase");
+                          const { logout } = useAuthStore.getState();
+                          await signOut();
+                          logout();
+                          router.replace("/(auth)/login");
+                        },
+                      },
+                    ]);
+                  }}>
+                  <HugeiconsIcon icon={LogoutIcon} size={21} color={textColor} />
+                </Pressable>
+              </Pressable>
+
+              {user?.role === "driver" && (
+                <Pressable onPress={() => setReceiveVisible(true)}>
+                  <HugeiconsIcon icon={QrCode01Icon} size={23} color={textColor} />
+                </Pressable>
+              )}
             </View>
           </View>
 
-          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 15,  padding: 10, paddingTop:0}}>
-            {/* Sign Out Button */}
-            <Pressable
-                style={[
-                  styles.menuList,
-                  {
-                    backgroundColor: isDark
-                      ? Colors.overlayLight
-                      : Colors.textWhite,
-                    borderColor,
-                  },
-                  // {padding: 20}
-                ]}
-            >
-              <Pressable                 
-              onPress={toggleSearch}
-              >
-                <HugeiconsIcon icon={Search02Icon} size={21} color={textColor} />
-              </Pressable>
-
-
-              <Pressable
-                style={[styles.signOutBtn, { borderColor: "transparent" }]}
-                onPress={() => {
-                  Alert.alert("Sign Out", "Are you sure?", [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                      text: "Sign Out",
-                      style: "destructive",
-                      onPress: async () => {
-                        const { signOut } = await import("@/src/services/supabase");
-                        const { logout } = useAuthStore.getState();
-                        await signOut();
-                        logout();
-                        router.replace("/(auth)/login");
-                      },
-                    },
-                  ]);
-                }}>
-                <HugeiconsIcon icon={LogoutIcon} size={21} color={textColor} />
-                {/* <Text style={styles.signOutText}>Sign Out</Text> */}
-              </Pressable>
-            </Pressable>
-
-
-            {user?.role === "driver" && (
-              <Pressable onPress={() => setReceiveVisible(true)}>
-                <HugeiconsIcon icon={QrCode01Icon} size={23} color={textColor} />
-              </Pressable>
-            )}
-          </View>
-        </View>
-
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          { user?.role === "driver" ?
-            (
-              <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
-                  <DriverDashboard />
-              </View>
-            )
-            : user?.role === "passenger" ? (
+          <View style={styles.scrollContent}>
+            { user?.role === "driver" ?
+              (
                 <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
-                  <PassengerDashboard />
+                    <DriverDashboard />
                 </View>
-            ) : (
-                <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
-                  <BalanceCard
-                    coins={totalEarnedCoins}
-                    // onQuickTransferPress={() => setQuickTransferVisible(true)}
-                    onQuickTransferPress={() => { }}
+              )
+              : user?.role === "passenger" ? (
+                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
+                    <PassengerDashboard />
+                  </View>
+              ) : (
+                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
+                    <BalanceCard
+                      coins={totalEarnedCoins}
+                      onQuickTransferPress={() => { }}
+                    />
+                  </View>
+            )}
+
+            {/* ── Earnings summary strip ── */}
+            {user?.role === "driver" && (
+              <View style={styles.statsStrip}>
+                <View style={[ styles.statInner ]}>
+                  <StatPill
+                    iconName={CheckmarkBadge01Icon}
+                    label="Trips"
+                    value={recentTrips.length.toString()}
+                    color={textColor}
+                  />
+                  <StatPill
+                    iconName={Trophy}
+                    label="Completed"
+                    value={completedTrips.toString()}
+                    color={textColor}
                   />
                 </View>
-          )}
 
-          {/* ── Earnings summary strip ── */}
-          {user?.role === "driver" && (
-          // {!user?.role  && (
-            <View style={styles.statsStrip}>
-              <View style={[ styles.statInner ]}>
-                <StatPill
-                  iconName={CheckmarkBadge01Icon}
-                  label="Trips"
-                  value={recentTrips.length.toString()}
-                  color={textColor}
-                />
-                <StatPill
-                  iconName={Trophy}
-                  label="Completed"
-                  value={completedTrips.toString()}
-                  color={textColor}
-                />
-              </View>
-
-              <View style={[ styles.statInner ]}>
-                <StatPill
-                  iconName={ Wallet}
-                  label="Earned"
-                  value={formatNaira(coinsToNaira(totalEarnedCoins))}
-                  color={textColor}
-                />
-                <StatPill
-                  iconName={Star}
-                  label="Rating"
-                  value={user?.avg_rating ? user.avg_rating.toFixed(1) : "—"}
-                  color={textColor}
-                />
-              </View>
-            </View>
-          )}
-        
-          {/* Personal Information */}
-          <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
-            <Pressable style={{
-              flexDirection: 'row', 
-              alignItems:'flex-start', 
-              flex: 1, 
-              justifyContent: 'space-between'
-
-            }} 
-              onPress={() =>  setShowPersonalInfo(v => !v)} hitSlop={8}
-              
-            >
-              <View style={{flexDirection: 'row', gap: 10, marginHorizontal: 7}}>
-                <HugeiconsIcon icon={UserIcon} size={20} color={textColor} />
-                <Text style={[styles.cardTitle, { color: textColor }]}>Personal Information</Text>
-              </View>
-              <HugeiconsIcon icon={showPersonalInfo ? ChevronRight : ChevronDown} size={22} color={textColor}/>
-            </Pressable>
-
-            {showPersonalInfo && (
-              <View>
-                <InfoRow
-                  icon={UserIcon}
-                  label="Full Name"
-                  value={user?.full_name || ""}
-                  editable
-                  onEdit={() => startEdit("full_name", user?.full_name || "")}
-                  textColor={textColor}
-                  subTextColor={subTextColor}
-                  borderColor={borderColor}
-                />
-                <InfoRow
-                  icon={Mail01Icon}
-                  label="Email"
-                  value={user?.email || ""}
-                  textColor={textColor}
-                  subTextColor={subTextColor}
-                  borderColor={borderColor}
-                />
-                <InfoRow
-                  icon={CallIcon}
-                  label="Phone"
-                  value={user?.phone || ""}
-                  editable
-                  onEdit={() => startEdit("phone", user?.phone || "")}
-                  textColor={textColor}
-                  subTextColor={subTextColor}
-                  borderColor={borderColor}
-                />
-                <InfoRow
-                  icon={CalendarIcon}
-                  label="Age"
-                  value={user?.age?.toString() || ""}
-                  textColor={textColor}
-                  subTextColor={subTextColor}
-                  borderColor="transparent"
-                />
+                <View style={[ styles.statInner ]}>
+                  <StatPill
+                    iconName={ Wallet}
+                    label="Earned"
+                    value={formatNaira(coinsToNaira(totalEarnedCoins))}
+                    color={textColor}
+                  />
+                  <StatPill
+                    iconName={Star}
+                    label="Rating"
+                    value={user?.avg_rating ? user.avg_rating.toFixed(1) : "—"}
+                    color={textColor}
+                  />
+                </View>
               </View>
             )}
-          </View>
+          
+            {/* Personal Information */}
+            <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
+              <Pressable style={{
+                flexDirection: 'row', 
+                alignItems:'flex-start', 
+                flex: 1, 
+                justifyContent: 'space-between'
+              }} 
+                onPress={() =>  setShowPersonalInfo(v => !v)} hitSlop={8}
+              >
+                <View style={{flexDirection: 'row', gap: 10, marginHorizontal: 7}}>
+                  <HugeiconsIcon icon={UserIcon} size={20} color={textColor} />
+                  <Text style={[styles.cardTitle, { color: textColor }]}>Personal Information</Text>
+                </View>
+                <HugeiconsIcon icon={showPersonalInfo ? ChevronRight : ChevronDown} size={22} color={textColor}/>
+              </Pressable>
 
-          {/* Driver Details */}
-          {user?.role === "driver" && (
-            <View>
-              <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
-                <Pressable style={{
-                  flexDirection: 'row', 
-                  alignItems:'flex-start', 
-                  flex: 1, 
-                  justifyContent: 'space-between'
+              {showPersonalInfo && (
+                <View>
+                  <InfoRow
+                    icon={UserIcon}
+                    label="Full Name"
+                    value={user?.full_name || ""}
+                    editable
+                    onEdit={() => startEdit("full_name", user?.full_name || "")}
+                    textColor={textColor}
+                    subTextColor={subTextColor}
+                    borderColor={borderColor}
+                  />
+                  <InfoRow
+                    icon={Mail01Icon}
+                    label="Email"
+                    value={user?.email || ""}
+                    textColor={textColor}
+                    subTextColor={subTextColor}
+                    borderColor={borderColor}
+                  />
+                  <InfoRow
+                    icon={CallIcon}
+                    label="Phone"
+                    value={user?.phone || ""}
+                    editable
+                    onEdit={() => startEdit("phone", user?.phone || "")}
+                    textColor={textColor}
+                    subTextColor={subTextColor}
+                    borderColor={borderColor}
+                  />
+                  <InfoRow
+                    icon={CalendarIcon}
+                    label="Age"
+                    value={user?.age?.toString() || ""}
+                    textColor={textColor}
+                    subTextColor={subTextColor}
+                    borderColor="transparent"
+                  />
+                </View>
+              )}
+            </View>
 
-                }} 
-                  onPress={() => setShowDriverDetails(v => !v)} hitSlop={8}
-                >
-                  <Text style={[styles.cardTitle, { color: textColor }]}>Driver Details</Text>
-                  <HugeiconsIcon icon={showDriverDetails ? ChevronRight : ChevronDown} size={22} color={textColor}/>
-                </Pressable>
+            {/* Driver Details */}
+            {user?.role === "driver" && (
+              <View>
+                <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
+                  <Pressable style={{
+                    flexDirection: 'row', 
+                    alignItems:'flex-start', 
+                    flex: 1, 
+                    justifyContent: 'space-between'
+                  }} 
+                    onPress={() => setShowDriverDetails(v => !v)} hitSlop={8}
+                  >
+                    <Text style={[styles.cardTitle, { color: textColor }]}>Driver Details</Text>
+                    <HugeiconsIcon icon={showDriverDetails ? ChevronRight : ChevronDown} size={22} color={textColor}/>
+                  </Pressable>
 
-                {showDriverDetails && (
-                  <View>
-                    <InfoRow
-                      icon={IdentityCardIcon}
-                      label="Driver ID"
-                      value={user?.driver_id || ""}
-                      textColor={textColor}
-                      subTextColor={subTextColor}
-                      borderColor={borderColor}
-                    />
-                    <InfoRow
-                      icon={CarIcon}
-                      label="Vehicle"
-                      value={user?.vehicle_details || ""}
-                      editable
-                      onEdit={() => startEdit("vehicle_details", user?.vehicle_details || "")}
-                      textColor={textColor}
-                      subTextColor={subTextColor}
-                      borderColor={borderColor}
-                    />
-                    <InfoRow
-                      icon={BuildingIcon}
-                      label="Park Name"
-                      value={user?.park_name || ""}
-                      editable
-                      onEdit={() => startEdit("park_name", user?.park_name || "")}
-                      textColor={textColor}
-                      subTextColor={subTextColor}
-                      borderColor={borderColor}
-                    />
-                    <InfoRow
-                      icon={LocationIcon}
-                      label="Park Location"
-                      value={user?.park_location || ""}
-                      editable
-                      onEdit={() => startEdit("park_location", user?.park_location || "")}
-                      textColor={textColor}
-                      subTextColor={subTextColor}
-                      borderColor="transparent"
-                    />
-                  </View>
+                  {showDriverDetails && (
+                    <View>
+                      <InfoRow
+                        icon={IdentityCardIcon}
+                        label="Driver ID"
+                        value={user?.driver_id || ""}
+                        textColor={textColor}
+                        subTextColor={subTextColor}
+                        borderColor={borderColor}
+                      />
+                      <InfoRow
+                        icon={CarIcon}
+                        label="Vehicle"
+                        value={user?.vehicle_details || ""}
+                        editable
+                        onEdit={() => startEdit("vehicle_details", user?.vehicle_details || "")}
+                        textColor={textColor}
+                        subTextColor={subTextColor}
+                        borderColor={borderColor}
+                      />
+                      <InfoRow
+                        icon={BuildingIcon}
+                        label="Park Name"
+                        value={user?.park_name || ""}
+                        editable
+                        onEdit={() => startEdit("park_name", user?.park_name || "")}
+                        textColor={textColor}
+                        subTextColor={subTextColor}
+                        borderColor={borderColor}
+                      />
+                      <InfoRow
+                        icon={LocationIcon}
+                        label="Park Location"
+                        value={user?.park_location || ""}
+                        editable
+                        onEdit={() => startEdit("park_location", user?.park_location || "")}
+                        textColor={textColor}
+                        subTextColor={subTextColor}
+                        borderColor="transparent"
+                      />
+                    </View>
+                    )}
+                </View>
+              </View>
+            )}
+
+            {/* Park Owner Details */}
+            {user?.role === "park_owner" && (
+              <View>
+                <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
+                  <Pressable style={{
+                    flexDirection: 'row', 
+                    alignItems:'flex-start', 
+                    flex: 1, 
+                    justifyContent: 'space-between'
+                  }} 
+                    onPress={() => setParkExpanded((v) => !v)} hitSlop={8}
+                  > 
+                    <Text style={[styles.cardTitle, { color: textColor }]}>Park Details</Text>
+                    <HugeiconsIcon icon={parkExpanded ? ChevronRight : ChevronDown} size={22} color={textColor}/>
+                  </Pressable>
+
+                  {parkExpanded ? (
+                    <View>
+                      <InfoRow
+                        icon={BuildingIcon}
+                        label="Park Name"
+                        value={user?.park_name || ""}
+                        editable
+                        onEdit={() => startEdit("park_name", user?.park_name || "")}
+                        textColor={textColor}
+                        subTextColor={subTextColor}
+                        borderColor={borderColor}
+                      />
+                      <InfoRow
+                        icon={LocationIcon}
+                        label="Park Location"
+                        value={user?.park_location || ""}
+                        editable
+                        onEdit={() => startEdit("park_location", user?.park_location || "")}
+                        textColor={textColor}
+                        subTextColor={subTextColor}
+                        borderColor="transparent"
+                      />
+                    </View>
+                      ) : (
+                    <></>
                   )}
+                </View>
               </View>
-            </View>
-          )}
+            )}
 
-          {/* Park Owner Details */}
-          {user?.role === "park_owner" && (
-            <View>
-              <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
-                <Pressable style={{
-                  flexDirection: 'row', 
-                  alignItems:'flex-start', 
-                  flex: 1, 
-                  justifyContent: 'space-between'
-
-                }} 
-                  onPress={() => setParkExpanded((v) => !v)} hitSlop={8}
-                > 
-                  <Text style={[styles.cardTitle, { color: textColor }]}>Park Details</Text>
-                  <HugeiconsIcon icon={parkExpanded ? ChevronRight : ChevronDown} size={22} color={textColor}/>
-                </Pressable>
-
-                {parkExpanded ? (
-                  <View>
-                    <InfoRow
-                      icon={BuildingIcon}
-                      label="Park Name"
-                      value={user?.park_name || ""}
-                      editable
-                      onEdit={() => startEdit("park_name", user?.park_name || "")}
-                      textColor={textColor}
-                      subTextColor={subTextColor}
-                      borderColor={borderColor}
-                    />
-                    <InfoRow
-                      icon={LocationIcon}
-                      label="Park Location"
-                      value={user?.park_location || ""}
-                      editable
-                      onEdit={() => startEdit("park_location", user?.park_location || "")}
-                      textColor={textColor}
-                      subTextColor={subTextColor}
-                      borderColor="transparent"
-                    />
-                  </View>
-                    ) : (
-                  <></>
-                )}
-              </View>
-            </View>
-          )}
-
-          {/* Emergency Contacts (Passenger) */}
-          {/* {user?.role === "passenger" && ( */}
-          {!user?.role && (
-            <View>
-              <View style={[styles.card, { backgroundColor: cardBg }]}>
-              <Text style={[styles.cardTitle, { color: textColor }]}>Emergency Contacts</Text>
-                {((user as any)?.emergency_contacts as EmergencyContact[] || []).map((c, idx) => (
-                  <View key={idx} style={[styles.contactRow, { borderBottomColor: borderColor }]}>
-                    <View style={[styles.contactAvatar, { backgroundColor: Colors.primaryLight }]}>
-                      <Text style={[styles.contactInitial, { color: Colors.primary }]}>{c.name.charAt(0).toUpperCase()}</Text>
+            {/* Emergency Contacts (Passenger) */}
+            {!user?.role && (
+              <View>
+                <View style={[styles.card, { backgroundColor: cardBg }]}>
+                <Text style={[styles.cardTitle, { color: textColor }]}>Emergency Contacts</Text>
+                  {((user as any)?.emergency_contacts as EmergencyContact[] || []).map((c, idx) => (
+                    <View key={idx} style={[styles.contactRow, { borderBottomColor: borderColor }]}>
+                      <View style={[styles.contactAvatar, { backgroundColor: Colors.primaryLight }]}>
+                        <Text style={[styles.contactInitial, { color: Colors.primary }]}>{c.name.charAt(0).toUpperCase()}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.contactName, { color: textColor }]}>{c.name}</Text>
+                        <Text style={[styles.contactPhone, { color: subTextColor }]}>{c.phone}</Text>
+                      </View>
+                      <Pressable onPress={() => removeContact(idx)} hitSlop={8}>
+                        <HugeiconsIcon icon={Close} size={20} color={Colors.error} />
+                      </Pressable>
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.contactName, { color: textColor }]}>{c.name}</Text>
-                      <Text style={[styles.contactPhone, { color: subTextColor }]}>{c.phone}</Text>
-                    </View>
-                    <Pressable onPress={() => removeContact(idx)} hitSlop={8}>
-                      <HugeiconsIcon icon={Close} size={20} color={Colors.error} />
+                  ))}
+                  <View style={styles.addContactRow}>
+                    <TextInput
+                      style={[styles.addInput, { backgroundColor: cardBg, color: textColor }]}
+                      placeholder="Name"
+                      placeholderTextColor={subTextColor}
+                      value={newContactName}
+                      onChangeText={setNewContactName}
+                    />
+                    <TextInput
+                      style={[styles.addInput, { flex: 1.5, backgroundColor: cardBg, color: textColor }]}
+                      placeholder="Phone"
+                      placeholderTextColor={subTextColor}
+                      keyboardType="phone-pad"
+                      value={newContactPhone}
+                      onChangeText={setNewContactPhone}
+                    />
+                    <Pressable style={[styles.addBtn, { backgroundColor: Colors.primary }]} onPress={addEmergencyContact}>
+                      <HugeiconsIcon icon={AddCircleIcon as any} size={30} color="#fff" />
                     </Pressable>
                   </View>
-                ))}
-                <View style={styles.addContactRow}>
-                  <TextInput
-                    style={[styles.addInput, { backgroundColor: cardBg }]}
-                    placeholder="Name"
-                    placeholderTextColor={textColor}
-                    value={newContactName}
-                    onChangeText={setNewContactName}
-                  />
-                  <TextInput
-                    style={[styles.addInput, { flex: 1.5, backgroundColor: cardBg }]}
-                    placeholder="Phone"
-                    placeholderTextColor={textColor}
-                    keyboardType="phone-pad"
-                    value={newContactPhone}
-                    onChangeText={setNewContactPhone}
-                  />
-                  <Pressable style={[styles.addBtn, { backgroundColor: Colors.primary }]} onPress={addEmergencyContact}>
-                    <HugeiconsIcon icon={AddCircleIcon} size={30} color="#fff" />
-                  </Pressable>
                 </View>
               </View>
-            </View>
-          )}
-
-
-        </ScrollView>
-      </View>
-
-      {/* Edit Modal */}
-        
-      {editField && (
-        <View style={styles.editOverlay}>
-            <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setEditField(null)} />
-            <View style={[styles.editSheet, { backgroundColor: modalBg }]}>
-              <Text style={[styles.editTitle, { color: textColor }]}>Edit {editField.replace("_", " ")}</Text>
-              <TextInput
-                style={[styles.editInput, { color: textColor, borderColor, backgroundColor: cardBg }]}
-                value={editValue}
-                onChangeText={setEditValue}
-                autoFocus
-                onSubmitEditing={saveEdit}
-              />
-              <View style={styles.editActions}>
-                <Pressable style={[styles.editCancelBtn, { borderColor }]} onPress={() => setEditField(null)}>
-                  <Text style={[styles.editCancelText, { color: textColor }]}>Cancel</Text>
-                </Pressable>
-                <Pressable style={[styles.editSaveBtn, { backgroundColor: bg }]} onPress={saveEdit} disabled={saving}>
-                  <Text style={[styles.editSaveText, { color: textColor }]}>{saving ? "Saving..." : "Save"}</Text>
-                </Pressable>
-              </View>
-            </View>
+            )}
+          </View>
         </View>
-      )}
+      </ScrollView>
 
+      {/* Edit Modal Sheet with Smooth Slide Animation */}
+      <Modal visible={!!editField} transparent animationType="slide" onRequestClose={() => setEditField(null)}>
+        <KeyboardAvoidingView 
+          style={styles.editOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setEditField(null)} />
+          <View style={[styles.editSheet, { backgroundColor: modalBg }]}>
+            <Text style={[styles.editTitle, { color: textColor }]}>Edit {editField?.replace("_", " ")}</Text>
+            <TextInput
+              style={[styles.editInput, { color: textColor, borderColor, backgroundColor: cardBg }]}
+              value={editValue}
+              onChangeText={setEditValue}
+              autoFocus
+              onSubmitEditing={saveEdit}
+            />
+            <View style={styles.editActions}>
+              <Pressable style={[styles.editCancelBtn, { borderColor }]} onPress={() => setEditField(null)}>
+                <Text style={[styles.editCancelText, { color: textColor }]}>Cancel</Text>
+              </Pressable>
+              <Pressable style={[styles.editSaveBtn, { backgroundColor: bg }]} onPress={saveEdit} disabled={saving}>
+                <Text style={[styles.editSaveText, { color: textColor }]}>{saving ? "Saving..." : "Save"}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       <FindDriverModal
         visible={finderVisible}
         onClose={() => setFinderVisible(false)}
       />
 
-      {/* Quick Receive modal */}
       <QuickReceiveModal
         visible={receiveVisible}
         onClose={() => setReceiveVisible(false)}
         driverId={user?.driver_id}
       />
-    </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -681,15 +676,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 50,
-    
-    
-    // backgroundColor: Colors.primaryDarker,
-    // marginHorizontal: 10,
-    // borderWidth: .5,
-    // flex: 1,
-    // padding: 15,
-    // paddingRight: 25,
-    // borderRadius: 80
   },
   mainContainer: {
     paddingHorizontal: 8,
@@ -743,7 +729,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    // borderWidth: .5,
     marginVertical: 2,
     borderColor: Colors.textSecondary,
   },
@@ -753,22 +738,17 @@ const styles = StyleSheet.create({
     color: Colors.gold,
     letterSpacing: 1.2,
   },
-
   roleContainer: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 4
   },
-
-
-
   scrollContent: {
     paddingBottom: 132,
     paddingHorizontal: 0,
     flex: 1,
   },
   coinbalanceSection: {
-    // borderWidth: 1,
     padding: 20,
     borderRadius: 30,
     marginBottom: 10,
@@ -784,10 +764,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: 'space-between',
     gap: 10,
-    // marginBottom: 14,
     borderRadius: 30,
     paddingVertical: 14,
-    // paddingHorizontal: 8,
     flexWrap: 'wrap',
     shadowColor: "#000",
     shadowOffset: { width: 1, height: 1 },
@@ -803,14 +781,10 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     padding: 20
   },
-
   statsDivider: { width: 12, height: 32, padding:30, backgroundColor: Colors.primary },
-
   card: {
     borderRadius: 30,
     padding: 28,
-    // borderWidth: 1,
-    // borderColor: '#fff',
     shadowColor: "#000",
     shadowOffset: { width: 1, height: 1 },
     shadowOpacity: 0.04,
@@ -822,7 +796,6 @@ const styles = StyleSheet.create({
   cardTitle: { 
     fontFamily: "Poppins_600SemiBold", 
     fontSize: 14, 
-    // marginBottom: 10,
     textAlign:'left' 
   },
   cardSub: {
@@ -852,13 +825,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   editOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0 0 0 / 0.77)", justifyContent: "flex-end", zIndex: 200 },
-  // scrollContent: {
-  //   paddingHorizontal: 10,
-  //   gap: 16,
-  //   // borderWidth: 2, borderColor: 'red',
-  //   backgroundColor: Colors.textInverse
-    
-  // },
   editSheet: { borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 34, paddingBottom: 90, gap: 16 },
   editTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 16, textTransform: "capitalize" },
   editInput: { borderWidth: 1.5, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, fontFamily: "Poppins_400Regular", fontSize: 15 },
@@ -868,6 +834,3 @@ const styles = StyleSheet.create({
   editSaveBtn: { flex: 2, borderRadius: 14, paddingVertical: 13, alignItems: "center" },
   editSaveText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: Colors.primary },
 });
-
-
-
