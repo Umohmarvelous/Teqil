@@ -37,7 +37,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import FindDriverModal from "./FindDriverModal";
 
-const SIDEBAR_WIDTH = 330;
+const SIDEBAR_WIDTH = 340;
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface SidebarItem {
@@ -130,9 +130,10 @@ export default function SidedBar() {
   const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
   const bg = isDark ? Colors.background : Colors.border;
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+  const tabBarBg = isDark ? Colors.background : Colors.textWhite;
 
   return (
-    <View style={[styles.drawerTop, styles.containerTop, { backgroundColor: cardBg, paddingTop: insets.top + 5, paddingBottom: insets.bottom }]}>
+    <View style={[styles.drawerTop, styles.containerTop, { backgroundColor: cardBg, paddingTop: insets.top + 5, paddingBottom: insets.bottom }, {borderTopLeftRadius: 60, borderBottomLeftRadius: 60, }]}>
       
       {/* WhatsApp style Invisible Dismiss Overlay */}
       {menuOpen && (
@@ -178,7 +179,7 @@ export default function SidedBar() {
         </ScrollView>
       </View>
 
-      <View style={[styles.drawerHeader, { backgroundColor: cardBg }]}>
+      <View style={[styles.drawerHeader, { backgroundColor: 'transparent' }]}>
           <View style={{ flexDirection: "row", gap: 10 }}>
             <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={48} />
             <View style={{ flexDirection: "column", justifyContent: "flex-start" }}>
@@ -264,7 +265,7 @@ export default function SidedBar() {
 }
 
 const styles = StyleSheet.create({
-  drawerTop: { position: "absolute", top: 0, bottom: 0, left: 0, height: SCREEN_HEIGHT, width: SIDEBAR_WIDTH, zIndex: 2 },
+  drawerTop: { position: "absolute", top: 0, bottom: 0, left: 0, height: SCREEN_HEIGHT, width: SIDEBAR_WIDTH, zIndex: 2, paddingRight: 40 },
   containerTop: { flex: 1, flexDirection: 'column', justifyContent: 'space-between' },
   drawer: { flex: 1 , flexDirection: 'column', zIndex: 2 },
   drawerHeader: { paddingHorizontal: 20, paddingVertical: 30, paddingBottom: 20, flexDirection: "row", justifyContent: "space-between", zIndex: 10, borderTopWidth: 1, borderTopColor: "#6B6B6B3B" },

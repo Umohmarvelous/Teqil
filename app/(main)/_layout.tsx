@@ -50,6 +50,9 @@ type TopTab = "home" | "discover";
 const TAB_HEIGHT = 60;
 const SIDEBAR_WIDTH = 330;
 const EDGE_WIDTH = 30;
+// How far to pull the home screen LEFT of the fully-open position.
+// Positive = home rests further left (overlaps sidebar's right edge); negative = further right; 0 = flush with sidebar width.
+const HOME_OPEN_SHIFT = 30;
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function MainLayout() {
@@ -130,7 +133,7 @@ export default function MainLayout() {
     sidebarOpen.current = false;
     Animated.timing(sidebarAnim, {
       toValue: 0,
-      duration: 280,
+      duration: 250,
       easing: Easing.in(Easing.cubic),
       useNativeDriver: true,
     }).start(() => setIsSidebarOpen(false));
@@ -214,6 +217,13 @@ export default function MainLayout() {
     extrapolate: "clamp",
   });
 
+  // Home screen stops short of the full sidebar width so it rests a little further left when open.
+  const mainTranslateX = sidebarAnim.interpolate({
+    inputRange: [0, SIDEBAR_WIDTH],
+    outputRange: [0, SIDEBAR_WIDTH - HOME_OPEN_SHIFT],
+    extrapolate: "clamp",
+  });
+
   const handleTopTabPress = (tab: TopTab) => {
     setActiveTopTab(tab);
     scrollViewRef.current?.scrollTo({
@@ -233,7 +243,6 @@ export default function MainLayout() {
   const tabBarBg = isDark ? Colors.background : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
-  const mainBg = isDark ? Colors.background : "transparent";
 
   const [commentSheetPost, setCommentSheetPost] = useState<FeedItem | null>(
     null,
@@ -328,7 +337,9 @@ export default function MainLayout() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: mainBg }]}>
+    <View style={[styles.root,
+      { backgroundColor: tabBarBg }
+    ]}>
       {/* Static sidebar behind the main screen; zooms in as it's revealed */}
       <Animated.View
         style={[
@@ -339,6 +350,7 @@ export default function MainLayout() {
             transform: [{ scale: sidebarScale }],
           },
         ]}
+        {...panResponder.panHandlers}
       >
         <SidedBar />
       </Animated.View>
@@ -348,16 +360,16 @@ export default function MainLayout() {
         style={[
           styles.mainSlider,
           {
-            // backgroundColor: tabBarBg, 
-            transform: [{ translateX: sidebarAnim }],
+            // backgroundColor: tabBarBg,
+            transform: [{ translateX: mainTranslateX }],
           },
         ]}
         {...panResponder.panHandlers}
       >
         <View style={styles.mainContainer}>
           <Animated.View
-            style={[styles.overlay, { opacity: overlayOpacity }]}
-            pointerEvents={sidebarOpen.current ? "auto" : "none"}
+            style={[styles.overlay, { opacity: overlayOpacity }, ]}
+            pointerEvents={isSidebarOpen ? "auto" : "none"}
           >
             <Pressable style={StyleSheet.absoluteFill} onPress={closeSidebar} />
           </Animated.View>
@@ -371,7 +383,8 @@ export default function MainLayout() {
                 left: 0,
                 right: 0,
                 zIndex: 100,
-                backgroundColor: tabBarBg, borderRadius: 50, borderWidth: 2, borderColor: 'red',
+                backgroundColor: tabBarBg,
+                borderTopLeftRadius: 60, 
                 transform: [{ translateY: actualHeaderTranslateY }],
               }}
             >
@@ -394,10 +407,8 @@ export default function MainLayout() {
                 <Pressable style={styles.logoBtn}>
                   <Image
                     source={
-                      isDark
-                        ? // ? require("@/assets/images/Logo_with_transparent_background.png")
-                          // : require("@/assets/images/Black_logo_with_white_background.png")
-                          require("../../assets/images/emilgo_logo_white.png")
+                      isDark ?
+                       require("../../assets/images/emilgo_logo_white.png")
                         : require("../../assets/images/emilgo_logo_black.png")
                     }
                     style={styles.photoImg}
@@ -510,7 +521,7 @@ export default function MainLayout() {
                       activeTab === "home" ? actualBottomTranslateY : 0,
                   },
                 ],
-              },
+              }, {borderBottomLeftRadius: 60,}
             ]}
           >
             {Platform.OS === "ios" && (
@@ -523,14 +534,16 @@ export default function MainLayout() {
             <View
               style={[
                 styles.tabBarBorder,
+                
                 {
                   backgroundColor: isDark
                     ? "rgba(255,255,255,0.07)"
                     : "#E8ECF0",
+                    
                 },
               ]}
             />
-            <View style={styles.tabBarInner}>
+            <View style={[styles.tabBarInner]}>
               <TabItem
                 id="home"
                 activeIcon={HomeIcon}
@@ -700,7 +713,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: SIDEBAR_WIDTH,
-    zIndex: 0, borderRadius: 50, borderWidth: 2, borderColor: 'red',
+    zIndex: 0, 
   },
   mainSlider: {
     flex: 1,
@@ -708,14 +721,14 @@ const styles = StyleSheet.create({
     zIndex: 1,
     // Subtle left-edge shadow so the sliding screen reads as "above" the sidebar.
     shadowColor: "#000",
-    shadowOffset: { width: -3, height: 0 },
+    shadowOffset: { width: -20, height: 0 },
     shadowOpacity: 0.15,
-    shadowRadius: 12, borderRadius: 50,
+    shadowRadius: 17, 
     elevation: 16, 
   },
   mainContainer: {
     width: SCREEN_WIDTH,
-    height: "100%", borderRadius: 50,
+    height: "100%", 
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
@@ -730,7 +743,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",borderRadius: 50, borderWidth: 2, borderColor: 'blue',
+    justifyContent: "space-between",borderRadius: 50, 
   },
   menuList: {
     borderRadius: 30,
@@ -761,7 +774,7 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     borderBottomWidth: 0.5,
     position: "relative",
-    paddingTop: 15, borderRadius: 50, borderWidth: 2, borderColor: 'red',
+    paddingTop: 15, borderRadius: 50,
   },
   topTabItemContainer: { flexDirection: "row" },
   topTabItem: {

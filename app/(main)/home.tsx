@@ -85,7 +85,7 @@ export default function HomeTab() {
         router.push(`/(passenger)/verify-driver?driver_id=${parsedId}`);
       } else {
         const parsed = data.replace("TEQIL:", "").trim();
-        Alert.alert("QR Scanned Successfully", ` ${parsed}`);
+        Alert.alert("QR Scanned Successfully", ` ${parsed}`,e);
       }
     }
   }, []);
