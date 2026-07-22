@@ -1,17 +1,15 @@
 /**
  * app/(auth)/login.tsx
  *
- * Username-only login ("secure but easy and fast"):
- * - The user types just their username. No email, no submit button.
- * - As they type (debounced), we resolve the username via the
- *   get_user_by_username RPC and drive a status modal:
- *     searching  → "Searching for user…"
- *     found + this device has stored credentials → auto sign-in
- *         (Face ID / Touch ID when available, else replay the device-bound
- *          stored credentials) → a REAL Supabase session.
- *     found + new/other device → reveal a one-time password field, then
- *         save credentials so next time on this device is instant.
- *     not found  → "No user found"
+ * Password-based login ("secure but easy and fast"):
+ * - On a device that has logged in before, we already know the account, so the
+ *   screen just asks for the PASSWORD (plus a Face ID / Touch ID button).
+ * - On a fresh device (nothing stored), we ask for the username once to identify
+ *   the account (resolved to an email via get_user_by_username), then password.
+ * - Biometric button: expo-local-authentication (Face ID / Touch ID, with device
+ *   passcode fallback) replays the stored credentials for a real Supabase session.
+ * - On success we (re)store the device fingerprint so this device is remembered.
+ * - Forgot password: username → email → Supabase reset link.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -49,7 +47,10 @@ import {
   saveBiometricCredentials,
   signInWithBiometrics,
   getBiometricCredentials,
+  syncUserToPublicTable,
 } from "@/src/services/auth";
+import { supabase } from "@/src/services/supabase";
+import { getDeviceFingerprint } from "@/src/utils/device";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import type { User } from "@/src/models/types";
 
@@ -61,17 +62,6 @@ function routeByRole(role: string, profileComplete: boolean | undefined) {
   }
   return "/(main)";
 }
-
-const MIN_USERNAME_LEN = 3;
-const SEARCH_DEBOUNCE_MS = 500;
-
-type Status =
-  | "idle"
-  | "searching"
-  | "authenticating"
-  | "notfound"
-  | "needPassword"
-  | "error";
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
@@ -87,17 +77,33 @@ export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const { setUser, setIsAuthenticated } = useAuthStore();
 
-  const [username, setUsername] = useState("");
-  const [status, setStatus] = useState<Status>("idle");
-  const [foundEmail, setFoundEmail] = useState<string | null>(null);
+  // Account this device already knows (from registration / a prior login).
+  const [knownEmail, setKnownEmail] = useState<string | null>(null);
+  const [hasStoredCreds, setHasStoredCreds] = useState(false);
+
+  const [username, setUsername] = useState(""); // only when device is unknown
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [bioLoading, setBioLoading] = useState(false);
+
+  // Forgot-password modal
+  const [forgotVisible, setForgotVisible] = useState(false);
+  const [forgotUsername, setForgotUsername] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   const passwordRef = useRef<TextInput>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Guards against out-of-order async results when the user keeps typing.
-  const latestQueryRef = useRef("");
+
+  // Load the device's stored account on mount.
+  useEffect(() => {
+    (async () => {
+      const creds = await getBiometricCredentials();
+      if (creds) {
+        setKnownEmail(creds.email);
+        setHasStoredCreds(true);
+      }
+    })();
+  }, []);
 
   // ── Entrance animation ────────────────────────────────────────────────────
   const formOpacity = useSharedValue(0);
@@ -111,14 +117,20 @@ export default function LoginScreen() {
     transform: [{ translateY: formY.value }],
   }));
 
-  // ── Complete a successful login (real or offline session) ──────────────────
+  // ── Complete a successful login ────────────────────────────────────────────
   const finishLogin = useCallback(
-    (user: User, offlineMode?: boolean) => {
+    async (user: User, offlineMode?: boolean) => {
+      // Remember this device (fingerprint) for future logins.
+      try {
+        const fp = await getDeviceFingerprint();
+        user.device_fingerprint = fp;
+        syncUserToPublicTable(user).catch(() => {});
+      } catch {
+        /* fingerprint best-effort */
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setUser(user);
       setIsAuthenticated(true);
-      setStatus("idle");
-      setPassword("");
       if (offlineMode) {
         Alert.alert("Offline Mode", "Signed in from cache. Some features need internet.");
       }
@@ -127,116 +139,120 @@ export default function LoginScreen() {
     [setUser, setIsAuthenticated]
   );
 
-  // ── Fast path: this device already knows the matched account ───────────────
-  const attemptFastLogin = useCallback(
-    async (creds: { email: string; password: string }) => {
-      try {
-        // Prefer biometric confirmation when the device supports it.
-        const bio = await signInWithBiometrics();
-        if (bio.success && bio.user) {
-          finishLogin(bio.user, bio.offlineMode);
-          return;
-        }
-        if (bio.supported && bio.enrolled) {
-          // Biometric available but cancelled/failed → fall back to password.
-          setErrorMsg("");
-          setStatus("needPassword");
-          setTimeout(() => passwordRef.current?.focus(), 250);
-          return;
-        }
-        // No biometric hardware/enrolment → replay the device-bound credentials.
-        const { user, offlineMode } = await signInOfflineAware(creds.email, creds.password);
-        finishLogin(user, offlineMode);
-      } catch (err) {
-        setErrorMsg(err instanceof Error ? err.message : "Could not sign you in.");
-        setStatus("error");
-      }
-    },
-    [finishLogin]
-  );
-
-  // ── Resolve a username, then decide fast-path vs password fallback ─────────
-  const runSearch = useCallback(
-    async (name: string) => {
-      setErrorMsg("");
-      setStatus("searching");
-      try {
-        const meta = await checkUsernameExists(name);
-        // Ignore stale responses (user kept typing).
-        if (latestQueryRef.current !== name) return;
-
-        if (!meta) {
-          setStatus("notfound");
-          return;
-        }
-
-        setFoundEmail(meta.email);
-
-        const creds = await getBiometricCredentials();
-        if (latestQueryRef.current !== name) return;
-
-        if (creds && creds.email.toLowerCase() === meta.email.toLowerCase()) {
-          // Same account, same device → sign in without typing anything.
-          setStatus("authenticating");
-          await attemptFastLogin(creds);
-        } else {
-          // New/other device → verify with a one-time password.
-          setStatus("needPassword");
-          setTimeout(() => passwordRef.current?.focus(), 250);
-        }
-      } catch {
-        if (latestQueryRef.current !== name) return;
-        setErrorMsg("Could not reach the server. Check your connection.");
-        setStatus("error");
-      }
-    },
-    [attemptFastLogin]
-  );
-
-  // ── Debounced auto-search as the user types ────────────────────────────────
-  useEffect(() => {
+  // Resolve which email to authenticate: the device's account, or the typed username.
+  const resolveEmail = useCallback(async (): Promise<string | null> => {
+    if (knownEmail) return knownEmail;
     const name = username.trim().toLowerCase();
-    latestQueryRef.current = name;
+    if (!name) {
+      Alert.alert("Username required", "Enter your username to sign in on this device.");
+      return null;
+    }
+    const meta = await checkUsernameExists(name);
+    if (!meta) {
+      Alert.alert("No user found", "We couldn't find an account with that username.");
+      return null;
+    }
+    return meta.email;
+  }, [knownEmail, username]);
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    if (name.length < MIN_USERNAME_LEN) {
-      setStatus("idle");
+  // ── Password sign-in ───────────────────────────────────────────────────────
+  const handleSignIn = useCallback(async () => {
+    if (!password) {
+      Alert.alert("Password required", "Please enter your password.");
       return;
     }
-
-    debounceRef.current = setTimeout(() => runSearch(name), SEARCH_DEBOUNCE_MS);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [username, runSearch]);
-
-  // ── Password fallback submit ───────────────────────────────────────────────
-  const handlePasswordLogin = useCallback(async () => {
-    if (!foundEmail || !password) return;
     Keyboard.dismiss();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setStatus("authenticating");
+    setLoading(true);
     try {
-      const { user, offlineMode } = await signInOfflineAware(foundEmail, password);
-      // Remember on this device so next time is instant.
-      await saveBiometricCredentials(foundEmail, password);
-      finishLogin(user, offlineMode);
+      const email = await resolveEmail();
+      if (!email) return;
+
+      const { user, offlineMode } = await signInOfflineAware(email, password);
+      // Enable instant biometric login next time on this device.
+      await saveBiometricCredentials(email, password);
+      await finishLogin(user, offlineMode);
     } catch (err) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setErrorMsg(err instanceof Error ? err.message : "Wrong password. Please try again.");
-      setStatus("error");
+      Alert.alert(
+        "Sign In Failed",
+        err instanceof Error ? err.message : "Wrong password. Please try again."
+      );
+    } finally {
+      setLoading(false);
     }
-  }, [foundEmail, password, finishLogin]);
+  }, [password, resolveEmail, finishLogin]);
 
-  const dismissModal = useCallback(() => {
-    setStatus("idle");
-    setPassword("");
-    setErrorMsg("");
-  }, []);
+  // ── Biometric sign-in ──────────────────────────────────────────────────────
+  const handleBiometric = useCallback(async () => {
+    setBioLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const r = await signInWithBiometrics();
+
+      if (!r.supported) {
+        Alert.alert("Not Supported", "Biometric authentication isn't available on this device.");
+        return;
+      }
+      if (r.success && r.user) {
+        await finishLogin(r.user, r.offlineMode);
+        return;
+      }
+      if (r.error === "no_credentials") {
+        Alert.alert(
+          "No Saved Login",
+          "Sign in with your password once. After that, Face ID / passcode login will be available."
+        );
+      }
+      // Any other error (user cancelled, failed) → stay on screen silently.
+    } catch {
+      Alert.alert("Error", "Authentication failed. Please try again.");
+    } finally {
+      setBioLoading(false);
+    }
+  }, [finishLogin]);
+
+  // ── Forgot password ────────────────────────────────────────────────────────
+  const openForgot = useCallback(() => {
+    setForgotUsername(username);
+    setForgotVisible(true);
+  }, [username]);
+
+  const handleForgotSubmit = useCallback(async () => {
+    const name = forgotUsername.trim().toLowerCase();
+    if (!name) {
+      Alert.alert("Username required", "Enter your username to reset your password.");
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const meta = await checkUsernameExists(name);
+      if (!meta) {
+        Alert.alert("No user found", "We couldn't find an account with that username.");
+        return;
+      }
+      const { error } = await supabase.auth.resetPasswordForEmail(meta.email, {
+        redirectTo:
+          Platform.OS === "web" ? window.location.origin : "teqil://reset-password",
+      });
+      if (error) throw error;
+      setForgotVisible(false);
+      Alert.alert(
+        "Reset Link Sent",
+        "Check the email on file for a link to reset your password."
+      );
+    } catch (err) {
+      Alert.alert(
+        "Couldn't Send Reset",
+        err instanceof Error ? err.message : "Please try again."
+      );
+    } finally {
+      setForgotLoading(false);
+    }
+  }, [forgotUsername]);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
-  const searching = status === "searching" || status === "authenticating";
+  const busy = loading || bioLoading;
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
@@ -247,39 +263,106 @@ export default function LoginScreen() {
         <View style={styles.pageHeaderContainer}>
           <Text style={[styles.pageTitle, { color: textColor }]}>Login</Text>
           <Text style={[styles.pageSubtitle, { color: subTextColor }]}>
-            Just type your username to continue
+            {knownEmail ? "Welcome back — enter your password" : "Sign in to continue your journey"}
           </Text>
         </View>
         <View style={styles.backBtn} />
       </View>
 
       <Animated.View style={[styles.body, formAnimStyle]}>
-        <Text style={[styles.label, { color: textColor }]}>Username</Text>
-        <View style={[styles.inputRow, { backgroundColor: fieldBg }]}>
-          <Ionicons name="at-outline" size={20} color={subTextColor} style={styles.icon} />
-          <TextInput
-            style={[styles.input, { color: textColor }]}
-            placeholder="Enter your username"
-            placeholderTextColor={subTextColor}
-            value={username}
-            onChangeText={(v) => setUsername(v.replace(/\s/g, "").toLowerCase())}
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoFocus
-            maxLength={20}
-            returnKeyType="go"
-            onSubmitEditing={() => {
-              const name = username.trim().toLowerCase();
-              if (name.length >= MIN_USERNAME_LEN) runSearch(name);
-            }}
-          />
-          {searching ? (
-            <ActivityIndicator size="small" color={subTextColor} style={{ marginLeft: 8 }} />
-          ) : null}
+        {/* Username — only needed when this device has no stored account */}
+        {!knownEmail && (
+          <>
+            <Text style={[styles.label, { color: textColor }]}>Username</Text>
+            <View style={[styles.inputRow, { backgroundColor: fieldBg }]}>
+              <Ionicons name="at-outline" size={20} color={subTextColor} style={styles.icon} />
+              <TextInput
+                style={[styles.input, { color: textColor }]}
+                placeholder="Enter your username"
+                placeholderTextColor={subTextColor}
+                value={username}
+                onChangeText={(v) => setUsername(v.replace(/\s/g, "").toLowerCase())}
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={20}
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                editable={!busy}
+              />
+            </View>
+          </>
+        )}
+
+        {knownEmail && (
+          <Text style={[styles.account, { color: subTextColor }]} numberOfLines={1}>
+            {knownEmail}
+          </Text>
+        )}
+
+        {/* Password + biometric button */}
+        <Text style={[styles.label, { color: textColor }]}>Password</Text>
+        <View style={styles.passwordRow}>
+          <View style={[styles.inputRow, styles.passwordInput, { backgroundColor: fieldBg }]}>
+            <Ionicons name="lock-closed-outline" size={20} color={subTextColor} style={styles.icon} />
+            <TextInput
+              ref={passwordRef}
+              style={[styles.input, { color: textColor }]}
+              placeholder="Enter your password"
+              placeholderTextColor={subTextColor}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={handleSignIn}
+              editable={!busy}
+            />
+            <Pressable onPress={() => setShowPassword((s) => !s)} hitSlop={8}>
+              <Ionicons
+                name={showPassword ? "eye-off-outline" : "eye-outline"}
+                size={20}
+                color={subTextColor}
+              />
+            </Pressable>
+          </View>
+
+          {/* Round Face ID / biometric button */}
+          <Pressable
+            style={[
+              styles.bioBtn,
+              { borderColor: primaryBtn, backgroundColor: fieldBg },
+              !hasStoredCreds && { opacity: 0.45 },
+            ]}
+            onPress={handleBiometric}
+            disabled={bioLoading || !hasStoredCreds}
+            hitSlop={6}
+          >
+            {bioLoading ? (
+              <ActivityIndicator size="small" color={textColor} />
+            ) : (
+              <Ionicons name="finger-print" size={26} color={textColor} />
+            )}
+          </Pressable>
         </View>
-        <Text style={[styles.hint, { color: subTextColor }]}>
-          We&apos;ll sign you in automatically on this device — no password needed.
-        </Text>
+
+        {/* Forgot password */}
+        <Pressable style={styles.forgotBtn} onPress={openForgot} hitSlop={8}>
+          <Text style={[styles.forgotText, { color: subTextColor }]}>Forgot password?</Text>
+        </Pressable>
+
+        {/* Sign in */}
+        <Pressable
+          style={[styles.submitBtn, { backgroundColor: primaryBtn }, busy && { opacity: 0.7 }]}
+          onPress={handleSignIn}
+          disabled={busy}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.submitBtnText}>Sign In</Text>
+          )}
+        </Pressable>
 
         <Pressable style={styles.switchBtn} onPress={() => router.replace("/(auth)/register")}>
           <Text style={[styles.switchText, { color: subTextColor }]}>
@@ -289,112 +372,56 @@ export default function LoginScreen() {
         </Pressable>
       </Animated.View>
 
-      {/* Status modal */}
+      {/* Forgot password modal */}
       <Modal
         transparent
-        visible={status !== "idle"}
+        visible={forgotVisible}
         animationType="fade"
-        onRequestClose={dismissModal}
+        onRequestClose={() => setForgotVisible(false)}
       >
-        <Pressable
-          style={styles.backdrop}
-          onPress={status === "searching" || status === "authenticating" ? undefined : dismissModal}
-        >
+        <Pressable style={styles.backdrop} onPress={() => setForgotVisible(false)}>
           <Animated.View
             entering={FadeIn}
             exiting={FadeOut}
             style={[styles.sheet, { backgroundColor: isDark ? Colors.primaryDarker ?? "#0B2A18" : "#FFFFFF" }]}
             onStartShouldSetResponder={() => true}
           >
-            {(status === "searching" || status === "authenticating") && (
-              <>
-                <ActivityIndicator size="large" color={Colors.primary} />
-                <Text style={[styles.sheetTitle, { color: textColor }]}>
-                  {status === "searching" ? "Searching for user…" : "Signing you in…"}
-                </Text>
-                <Text style={[styles.sheetSub, { color: subTextColor }]}>
-                  {status === "searching"
-                    ? "Looking up your account"
-                    : "Confirming it's really you"}
-                </Text>
-              </>
-            )}
-
-            {status === "notfound" && (
-              <>
-                <View style={[styles.sheetIcon, { backgroundColor: "rgba(220,38,38,0.12)" }]}>
-                  <Ionicons name="person-remove-outline" size={28} color={Colors.error} />
-                </View>
-                <Text style={[styles.sheetTitle, { color: textColor }]}>No user found</Text>
-                <Text style={[styles.sheetSub, { color: subTextColor }]}>
-                  We couldn&apos;t find anyone with that username.
-                </Text>
-                <Pressable style={[styles.sheetBtn, { backgroundColor: primaryBtn }]} onPress={dismissModal}>
-                  <Text style={styles.sheetBtnText}>Edit username</Text>
-                </Pressable>
-              </>
-            )}
-
-            {status === "needPassword" && (
-              <>
-                <View style={[styles.sheetIcon, { backgroundColor: "rgba(0,154,67,0.12)" }]}>
-                  <Ionicons name="lock-closed-outline" size={26} color={Colors.primary} />
-                </View>
-                <Text style={[styles.sheetTitle, { color: textColor }]}>One more step</Text>
-                <Text style={[styles.sheetSub, { color: subTextColor }]}>
-                  Enter your password to sign in on this device. We&apos;ll remember you next time.
-                </Text>
-                <View style={[styles.inputRow, styles.sheetInput, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F5F7FA" }]}>
-                  <Ionicons name="lock-closed-outline" size={20} color={subTextColor} style={styles.icon} />
-                  <TextInput
-                    ref={passwordRef}
-                    style={[styles.input, { color: textColor }]}
-                    placeholder="Password"
-                    placeholderTextColor={subTextColor}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    returnKeyType="done"
-                    onSubmitEditing={handlePasswordLogin}
-                  />
-                  <Pressable onPress={() => setShowPassword((s) => !s)} hitSlop={8}>
-                    <Ionicons
-                      name={showPassword ? "eye-off-outline" : "eye-outline"}
-                      size={20}
-                      color={subTextColor}
-                    />
-                  </Pressable>
-                </View>
-                <Pressable
-                  style={[styles.sheetBtn, { backgroundColor: primaryBtn }, !password && { opacity: 0.5 }]}
-                  onPress={handlePasswordLogin}
-                  disabled={!password}
-                >
-                  <Text style={styles.sheetBtnText}>Sign In</Text>
-                </Pressable>
-                <Pressable style={styles.sheetDismiss} onPress={dismissModal}>
-                  <Text style={[styles.sheetDismissText, { color: subTextColor }]}>Cancel</Text>
-                </Pressable>
-              </>
-            )}
-
-            {status === "error" && (
-              <>
-                <View style={[styles.sheetIcon, { backgroundColor: "rgba(220,38,38,0.12)" }]}>
-                  <Ionicons name="alert-circle-outline" size={28} color={Colors.error} />
-                </View>
-                <Text style={[styles.sheetTitle, { color: textColor }]}>Couldn&apos;t sign in</Text>
-                <Text style={[styles.sheetSub, { color: subTextColor }]}>{errorMsg}</Text>
-                <Pressable
-                  style={[styles.sheetBtn, { backgroundColor: primaryBtn }]}
-                  onPress={() => (foundEmail ? setStatus("needPassword") : dismissModal())}
-                >
-                  <Text style={styles.sheetBtnText}>Try again</Text>
-                </Pressable>
-              </>
-            )}
+            <View style={[styles.sheetIcon, { backgroundColor: "rgba(0,154,67,0.12)" }]}>
+              <Ionicons name="key-outline" size={26} color={Colors.primary} />
+            </View>
+            <Text style={[styles.sheetTitle, { color: textColor }]}>Reset your password</Text>
+            <Text style={[styles.sheetSub, { color: subTextColor }]}>
+              Enter your username and we&apos;ll email a reset link to the address on file.
+            </Text>
+            <View style={[styles.inputRow, styles.sheetInput, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F5F7FA" }]}>
+              <Ionicons name="at-outline" size={20} color={subTextColor} style={styles.icon} />
+              <TextInput
+                style={[styles.input, { color: textColor }]}
+                placeholder="Your username"
+                placeholderTextColor={subTextColor}
+                value={forgotUsername}
+                onChangeText={(v) => setForgotUsername(v.replace(/\s/g, "").toLowerCase())}
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={20}
+                returnKeyType="done"
+                onSubmitEditing={handleForgotSubmit}
+              />
+            </View>
+            <Pressable
+              style={[styles.sheetBtn, { backgroundColor: primaryBtn }, forgotLoading && { opacity: 0.7 }]}
+              onPress={handleForgotSubmit}
+              disabled={forgotLoading}
+            >
+              {forgotLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.sheetBtnText}>Send reset link</Text>
+              )}
+            </Pressable>
+            <Pressable style={styles.sheetDismiss} onPress={() => setForgotVisible(false)}>
+              <Text style={[styles.sheetDismissText, { color: subTextColor }]}>Cancel</Text>
+            </Pressable>
           </Animated.View>
         </Pressable>
       </Modal>
@@ -421,12 +448,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  body: { paddingHorizontal: 24, paddingTop: 48 },
+  body: { paddingHorizontal: 24, paddingTop: 40 },
   label: {
     fontFamily: "Poppins_500Medium",
     fontSize: 13,
+    marginTop: 16,
     marginBottom: 7,
     paddingLeft: 5,
+  },
+  account: {
+    fontFamily: "Poppins_500Medium",
+    fontSize: 13,
+    paddingLeft: 5,
+    marginTop: 2,
   },
   inputRow: {
     flexDirection: "row",
@@ -437,14 +471,27 @@ const styles = StyleSheet.create({
   },
   icon: { marginRight: 12 },
   input: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 15 },
-  hint: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12,
-    marginTop: 10,
-    paddingLeft: 5,
-    lineHeight: 18,
+  passwordRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  passwordInput: { flex: 1 },
+  bioBtn: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  switchBtn: { alignItems: "center", marginTop: 40, paddingVertical: 8 },
+  forgotBtn: { alignSelf: "flex-end", marginTop: 14 },
+  forgotText: { fontFamily: "Poppins_500Medium", fontSize: 13 },
+  submitBtn: {
+    height: 56,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 24,
+  },
+  submitBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 16, color: "#fff" },
+  switchBtn: { alignItems: "center", marginTop: 28, paddingVertical: 8 },
   switchText: { fontFamily: "Poppins_400Regular", fontSize: 14 },
   switchLink: { fontFamily: "Poppins_600SemiBold" },
 
@@ -471,11 +518,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 2,
   },
-  sheetTitle: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 18,
-    textAlign: "center",
-  },
+  sheetTitle: { fontFamily: "Poppins_700Bold", fontSize: 18, textAlign: "center" },
   sheetSub: {
     fontFamily: "Poppins_400Regular",
     fontSize: 13,
