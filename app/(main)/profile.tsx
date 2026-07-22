@@ -772,6 +772,7 @@ export default function ProfileTab() {
         driverId={user?.driver_id}
       />
     </KeyboardAvoidingView>
+    </CopyToastContext.Provider>
   );
 }
 

@@ -6,6 +6,7 @@ import {
   Text,
   Platform,
   Animated,
+  Easing,
   PanResponder,
   Dimensions,
   Image,
@@ -65,6 +66,8 @@ export default function MainLayout() {
 
   const sidebarOpen = useRef(false);
   const sidebarAnim = useRef(new Animated.Value(0)).current;
+  // State mirror of the ref so the dim overlay's pointerEvents actually re-renders.
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // --- Horizontal Top Tab Scroll Setup ---
   const scrollViewRef = useRef<ScrollView>(null);
@@ -113,9 +116,11 @@ export default function MainLayout() {
 
   const openSidebar = useCallback(() => {
     sidebarOpen.current = true;
+    setIsSidebarOpen(true);
     Animated.timing(sidebarAnim, {
       toValue: SIDEBAR_WIDTH,
-      duration: 250,
+      duration: 320,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -125,9 +130,10 @@ export default function MainLayout() {
     sidebarOpen.current = false;
     Animated.timing(sidebarAnim, {
       toValue: 0,
-      duration: 250,
+      duration: 280,
+      easing: Easing.in(Easing.cubic),
       useNativeDriver: true,
-    }).start();
+    }).start(() => setIsSidebarOpen(false));
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [sidebarAnim]);
 
@@ -193,6 +199,18 @@ export default function MainLayout() {
   const overlayOpacity = sidebarAnim.interpolate({
     inputRange: [0, SIDEBAR_WIDTH],
     outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+
+  // Sidebar "zoom in" — scales up and fades in only as it's revealed.
+  const sidebarScale = sidebarAnim.interpolate({
+    inputRange: [0, SIDEBAR_WIDTH],
+    outputRange: [0.9, 1],
+    extrapolate: "clamp",
+  });
+  const sidebarContentOpacity = sidebarAnim.interpolate({
+    inputRange: [0, SIDEBAR_WIDTH * 0.4, SIDEBAR_WIDTH],
+    outputRange: [0, 0.6, 1],
     extrapolate: "clamp",
   });
 
@@ -311,17 +329,31 @@ export default function MainLayout() {
 
   return (
     <View style={[styles.root, { backgroundColor: mainBg }]}>
+      {/* Static sidebar behind the main screen; zooms in as it's revealed */}
       <Animated.View
         style={[
-          styles.sideBySideWrapper,
-          { transform: [{ translateX: sidebarAnim }] },
+          styles.sidebarBehind,
+          {
+            backgroundColor: tabBarBg,
+            opacity: sidebarContentOpacity,
+            transform: [{ scale: sidebarScale }],
+          },
+        ]}
+      >
+        <SidedBar />
+      </Animated.View>
+
+      {/* Main screen slides to the right to uncover the static sidebar */}
+      <Animated.View
+        style={[
+          styles.mainSlider,
+          {
+            // backgroundColor: tabBarBg, 
+            transform: [{ translateX: sidebarAnim }],
+          },
         ]}
         {...panResponder.panHandlers}
       >
-        <View style={styles.sidebarContainer}>
-          <SidedBar />
-        </View>
-
         <View style={styles.mainContainer}>
           <Animated.View
             style={[styles.overlay, { opacity: overlayOpacity }]}
@@ -339,7 +371,7 @@ export default function MainLayout() {
                 left: 0,
                 right: 0,
                 zIndex: 100,
-                backgroundColor: tabBarBg,
+                backgroundColor: tabBarBg, borderRadius: 50, borderWidth: 2, borderColor: 'red',
                 transform: [{ translateY: actualHeaderTranslateY }],
               }}
             >
@@ -660,26 +692,35 @@ function TabItem({
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1,
+    flex: 1, 
   },
-  sideBySideWrapper: {
-    flex: 1,
-    flexDirection: "row",
-    width: SCREEN_WIDTH + SIDEBAR_WIDTH,
-    marginLeft: -SIDEBAR_WIDTH,
-  },
-  sidebarContainer: {
+  sidebarBehind: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
     width: SIDEBAR_WIDTH,
-    height: "100%",
+    zIndex: 0, borderRadius: 50, borderWidth: 2, borderColor: 'red',
+  },
+  mainSlider: {
+    flex: 1,
+    width: SCREEN_WIDTH,
+    zIndex: 1,
+    // Subtle left-edge shadow so the sliding screen reads as "above" the sidebar.
+    shadowColor: "#000",
+    shadowOffset: { width: -3, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12, borderRadius: 50,
+    elevation: 16, 
   },
   mainContainer: {
     width: SCREEN_WIDTH,
-    height: "100%",
+    height: "100%", borderRadius: 50,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     // backgroundColor: "rgba(0,0,0,0.5)",
-    zIndex: 10,
+    zIndex: 10,borderRadius: 50,
   },
   content: {
     flex: 1,
@@ -689,7 +730,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "space-between",borderRadius: 50, borderWidth: 2, borderColor: 'blue',
   },
   menuList: {
     borderRadius: 30,
@@ -704,7 +745,7 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 12,
     alignItems: "flex-start",
-    justifyContent: "center",
+    justifyContent: "center", 
   },
   logoBtn: {
     width: 25,
@@ -720,7 +761,7 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     borderBottomWidth: 0.5,
     position: "relative",
-    paddingTop: 15,
+    paddingTop: 15, borderRadius: 50, borderWidth: 2, borderColor: 'red',
   },
   topTabItemContainer: { flexDirection: "row" },
   topTabItem: {

@@ -132,7 +132,7 @@ export default function SidedBar() {
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
   return (
-    <View style={[styles.drawerTop, styles.containerTop, { backgroundColor: bg, paddingTop: insets.top + 5, paddingBottom: insets.bottom }]}>
+    <View style={[styles.drawerTop, styles.containerTop, { backgroundColor: cardBg, paddingTop: insets.top + 5, paddingBottom: insets.bottom }]}>
       
       {/* WhatsApp style Invisible Dismiss Overlay */}
       {menuOpen && (
@@ -178,7 +178,7 @@ export default function SidedBar() {
         </ScrollView>
       </View>
 
-      <View style={[styles.drawerHeader, { backgroundColor: bg }]}>
+      <View style={[styles.drawerHeader, { backgroundColor: cardBg }]}>
           <View style={{ flexDirection: "row", gap: 10 }}>
             <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={48} />
             <View style={{ flexDirection: "column", justifyContent: "flex-start" }}>
