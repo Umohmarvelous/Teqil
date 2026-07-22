@@ -367,24 +367,46 @@ async function hashPassword(password: string, email: string): Promise<string> {
 }
 
 // ─── Resolve Username ─────────────────────────────────────────────────────────
-export async function checkUsernameExists(username: string): Promise<{email: string; device_fingerprint: string | null} | null> {
+export async function checkUsernameExists(
+  username: string
+): Promise<{ email: string; device_fingerprint: string | null } | null> {
+  const uname = username.trim().toLowerCase();
+  if (!uname) return null;
+
+  // Primary: SECURITY DEFINER RPC — bypasses RLS without exposing the table.
   try {
-    const { data, error } = await supabase.rpc('get_user_by_username', { p_username: username });
-    if (error) {
-      console.warn('RPC checkUsernameExists error:', error);
-      return null;
-    }
-    if (data && data.length > 0) {
+    const { data, error } = await supabase.rpc('get_user_by_username', { p_username: uname });
+    if (!error && Array.isArray(data) && data.length > 0) {
       return {
         email: data[0].email,
-        device_fingerprint: data[0].device_fingerprint,
+        device_fingerprint: data[0].device_fingerprint ?? null,
       };
     }
-    return null;
+    if (error) console.warn('get_user_by_username RPC error, falling back:', error.message);
   } catch (err) {
-    console.error('checkUsernameExists failed:', err);
-    return null;
+    console.warn('get_user_by_username RPC threw, falling back:', err);
   }
+
+  // Fallback: case-insensitive direct lookup. Covers a not-yet-applied migration
+  // or usernames stored with different casing. (Needs anon SELECT on users.)
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('email, device_fingerprint')
+      .ilike('username', uname)
+      .limit(1);
+    if (!error && data && data.length > 0) {
+      return {
+        email: data[0].email as string,
+        device_fingerprint: (data[0].device_fingerprint as string) ?? null,
+      };
+    }
+    if (error) console.warn('users fallback lookup error:', error.message);
+  } catch (err) {
+    console.error('checkUsernameExists fallback failed:', err);
+  }
+
+  return null;
 }
 
 // ─── Sync a User object into public.users ─────────────────────────────────────

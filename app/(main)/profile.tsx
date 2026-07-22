@@ -16,6 +16,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import * as Clipboard from "expo-clipboard";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { supabase } from "@/src/services/supabase";
@@ -65,6 +71,65 @@ import BalanceCard from "@/components/BalanceCard";
 
 import FindDriverModal from "@/components/FindDriverModal";
 
+// Slide-in "Copied" toast, shared via context so every copy action triggers it.
+const CopyToastContext = React.createContext<() => void>(() => {});
+
+function CopyToast({ nonce }: { nonce: number }) {
+  const insets = useSafeAreaInsets();
+  const ty = useSharedValue(-160);
+  const op = useSharedValue(0);
+
+  useEffect(() => {
+    if (nonce === 0) return;
+    ty.value = withSpring(0, { damping: 18, stiffness: 220 });
+    op.value = withTiming(1, { duration: 150 });
+    const t = setTimeout(() => {
+      ty.value = withTiming(-160, { duration: 260 });
+      op.value = withTiming(0, { duration: 260 });
+    }, 1600);
+    return () => clearTimeout(t);
+  }, [nonce, ty, op]);
+
+  const aStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: ty.value }],
+    opacity: op.value,
+  }));
+
+  return (
+    <Animated.View pointerEvents="none" style={[toastStyles.wrap, { top: insets.top + 10 }, aStyle]}>
+      <View style={toastStyles.pill}>
+        <HugeiconsIcon icon={CheckmarkBadge01Icon as any} size={18} color="#fff" />
+        <Text style={toastStyles.text}>Copied successfully ✅</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
+const toastStyles = StyleSheet.create({
+  wrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 9999,
+  },
+  pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 30,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  text: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: "#fff" },
+});
+
 // Reusable InfoRow with Hugeicons
 function InfoRow({
   icon,
@@ -85,10 +150,12 @@ function InfoRow({
   subTextColor: string;
   borderColor: string;
 }) {
+  const showCopied = React.useContext(CopyToastContext);
   const handleCopy = async () => {
     if (value) {
       await Clipboard.setStringAsync(value);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showCopied();
     }
   };
 
@@ -161,6 +228,8 @@ export default function ProfileTab() {
 
   const [totalEarnedCoins, setTotalEarnedCoins] = useState(0);
   const [finderVisible, setFinderVisible] = useState(false);
+  const [copyNonce, setCopyNonce] = useState(0);
+  const showCopied = () => setCopyNonce((n) => n + 1);
 
   const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.border;
@@ -244,6 +313,7 @@ export default function ProfileTab() {
     if (user?.driver_id) {
       await Clipboard.setStringAsync(user?.driver_id);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showCopied();
     }
   };
 
@@ -271,11 +341,13 @@ export default function ProfileTab() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={{ flex: 1, backgroundColor: bg }} 
+    <CopyToastContext.Provider value={showCopied}>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: bg }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
     >
+      <CopyToast nonce={copyNonce} />
       <ScrollView 
         style={styles.root} 
         keyboardShouldPersistTaps="handled"

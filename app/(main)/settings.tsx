@@ -541,7 +541,7 @@ export default function SettingsTab() {
             description={`Visible to: ${settings.privacy.showProfile.replace("_", " ")}`}
             // description={`hey`}
             onPress={() => {
-              const options: ("everyone" | "drivers_only" | "nobody") = [
+              const options: ("everyone" | "drivers_only" | "nobody")[] = [
                 "everyone",
                 "drivers_only",
                 "nobody",
