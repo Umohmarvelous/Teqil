@@ -66,6 +66,11 @@ const registerSchema = z
   .object({
     firstName: z.string().min(1, "First name is required"),
     lastName: z.string().min(1, "Last name is required"),
+    username: z
+      .string()
+      .min(3, "Username must be at least 3 characters")
+      .max(20, "Username must be 20 characters or less")
+      .regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers, and underscores"),
     email: z
       .string()
       .min(1, "Email is required")
@@ -580,6 +585,7 @@ export default function RegisterScreen() {
     defaultValues: {
       firstName: "",
       lastName: "",
+      username: "",
       email: "",
       phone: "",
       age: "",
@@ -620,17 +626,17 @@ export default function RegisterScreen() {
       setLoading(true);
 
       try {
-        let usernameBase = `${data.firstName.trim().toLowerCase()}${data.lastName.trim().toLowerCase()}`;
-        let finalUsername = usernameBase;
-        
-        // Ensure uniqueness
-        let exists = await checkUsernameExists(finalUsername);
-        let counter = 1;
-        while (exists) {
-          finalUsername = `${usernameBase}${Math.floor(Math.random() * 10000)}`;
-          exists = await checkUsernameExists(finalUsername);
-          counter++;
-          if(counter > 5) break; // Fallback to avoid infinite loops
+        // Username is now chosen by the user — reject if it's already taken.
+        const finalUsername = data.username.trim().toLowerCase();
+        const exists = await checkUsernameExists(finalUsername);
+        if (exists) {
+          setLoading(false);
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          Alert.alert(
+            "Username taken",
+            `"${finalUsername}" is already in use. Please choose a different username.`
+          );
+          return;
         }
 
         const resolvedName = `${data.firstName.trim()} ${data.lastName.trim()}`;
@@ -813,6 +819,26 @@ export default function RegisterScreen() {
                 onBlur={onBlur}
                 error={errors.lastName?.message}
                 autoCapitalize="words"
+                returnKeyType="next"
+              />
+            )}
+          />
+
+          {/* Username */}
+          <Controller
+            control={control}
+            name="username"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <FormField
+                label="Username"
+                icon="at-outline"
+                placeholder="Choose a unique username"
+                value={value ?? ""}
+                onChangeText={(v) => onChange(v.replace(/\s/g, "").toLowerCase())}
+                onBlur={onBlur}
+                error={errors.username?.message}
+                autoCapitalize="none"
+                maxLength={20}
                 returnKeyType="next"
               />
             )}

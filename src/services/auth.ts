@@ -643,11 +643,12 @@ export async function signInWithBiometrics(): Promise<BiometricLoginResult> {
   if (!compatible) return { supported: false, enrolled: false, success: false };
 
   const enrolled = await LocalAuthentication.isEnrolledAsync();
-  if (!enrolled) return { supported: true, enrolled: false, success: false };
 
+  // Attempt authentication even when Face ID / Touch ID isn't enrolled — with
+  // disableDeviceFallback:false the OS falls back to the device passcode.
   const result = await LocalAuthentication.authenticateAsync({
     promptMessage:        "Sign in to Teqil",
-    fallbackLabel:        "Use password",
+    fallbackLabel:        "Use passcode",
     cancelLabel:          "Cancel",
     disableDeviceFallback: false,
   });
@@ -655,7 +656,7 @@ export async function signInWithBiometrics(): Promise<BiometricLoginResult> {
   if (!result.success) {
     return {
       supported: true,
-      enrolled: true,
+      enrolled,
       success: false,
       error: result.error,
     };
