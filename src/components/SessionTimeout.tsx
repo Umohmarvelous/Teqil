@@ -5,7 +5,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { View, Text, StyleSheet, Modal, Pressable, PanResponder } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useSegments } from "expo-router";
 import { useAuthStore } from "@/src/store/useStore";
 import { Colors } from "@/constants/colors";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
@@ -16,14 +16,21 @@ const INACTIVITY_LIMIT_MS = 3 * 60 * 1000; // 3 minutes
 const WARNING_DURATION_MS = 30 * 1000; // 30 seconds
 
 export default function SessionTimeout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, logout } = useAuthStore();
+  const { isAuthenticated, user, logout } = useAuthStore();
   const router = useRouter();
+  const segments = useSegments();
   const { theme } = useSettingsStore();
+
+  // Only guard a genuinely logged-in session: authenticated, with a user, and
+  // not sitting on the auth screens (login/welcome/register), where a persisted
+  // `isAuthenticated` flag could otherwise trigger the timeout modal.
+  const inAuthGroup = segments[0] === "(auth)";
+  const sessionActive = isAuthenticated && !!user && !inAuthGroup;
 
   const [showWarning, setShowWarning] = useState(false);
   const [countdown, setCountdown] = useState(WARNING_DURATION_MS / 1000);
 
-  const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
+  const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleLogout = useCallback(async () => {
     setShowWarning(false);
@@ -70,7 +77,7 @@ export default function SessionTimeout({ children }: { children: React.ReactNode
   }, [showWarning]);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (sessionActive) {
       resetInactivityTimer();
     } else {
       if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
@@ -79,7 +86,7 @@ export default function SessionTimeout({ children }: { children: React.ReactNode
     return () => {
       if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
     };
-  }, [isAuthenticated, resetInactivityTimer]);
+  }, [sessionActive, resetInactivityTimer]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -107,7 +114,7 @@ export default function SessionTimeout({ children }: { children: React.ReactNode
   return (
     <View style={{ flex: 1 }} {...panResponder.panHandlers}>
       {children}
-      {showWarning && isAuthenticated && (
+      {showWarning && sessionActive && (
         <Modal transparent visible={showWarning}>
           <View style={styles.overlay}>
             <View style={styles.modalContainer}>

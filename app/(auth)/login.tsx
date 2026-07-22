@@ -73,6 +73,8 @@ export default function LoginScreen() {
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
   const fieldBg = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
   const primaryBtn = isDark ? "rgba(255,255,255,0.08)" : Colors.text;
+    const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
+
 
   const insets = useSafeAreaInsets();
   const { setUser, setIsAuthenticated } = useAuthStore();
@@ -256,7 +258,7 @@ export default function LoginScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
-      <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
+      <View style={[styles.header, { paddingTop: topPadding + 1 }]}>
         <Pressable style={styles.backBtn} onPress={() => router.dismissTo("/(main)")}>
           <Ionicons name="chevron-back" size={22} color={textColor} />
         </Pressable>
@@ -302,7 +304,7 @@ export default function LoginScreen() {
         {/* Password + biometric button */}
         <Text style={[styles.label, { color: textColor }]}>Password</Text>
         <View style={styles.passwordRow}>
-          <View style={[styles.inputRow, styles.passwordInput, { backgroundColor: fieldBg }]}>
+          <View style={[styles.inputRow, styles.passwordInput, { backgroundColor: fieldBg, borderColor: primaryBtn }]}>
             <Ionicons name="lock-closed-outline" size={20} color={subTextColor} style={styles.icon} />
             <TextInput
               ref={passwordRef}
@@ -403,7 +405,7 @@ export default function LoginScreen() {
                 onChangeText={(v) => setForgotUsername(v.replace(/\s/g, "").toLowerCase())}
                 autoCapitalize="none"
                 autoCorrect={false}
-                maxLength={20}
+                maxLength={50}
                 returnKeyType="done"
                 onSubmitEditing={handleForgotSubmit}
               />
@@ -448,7 +450,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  body: { paddingHorizontal: 24, paddingTop: 40 },
+  body: { paddingHorizontal: 24, paddingTop: 120, flex: 1, },
   label: {
     fontFamily: "Poppins_500Medium",
     fontSize: 13,
@@ -472,12 +474,12 @@ const styles = StyleSheet.create({
   icon: { marginRight: 12 },
   input: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 15 },
   passwordRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  passwordInput: { flex: 1 },
+  passwordInput: { flex: 1, borderWidth: .4 },
   bioBtn: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    borderWidth: 1,
+    width: 50,
+    height: 50,
+    borderRadius: 9,
+    borderWidth: .4,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -488,7 +490,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 24,
+    marginTop: 100,
   },
   submitBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 16, color: "#fff" },
   switchBtn: { alignItems: "center", marginTop: 28, paddingVertical: 8 },

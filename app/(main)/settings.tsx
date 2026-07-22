@@ -10,6 +10,7 @@ import {
   Alert,
   Share,
   Modal,
+  TextInput,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -259,11 +260,96 @@ const pickerStyles = StyleSheet.create({
   },
 });
 
+// Cross-platform text prompt (Alert.prompt is iOS-only and crashes on Android).
+function TextPromptModal({
+  visible,
+  title,
+  placeholder,
+  value,
+  onChangeText,
+  onCancel,
+  onSave,
+  isDark,
+}: {
+  visible: boolean;
+  title: string;
+  placeholder?: string;
+  value: string;
+  onChangeText: (v: string) => void;
+  onCancel: () => void;
+  onSave: () => void;
+  isDark?: boolean;
+}) {
+  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const inputBg = isDark ? "rgba(255,255,255,0.06)" : "#F5F7FA";
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <Pressable style={promptStyles.backdrop} onPress={onCancel}>
+        <View style={[promptStyles.card, { backgroundColor: cardBg }]} onStartShouldSetResponder={() => true}>
+          <Text style={[promptStyles.title, { color: textColor }]}>{title}</Text>
+          <TextInput
+            style={[promptStyles.input, { backgroundColor: inputBg, color: textColor }]}
+            placeholder={placeholder}
+            placeholderTextColor={subTextColor}
+            value={value}
+            onChangeText={onChangeText}
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={onSave}
+          />
+          <View style={promptStyles.actions}>
+            <Pressable style={promptStyles.actionBtn} onPress={onCancel}>
+              <Text style={[promptStyles.actionText, { color: subTextColor }]}>Cancel</Text>
+            </Pressable>
+            <Pressable style={[promptStyles.actionBtn, promptStyles.saveBtn]} onPress={onSave}>
+              <Text style={[promptStyles.actionText, { color: "#fff" }]}>Save</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const promptStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+  },
+  card: { width: "100%", borderRadius: 24, padding: 24, gap: 16 },
+  title: { fontFamily: "Poppins_700Bold", fontSize: 17, textAlign: "center" },
+  input: {
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontFamily: "Poppins_400Regular",
+    fontSize: 15,
+  },
+  actions: { flexDirection: "row", gap: 12 },
+  actionBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  saveBtn: { backgroundColor: Colors.primary },
+  actionText: { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
+});
+
 export default function SettingsTab() {
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuthStore();
   const settings = useSettingsStore();
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
+  const [vehicleModalVisible, setVehicleModalVisible] = useState(false);
+  const [vehicleInput, setVehicleInput] = useState("");
 
   const isDark = settings.theme === "dark";
   const bg = isDark ? Colors.background : Colors.border;
@@ -453,8 +539,9 @@ export default function SettingsTab() {
             iconColor={textColor}
             label="Profile Visibility"
             description={`Visible to: ${settings.privacy.showProfile.replace("_", " ")}`}
+            // description={`hey`}
             onPress={() => {
-              const options: ("everyone" | "drivers_only" | "nobody")[] = [
+              const options: ("everyone" | "drivers_only" | "nobody") = [
                 "everyone",
                 "drivers_only",
                 "nobody",
@@ -559,20 +646,8 @@ export default function SettingsTab() {
               label="Default Vehicle"
               description={settings.driverSettings.defaultVehicle || "Not set"}
               onPress={() => {
-                Alert.prompt(
-                  "Default Vehicle",
-                  "e.g. Toyota Corolla, Blue",
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                      text: "Save",
-                      onPress: (v: string | undefined) =>
-                        settings.setDriverSettings({ defaultVehicle: v || "" }),
-                    },
-                  ],
-                  "plain-text",
-                  settings.driverSettings.defaultVehicle
-                );
+                setVehicleInput(settings.driverSettings.defaultVehicle || "");
+                setVehicleModalVisible(true);
               }}
               {...props}
             />
@@ -627,6 +702,21 @@ export default function SettingsTab() {
         current={settings.accentColor}
         onSelect={settings.setAccentColor}
         onClose={() => setColorPickerVisible(false)}
+      />
+
+      <TextPromptModal
+        visible={vehicleModalVisible}
+        title="Default Vehicle"
+        placeholder="e.g. Toyota Corolla, Blue"
+        value={vehicleInput}
+        onChangeText={setVehicleInput}
+        onCancel={() => setVehicleModalVisible(false)}
+        onSave={() => {
+          settings.setDriverSettings({ defaultVehicle: vehicleInput.trim() });
+          setVehicleModalVisible(false);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }}
+        isDark={isDark}
       />
     </View>
   );
