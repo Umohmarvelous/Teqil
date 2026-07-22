@@ -205,11 +205,14 @@ export default function RootLayout() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <StatusBar
-            style={theme === "dark" ? "light" : "dark"}
-            backgroundColor="transparent"
-            animated
-          />
+          {/* Hidden until splash finishes */}
+          {splashDone && (
+            <StatusBar
+              style={theme === "dark" ? "light" : "dark"}
+              backgroundColor="transparent"
+              animated
+            />
+          )}
 
           <SessionTimeout>
             <View style={{ flex: 1 }}>
@@ -222,7 +225,8 @@ export default function RootLayout() {
             <FloatingCreditAnimation />
           </SessionTimeout>
 
-          {/* <NetworkBanner onRetry={handleNetworkRetry} /> */}
+          {/* Hidden until splash finishes */}
+          {splashDone && <NetworkBanner onRetry={handleNetworkRetry} />}
         </GestureHandlerRootView>
       </QueryClientProvider>
     </ErrorBoundary>

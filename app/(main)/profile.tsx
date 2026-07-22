@@ -27,18 +27,14 @@ import {
   UserIcon,
   Mail01Icon,
   CallIcon,
-  CalendarIcon,
   CarIcon,
   BuildingIcon,
   LocationIcon,
   LogoutIcon,
   AddCircleIcon,
-  IdentityCardIcon,
   Close,
   Camera01Icon,
   QrCode01Icon,
-  Edit02Icon,
-  IdentityCardFreeIcons,
   CheckmarkBadge01Icon,
   Trophy,
   Wallet,
@@ -47,6 +43,12 @@ import {
   Search02Icon,
   ChevronRight,
   Copy01Icon,
+  Car01Icon,
+  PencilLine,
+  Save,
+  Tick,
+  Tick02FreeIcons,
+  Hospital,
 } from "@hugeicons/core-free-icons";
 import type { EmergencyContact, Trip } from "@/src/models/types";
 import { StatusBar } from "expo-status-bar";
@@ -102,12 +104,12 @@ function InfoRow({
         </Text>
       </View>
       {editable && (
-        <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
+        <View style={{ flexDirection: "row", gap: 20, alignItems: "center" }}>
           <Pressable onPress={handleCopy} hitSlop={12}>
-            <HugeiconsIcon icon={Copy01Icon as any} size={18} color={Colors.primary} />
+            <HugeiconsIcon icon={Copy01Icon as any} size={20} color={Colors.primary} />
           </Pressable>
           <Pressable onPress={onEdit} hitSlop={12}>
-            <HugeiconsIcon icon={Edit02Icon as any} fill={Colors.primary} size={18} color={Colors.primary} />
+            <HugeiconsIcon icon={PencilLine as any} fill={Colors.primary} size={20} color={Colors.primary} />
           </Pressable>
         </View>
       )}
@@ -238,6 +240,13 @@ export default function ProfileTab() {
     }
   };
 
+  const handleCopy = async () => {
+    if (user?.driver_id) {
+      await Clipboard.setStringAsync(user?.driver_id);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
   const addEmergencyContact = () => {
     if (!newContactName.trim() || !newContactPhone.trim()) return;
     const existing: EmergencyContact[] = (user as any)?.emergency_contacts || [];
@@ -289,28 +298,31 @@ export default function ProfileTab() {
               <View style={{alignItems: 'flex-start', justifyContent: 'flex-start', gap: 3 }}>
                 <Text style={[styles.heroName, {color: textColor} ]}>{user?.full_name || "No user"}</Text>
                 <View style={styles.roleBadge}>
+
                   <Text style={styles.roleText}>
                     {user?.role === "driver" ? (
                       <View>
                         {user?.driver_id && (
                           <View style={styles.driverIdChip}>
-                            <HugeiconsIcon icon={IdentityCardFreeIcons} size={12} color={Colors.primary} />
-                            <Text style={styles.driverIdText}>{user.driver_id}</Text>
+                            <Text style={styles.driverIdText}>@ {user.driver_id}</Text>
                           </View>
                         )}
                       </View>
                     ) : user?.role === "park_owner" ? "Park Owner" : (
                       <View style={ styles.roleContainer}>
-                        <HugeiconsIcon icon={IdentityCardFreeIcons} size={16} color={Colors.gold} />
-                          <Text style={ [{color: Colors.gold} ]}>no role</Text>
+                          <Text style={ [{color: Colors.gold} ]}>@ username</Text>
                       </View>
                     )}
                   </Text>
+                  <Pressable style={styles.copyIcon} onPress={handleCopy} hitSlop={912}>
+                      <HugeiconsIcon icon={Copy01Icon as any} size={14} color={Colors.warning} />
+                  </Pressable>
                 </View>
               </View>
             </View>
 
-            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 15,  padding: 10, paddingTop:0}}>
+            {/*  */}
+            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 15,  padding: 10, paddingTop:0, alignSelf:'flex-end'}}>
               {/* Sign Out Button */}
               <Pressable
                   style={[
@@ -357,7 +369,14 @@ export default function ProfileTab() {
             </View>
           </View>
 
+
           <View style={styles.scrollContent}>
+
+
+
+
+
+
             { user?.role === "driver" ?
               (
                 <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
@@ -431,7 +450,7 @@ export default function ProfileTab() {
 
               {showPersonalInfo && (
                 <View>
-                  <InfoRow
+                  {/* <InfoRow
                     icon={UserIcon}
                     label="Full Name"
                     value={user?.full_name || ""}
@@ -440,7 +459,7 @@ export default function ProfileTab() {
                     textColor={textColor}
                     subTextColor={subTextColor}
                     borderColor={borderColor}
-                  />
+                  /> */}
                   <InfoRow
                     icon={Mail01Icon}
                     label="Email"
@@ -457,16 +476,16 @@ export default function ProfileTab() {
                     onEdit={() => startEdit("phone", user?.phone || "")}
                     textColor={textColor}
                     subTextColor={subTextColor}
-                    borderColor={borderColor}
+                    borderColor="transparent"
                   />
-                  <InfoRow
+                  {/* <InfoRow
                     icon={CalendarIcon}
                     label="Age"
                     value={user?.age?.toString() || ""}
                     textColor={textColor}
                     subTextColor={subTextColor}
                     borderColor="transparent"
-                  />
+                  /> */}
                 </View>
               )}
             </View>
@@ -483,20 +502,23 @@ export default function ProfileTab() {
                   }} 
                     onPress={() => setShowDriverDetails(v => !v)} hitSlop={8}
                   >
-                    <Text style={[styles.cardTitle, { color: textColor }]}>Driver Details</Text>
+                    <View style={{flexDirection: 'row', gap: 10, marginHorizontal: 7}}>
+                      <HugeiconsIcon icon={Car01Icon} size={20} color={textColor} />
+                      <Text style={[styles.cardTitle, { color: textColor }]}>Driver Details</Text>
+                    </View>
                     <HugeiconsIcon icon={showDriverDetails ? ChevronRight : ChevronDown} size={22} color={textColor}/>
                   </Pressable>
 
                   {showDriverDetails && (
                     <View>
-                      <InfoRow
+                      {/* <InfoRow
                         icon={IdentityCardIcon}
                         label="Driver ID"
                         value={user?.driver_id || ""}
                         textColor={textColor}
                         subTextColor={subTextColor}
                         borderColor={borderColor}
-                      />
+                      /> */}
                       <InfoRow
                         icon={CarIcon}
                         label="Vehicle"
@@ -583,7 +605,10 @@ export default function ProfileTab() {
             {!user?.role && (
               <View>
                 <View style={[styles.card, { backgroundColor: cardBg }]}>
-                <Text style={[styles.cardTitle, { color: textColor }]}>Emergency Contacts</Text>
+                  <View style={{flexDirection: 'row', gap: 10, marginHorizontal: 7}}>
+                    <HugeiconsIcon icon={Hospital} size={20} color={ textColor } />
+                    <Text style={[styles.cardTitle, { color: textColor }]}>Emergency Contacts</Text>
+                  </View>
                   {((user as any)?.emergency_contacts as EmergencyContact[] || []).map((c, idx) => (
                     <View key={idx} style={[styles.contactRow, { borderBottomColor: borderColor }]}>
                       <View style={[styles.contactAvatar, { backgroundColor: Colors.primaryLight }]}>
@@ -633,22 +658,33 @@ export default function ProfileTab() {
         >
           <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setEditField(null)} />
           <View style={[styles.editSheet, { backgroundColor: modalBg }]}>
-            <Text style={[styles.editTitle, { color: textColor }]}>Edit {editField?.replace("_", " ")}</Text>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+              <Text style={[styles.editTitle, { color: textColor }]}>Edit {editField?.replace("_", " ")}</Text>
+              <View style={styles.editActions}>
+                <Pressable style={[styles.editCancelBtn, { borderColor: Colors.error }]} onPress={() => setEditField(null)}>
+                  {/* <Text style={[styles.editCancelText, { color: Colors.error  }]}>Cancel</Text> */}
+                      <HugeiconsIcon icon={Close} size={20} color={Colors.error} />
+                </Pressable>
+                <Pressable style={[styles.editSaveBtn, { backgroundColor: Colors.primary }]} onPress={saveEdit} disabled={saving}>
+                  {saving ?
+                    (<>
+                      <Text style={[styles.editSaveText, { color: '#fff' }]}>{saving ? "Saving..." : "Save"}</Text>
+                    </>)
+                  :
+                    (<>
+                      <HugeiconsIcon icon={Tick02FreeIcons} size={20} color={"#fff"} />
+                    </>)
+                   }
+                </Pressable>
+              </View>
+            </View>
             <TextInput
-              style={[styles.editInput, { color: textColor, borderColor, backgroundColor: cardBg }]}
+              style={[styles.editInput, { color: textColor, borderColor, backgroundColor: borderColor }]}
               value={editValue}
               onChangeText={setEditValue}
               autoFocus
               onSubmitEditing={saveEdit}
             />
-            <View style={styles.editActions}>
-              <Pressable style={[styles.editCancelBtn, { borderColor }]} onPress={() => setEditField(null)}>
-                <Text style={[styles.editCancelText, { color: textColor }]}>Cancel</Text>
-              </Pressable>
-              <Pressable style={[styles.editSaveBtn, { backgroundColor: bg }]} onPress={saveEdit} disabled={saving}>
-                <Text style={[styles.editSaveText, { color: textColor }]}>{saving ? "Saving..." : "Save"}</Text>
-              </Pressable>
-            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -675,7 +711,7 @@ const styles = StyleSheet.create({
   profileHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 50,
+    // marginTop: 50,
   },
   mainContainer: {
     paddingHorizontal: 8,
@@ -710,17 +746,27 @@ const styles = StyleSheet.create({
     alignSelf:'flex-start'
   },
   roleBadge: { 
-    borderRadius: 20, 
     alignItems: 'center', 
-    marginTop: 2, 
-    backgroundColor: Colors.primaryDarker,
+    // marginTop: 2, 
+    flexDirection: 'row',
+    gap: 5,
   },
   roleText: {
     fontFamily: "Poppins_600SemiBold", 
     fontSize: 12, 
     color: Colors.gold,
     paddingHorizontal: 8,
-    paddingVertical: 3
+    paddingVertical: 8,
+    borderRadius: 20, 
+    alignItems: 'center',
+    backgroundColor: Colors.primaryDarker,
+  },
+  copyIcon: {
+    borderRadius: 50, 
+    alignItems: 'center', 
+    marginTop: 2, 
+    backgroundColor: Colors.primaryDarker, 
+    padding: 8
   },
   driverIdChip: {
     flexDirection: "row",
@@ -728,7 +774,7 @@ const styles = StyleSheet.create({
     gap: 4,
     borderRadius: 20,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    // paddingVertical: 4,
     marginVertical: 2,
     borderColor: Colors.textSecondary,
   },
@@ -745,8 +791,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 132,
-    paddingHorizontal: 0,
-    flex: 1,
+    paddingHorizontal: 0, marginTop: 50,
+    flex: 1, flexDirection:'column'
   },
   coinbalanceSection: {
     padding: 20,
@@ -824,13 +870,13 @@ const styles = StyleSheet.create({
     gap: 30,
     borderWidth: 1,
   },
-  editOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0 0 0 / 0.77)", justifyContent: "flex-end", zIndex: 200 },
-  editSheet: { borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 34, paddingBottom: 90, gap: 16 },
-  editTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 16, textTransform: "capitalize" },
-  editInput: { borderWidth: 1.5, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, fontFamily: "Poppins_400Regular", fontSize: 15 },
-  editActions: { flexDirection: "row", gap: 12 },
-  editCancelBtn: { flex: 1, borderWidth: 1.5, borderRadius: 14, paddingVertical: 13, alignItems: "center" },
+  editOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0 0 0 / 0.77)", justifyContent: "flex-end", zIndex: 200, },
+  editSheet: { borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 34, paddingBottom: 190, gap: 16, top: 100 },
+  editTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 16, textTransform: "capitalize", alignSelf: 'flex-end' },
+  editInput: { borderWidth: .5, borderRadius: 54, paddingHorizontal: 14, paddingVertical: 13, fontFamily: "Poppins_400Regular", fontSize: 15 },
+  editActions: { flexDirection: "row", gap: 12, justifyContent: 'center' },
+  editCancelBtn: { borderWidth: .5, borderRadius: 54, padding: 13, alignItems: "center" },
   editCancelText: { fontFamily: "Poppins_600SemiBold", fontSize: 14 },
-  editSaveBtn: { flex: 2, borderRadius: 14, paddingVertical: 13, alignItems: "center" },
+  editSaveBtn: { borderRadius: 54, padding: 13, alignItems: "center" },
   editSaveText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: Colors.primary },
 });

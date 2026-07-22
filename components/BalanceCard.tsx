@@ -36,6 +36,7 @@ export default function BalanceCard({
 
   const isDark = theme === "dark";
   const textColor = isDark ? Colors.textWhite : Colors.text;
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
 
   return (
@@ -44,10 +45,29 @@ export default function BalanceCard({
         {/* <Text style={styles.balanceLabel}>Coin Balance</Text> */}
 
         {/* Balance card */}
-        <Pressable style={styles.balanceIcon} onPress={() => setBalanceHidden((v) => !v)} hitSlop={8}>
+        {/* <Pressable
+                  style={[
+                    styles.menuList,
+                    {
+                      backgroundColor: isDark
+                        ? Colors.overlayLight
+                        : Colors.textWhite,
+                      borderColor,
+                    },
+                  ]}
+              ></Pressable> */}
+        <Pressable style={
+          [styles.balanceIcon, {
+            backgroundColor: isDark
+              ? Colors.overlayLight
+              : Colors.textWhite,
+            borderWidth: 1, borderColor, 
+            padding: 10, borderRadius: 50
+        }]
+        } onPress={() => setBalanceHidden((v) => !v)} hitSlop={8}>
           <Ionicons
             name={balanceHidden ? "eye-off" : "eye"}
-            size={22} 
+            size={20} 
             color= {textColor}
           />
         </Pressable>
