@@ -296,6 +296,7 @@ export default function MainLayout() {
 
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
+  const bg = isDark ? Colors.background : Colors.border;
   const tabBarBg = isDark ? Colors.background : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
@@ -401,7 +402,7 @@ export default function MainLayout() {
         style={[
           styles.sidebarBehind,
           {
-            backgroundColor: tabBarBg,
+            backgroundColor: bg,
             opacity: sidebarContentOpacity,
             transform: [{ scale: sidebarScale }],
           },
@@ -810,7 +811,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: "rgb(85 84 84 0.45)",
     borderRadius: HOME_BORDER_RADIUS,
     // Above the top/bottom bars (zIndex 100) so it dims and covers them too.
     zIndex: 200,
