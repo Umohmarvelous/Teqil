@@ -133,7 +133,7 @@ export default function SidedBar() {
   const tabBarBg = isDark ? Colors.background : Colors.textWhite;
 
   return (
-    <View style={[styles.drawerTop, styles.containerTop, { backgroundColor: cardBg, paddingTop: insets.top + 5, paddingBottom: insets.bottom }, {borderTopLeftRadius: 60, borderBottomLeftRadius: 60, }]}>
+    <View style={[styles.drawerTop, styles.containerTop, { backgroundColor: cardBg, paddingTop: insets.top + 5, paddingBottom: insets.bottom }, {borderTopLeftRadius: 50, borderBottomLeftRadius: 50, }]}>
       
       {/* WhatsApp style Invisible Dismiss Overlay */}
       {menuOpen && (

@@ -29,7 +29,9 @@ import {
   RatingsStorage,
   BroadcastsStorage,
 } from "./storage";
-import type { Trip, Passenger, Rating, Broadcast } from "../models/types";
+import { useCreditsStore } from "../store/useCreditsStore";
+import { useAuthStore } from "../store/useStore";
+import type { Trip, Passenger, Rating, Broadcast, User } from "../models/types";
 
 // ─── Connectivity guard ───────────────────────────────────────────────────────
 
@@ -278,6 +280,41 @@ async function pullBroadcasts(parkName?: string): Promise<void> {
   }
 }
 
+// ─── Profile + credits (per-user singletons, not the local record tables) ─────
+
+/** Refresh the cached auth profile with server-authoritative fields. */
+async function pullProfile(userId: string): Promise<void> {
+  try {
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if (error) { console.warn("[Sync] pullProfile error", error.message); return; }
+    if (!data) return;
+
+    const store = useAuthStore.getState();
+    if (store.user?.id === userId) {
+      // Merge fresh server fields (username, credits_balance, avg_rating, …) into cache.
+      store.updateUser(data as Partial<User>);
+    }
+  } catch (err) {
+    console.warn("[Sync] pullProfile network error", err);
+  }
+}
+
+/** Push unsynced credit entries, then pull the authoritative ledger + balance. */
+async function syncCreditsLedger(userId: string): Promise<void> {
+  try {
+    const credits = useCreditsStore.getState();
+    await credits.syncCredits();
+    await credits.pullCredits(userId);
+  } catch (err) {
+    console.warn("[Sync] credits ledger sync error", err);
+  }
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export interface SyncUser {
@@ -338,6 +375,9 @@ export async function syncAll(user: SyncUser): Promise<void> {
   console.log("[Sync] Starting sync for user", user.id);
   await pushLocalChanges(user);
   await pullRemoteChanges(user);
+  // Per-user singletons: credit ledger + profile.
+  await syncCreditsLedger(user.id);
+  await pullProfile(user.id);
   console.log("[Sync] Sync complete");
 }
 

@@ -24,6 +24,7 @@ import { syncUserToPublicTable } from "@/src/services/auth";
 import { registerForPushNotifications } from "@/src/services/notifications";
 import NetworkBanner from "@/components/NetworkBanner";
 import SessionTimeout from "@/src/components/SessionTimeout";
+import AppLock from "@/src/components/AppLock";
 import FloatingCreditAnimation from "@/src/components/FloatingCreditAnimation";
 import EmilgoSplash from "../components/EmilgoSplash";
 
@@ -108,6 +109,7 @@ export default function RootLayout() {
   // ----- global stores -----
   const { setUser, setIsAuthenticated, setIsLoading, user, language } = useAuthStore();
   const { theme } = useSettingsStore();
+  const pushNotifications = useSettingsStore((s) => s.pushNotifications);
 
   // ----- refs -----
   const userRef = useRef<SyncUser | null>(null);
@@ -158,9 +160,9 @@ export default function RootLayout() {
     );
   }, [user]);
 
-  // ----- push token registration -----
+  // ----- push token registration (gated by the Settings toggle) -----
   useEffect(() => {
-    if (!user) return;
+    if (!user || !pushNotifications) return;
     (async () => {
       try {
         const token = await registerForPushNotifications();
@@ -173,7 +175,7 @@ export default function RootLayout() {
         console.warn("[Layout] Failed to register push token:", e);
       }
     })();
-  }, [user, setUser]);
+  }, [user, setUser, pushNotifications]);
 
   // ----- network connectivity listener -----
   useEffect(() => {
@@ -214,16 +216,18 @@ export default function RootLayout() {
             />
           )}
 
-          <SessionTimeout>
+          {/* <SessionTimeout> */}
             <View style={{ flex: 1 }}>
-              <RootLayoutNav />
+              <AppLock>
+                <RootLayoutNav />
+              </AppLock>
               {/* Custom animated splash overlay */}
               {!splashDone && (
                 <EmilgoSplash onFinish={() => setSplashDone(true)} />
               )}
             </View>
             <FloatingCreditAnimation />
-          </SessionTimeout>
+          {/* </SessionTimeout> */}
 
           {/* Hidden until splash finishes */}
           {splashDone && <NetworkBanner onRetry={handleNetworkRetry} />}

@@ -1,6 +1,7 @@
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTripStore } from '../store/useStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 import { supabase } from './supabase';
 import type { LiveLocation } from '../models/types';
 
@@ -25,6 +26,13 @@ let locationSubscription: Location.LocationSubscription | null = null;
 let lastLocation: {latitude: number, longitude: number} | null = null;
 
 export async function startLocationTracking(tripId: string) {
+  // Respect the user's "Share location during trips" setting.
+  if (!useSettingsStore.getState().shareLocation) {
+    throw new Error(
+      'Location sharing is turned off. Enable it in Settings to start a live trip.'
+    );
+  }
+
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== 'granted') {
     throw new Error('Permission to access location was denied');

@@ -6,7 +6,6 @@ import {
   Text,
   Platform,
   Animated,
-  Easing,
   PanResponder,
   Dimensions,
   Image,
@@ -49,10 +48,25 @@ type TopTab = "home" | "discover";
 
 const TAB_HEIGHT = 60;
 const SIDEBAR_WIDTH = 330;
-const EDGE_WIDTH = 30;
+const EDGE_WIDTH = 60;
 // How far to pull the home screen LEFT of the fully-open position.
 // Positive = home rests further left (overlaps sidebar's right edge); negative = further right; 0 = flush with sidebar width.
 const HOME_OPEN_SHIFT = 30;
+
+// ── Sidebar gesture "feel" — tweak these to taste ────────────────────────────
+// Drag the home screen right by more than this many px, then let go, and the
+// sidebar snaps fully OPEN. Small number = very easy to open (a ~1cm pull is
+// enough) and it will NOT spring back closed after a short drag.
+const OPEN_THRESHOLD = 15;
+// While open, drag back left by more than this many px to snap it CLOSED.
+const CLOSE_THRESHOLD = 40;
+// A quick flick faster than this (px per ms) opens/closes regardless of distance.
+const FLICK_VELOCITY = 0.15;
+
+// ── Rounded "card" look of the home screen while the sidebar is open ─────────
+const HOME_BORDER_RADIUS = 40;
+const HOME_BORDER_WIDTH = 1.7;
+
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function MainLayout() {
@@ -120,10 +134,10 @@ export default function MainLayout() {
   const openSidebar = useCallback(() => {
     sidebarOpen.current = true;
     setIsSidebarOpen(true);
-    Animated.timing(sidebarAnim, {
+    Animated.spring(sidebarAnim, {
       toValue: SIDEBAR_WIDTH,
-      duration: 320,
-      easing: Easing.out(Easing.cubic),
+      speed: 22,
+      bounciness: 0,
       useNativeDriver: true,
     }).start();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -131,10 +145,10 @@ export default function MainLayout() {
 
   const closeSidebar = useCallback(() => {
     sidebarOpen.current = false;
-    Animated.timing(sidebarAnim, {
+    Animated.spring(sidebarAnim, {
       toValue: 0,
-      duration: 250,
-      easing: Easing.in(Easing.cubic),
+      speed: 22,
+      bounciness: 0,
       useNativeDriver: true,
     }).start(() => setIsSidebarOpen(false));
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -143,29 +157,55 @@ export default function MainLayout() {
   const isSidebarGesture = useRef(false);
   const panX = useRef(0);
 
+  /**
+   * panResponder — the low-level touch tracker for the sidebar swipe.
+   *
+   * A PanResponder is just a bundle of callbacks that React Native calls while
+   * a finger is dragging on screen. We use it to (1) recognise a horizontal
+   * "open the sidebar" swipe, (2) move the sidebar 1-to-1 with the finger, and
+   * (3) on release, snap it fully OPEN or fully CLOSED. The comments beside each
+   * callback below explain exactly what that callback does and when it fires.
+   */
   const panResponder = useRef(
     PanResponder.create({
+      // Fires the instant a finger touches down. We return false so a plain tap
+      // is never captured here — we only ever care about movement (handled in
+      // onMoveShouldSetPanResponder below), so taps pass through to buttons.
       onStartShouldSetPanResponder: () => false,
+
+      // Fires repeatedly as the finger MOVES, before we own the gesture. Return
+      // true to "claim" this drag as ours. We only claim a mostly-horizontal
+      // drag (dx bigger than dy) that is either: starting from the left screen
+      // edge while the sidebar is closed, OR any horizontal drag while it's
+      // already open (so the user can swipe it back closed).
       onMoveShouldSetPanResponder: (_, gesture) => {
-        if (
+        const isHorizontal =
           Math.abs(gesture.dx) > Math.abs(gesture.dy) &&
-          Math.abs(gesture.dx) > 5
+          Math.abs(gesture.dx) > 2;
+        if (!isHorizontal) return false;
+
+        // Closed → only begin if the finger started near the left edge and is
+        // moving to the right (dx > 0). This is the classic "edge swipe".
+        if (
+          !sidebarOpen.current &&
+          gesture.moveX <= EDGE_WIDTH &&
+          gesture.dx > 0
         ) {
-          if (
-            !sidebarOpen.current &&
-            gesture.moveX <= EDGE_WIDTH &&
-            gesture.dx > 0
-          ) {
-            isSidebarGesture.current = true;
-            return true;
-          }
-          if (sidebarOpen.current) {
-            isSidebarGesture.current = true;
-            return true;
-          }
+          isSidebarGesture.current = true;
+          return true;
+        }
+        // Open → claim any horizontal drag so the user can swipe to close.
+        if (sidebarOpen.current) {
+          isSidebarGesture.current = true;
+          return true;
         }
         return false;
       },
+
+      // Fires ONCE, the moment we win/claim the gesture. We "freeze" the current
+      // sidebar position into an offset so that the upcoming finger movement is
+      // added on top of wherever the sidebar already is (0 when closed,
+      // SIDEBAR_WIDTH when open) instead of jumping to a new spot.
       onPanResponderGrant: () => {
         panX.current = sidebarOpen.current ? SIDEBAR_WIDTH : 0;
         if (isSidebarGesture.current) {
@@ -173,26 +213,42 @@ export default function MainLayout() {
           sidebarAnim.setValue(0);
         }
       },
+
+      // Fires on EVERY movement while we own the gesture. gesture.dx is how far
+      // the finger has travelled since it went down. We convert that into a
+      // sidebar position and clamp it between 0 (closed) and SIDEBAR_WIDTH
+      // (open) so the sidebar can never be dragged past either end.
       onPanResponderMove: (_, gesture) => {
-        if (isSidebarGesture.current) {
-          let newX = gesture.dx;
-          if (!sidebarOpen.current) newX = Math.max(0, newX);
-          else newX = Math.min(0, newX);
-          const absolute = panX.current + newX;
-          const clamped = Math.min(SIDEBAR_WIDTH, Math.max(0, absolute));
-          sidebarAnim.setValue(clamped - panX.current);
-        }
+        if (!isSidebarGesture.current) return;
+        let newX = gesture.dx;
+        if (!sidebarOpen.current) newX = Math.max(0, newX); // closed: only allow rightward drag
+        else newX = Math.min(0, newX); // open: only allow leftward drag
+        const absolute = panX.current + newX;
+        const clamped = Math.min(SIDEBAR_WIDTH, Math.max(0, absolute));
+        sidebarAnim.setValue(clamped - panX.current);
       },
+
+      // Fires when the finger LIFTS. We merge the offset back in, then decide
+      // where to snap. Opening only needs a tiny drag past OPEN_THRESHOLD (or a
+      // quick flick) — there is no "drag it halfway" rule, so a short pull will
+      // NOT spring back closed. Adjust OPEN_THRESHOLD / CLOSE_THRESHOLD /
+      // FLICK_VELOCITY at the top of this file to change how easy it feels.
       onPanResponderRelease: (_, gesture) => {
-        if (isSidebarGesture.current) {
-          sidebarAnim.flattenOffset();
-          const currentX = panX.current + gesture.dx;
-          const threshold = SIDEBAR_WIDTH / 2;
-          if (currentX > threshold || gesture.vx > 0.5) {
-            openSidebar();
-          } else {
-            closeSidebar();
-          }
+        if (!isSidebarGesture.current) return;
+        sidebarAnim.flattenOffset();
+
+        if (!sidebarOpen.current) {
+          // Was closed → open on a small rightward drag or a rightward flick.
+          const shouldOpen =
+            gesture.dx > OPEN_THRESHOLD || gesture.vx > FLICK_VELOCITY;
+          if (shouldOpen) openSidebar();
+          else closeSidebar();
+        } else {
+          // Was open → close on a leftward drag or a leftward flick.
+          const shouldClose =
+            gesture.dx < -CLOSE_THRESHOLD || gesture.vx < -FLICK_VELOCITY;
+          if (shouldClose) closeSidebar();
+          else openSidebar();
         }
         isSidebarGesture.current = false;
       },
@@ -243,6 +299,8 @@ export default function MainLayout() {
   const tabBarBg = isDark ? Colors.background : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
+  const sideBorderColor = isDark ? Colors.overlayLight : Colors.border;
+
 
   const [commentSheetPost, setCommentSheetPost] = useState<FeedItem | null>(
     null,
@@ -337,9 +395,7 @@ export default function MainLayout() {
   };
 
   return (
-    <View style={[styles.root,
-      { backgroundColor: tabBarBg }
-    ]}>
+    <View style={[styles.root, { backgroundColor: tabBarBg }]}>
       {/* Static sidebar behind the main screen; zooms in as it's revealed */}
       <Animated.View
         style={[
@@ -359,20 +415,38 @@ export default function MainLayout() {
       <Animated.View
         style={[
           styles.mainSlider,
-          {
-            // backgroundColor: tabBarBg,
-            transform: [{ translateX: mainTranslateX }],
-          },
+          { transform: [{ translateX: mainTranslateX }] },
         ]}
         {...panResponder.panHandlers}
       >
-        <View style={styles.mainContainer}>
+        {/* The whole home screen (top bar + content + bottom bar) lives inside
+            this card. It clips to rounded corners (overflow: hidden) so the
+            animated border below hugs it neatly. */}
+        <View style={styles.homeCard}>
+          {/* Dim overlay: covers the ENTIRE home screen (top bar, content AND
+              bottom bar) while the sidebar is open. Tapping anywhere on it
+              closes the sidebar. zIndex 200 keeps it above the top/bottom bars,
+              which sit at zIndex 100 — otherwise those areas wouldn't dim or
+              catch the close-tap. */}
           <Animated.View
-            style={[styles.overlay, { opacity: overlayOpacity }, ]}
+            style={[styles.overlay, { opacity: overlayOpacity }]}
             pointerEvents={isSidebarOpen ? "auto" : "none"}
           >
             <Pressable style={StyleSheet.absoluteFill} onPress={closeSidebar} />
           </Animated.View>
+
+          {/* Rounded border that fades IN together with the overlay when the
+              sidebar opens, and is fully invisible when closed. It's purely
+              decorative and never intercepts touches (pointerEvents="none"), so
+              the overlay underneath still receives the tap-to-close. Adjust its
+              look via HOME_BORDER_WIDTH / HOME_BORDER_RADIUS up top. */}
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.homeBorder,
+              { opacity: overlayOpacity, borderColor: sideBorderColor },
+            ]}
+          />
 
           {/* Absolute Top Bar */}
           {activeTab === "home" && (
@@ -384,7 +458,7 @@ export default function MainLayout() {
                 right: 0,
                 zIndex: 100,
                 backgroundColor: tabBarBg,
-                borderTopLeftRadius: 60, 
+                borderTopLeftRadius: 45,
                 transform: [{ translateY: actualHeaderTranslateY }],
               }}
             >
@@ -407,8 +481,8 @@ export default function MainLayout() {
                 <Pressable style={styles.logoBtn}>
                   <Image
                     source={
-                      isDark ?
-                       require("../../assets/images/emilgo_logo_white.png")
+                      isDark
+                        ? require("../../assets/images/emilgo_logo_white.png")
                         : require("../../assets/images/emilgo_logo_black.png")
                     }
                     style={styles.photoImg}
@@ -500,7 +574,7 @@ export default function MainLayout() {
             </Animated.View>
           )}
 
-          <View style={styles.content}>{renderMainContent()}</View>
+          <View style={[styles.content]}>{renderMainContent()}</View>
 
           {/* Absolute Bottom Bar */}
           <Animated.View
@@ -521,7 +595,8 @@ export default function MainLayout() {
                       activeTab === "home" ? actualBottomTranslateY : 0,
                   },
                 ],
-              }, {borderBottomLeftRadius: 60,}
+              },
+              { borderBottomLeftRadius: 40 },
             ]}
           >
             {Platform.OS === "ios" && (
@@ -534,12 +609,10 @@ export default function MainLayout() {
             <View
               style={[
                 styles.tabBarBorder,
-                
                 {
                   backgroundColor: isDark
                     ? "rgba(255,255,255,0.07)"
                     : "#E8ECF0",
-                    
                 },
               ]}
             />
@@ -705,7 +778,7 @@ function TabItem({
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1, 
+    flex: 1,
   },
   sidebarBehind: {
     position: "absolute",
@@ -713,7 +786,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: SIDEBAR_WIDTH,
-    zIndex: 0, 
+    zIndex: 0,
   },
   mainSlider: {
     flex: 1,
@@ -723,17 +796,31 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOffset: { width: -20, height: 0 },
     shadowOpacity: 0.15,
-    shadowRadius: 17, 
-    elevation: 16, 
+    shadowRadius: 17,
+    elevation: 16,
   },
-  mainContainer: {
+  // The card that holds the entire home screen (top bar + content + bottom bar).
+  // Rounded + clipped so the animated border below sits flush with its corners.
+  homeCard: {
+    flex: 1,
     width: SCREEN_WIDTH,
-    height: "100%", 
+    height: "100%",
+    borderRadius: HOME_BORDER_RADIUS,
+    overflow: "hidden",
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    // backgroundColor: "rgba(0,0,0,0.5)",
-    zIndex: 10,borderRadius: 50,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    borderRadius: HOME_BORDER_RADIUS,
+    // Above the top/bottom bars (zIndex 100) so it dims and covers them too.
+    zIndex: 200,
+  },
+  // Decorative outline that fades in with the overlay when the sidebar opens.
+  homeBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: HOME_BORDER_WIDTH,
+    borderRadius: HOME_BORDER_RADIUS,
+    zIndex: 201,
   },
   content: {
     flex: 1,
@@ -743,7 +830,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",borderRadius: 50, 
+    justifyContent: "space-between",
+    borderRadius: 50,
   },
   menuList: {
     borderRadius: 30,
@@ -758,7 +846,7 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 12,
     alignItems: "flex-start",
-    justifyContent: "center", 
+    justifyContent: "center",
   },
   logoBtn: {
     width: 25,
@@ -774,7 +862,7 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     borderBottomWidth: 0.5,
     position: "relative",
-    paddingTop: 15, borderRadius: 50,
+    paddingTop: 15,
   },
   topTabItemContainer: { flexDirection: "row" },
   topTabItem: {
@@ -791,7 +879,10 @@ const styles = StyleSheet.create({
     width: "10%",
     borderRadius: 50,
   },
-  tabBar: { position: "relative", overflow: "hidden" },
+  tabBar: {
+    position: "relative",
+    overflow: "hidden",
+  },
   tabBarBorder: {
     height: 1,
     position: "absolute",

@@ -51,8 +51,6 @@ import {
   Copy01Icon,
   Car01Icon,
   PencilLine,
-  Save,
-  Tick,
   Tick02FreeIcons,
   Hospital,
 } from "@hugeicons/core-free-icons";
@@ -70,6 +68,7 @@ import {
 import BalanceCard from "@/components/BalanceCard";
 
 import FindDriverModal from "@/components/FindDriverModal";
+import { getBiometricCredentials } from "@/src/services/auth";
 
 // Slide-in "Copied" toast, shared via context so every copy action triggers it.
 const CopyToastContext = React.createContext<() => void>(() => {});
@@ -243,6 +242,20 @@ export default function ProfileTab() {
   const [receiveVisible, setReceiveVisible] = useState(false);
   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
 
+  const [knownEmail, setKnownEmail] = useState<string | null>(null);
+
+  // Load the device's stored account on mount.
+  useEffect(() => {
+    (async () => {
+      const creds = await getBiometricCredentials();
+      if (creds) {
+        setKnownEmail(creds.email);
+        // setHasStoredCreds(true);
+      }
+    })();
+  }, []);
+
+
   useEffect(() => {
     if (!user?.id || user.role !== "driver") return;
     const loadEarnings = async () => {
@@ -373,16 +386,25 @@ export default function ProfileTab() {
 
                   <Text style={styles.roleText}>
                     {user?.role === "driver" ? (
-                      <View>
-                        {user?.driver_id && (
+                      <View style={styles.roleContainer}>
+                        {!!user?.username && (
+                          <Text style={[{ color: subTextColor }]}>@{user.username}</Text>
+                        )}
+                        {!!user?.driver_id && (
                           <View style={styles.driverIdChip}>
                             <Text style={styles.driverIdText}>@ {user.driver_id}</Text>
                           </View>
                         )}
                       </View>
-                    ) : user?.role === "park_owner" ? "Park Owner" : (
-                      <View style={ styles.roleContainer}>
-                          <Text style={ [{color: Colors.gold} ]}>@ username</Text>
+                    ) : (
+                      <View style={styles.roleContainer}>
+                        <Text style={[{ color: subTextColor }]}>
+                          {user?.username
+                            ? `@${user.username}`
+                            : user?.role === "park_owner"
+                              ? "Park Owner"
+                              : "—"}
+                        </Text>
                       </View>
                     )}
                   </Text>

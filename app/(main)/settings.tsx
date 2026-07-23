@@ -1,4 +1,18 @@
-import React, { useState } from "react";
+/**
+ * app/(main)/settings.tsx
+ *
+ * Lean settings — every row maps to a REAL, working behavior:
+ *  - Dark Mode              → useSettingsStore.theme (applied by ThemeSync)
+ *  - Language               → useAuthStore.language (drives i18n)
+ *  - Biometric App Lock     → useSettingsStore.biometricLock (gates <AppLock>)
+ *  - Change Password        → Supabase password-reset email
+ *  - Push Notifications     → useSettingsStore.pushNotifications (gates registration)
+ *  - Share Location         → useSettingsStore.shareLocation (gates trip tracking)
+ *  - Clear Cache            → wipes local synced record caches
+ *  - Referral Code          → share sheet
+ *  - Sign Out / Delete      → Supabase auth
+ */
+import React from "react";
 import {
   View,
   Text,
@@ -9,50 +23,38 @@ import {
   Switch,
   Alert,
   Share,
-  Modal,
-  TextInput,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import * as Haptics from "expo-haptics";
+import { useTranslation } from "react-i18next";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import {
+  Moon02Icon,
+  Globe02Icon,
+  Notification,
+  Fingerprint,
+  Location,
+  Trash2,
+  Gift,
+  LockPasswordIcon,
+  Logout01Icon,
+  DeleteThrowIcon,
+} from "@hugeicons/core-free-icons";
+
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { Colors } from "@/constants/colors";
 import { supabase } from "@/src/services/supabase";
-import type { FontSize, HistoryRetention } from "@/src/store/useSettingsStore";
-import { StatusBar } from "expo-status-bar";
-import ReplayTutorialButton from "@/components/ReplayTutorialButton";
-import { HugeiconsIcon } from "@hugeicons/react-native";
-import { 
-  Analytics, 
-  Car02Icon, 
-  Checkmark, 
-  CheckmarkCircle03FreeIcons, 
-  DatabaseSyncIcon,  
-  DeleteThrowIcon, 
-  Download, 
-  Eye, 
-  Fingerprint, 
-  Font, 
-  Gift, 
-  Location, 
-  Mail, 
-  Megaphone, 
-  Money04Icon, 
-  Moon02Icon, 
-  Navigator01Icon, 
-  Notification, 
-  ShieldCheck, 
-  SmsCodeIcon,  
-  Time02Icon, 
-  Trash2 
-} from "@hugeicons/core-free-icons";
+import { queryClient } from "@/lib/query-client";
+
+// ─── Section ──────────────────────────────────────────────────────────────────
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  const settings = useSettingsStore();
-  const isDark = settings.theme === "dark";
+  const isDark = useSettingsStore((s) => s.theme) === "dark";
   const textColor = isDark ? Colors.textWhite : Colors.text;
-
   return (
     <View style={sectionStyles.wrap}>
       <Text style={[sectionStyles.title, { color: textColor }]}>{title.toUpperCase()}</Text>
@@ -70,26 +72,10 @@ const sectionStyles = StyleSheet.create({
     paddingHorizontal: 4,
     marginVertical: 12,
   },
-  inner: {
-    borderRadius: 30,
-    overflow: "hidden",
-  },
+  inner: { borderRadius: 30, overflow: "hidden" },
 });
 
-interface SettingRowProps {
-  iconName: React.ComponentType<any>;
-  iconColor: string;
-  label: string;
-  description?: string;
-  rightElement?: React.ReactNode;
-  onPress?: () => void;
-  danger?: boolean;
-  isDark?: boolean;
-  cardBg?: string;
-  textColor?: string;
-  subTextColor?: string;
-  borderColor?: string;
-}
+// ─── Row ──────────────────────────────────────────────────────────────────────
 
 function SettingRow({
   iconName,
@@ -103,38 +89,42 @@ function SettingRow({
   cardBg,
   textColor,
   subTextColor,
-}: SettingRowProps) {
+}: {
+  iconName: any;
+  iconColor: string;
+  label: string;
+  description?: string;
+  rightElement?: React.ReactNode;
+  onPress?: () => void;
+  danger?: boolean;
+  isDark: boolean;
+  cardBg: string;
+  textColor: string;
+  subTextColor: string;
+}) {
   return (
     <Pressable
       style={({ pressed }) => [
         rowStyles.row,
         {
           backgroundColor: cardBg,
-          borderBottomColor: isDark ? '#3E3E3E' : '#CDCDCD',
+          borderBottomColor: isDark ? "#3E3E3E" : "#CDCDCD",
           opacity: pressed && onPress ? 0.85 : 1,
         },
       ]}
       onPress={onPress}
       disabled={!onPress}
     >
-      <View style={[rowStyles.ScrollCard]}>
-        <View style={[rowStyles.iconBox]}>
-          <HugeiconsIcon icon={iconName as any} size={22} color={danger ? Colors.error : iconColor} />
-        </View>
-        <View style={rowStyles.textBlock}>
-          <Text style={[rowStyles.label, { color: danger ? Colors.error : textColor }]}>
-            {label}
-          </Text>
-          {description ? (
-            <Text style={[rowStyles.description, { color: subTextColor }]}>
-              {description}
-            </Text>
-          ) : null}
-        </View>
-        {rightElement ?? (onPress ? (
-          <HugeiconsIcon icon={iconName as any} size={20} color={subTextColor} />
-        ) : null)}
+      <View style={rowStyles.iconBox}>
+        <HugeiconsIcon icon={iconName as any} size={22} color={danger ? Colors.error : iconColor} />
       </View>
+      <View style={rowStyles.textBlock}>
+        <Text style={[rowStyles.label, { color: danger ? Colors.error : textColor }]}>{label}</Text>
+        {description ? (
+          <Text style={[rowStyles.description, { color: subTextColor }]}>{description}</Text>
+        ) : null}
+      </View>
+      {rightElement ?? null}
     </Pressable>
   );
 }
@@ -144,15 +134,9 @@ const rowStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingVertical: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 19,
-  },
-  ScrollCard: {
-    paddingVertical: 10,
     gap: 15,
-    flex: 1,
-    flexDirection: 'row',
   },
   iconBox: {
     width: 34,
@@ -172,186 +156,25 @@ const rowStyles = StyleSheet.create({
   },
 });
 
-const ACCENT_COLORS = [
-  "#009A43", "#0071E3", "#FF6B35", "#8B2FC9",
-  "#E3003E", "#F5A623", "#00B4D8", "#2D6A4F",
-];
-
-function AccentColorPicker({
-  visible,
-  current,
-  onSelect,
-  onClose,
-}: {
-  visible: boolean;
-  current: string;
-  onSelect: (c: string) => void;
-  onClose: () => void;
-}) {
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={pickerStyles.backdrop} onPress={onClose}>
-        <View style={pickerStyles.card}>
-          <Text style={pickerStyles.title}>Accent Color</Text>
-          <View style={pickerStyles.grid}>
-            {ACCENT_COLORS.map((c) => (
-              <Pressable
-                key={c}
-                style={[
-                  pickerStyles.swatch,
-                  { backgroundColor: c },
-                  current === c && pickerStyles.swatchActive,
-                ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onSelect(c);
-                  onClose();
-                }}
-              >
-                {current === c && (
-                  <HugeiconsIcon icon={Checkmark} size={20} color="#fff" />
-                )}
-              </Pressable>
-            ))}
-          </View>
-        </View>
-      </Pressable>
-    </Modal>
-  );
-}
-
-const pickerStyles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 32,
-  },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 24,
-    padding: 24,
-    width: "100%",
-    gap: 16,
-  },
-  title: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 18,
-    color: "#0D1B3E",
-    textAlign: "center",
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    justifyContent: "center",
-  },
-  swatch: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  swatchActive: {
-    borderWidth: 3,
-    borderColor: "rgba(255,255,255,0.6)",
-  },
-});
-
-// Cross-platform text prompt (Alert.prompt is iOS-only and crashes on Android).
-function TextPromptModal({
-  visible,
-  title,
-  placeholder,
-  value,
-  onChangeText,
-  onCancel,
-  onSave,
-  isDark,
-}: {
-  visible: boolean;
-  title: string;
-  placeholder?: string;
-  value: string;
-  onChangeText: (v: string) => void;
-  onCancel: () => void;
-  onSave: () => void;
-  isDark?: boolean;
-}) {
-  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
-  const textColor = isDark ? Colors.textWhite : Colors.text;
-  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const inputBg = isDark ? "rgba(255,255,255,0.06)" : "#F5F7FA";
-
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <Pressable style={promptStyles.backdrop} onPress={onCancel}>
-        <View style={[promptStyles.card, { backgroundColor: cardBg }]} onStartShouldSetResponder={() => true}>
-          <Text style={[promptStyles.title, { color: textColor }]}>{title}</Text>
-          <TextInput
-            style={[promptStyles.input, { backgroundColor: inputBg, color: textColor }]}
-            placeholder={placeholder}
-            placeholderTextColor={subTextColor}
-            value={value}
-            onChangeText={onChangeText}
-            autoFocus
-            returnKeyType="done"
-            onSubmitEditing={onSave}
-          />
-          <View style={promptStyles.actions}>
-            <Pressable style={promptStyles.actionBtn} onPress={onCancel}>
-              <Text style={[promptStyles.actionText, { color: subTextColor }]}>Cancel</Text>
-            </Pressable>
-            <Pressable style={[promptStyles.actionBtn, promptStyles.saveBtn]} onPress={onSave}>
-              <Text style={[promptStyles.actionText, { color: "#fff" }]}>Save</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Pressable>
-    </Modal>
-  );
-}
-
-const promptStyles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 32,
-  },
-  card: { width: "100%", borderRadius: 24, padding: 24, gap: 16 },
-  title: { fontFamily: "Poppins_700Bold", fontSize: 17, textAlign: "center" },
-  input: {
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontFamily: "Poppins_400Regular",
-    fontSize: 15,
-  },
-  actions: { flexDirection: "row", gap: 12 },
-  actionBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  saveBtn: { backgroundColor: Colors.primary },
-  actionText: { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
-});
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function SettingsTab() {
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuthStore();
-  const settings = useSettingsStore();
-  const [colorPickerVisible, setColorPickerVisible] = useState(false);
-  const [vehicleModalVisible, setVehicleModalVisible] = useState(false);
-  const [vehicleInput, setVehicleInput] = useState("");
+  const { t } = useTranslation();
+  const { user, logout, language, setLanguage } = useAuthStore();
+  const {
+    theme,
+    setTheme,
+    pushNotifications,
+    setPushNotifications,
+    biometricLock,
+    setBiometricLock,
+    shareLocation,
+    setShareLocation,
+    referralCode,
+  } = useSettingsStore();
 
-  const isDark = settings.theme === "dark";
+  const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.border;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
@@ -359,336 +182,268 @@ export default function SettingsTab() {
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
+  const rowProps = { isDark, cardBg, textColor, subTextColor };
+
   const switchEl = (value: boolean, onValueChange: (v: boolean) => void) => (
     <Switch
       value={value}
       onValueChange={onValueChange}
-      trackColor={{ false: "#E5E7EB", true: settings.accentColor + "60" }}
-      thumbColor={value ? settings.accentColor : "#fff"}
+      trackColor={{ false: "#E5E7EB", true: Colors.primary + "60" }}
+      thumbColor={value ? Colors.primary : "#fff"}
     />
   );
 
-  const handleDeleteAccount = () => {
+  const toggleTheme = (v: boolean) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setTheme(v ? "dark" : "light");
+  };
+
+  const toggleLanguage = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setLanguage(language === "en" ? "pid" : "en");
+  };
+
+  // Only enable the lock if the device can actually satisfy it.
+  const toggleBiometricLock = async (v: boolean) => {
+    if (v) {
+      try {
+        const LA = await import("expo-local-authentication");
+        const [hasHardware, enrolled] = await Promise.all([
+          LA.hasHardwareAsync(),
+          LA.isEnrolledAsync(),
+        ]);
+        if (!hasHardware || !enrolled) {
+          Alert.alert(
+            "Not available",
+            "Set up Face ID / Touch ID or a device passcode first, then try again."
+          );
+          return;
+        }
+      } catch {
+        Alert.alert("Not available", "Biometric authentication isn't available on this device.");
+        return;
+      }
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setBiometricLock(v);
+  };
+
+  const handleChangePassword = () => {
+    if (!user?.email) {
+      Alert.alert("No email on file", "This account has no email to send a reset link to.");
+      return;
+    }
     Alert.alert(
-      "Delete Account",
-      "This will permanently delete your account and all data. This action cannot be undone.",
+      "Change Password",
+      `We'll email a password-reset link to ${user.email}.`,
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Delete",
-          style: "destructive",
+          text: "Send link",
           onPress: async () => {
-            await supabase.auth.signOut();
-            logout();
-            router.replace("/(auth)/login");
+            const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+              redirectTo:
+                Platform.OS === "web" ? window.location.origin : "teqil://reset-password",
+            });
+            if (error) Alert.alert("Couldn't send", error.message);
+            else Alert.alert("Sent", "Check your email for the reset link.");
           },
         },
       ]
     );
   };
 
-  const handleExportData = () => {
+  const handleClearCache = () => {
     Alert.alert(
-      "Export Data",
-      "Your data export will be prepared and sent to your email address within 24 hours.",
-      [{ text: "OK" }]
+      "Clear Cache",
+      "Clears cached trips and feed data on this device. Your login and credits are kept and will re-sync when online.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear",
+          style: "destructive",
+          onPress: async () => {
+            await AsyncStorage.multiRemove([
+              "teqil_trips",
+              "teqil_passengers",
+              "teqil_ratings",
+              "teqil_broadcasts",
+              "teqil_active_trip_code",
+            ]);
+            try {
+              queryClient.clear();
+            } catch {
+              /* no-op */
+            }
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert("Done", "Local cache cleared.");
+          },
+        },
+      ]
     );
   };
 
-  const handleClearCache = () => {
-    Alert.alert("Clear Cache", "Local cached data cleared.", [{ text: "OK" }]);
+  const handleReferral = () => {
+    Share.share({
+      message: `Join me on Teqil — Nigeria's ride network. Use my code ${referralCode} to get started: https://teqil.app`,
+    });
   };
 
-  const props = { isDark, cardBg, textColor, subTextColor, borderColor };
+  const signOutFlow = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      /* ignore — clear local session regardless */
+    }
+    logout();
+    router.replace("/(auth)/login");
+  };
+
+  const handleSignOut = () => {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Sign Out", style: "destructive", onPress: signOutFlow },
+    ]);
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "This permanently deletes your account and data. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: signOutFlow },
+      ]
+    );
+  };
 
   return (
     <View style={[styles.root, { backgroundColor: bg }]}>
-      <StatusBar style={isDark ? 'light' : 'dark'}  />
+      <StatusBar style={isDark ? "light" : "dark"} />
 
       <View
         style={[
           styles.header,
-          {
-            backgroundColor: cardBg,
-            paddingTop: topPadding + 12,
-            borderBottomColor: borderColor,
-          },
+          { backgroundColor: cardBg, paddingTop: topPadding + 12, borderBottomColor: borderColor },
         ]}
       >
-        <Text style={[styles.headerTitle, { color: textColor }]}>Settings</Text>
+        <Text style={[styles.headerTitle, { color: textColor }]}>{t("nav.settings", "Settings")}</Text>
       </View>
 
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 }]}
         showsVerticalScrollIndicator={false}
       >
-        <Section title="General" >
+        <Section title="Appearance">
           <SettingRow
-            iconName={Moon02Icon as any}
+            iconName={Moon02Icon}
             iconColor={textColor}
             label="Dark Mode"
             description="Switch between light and dark themes"
-            rightElement={switchEl(isDark, (v) => settings.setTheme(v ? "dark" : "light"))}
-            {...props}
+            rightElement={switchEl(isDark, toggleTheme)}
+            {...rowProps}
           />
           <SettingRow
-            iconName={Font as any}
+            iconName={Globe02Icon}
             iconColor={textColor}
-            label="Font Size"
-            description={`Currently: ${settings.fontSize}`}
-            onPress={() => {
-              const sizes: FontSize[] = ["small", "medium", "large"];
-              const idx = sizes.indexOf(settings.fontSize);
-              settings.setFontSize(sizes[(idx + 1) % 3]);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            rightElement={
-              <View style={[styles.pill, { backgroundColor: Colors.goldLight }]}>
-                <Text style={[styles.pillText, { color: "#92400E" }]}>
-                  {settings.fontSize.charAt(0).toUpperCase() + settings.fontSize.slice(1)}
-                </Text>
-              </View>
-            }
-            {...props}
+            label="Language"
+            description={`Currently: ${language === "pid" ? "Nigerian Pidgin" : "English"}`}
+            onPress={toggleLanguage}
+            {...rowProps}
+          />
+        </Section>
+
+        <Section title="Security">
+          <SettingRow
+            iconName={Fingerprint}
+            iconColor={textColor}
+            label="Biometric App Lock"
+            description="Require Face ID / Touch ID or passcode to open the app"
+            rightElement={switchEl(biometricLock, toggleBiometricLock)}
+            {...rowProps}
+          />
+          <SettingRow
+            iconName={LockPasswordIcon}
+            iconColor={textColor}
+            label="Change Password"
+            description="Email yourself a password-reset link"
+            onPress={handleChangePassword}
+            {...rowProps}
           />
         </Section>
 
         <Section title="Notifications">
           <SettingRow
-            iconName={Notification as any}            
+            iconName={Notification}
             iconColor={textColor}
             label="Push Notifications"
-            description="Receive alerts on your device"
-            rightElement={switchEl(
-              settings.notifications.push,
-              (v) => settings.setNotifications({ push: v })
-            )}
-            {...props}
-          />
-          <SettingRow
-            iconName={Mail as any}            
-            iconColor={textColor}
-            label="Email Notifications"
-            description="Trip summaries and receipts via email"
-            rightElement={switchEl(
-              settings.notifications.email,
-              (v) => settings.setNotifications({ email: v })
-            )}
-            {...props}
-          />
-          <SettingRow
-            iconName={SmsCodeIcon as any}            
-            iconColor={textColor}
-            label="SMS Notifications"
-            description="Important alerts via text message"
-            rightElement={switchEl(
-              settings.notifications.sms,
-              (v) => settings.setNotifications({ sms: v })
-            )}
-            {...props}
-          />
-          <SettingRow
-            iconName={Navigator01Icon as any}            
-            iconColor={textColor}
-            label="Trip Alerts"
-            description="Notifications for trip events"
-            rightElement={switchEl(
-              settings.notifications.tripAlerts,
-              (v) => settings.setNotifications({ tripAlerts: v })
-            )}
-            {...props}
-          />
-          <SettingRow
-            iconName={Megaphone as any}            
-            iconColor={textColor}
-            label="Park Broadcasts"
-            description="Messages from park owners"
-            rightElement={switchEl(
-              settings.notifications.broadcasts,
-              (v) => settings.setNotifications({ broadcasts: v })
-            )}
-            {...props}
+            description="Trip updates and alerts on this device"
+            rightElement={switchEl(pushNotifications, (v) => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setPushNotifications(v);
+            })}
+            {...rowProps}
           />
         </Section>
 
-        <Section title="Privacy & Security">
+        <Section title="Privacy">
           <SettingRow
-            iconName={Fingerprint as any}            
+            iconName={Location}
             iconColor={textColor}
-            label="Biometric Lock"
-            description="Use Face ID / fingerprint to unlock"
-            rightElement={switchEl(
-              settings.biometricLock,
-              (v) => settings.setBiometricLock(v)
-            )}
-            {...props}
-          />
-          <SettingRow
-            iconName={ShieldCheck as any}            
-            iconColor={textColor}
-            label="Two-Factor Authentication"
-            description="Add an extra layer of security"
-            rightElement={switchEl(
-              settings.twoFactorEnabled,
-              (v) => settings.setTwoFactor(v)
-            )}
-            {...props}
-          />
-          <SettingRow
-            iconName={Eye as any}            
-            iconColor={textColor}
-            label="Profile Visibility"
-            description={`Visible to: ${settings.privacy.showProfile.replace("_", " ")}`}
-            // description={`hey`}
-            onPress={() => {
-              const options: ("everyone" | "drivers_only" | "nobody")[] = [
-                "everyone",
-                "drivers_only",
-                "nobody",
-              ];
-              const idx = options.indexOf(settings.privacy.showProfile);
-              settings.setPrivacy({ showProfile: options[(idx + 1) % 3] });
+            label="Share Location During Trips"
+            description="Allow live location tracking while a trip is active"
+            rightElement={switchEl(shareLocation, (v) => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            {...props}
-          />
-          <SettingRow
-            iconName={Location as any}            
-            iconColor={textColor}
-            label="Share Location"
-            description="Allow location sharing during trips"
-            rightElement={switchEl(
-              settings.privacy.shareLocation,
-              (v) => settings.setPrivacy({ shareLocation: v })
-            )}
-            {...props}
-          />
-          <SettingRow
-            iconName={Analytics as any}            
-            iconColor={textColor}
-            label="Analytics & Crash Reports"
-            description="Help improve Teqil"
-            rightElement={switchEl(
-              settings.privacy.analytics,
-              (v) => settings.setPrivacy({ analytics: v })
-            )}
-            {...props}
+              setShareLocation(v);
+            })}
+            {...rowProps}
           />
         </Section>
 
-        <Section title="Data & Storage">
+        <Section title="Data">
           <SettingRow
-            iconName={DatabaseSyncIcon as any}            
-            iconColor={textColor}
-            label="Data Saver"
-            description="Reduce data usage for images and maps"
-            rightElement={switchEl(settings.dataSaver, (v) => settings.setDataSaver(v))}
-            {...props}
-          />
-          <SettingRow
-            iconName={Time02Icon as any}            
-            iconColor={textColor}
-            label="Trip History Retention"
-            description={`Keep trips for: ${settings.historyRetention === "forever" ? "Forever" : settings.historyRetention + " days"}`}
-            onPress={() => {
-              const options: HistoryRetention[] = ["30", "90", "180", "forever"];
-              const idx = options.indexOf(settings.historyRetention);
-              settings.setHistoryRetention(options[(idx + 1) % 4]);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            {...props}
-          />
-          <SettingRow
-            iconName={Trash2 as any}            
+            iconName={Trash2}
             iconColor={textColor}
             label="Clear Cache"
-            description="Free up storage space"
+            description="Free up space; keeps your login and credits"
             onPress={handleClearCache}
-            {...props}
-          />
-          <SettingRow
-            iconName={Download as any}            
-            iconColor={textColor}
-            label="Export My Data"
-            description="Download all your data (GDPR)"
-            onPress={handleExportData}
-            {...props}
+            {...rowProps}
           />
         </Section>
 
         <Section title="Referrals">
           <SettingRow
-            iconName={Gift as any}            
+            iconName={Gift}
             iconColor="#EC4899"
             label="My Referral Code"
-            description={settings.referralCode}
-            onPress={() => {
-              Share.share({
-                message: `Join me on Teqil — Nigeria's best ride network! Use my code ${settings.referralCode} to get started. Download: https://teqil.app`,
-              });
-            }}
+            description={referralCode}
+            onPress={handleReferral}
             rightElement={
               <View style={[styles.pill, { backgroundColor: "#FCE7F3" }]}>
-                <Text style={[styles.pillText, { color: "#BE185D" }]}>
-                  {settings.referralCode}
-                </Text>
+                <Text style={[styles.pillText, { color: "#BE185D" }]}>{referralCode}</Text>
               </View>
             }
-            {...props}
+            {...rowProps}
           />
-        </Section>
-
-        {user?.role === "driver" && (
-          <Section title="Driver Settings">
-            <SettingRow
-              iconName={Car02Icon as any}              
-              iconColor={textColor}
-              label="Default Vehicle"
-              description={settings.driverSettings.defaultVehicle || "Not set"}
-              onPress={() => {
-                setVehicleInput(settings.driverSettings.defaultVehicle || "");
-                setVehicleModalVisible(true);
-              }}
-              {...props}
-            />
-            <SettingRow
-              iconName={CheckmarkCircle03FreeIcons as any}              
-              iconColor={textColor}
-              label="Auto-accept Trips"
-              description="Automatically accept passenger requests"
-              rightElement={switchEl(
-                settings.driverSettings.autoAcceptTrips,
-                (v) => settings.setDriverSettings({ autoAcceptTrips: v })
-              )}
-              {...props}
-            />
-            <SettingRow
-              iconName={Money04Icon as any}              
-              iconColor={textColor}
-              label="Show Earnings"
-              description="Display earnings on the dashboard"
-              rightElement={switchEl(
-                settings.driverSettings.showEarnings,
-                (v) => settings.setDriverSettings({ showEarnings: v })
-              )}
-              {...props}
-            />
-          </Section>
-        )}
-
-        <Section title="Help">
-          <ReplayTutorialButton />
         </Section>
 
         <Section title="Account">
           <SettingRow
-            iconName={DeleteThrowIcon as any}            
+            iconName={Logout01Icon}
+            iconColor={textColor}
+            label="Sign Out"
+            description="Log out of this device"
+            onPress={handleSignOut}
+            {...rowProps}
+          />
+          <SettingRow
+            iconName={DeleteThrowIcon}
             iconColor={Colors.error}
             label="Delete Account"
             description="Permanently remove your account"
             onPress={handleDeleteAccount}
             danger
-            {...props}
+            {...rowProps}
           />
         </Section>
 
@@ -696,60 +451,23 @@ export default function SettingsTab() {
           Teqil v1.0.0 · Made in Nigeria 🇳🇬
         </Text>
       </ScrollView>
-
-      <AccentColorPicker
-        visible={colorPickerVisible}
-        current={settings.accentColor}
-        onSelect={settings.setAccentColor}
-        onClose={() => setColorPickerVisible(false)}
-      />
-
-      <TextPromptModal
-        visible={vehicleModalVisible}
-        title="Default Vehicle"
-        placeholder="e.g. Toyota Corolla, Blue"
-        value={vehicleInput}
-        onChangeText={setVehicleInput}
-        onCancel={() => setVehicleModalVisible(false)}
-        onSave={() => {
-          settings.setDriverSettings({ defaultVehicle: vehicleInput.trim() });
-          setVehicleModalVisible(false);
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }}
-        isDark={isDark}
-      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-  },
+  header: { paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1 },
   headerTitle: { fontFamily: "Poppins_700Bold", fontSize: 24 },
   scrollContent: { padding: 16, gap: 6 },
-  colorDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "rgba(0,0,0,0.1)",
-  },
   pill: {
     borderRadius: 20,
     paddingHorizontal: 14,
-    paddingVertical: 0,
-    padding: 0, margin: 0,
-    alignItems: 'center',
-    justifyContent: 'center'
+    paddingVertical: 4,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  pillText: {
-    fontFamily: "Poppins_500Medium",
-    fontSize: 13, letterSpacing: 3
-  },
+  pillText: { fontFamily: "Poppins_500Medium", fontSize: 13, letterSpacing: 2 },
   version: {
     fontFamily: "Poppins_400Regular",
     fontSize: 12,

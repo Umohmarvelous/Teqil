@@ -342,13 +342,16 @@
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { signUp as supabaseSignUp, signIn as supabaseSignIn, supabase } from "./supabase";
+import { secureSet, secureDelete, secureGetWithLegacyMigration } from "./secureStore";
 import type { User } from "../models/types";
 
+// Sensitive keys → encrypted SecureStore (Keychain/Keystore).
 const BIOMETRIC_EMAIL_KEY = "teqil_biometric_email";
 const BIOMETRIC_PW_KEY    = "teqil_biometric_pw";
+const CACHED_PW_HASH_KEY  = "teqil_cached_pw_hash";
+// Non-secret profile cache → regular AsyncStorage.
 const CACHED_USER_KEY     = "teqil_cached_user";
 const CACHED_EMAIL_KEY    = "teqil_cached_email";
-const CACHED_PW_HASH_KEY  = "teqil_cached_pw_hash";
 
 // ─── Simple deterministic hash (offline cache guard only) ─────────────────────
 async function hashPassword(password: string, email: string): Promise<string> {
@@ -389,11 +392,13 @@ export async function checkUsernameExists(
 
   // Fallback: case-insensitive direct lookup. Covers a not-yet-applied migration
   // or usernames stored with different casing. (Needs anon SELECT on users.)
+  // Escape LIKE wildcards so an underscore in a username matches literally.
   try {
+    const escaped = uname.replace(/[%_\\]/g, "\\$&");
     const { data, error } = await supabase
       .from('users')
       .select('email, device_fingerprint')
-      .ilike('username', uname)
+      .ilike('username', escaped)
       .limit(1);
     if (!error && data && data.length > 0) {
       return {
@@ -454,19 +459,17 @@ export async function cacheCredentials(
   password: string
 ): Promise<void> {
   const hash = await hashPassword(password, email);
+  // Profile + email are not secret → AsyncStorage. The password hash is → SecureStore.
   await AsyncStorage.multiSet([
-    [CACHED_USER_KEY,    JSON.stringify(user)],
-    [CACHED_EMAIL_KEY,   email.toLowerCase().trim()],
-    [CACHED_PW_HASH_KEY, hash],
+    [CACHED_USER_KEY,  JSON.stringify(user)],
+    [CACHED_EMAIL_KEY, email.toLowerCase().trim()],
   ]);
+  await secureSet(CACHED_PW_HASH_KEY, hash);
 }
 
 export async function clearCachedCredentials(): Promise<void> {
-  await AsyncStorage.multiRemove([
-    CACHED_USER_KEY,
-    CACHED_EMAIL_KEY,
-    CACHED_PW_HASH_KEY,
-  ]);
+  await AsyncStorage.multiRemove([CACHED_USER_KEY, CACHED_EMAIL_KEY]);
+  await secureDelete(CACHED_PW_HASH_KEY);
 }
 
 async function tryOfflineLogin(
@@ -474,12 +477,11 @@ async function tryOfflineLogin(
   password: string
 ): Promise<User | null> {
   try {
-    const [[, cachedEmail], [, cachedHash], [, cachedUser]] =
-      await AsyncStorage.multiGet([
-        CACHED_EMAIL_KEY,
-        CACHED_PW_HASH_KEY,
-        CACHED_USER_KEY,
-      ]);
+    const [[, cachedEmail], [, cachedUser]] = await AsyncStorage.multiGet([
+      CACHED_EMAIL_KEY,
+      CACHED_USER_KEY,
+    ]);
+    const cachedHash = await secureGetWithLegacyMigration(CACHED_PW_HASH_KEY);
     if (!cachedEmail || !cachedHash || !cachedUser) return null;
     if (cachedEmail !== email.toLowerCase().trim()) return null;
     const inputHash = await hashPassword(password, email);
@@ -622,24 +624,23 @@ export async function saveBiometricCredentials(
   email: string,
   password: string
 ): Promise<void> {
-  await AsyncStorage.multiSet([
-    [BIOMETRIC_EMAIL_KEY, email.toLowerCase().trim()],
-    [BIOMETRIC_PW_KEY,    password],
-  ]);
+  // Both are stored in the encrypted Keychain/Keystore, never plaintext.
+  await secureSet(BIOMETRIC_EMAIL_KEY, email.toLowerCase().trim());
+  await secureSet(BIOMETRIC_PW_KEY, password);
 }
 
 export async function clearBiometricCredentials(): Promise<void> {
-  await AsyncStorage.multiRemove([BIOMETRIC_EMAIL_KEY, BIOMETRIC_PW_KEY]);
+  await secureDelete(BIOMETRIC_EMAIL_KEY);
+  await secureDelete(BIOMETRIC_PW_KEY);
 }
 
 export async function getBiometricCredentials(): Promise<{
   email: string;
   password: string;
 } | null> {
-  const [[, email], [, pw]] = await AsyncStorage.multiGet([
-    BIOMETRIC_EMAIL_KEY,
-    BIOMETRIC_PW_KEY,
-  ]);
+  // Migrates any legacy plaintext-AsyncStorage credentials into SecureStore on read.
+  const email = await secureGetWithLegacyMigration(BIOMETRIC_EMAIL_KEY);
+  const pw = await secureGetWithLegacyMigration(BIOMETRIC_PW_KEY);
   if (!email || !pw) return null;
   return { email, password: pw };
 }

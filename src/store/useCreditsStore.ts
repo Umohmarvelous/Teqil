@@ -20,6 +20,7 @@ interface CreditsStore {
   setBalance: (balance: number) => void;
   addCredit: (type: CreditType, amount: number, userId: string, postId?: string, commentId?: string) => Promise<void>;
   syncCredits: () => Promise<void>;
+  pullCredits: (userId: string) => Promise<void>;
   addFloatingAnimation: (amount: number, x: number, y: number) => void;
   removeFloatingAnimation: (id: string) => void;
 }
@@ -111,11 +112,37 @@ export const useCreditsStore = create<CreditsStore>()(
         } catch (err) {
           console.warn('Sync failed, will retry later', err);
         }
-      }
+      },
+
+      // Pull the authoritative ledger from Supabase and recompute the balance.
+      // Keeps still-pending local entries so nothing earned offline is lost.
+      pullCredits: async (userId) => {
+        try {
+          const { data, error } = await supabase
+            .from('credits_history')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+
+          if (error || !data) return;
+
+          const remote: CreditHistory[] = data.map((r: any) => ({ ...r, synced: true }));
+          set((state) => {
+            const localPending = state.history.filter((h) => !h.synced);
+            const history = [...localPending, ...remote];
+            const balance = history.reduce((sum, h) => sum + (h.amount || 0), 0);
+            return { history, balance };
+          });
+        } catch (err) {
+          console.warn('[Credits] pullCredits failed', err);
+        }
+      },
     }),
     {
       name: "teqil-credits",
       storage: createJSONStorage(() => AsyncStorage),
+      // Persist only the ledger; floatingAnimations are transient UI state.
+      partialize: (state) => ({ balance: state.balance, history: state.history }),
     }
   )
 );
