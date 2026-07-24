@@ -119,6 +119,9 @@ export interface CreditHistory extends Syncable {
   amount: number;
   post_id?: string;
   comment_id?: string;
+  // Deterministic "earn once" key (e.g. "<uid>:like:<postId>"). NULL/undefined
+  // for events that may repeat (ad_watch). Mirrors credits_history.dedupe_key.
+  dedupe_key?: string;
   created_at: string;
 }
 

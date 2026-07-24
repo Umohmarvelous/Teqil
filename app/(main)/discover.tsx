@@ -1800,7 +1800,9 @@ export default function DiscoverTab({
       };
 
       if (user) {
-        addCredit("comment", CREDIT_REPLY, user.id, postId, commentId);
+        // Reply is its own credit type + dedup namespace (once per reply thread),
+        // so replying never blocks the +30 top-level comment credit on the same post.
+        addCredit("reply", CREDIT_REPLY, user.id, postId, commentId);
         addFloatingAnimation(CREDIT_REPLY, SCREEN_WIDTH / 2 - 20, SCREEN_HEIGHT / 2);
       }
 
