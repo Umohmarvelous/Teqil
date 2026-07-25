@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/src/store/useStore";
 import { PassengersStorage, TripsStorage } from "@/src/services/storage";
+import { triggerSyncNow } from "@/src/services/sync";
 import { formatDate } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
@@ -156,7 +157,8 @@ export default function PassengerHistoryScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await load();
+    // Reload history AND run a full cloud sync.
+    await Promise.all([load(), triggerSyncNow()]);
     setRefreshing(false);
   };
 

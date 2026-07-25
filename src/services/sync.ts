@@ -30,6 +30,8 @@ import {
   BroadcastsStorage,
 } from "./storage";
 import { useCreditsStore } from "../store/useCreditsStore";
+import { usePoolStore } from "../store/usePoolStore";
+import { useTransactionsStore } from "../store/useTransactionsStore";
 import { useAuthStore } from "../store/useStore";
 import type { Trip, Passenger, Rating, Broadcast, User } from "../models/types";
 
@@ -315,6 +317,19 @@ async function syncCreditsLedger(userId: string): Promise<void> {
   }
 }
 
+/** Push unsynced pool spends/credits, then pull the authoritative pool balance. */
+async function syncPoolLedger(userId: string): Promise<void> {
+  try {
+    const pool = usePoolStore.getState();
+    await pool.syncPool();
+    await pool.pullPool(userId);
+    // Transactions are append-only audit rows — push only, no pull needed.
+    await useTransactionsStore.getState().sync();
+  } catch (err) {
+    console.warn("[Sync] pool ledger sync error", err);
+  }
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export interface SyncUser {
@@ -375,10 +390,22 @@ export async function syncAll(user: SyncUser): Promise<void> {
   console.log("[Sync] Starting sync for user", user.id);
   await pushLocalChanges(user);
   await pullRemoteChanges(user);
-  // Per-user singletons: credit ledger + profile.
+  // Per-user singletons: credit ledger + money pool + profile.
   await syncCreditsLedger(user.id);
+  await syncPoolLedger(user.id);
   await pullProfile(user.id);
   console.log("[Sync] Sync complete");
+}
+
+/**
+ * Convenience: run a full sync for whoever is currently signed in. Reads the
+ * user from the auth store itself so callers (e.g. pull-to-refresh handlers)
+ * don't have to thread the SyncUser through. No-op when signed out.
+ */
+export async function triggerSyncNow(): Promise<void> {
+  const user = useAuthStore.getState().user;
+  if (!user?.id) return;
+  await syncAll({ id: user.id, role: user.role, park_name: user.park_name });
 }
 
 /**

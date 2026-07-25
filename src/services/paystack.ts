@@ -1,38 +1,101 @@
 /**
  * src/services/paystack.ts
- * 
- * Mock Paystack service for handling Split Payments via Subaccounts.
+ *
+ * Payment service. Still MOCK-backed (it simulates and logs, then resolves), but
+ * the interfaces now model exactly what the live Paystack integration will do,
+ * and every call returns a reference so the caller can record a transaction row.
+ * Swapping to live keys later means replacing the bodies, not the signatures.
+ *
+ * Two flows:
+ *   1. processTripPayment  — the fare split (bank + pool → driver + company).
+ *   2. processPremiumPayment — a premium subscription split 60/40 via Paystack
+ *      Subaccounts + Transaction Split (60% partner station, 40% Emilgo).
  */
 
-export interface SplitPaymentParams {
+export interface PaymentResult {
+  success: boolean;
+  reference: string;
+}
+
+// ─── Trip payment ─────────────────────────────────────────────────────────────
+export interface TripPaymentParams {
+  passenger_email: string;
+  base_fare: number;
+  passenger_bank_pays: number; // charged to the passenger's real bank account
+  pool_draw: number;           // taken from the passenger's realised ad-pool
+  driver_bonus: number;        // funded from the pool
+  company_cut: number;         // funded from the pool
+  driver_total: number;        // = base_fare + driver_bonus (driver made whole)
+}
+
+// ─── Premium subscription (60/40 split) ──────────────────────────────────────
+export const STATION_SHARE_PERCENT = 0.6; // 60% → partner station fuel pot
+export const COMPANY_SHARE_PERCENT = 0.4; // 40% → Emilgo
+
+export interface PremiumPaymentParams {
   email: string;
-  amount: number;
-  pool_duplicate_amount: number;
-  bonus_amount: number;
-  company_cut: number;
+  amount: number;              // full premium price paid by the user
+  station_subaccount: string;  // Paystack subaccount code of the partner station
+}
+
+export interface PremiumSplit {
+  station_share: number; // 60%
+  company_share: number; // 40%
+}
+
+/** Split a premium payment 60/40. Pure helper, safe to unit-test. */
+export function computePremiumSplit(amount: number): PremiumSplit {
+  const station_share = Math.round(amount * STATION_SHARE_PERCENT);
+  // Company gets the remainder so the two shares always sum exactly to `amount`
+  // (avoids a ₦1 rounding gap).
+  const company_share = amount - station_share;
+  return { station_share, company_share };
+}
+
+function makeReference(prefix: string): string {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export const PaystackService = {
   /**
-   * Simulates processing a split payment.
-   * In a real implementation, this would:
-   * 1. Create a transaction using Paystack's Transaction Split API.
-   * 2. Direct passenger payment to the Driver subaccount.
-   * 3. Process an internal transfer from the Pool account to Driver (Duplicate + Bonus) and Company.
+   * Process a trip fare payment.
+   * Live version will: charge `passenger_bank_pays` to the passenger, then run a
+   * Transaction Split routing `driver_total` to the driver subaccount and
+   * `company_cut` to the company account (the pool portion is an internal ledger
+   * move already handled by usePoolStore before this is called).
    */
-  processTripPayment: async (params: SplitPaymentParams): Promise<boolean> => {
+  processTripPayment: async (params: TripPaymentParams): Promise<PaymentResult> => {
     return new Promise((resolve) => {
-      console.log("[Paystack Mock] Processing split payment...", params);
-      
-      // Simulate network request
+      console.log("[Paystack Mock] Trip payment…", params);
       setTimeout(() => {
-        console.log("[Paystack Mock] Split payment successful.");
-        console.log(`- Passenger pays: ₦${params.amount}`);
-        console.log(`- Pool Account deduction: ₦${params.pool_duplicate_amount + params.bonus_amount + params.company_cut}`);
-        console.log(`  └-> To Driver: ₦${params.pool_duplicate_amount + params.bonus_amount}`);
-        console.log(`  └-> To Company: ₦${params.company_cut}`);
-        resolve(true);
-      }, 1500);
+        console.log("[Paystack Mock] Trip payment ok");
+        console.log(`- Passenger bank pays: ₦${params.passenger_bank_pays}`);
+        console.log(`- Pool draw: ₦${params.pool_draw}`);
+        console.log(`  └-> Driver total: ₦${params.driver_total} (fare ₦${params.base_fare} + bonus ₦${params.driver_bonus})`);
+        console.log(`  └-> Company cut: ₦${params.company_cut}`);
+        resolve({ success: true, reference: makeReference("trip") });
+      }, 1200);
     });
-  }
+  },
+
+  /**
+   * Process a premium subscription with a 60/40 split.
+   * Live version will use Paystack Subaccounts + Transaction Split: the station
+   * subaccount receives 60%, the company account 40%, in one charge.
+   */
+  processPremiumPayment: async (
+    params: PremiumPaymentParams
+  ): Promise<PaymentResult & PremiumSplit> => {
+    const split = computePremiumSplit(params.amount);
+    return new Promise((resolve) => {
+      console.log("[Paystack Mock] Premium payment…", params, split);
+      setTimeout(() => {
+        console.log("[Paystack Mock] Premium payment ok");
+        console.log(`- Total: ₦${params.amount}`);
+        console.log(`  └-> Station (60%): ₦${split.station_share} → ${params.station_subaccount}`);
+        console.log(`  └-> Company (40%): ₦${split.company_share}`);
+        resolve({ success: true, reference: makeReference("prem"), ...split });
+      }, 1200);
+    });
+  },
 };

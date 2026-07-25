@@ -18,7 +18,7 @@
  * - Unescaped apostrophe in JSX replaced with &apos;
 */
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -39,15 +39,16 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/colors";
 import { useAuthStore } from "@/src/store/useStore";
-import { useCreditsStore } from "@/src/store/useCreditsStore";
-import { formatNaira } from "@/src/utils/helpers";
+import { usePoolStore, computeTripSplit } from "@/src/store/usePoolStore";
+import { useTierStore } from "@/src/store/useTierStore";
+import { useTransactionsStore } from "@/src/store/useTransactionsStore";
+import { formatNaira, generateId } from "@/src/utils/helpers";
 import { PaystackService } from "@/src/services/paystack";
+import type { TripSplit } from "@/src/models/types";
 
-// ─── Revenue Constants ───────────────────────────────────────────────────────
-// 1 credit = ₦0.05 (as per example: 100 credits = ₦5)
-const CREDIT_TO_NAIRA = 0.05;
-const POOL_BONUS_PERCENT = 0.40;    // 40% bonus from pool to driver
-const COMPANY_CUT_PERCENT = 0.60;   // 60% from pool to company
+// Revenue split is computed by computeTripSplit() in usePoolStore — the passenger
+// pays half the fare from their bank and the rest (plus driver bonus + company
+// cut) is drawn from their realised ad-pool, capped so Emilgo never loses money.
 
 // ─── Camera module — loaded at module level, not inside a component ───────────
 // We need the hook (useCameraPermissions) to be available unconditionally so it
@@ -71,10 +72,12 @@ const QUICK_AMOUNTS = [500, 1000, 2000, 5000];
 function SuccessOverlay({
   visible,
   amount,
+  saved,
   onDone,
 }: {
   visible: boolean;
   amount: string;
+  saved?: string;
   onDone: () => void;
 }) {
   const scale = useRef(new Animated.Value(0)).current;
@@ -121,6 +124,7 @@ function SuccessOverlay({
         </LinearGradient>
         <Text style={successStyles.title}>Payment Sent!</Text>
         <Text style={successStyles.amount}>{amount}</Text>
+        {saved ? <Text style={successStyles.saved}>You saved {saved}</Text> : null}
         <Text style={successStyles.sub}>
           Your fare has been sent to the driver
         </Text>
@@ -349,6 +353,22 @@ export default function PayFareScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [lastSplit, setLastSplit] = useState<TripSplit | null>(null);
+
+  // Realised ad-pool balance (₦). In Step 3 this is 0 until ad revenue lands, so
+  // no discount is applied yet — the passenger simply pays the full fare.
+  const poolBalance = usePoolStore((s) => s.balance);
+  const adminLossOverride = useTierStore((s) => s.adminLossOverride);
+
+  // Live preview of the split for the amount currently typed, so the passenger
+  // can see what they will actually pay and save before confirming.
+  const preview = useMemo(() => {
+    const fare = parseFloat(amount);
+    if (!fare || isNaN(fare) || fare < 50) return null;
+    return computeTripSplit(fare, poolBalance, {
+      allowOverdraw: adminLossOverride,
+    });
+  }, [amount, poolBalance, adminLossOverride]);
 
   // Entrance animations — stable refs, no need in deps
   const opacity = useRef(new Animated.Value(0)).current;
@@ -395,76 +415,80 @@ export default function PayFareScreen() {
     }
     const baseFare = parseFloat(amount);
     if (!amount || isNaN(baseFare) || baseFare < 50) {
-      Alert.alert(
-        "Invalid Amount",
-        "Please enter an amount of at least ₦50."
-      );
+      Alert.alert("Invalid Amount", "Please enter an amount of at least ₦50.");
+      return;
+    }
+    if (!user?.id) {
+      Alert.alert("Not signed in", "Please sign in again to pay a fare.");
       return;
     }
 
-    // ── 1. Apply credit discount ──────────────────────────────────────────
-    const { balance: creditBalance } = useCreditsStore.getState();
-    const maxDiscountNaira = creditBalance * CREDIT_TO_NAIRA;
-    const discount = Math.min(maxDiscountNaira, baseFare);
-    const discountedFare = baseFare - discount;
-    const creditsUsed = Math.floor(discount / CREDIT_TO_NAIRA);
-
-    // ── 2. Calculate pool splits ──────────────────────────────────────────
-    const poolDuplicate = discountedFare;                            // Mirror of passenger payment
-    const poolBonus = Math.round(discountedFare * POOL_BONUS_PERCENT);   // 40%
-    const companyCut = Math.round(discountedFare * COMPANY_CUT_PERCENT); // 60%
-    const totalPoolNeeded = poolDuplicate + poolBonus;               // Duplicate + Bonus
-    const totalPoolNeededInCredits = totalPoolNeeded / CREDIT_TO_NAIRA;
-
-    // ── 3. Check if passenger has enough credits to fund pool ─────────────
-    if (creditBalance < totalPoolNeededInCredits) {
-      Alert.alert(
-        "Insufficient Credits",
-        "You don't have enough credits for this trip. Earn more by engaging in the For You tab.",
-        [{ text: "OK" }]
-      );
-      return;
-    }
-
-    // ── 4. Process payment ────────────────────────────────────────────────
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setIsProcessing(true);
 
+    // Unique id per attempt → doubles as the pool/transaction dedupe key so a
+    // retry of THIS payment can't double-charge.
+    const tripId = generateId();
+
     try {
-      const success = await PaystackService.processTripPayment({
-        email: user?.email || "passenger@teqil.app",
-        amount: discountedFare,
-        pool_duplicate_amount: poolDuplicate,
-        bonus_amount: poolBonus,
-        company_cut: companyCut,
+      // ── 1. Draw from the realised pool. computeTripSplit (inside spendForTrip)
+      //       caps the draw at the real balance unless the admin override is on,
+      //       so Emilgo can never spend money it doesn't hold. ────────────────
+      const split = await usePoolStore
+        .getState()
+        .spendForTrip(user.id, baseFare, tripId, {
+          allowOverdraw: adminLossOverride,
+        });
+
+      if (!split) {
+        setIsProcessing(false);
+        Alert.alert("Already Processed", "This payment was already recorded.");
+        return;
+      }
+
+      // ── 2. Charge the passenger's bank + route driver/company shares. ──────
+      const result = await PaystackService.processTripPayment({
+        passenger_email: user.email || "passenger@teqil.app",
+        base_fare: split.baseFare,
+        passenger_bank_pays: split.passengerBankPays,
+        pool_draw: split.poolDraw,
+        driver_bonus: split.driverBonus,
+        company_cut: split.companyCut,
+        driver_total: split.driverReceives,
       });
 
-      if (success) {
-        // Deduct credits used for discount + pool funding
-        const totalCreditsDeducted = creditsUsed + Math.ceil(totalPoolNeededInCredits);
-        useCreditsStore.getState().setBalance(
-          Math.max(0, creditBalance - totalCreditsDeducted)
-        );
-
-        const driverReceives = discountedFare + poolDuplicate + poolBonus;
-        console.log(`[Revenue] Fare: ₦${baseFare}`);
-        console.log(`[Revenue] Discount: ₦${discount} (${creditsUsed} credits)`);
-        console.log(`[Revenue] Passenger pays: ₦${discountedFare}`);
-        console.log(`[Revenue] Driver receives: ₦${driverReceives}`);
-        console.log(`[Revenue] Company receives: ₦${companyCut}`);
-
-        setIsProcessing(false);
-        setPaymentSuccess(true);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } else {
+      if (!result.success) {
         setIsProcessing(false);
         Alert.alert("Payment Failed", "Could not process payment. Please try again.");
+        return;
       }
+
+      // ── 3. Record the transaction for the audit trail (idempotent). ───────
+      await useTransactionsStore.getState().record({
+        id: tripId,
+        user_id: user.id,
+        kind: "trip_payment",
+        base_fare: split.baseFare,
+        passenger_bank_paid: split.passengerBankPays,
+        pool_draw: split.poolDraw,
+        driver_bonus: split.driverBonus,
+        company_cut: split.companyCut,
+        driver_total: split.driverReceives,
+        status: "recorded",
+        dedupe_key: `${user.id}:trip:${tripId}`,
+        updated_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+      });
+
+      setLastSplit(split);
+      setIsProcessing(false);
+      setPaymentSuccess(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       setIsProcessing(false);
       Alert.alert("Payment Error", "An error occurred while processing your payment.");
     }
-  }, [driverRef, amount, user?.email]);
+  }, [driverRef, amount, user?.id, user?.email, adminLossOverride]);
 
   const handleSuccessDone = useCallback(() => {
     if (user?.id) {
@@ -523,6 +547,20 @@ export default function PayFareScreen() {
                 {numAmount > 0 ? formatNaira(numAmount) : "₦0.00"}
               </Text>
               <Text style={styles.amountSub}>Nigerian Naira</Text>
+
+              {/* Live split preview: what the passenger actually pays from their
+                  bank, and how much their ad-pool covers. Only shows a discount
+                  once the pool has realised money (Step 4+). */}
+              {preview && preview.fareSubsidy > 0 ? (
+                <View style={styles.previewRow}>
+                  <Text style={styles.previewPay}>
+                    You pay {formatNaira(preview.passengerBankPays)}
+                  </Text>
+                  <Text style={styles.previewSave}>
+                    Pool covers {formatNaira(preview.fareSubsidy)}
+                  </Text>
+                </View>
+              ) : null}
             </View>
 
               
@@ -654,7 +692,12 @@ export default function PayFareScreen() {
       {/* Success overlay */}
       <SuccessOverlay
         visible={paymentSuccess}
-        amount={formatNaira(numAmount)}
+        amount={formatNaira(lastSplit ? lastSplit.passengerBankPays : numAmount)}
+        saved={
+          lastSplit && lastSplit.fareSubsidy > 0
+            ? formatNaira(lastSplit.fareSubsidy)
+            : undefined
+        }
         onDone={handleSuccessDone}
       />
 
@@ -767,6 +810,20 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_400Regular",
     fontSize: 12,
     color: Colors.primaryDark,
+  },
+  previewRow: {
+    alignItems: "center",
+    gap: 2,
+  },
+  previewPay: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 14,
+    color: Colors.primaryDark,
+  },
+  previewSave: {
+    fontFamily: "Poppins_500Medium",
+    fontSize: 12,
+    color: Colors.gold,
   },
    meddlePaySection: {
       paddingTop: 30,
@@ -957,6 +1014,11 @@ const successStyles = StyleSheet.create({
     fontSize: 32,
     color: Colors.primary,
     letterSpacing: -0.5,
+  },
+  saved: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 14,
+    color: Colors.gold,
   },
   sub: {
     fontFamily: "Poppins_400Regular",
