@@ -88,6 +88,10 @@ function RootLayoutNav() {
           name="rating"
           options={{ headerShown: false, presentation: "modal" }}
         />
+        <Stack.Screen
+          name="program"
+          options={{ headerShown: false, animation: "slide_from_right" }}
+        />
       </Stack>
     </>
   );

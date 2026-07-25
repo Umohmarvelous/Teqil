@@ -21,6 +21,18 @@ export interface User {
   avg_rating?: number;
   profile_complete?: boolean;
   push_token?: string;
+  // ── Loyalty program / KYC (Step 6) ──────────────────────────────────────────
+  kyc_status?: KycStatus;
+  kyc_verified_at?: string;
+  program_status?: ProgramStatus;
+  // Payout destination, only trusted once its resolved name matches the KYC name.
+  payout_bank_code?: string;
+  payout_account_number?: string;
+  payout_account_name?: string;
+  // Salted HASHES of the government IDs — never the raw NIN/BVN. Backed by a
+  // UNIQUE index so one identity can back only one rewards-eligible account.
+  nin_hash?: string;
+  bvn_hash?: string;
   created_at: string;
 }
 
@@ -189,6 +201,34 @@ export interface RevenueTransaction extends Syncable {
   station_subaccount?: string;
   status: "recorded" | "success" | "failed";
   // Idempotency: mirrors transactions.dedupe_key UNIQUE.
+  dedupe_key?: string;
+  created_at: string;
+}
+
+// ─── Loyalty program / KYC (Step 6) ──────────────────────────────────────────
+// KYC = "Know Your Customer": proving the applicant is a real, unique person via
+// NIN/BVN + a phone OTP (verified through Smile Identity; mock-backed for now).
+export type KycStatus = "unverified" | "pending" | "verified" | "rejected";
+
+// Where a user sits in the loyalty program lifecycle.
+export type ProgramStatus = "none" | "applied" | "eligible" | "enrolled";
+
+// One submission to join the loyalty program. Append-only + Syncable so it flows
+// through the same offline→cloud pipeline as the other ledgers.
+export interface ProgramApplication extends Syncable {
+  id: string;
+  user_id: string;
+  id_type: "nin" | "bvn";
+  id_hash: string;            // salted hash of the NIN/BVN — never the raw number
+  phone: string;
+  otp_verified: boolean;
+  bank_code: string;
+  account_number: string;
+  account_name: string;       // resolved from the bank; must match the KYC name
+  kyc_reference?: string;     // provider reference id
+  status: KycStatus;
+  device_fingerprint?: string;
+  // Idempotency: one active application per user (mirrors other dedupe keys).
   dedupe_key?: string;
   created_at: string;
 }

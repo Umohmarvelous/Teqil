@@ -113,6 +113,7 @@ export default function SidedBar() {
         else router.push("/(passenger)/history");
       },
     },
+    { id: "program", icon: IdentityCardFreeIcons as any, label: "Loyalty Program", onPress: () => router.push("/program") },
     { id: "settings", icon: Settings01Icon as any, label: "Settings", onPress: () => router.push("/(main)/settings") },
     { id: "referral", icon: GiftIcon as any, label: "Refer a Friend", onPress: () => Alert.alert("Refer", "Coming soon!") },
     { id: "help", icon: HelpCircleIcon as any, label: "Help Centre", onPress: () => Alert.alert("Help", "Support coming soon.") },

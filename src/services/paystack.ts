@@ -43,6 +43,32 @@ export interface PremiumSplit {
   company_share: number; // 40%
 }
 
+// ─── Bank account resolution (for payouts) ───────────────────────────────────
+// Live version calls Paystack's Resolve Account API. Used by the loyalty program
+// to confirm a payout account's name matches the KYC-verified identity before any
+// reward money can ever be sent there.
+export interface BankAccountResult {
+  resolved: boolean;
+  account_name: string;
+}
+
+/** Mock: derive a deterministic "account name" from the account number. */
+export async function resolveBankAccount(
+  bankCode: string,
+  accountNumber: string
+): Promise<BankAccountResult> {
+  const clean = accountNumber.replace(/\D/g, "");
+  const names = ["Chidi Okonkwo", "Amina Bello", "Emeka Obi", "Ngozi Eze", "Tunde Alabi"];
+  let sum = 0;
+  for (let i = 0; i < clean.length; i++) sum += clean.charCodeAt(i);
+  const resolved = clean.length === 10; // Nigerian NUBAN is 10 digits
+  console.log("[Paystack Mock] resolveBankAccount", { bankCode, resolved });
+  return {
+    resolved,
+    account_name: resolved ? names[sum % names.length] : "",
+  };
+}
+
 /** Split a premium payment 60/40. Pure helper, safe to unit-test. */
 export function computePremiumSplit(amount: number): PremiumSplit {
   const station_share = Math.round(amount * STATION_SHARE_PERCENT);

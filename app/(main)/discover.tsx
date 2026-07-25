@@ -797,6 +797,12 @@ import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { useCreditsStore } from "@/src/store/useCreditsStore";
 import { triggerSyncNow } from "@/src/services/sync";
+import {
+  CREDIT_LIKE,
+  CREDIT_COMMENT,
+  CREDIT_SHARE,
+  CREDIT_REPLY,
+} from "@/constants/credits";
 import { Colors } from "@/constants/colors";
 import { router } from "expo-router";
 import { HugeiconsIcon } from "@hugeicons/react-native";
@@ -822,12 +828,10 @@ import Animated, {
 } from "react-native-reanimated";
 
 // ----------------------------------------------------------------------
-// Credit Constants
+// Credit Constants — single source of truth in constants/credits.ts (imported at
+// the top of this file) so the feed (silent earning) and the Program Page (which
+// reveals the amounts) never diverge.
 // ----------------------------------------------------------------------
-const CREDIT_LIKE = 10;
-const CREDIT_COMMENT = 30;
-const CREDIT_SHARE = 50;
-const CREDIT_REPLY = 5;
 
 // ----------------------------------------------------------------------
 // Types
