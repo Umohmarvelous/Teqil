@@ -443,12 +443,12 @@ const LOGO_W = LOGO_H * (540 / 871); // ≈ 56
 const COVER = Math.max(SCREEN_W / LOGO_W, SCREEN_H / LOGO_H) * 1.35;
 
 // How many pixels the wordmark tucks behind the logo (tight spacing)
-const OVERLAP = 8;
+const OVERLAP = 0;
 
 // ---- Timing -------------------------------------------------------------------
 const TIMING = {
   SPEC: { in: 300, reveal: 900, hold: 3000, retract: 1000, shrink: 150, zoom: 900 },
-  FAST: { in: 1050, reveal: 650, hold: 1100, retract: 550, shrink: 450,  zoom: 300 },
+  FAST: { in: 1200, reveal: 650, hold: 1100, retract: 550, shrink: 450,  zoom: 300 },
 } as const;
 const T = TIMING.FAST;
 
@@ -466,7 +466,7 @@ interface Props {
   backgroundColor?: string; // must match app.json splash.backgroundColor
 }
 
-export default function EmilgoSplash({ onFinish, backgroundColor = '#009A43' }: Props) {
+export default function EmilgoSplash({ onFinish, backgroundColor = '#000000' }: Props) {
   const [wordW, setWordW] = useState(0);
   const onFinishRef = useRef(onFinish);
   onFinishRef.current = onFinish;
@@ -513,7 +513,7 @@ export default function EmilgoSplash({ onFinish, backgroundColor = '#009A43' }: 
 
     // Splash dissolves into the app
     overlayFade.value = withDelay(
-      t4 + T.zoom * 0.5,
+      t4 + T.zoom * 0.8,
       withTiming(0, { duration: T.zoom * 0.5 }, (finished) => {
         if (finished && onFinishRef.current) runOnJS(onFinishRef.current)();
       })
@@ -532,7 +532,7 @@ export default function EmilgoSplash({ onFinish, backgroundColor = '#009A43' }: 
 
   return (
     <Animated.View style={[styles.overlay, { backgroundColor }, overlayStyle]}>
-      <StatusBar hidden />
+      {/* <StatusBar hidden /> */}
 
       <Animated.View style={[StyleSheet.absoluteFill, styles.dim, dimStyle]} />
 
@@ -570,7 +570,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 999,
   },
-  dim: { backgroundColor: '#009A43' },
+  dim: { backgroundColor: '#000' },
   brand: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
   wordSlot: {
     position: 'absolute',
     left: LOGO_W - OVERLAP, // tucks behind the logo for a tight "Emilgo" read
-    top: 0,
+    top: -3,
     bottom: 0,
     justifyContent: 'center',
     overflow: 'hidden',

@@ -65,7 +65,7 @@ const FLICK_VELOCITY = 0.15;
 
 // ── Rounded "card" look of the home screen while the sidebar is open ─────────
 const HOME_BORDER_RADIUS = 40;
-const HOME_BORDER_WIDTH = 1.7;
+const HOME_BORDER_WIDTH = 1;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -300,7 +300,7 @@ export default function MainLayout() {
   const tabBarBg = isDark ? Colors.background : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
-  const sideBorderColor = isDark ? Colors.overlayLight : Colors.border;
+  const sideBorderColor = isDark ? Colors.overlayLight : Colors.overlayLight;
 
 
   const [commentSheetPost, setCommentSheetPost] = useState<FeedItem | null>(
@@ -430,7 +430,7 @@ export default function MainLayout() {
               which sit at zIndex 100 — otherwise those areas wouldn't dim or
               catch the close-tap. */}
           <Animated.View
-            style={[styles.overlay, { opacity: overlayOpacity }]}
+            style={[styles.overlay, { opacity: overlayOpacity }, {backgroundColor:  isDark ? Colors.overlayLight : "rgba(205 205 205 / 0.46)"}]}
             pointerEvents={isSidebarOpen ? "auto" : "none"}
           >
             <Pressable style={StyleSheet.absoluteFill} onPress={closeSidebar} />
@@ -794,11 +794,11 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     zIndex: 1,
     // Subtle left-edge shadow so the sliding screen reads as "above" the sidebar.
-    shadowColor: "#000",
-    shadowOffset: { width: -20, height: 0 },
-    shadowOpacity: 0.15,
-    shadowRadius: 17,
-    elevation: 16,
+    // shadowColor: "#000",
+    // shadowOffset: { width: -20, height: 0 },
+    // shadowOpacity: 0.15,
+    // shadowRadius: 17,
+    // elevation: 16,
   },
   // The card that holds the entire home screen (top bar + content + bottom bar).
   // Rounded + clipped so the animated border below sits flush with its corners.
@@ -811,7 +811,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgb(85 84 84 0.45)",
+    // backgroundColor: "rgb(85 84 84 0.45)",
     borderRadius: HOME_BORDER_RADIUS,
     // Above the top/bottom bars (zIndex 100) so it dims and covers them too.
     zIndex: 200,

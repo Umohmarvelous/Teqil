@@ -86,7 +86,8 @@ export default function HomeTab() {
         router.push(`/(passenger)/verify-driver?driver_id=${parsedId}`);
       } else {
         const parsed = data.replace("TEQIL:", "").trim();
-        Alert.alert("QR Scanned Successfully", ` ${parsed}`,e);
+        Alert.alert("QR Scanned Successfully", ` ${parsed}`);
+        console.log('Alert:',e)
       }
     }
   }, []);
@@ -95,10 +96,8 @@ export default function HomeTab() {
   // Define actions
   const PASSENGERSACTIONSBUTTON = [
     { id: "qr", icon: QrCodeIcon, label: "Scan code", color: Colors.textWhite },
-    // { id: "find", icon: Search , label: "Find Trip",   color: Colors.textWhite },
     { id: "share", icon: Share01Icon, label: "Share Trip", color: Colors.textWhite },
     
-    // { id: "pay", icon: Warning , label: "DTC", color: Colors.error, },
     { id: "history", icon: History, label: "History", color: Colors.textWhite },
     { id: "sos", icon: Warning, label: "Emergency Contact", color: Colors.textWhite },
   ] ;
@@ -116,14 +115,8 @@ export default function HomeTab() {
       case "qr":
         setScannerVisible(true)
         break;
-        case "find":
-          router.push("/(passenger)/find-trip");
-          break;
-        case "share":
-          Alert.alert("Share Trip", "Share your live trip link with family or friends from the live trip screen.");
-          break;
-      case "pay":
-        handlePayAction();
+      case "share":
+        Alert.alert("Share Trip", "Share your live trip link with family or friends from the live trip screen.");
         break;
       case "history":
         router.push("/(passenger)/history");
@@ -219,7 +212,6 @@ export default function HomeTab() {
           )}
 
           {user?.role === "driver" && (
-          // {!user?.role && (
             <>
               <View style={styles.shortcut}>
                 {DRIVERSACTIONSBUTTON.map((action) => (

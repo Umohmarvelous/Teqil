@@ -126,11 +126,9 @@ export default function SidedBar() {
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
   
   // WhatsApp context menus must be solid to overlay background content cleanly
-  const menuBgColor = isDark ? "#232D36" : "#FFFFFF"; 
-  const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
-  const bg = isDark ? Colors.background : Colors.border;
+  const menuBgColor = isDark ? Colors.text : "#FFFFFF"; 
+  const cardBg = isDark ? Colors.background : "#FFFFFF";
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
-  const tabBarBg = isDark ? Colors.background : Colors.textWhite;
 
   return (
     <View style={[styles.drawerTop, styles.containerTop, { backgroundColor: cardBg, paddingTop: insets.top + 5, paddingBottom: insets.bottom }, {borderTopLeftRadius: 50, borderBottomLeftRadius: 50, }]}>
@@ -156,7 +154,11 @@ export default function SidedBar() {
           />
         </View>
 
-        <ScrollView style={{ flex: 1 ,borderTopWidth: 1, borderTopColor: "#6B6B6B3B"  }}>
+        <Pressable onPress={toggleSearch} style={[styles.searchList, ]}>
+          <HugeiconsIcon icon={SearchIcon} size={20} color={textColor} />
+        </Pressable>
+
+        <ScrollView style={{ flex: 1 ,borderTopWidth: 1, borderTopColor: "#6B6B6B3B", width: 260, marginLeft: 20  }}>
             {isAuthenticated ? (
               <View style={[styles.navList, styles.navListcontainer]}>
                 {filteredNavItems.map((item) => (
@@ -181,7 +183,17 @@ export default function SidedBar() {
 
       <View style={[styles.drawerHeader, { backgroundColor: 'transparent' }]}>
           <View style={{ flexDirection: "row", gap: 10 }}>
-            <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={48} />
+              <View
+                style={[
+                    styles.avatarActive, {backgroundColor: borderColor, borderColor}
+                ]}
+              >
+                <Avatar
+                  name={user?.full_name || "U"}
+                  photoUri={user?.profile_photo}
+                  size={28}
+                />
+              </View>
             <View style={{ flexDirection: "column", justifyContent: "flex-start" }}>
               <Text style={[styles.userName, { color: textColor }]}>{user?.full_name || "No user"}</Text>
               <View style={styles.roleContainer}>
@@ -198,9 +210,7 @@ export default function SidedBar() {
               <HugeiconsIcon icon={MoreHorizontalCircleIcon} fill={textColor} size={25} color={textColor} />
             </Pressable>
             
-            <Pressable onPress={toggleSearch} style={[styles.searchList, {backgroundColor: isDark ? Colors.overlayLight : Colors.border, borderColor}]}>
-              <HugeiconsIcon icon={SearchIcon} size={20} color={textColor} />
-            </Pressable>
+
             
             {/* WhatsApp Styled Animated Dropdown */}
             {menuOpen && (
@@ -208,7 +218,7 @@ export default function SidedBar() {
                 style={[
                   styles.dropdown, 
                   { 
-                    backgroundColor: menuBgColor,
+                    backgroundColor: menuBgColor, borderColor,
                     opacity: menuAnim,
                     transform: [
                       {
@@ -220,13 +230,13 @@ export default function SidedBar() {
                       {
                         translateX: menuAnim.interpolate({
                           inputRange: [0, 1],
-                          outputRange: [30, 0], // Grows from the right edge
+                          outputRange: [80, 0], // Grows from the right edge
                         })
                       },
                       {
                         translateY: menuAnim.interpolate({
                           inputRange: [0, 1],
-                          outputRange: [30, 0], // Grows from the bottom edge
+                          outputRange: [80, 0], // Grows from the bottom edge
                         })
                       }
                     ]
@@ -268,15 +278,23 @@ const styles = StyleSheet.create({
   drawerTop: { position: "absolute", top: 0, bottom: 0, left: 0, height: SCREEN_HEIGHT, width: SIDEBAR_WIDTH, zIndex: 2, paddingRight: 40 },
   containerTop: { flex: 1, flexDirection: 'column', justifyContent: 'space-between' },
   drawer: { flex: 1 , flexDirection: 'column', zIndex: 2 },
-  drawerHeader: { paddingHorizontal: 20, paddingVertical: 30, paddingBottom: 20, flexDirection: "row", justifyContent: "space-between", zIndex: 10, borderTopWidth: 1, borderTopColor: "#6B6B6B3B" },
-  
+  drawerHeader: { width: 260, marginLeft: 20, paddingHorizontal: 10, paddingLeft: 2, paddingVertical: 30, paddingBottom: 20, flexDirection: "row", justifyContent: "space-between", zIndex: 10, },
+  avatarActive: {
+    width: 39,
+    borderRadius: 56,
+    borderWidth: .5,
+    // borderColor: Colors.primary,
+  },
+
+
   // WhatsApp Style Dropdown UI
   dropdown: { 
     position: "absolute", 
     bottom: 50, 
     right: -10, 
-    width: 250, 
-    borderRadius: 16, 
+    width: 260, 
+    borderRadius: 26, 
+    borderWidth: 1,
     paddingVertical: 8, 
     shadowColor: "#000", 
     shadowOpacity: 0.15, 
@@ -286,7 +304,7 @@ const styles = StyleSheet.create({
     zIndex: 100 
   },
   dropdownItem: {
-    paddingVertical: 14, 
+    paddingVertical: 20, 
     paddingHorizontal: 18,
     flexDirection: 'row', 
     gap: 16, 
@@ -299,7 +317,8 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: StyleSheet.hairlineWidth, 
-    width: '100%', 
+    width: '90%',
+    alignSelf: 'center'
   },
 
   roleContainer: {
@@ -312,15 +331,19 @@ const styles = StyleSheet.create({
   drawerRightIcon: { justifyContent: "space-between", alignItems:'flex-start', flexDirection: 'row', gap: 16 },
   menuList: { alignItems: 'center', },
   searchList: {
+    position: 'absolute',
+    top: 45,
+    left: 250,
     borderRadius: 30,
     padding: 6, 
     alignItems: 'center', 
     justifyContent:'center',
-    borderWidth: 1,
+    // borderWidth: 1,
+    zIndex: 500
   },
   photoImg: { width: 50, height: 50, alignSelf: "center" },
-  navListcontainer: { borderRadius: 30, padding: 10, },
-  navList: { paddingHorizontal: 10, marginVertical: 20, },
+  navListcontainer: { borderRadius: 30, padding: 0, },
+  navList: { paddingHorizontal: 0, marginVertical: 20, },
   navItem: { flexDirection: "row", alignItems: "center", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 12, gap: 12, marginRight: 20 },
   navIconBox: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   navLabel: { flex: 1, fontFamily: "Poppins_500Medium", fontSize: 14 },
@@ -329,7 +352,7 @@ const styles = StyleSheet.create({
     borderRadius: 40, 
     marginTop: 30, 
     marginHorizontal: 20, 
-    paddingVertical: 60, 
+    paddingVertical: 60
   },
   signInText: { fontFamily: "Poppins_600Semi", fontSize: 18, marginVertical: 15 },
   signInsubText: { fontFamily: "Poppins_600SemiBold", fontSize: 16 },

@@ -23,7 +23,7 @@ import { syncAll, startConnectivityListener, SyncUser } from "@/src/services/syn
 import { syncUserToPublicTable } from "@/src/services/auth";
 import { registerForPushNotifications } from "@/src/services/notifications";
 import NetworkBanner from "@/components/NetworkBanner";
-import SessionTimeout from "@/src/components/SessionTimeout";
+// import SessionTimeout from "@/src/components/SessionTimeout";
 import AppLock from "@/src/components/AppLock";
 import FloatingCreditAnimation from "@/src/components/FloatingCreditAnimation";
 import EmilgoSplash from "../components/EmilgoSplash";
