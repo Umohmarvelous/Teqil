@@ -12,6 +12,27 @@ export interface FloatingAnimation {
   timestamp: number;
 }
 
+/**
+ * Builds the deterministic "earn once" key for an event.
+ * Same inputs → same key, so the same action can never be rewarded twice,
+ * whether the duplicate is caught locally (below) or server-side (the
+ * credits_history.dedupe_key UNIQUE index). Returns undefined for events that
+ * are allowed to repeat (e.g. ad_watch), which map to a NULL key = no dedup.
+ */
+function buildDedupeKey(
+  type: CreditType,
+  userId: string,
+  postId?: string,
+  commentId?: string
+): string | undefined {
+  if (type === "signup") return `${userId}:signup`;
+  if (type === "reply" && commentId) return `${userId}:reply:${commentId}`;
+  if ((type === "like" || type === "comment" || type === "share") && postId) {
+    return `${userId}:${type}:${postId}`;
+  }
+  return undefined; // ad_watch and anything unkeyed: never deduped
+}
+
 interface CreditsStore {
   balance: number;
   history: CreditHistory[];
@@ -46,15 +67,15 @@ export const useCreditsStore = create<CreditsStore>()(
       })),
 
       addCredit: async (type, amount, userId, postId, commentId) => {
-        // Enforce once per post/comment locally
         const state = get();
-        if (postId || commentId) {
-          const exists = state.history.find(h => 
-            h.type === type && 
-            (postId ? h.post_id === postId : true) && 
-            (commentId ? h.comment_id === commentId : true)
-          );
-          if (exists) return; // Already earned
+        const dedupeKey = buildDedupeKey(type, userId, postId, commentId);
+
+        // Enforce "earn once" locally by the deterministic key. Keying on the
+        // dedupe_key (rather than type + ids) is what keeps a top-level comment
+        // and a reply on the same post from colliding — they live in different
+        // key namespaces ("<uid>:comment:<post>" vs "<uid>:reply:<comment>").
+        if (dedupeKey && state.history.some(h => h.dedupe_key === dedupeKey)) {
+          return; // Already earned this exact reward
         }
 
         const newEntry: CreditHistory = {
@@ -64,6 +85,7 @@ export const useCreditsStore = create<CreditsStore>()(
           amount,
           post_id: postId,
           comment_id: commentId,
+          dedupe_key: dedupeKey,
           synced: false,
           updated_at: new Date().toISOString(),
           created_at: new Date().toISOString()
@@ -84,18 +106,25 @@ export const useCreditsStore = create<CreditsStore>()(
         if (unsynced.length === 0) return;
 
         try {
-          const { error } = await supabase.from('credits_history').insert(
+          // Upsert (not insert) so a row the server already has — e.g. earned
+          // on another device, or a retried sync — is silently ignored instead
+          // of erroring. `ignoreDuplicates` emits ON CONFLICT DO NOTHING against
+          // the credits_history.dedupe_key UNIQUE index. Rows with a NULL
+          // dedupe_key (ad_watch) never conflict, so they always insert.
+          const { error } = await supabase.from('credits_history').upsert(
             unsynced.map(h => ({
-              // Omit 'id' so Supabase generates UUID, or we could generate a UUID locally.
-              // We'll omit 'id' and 'synced' fields for insertion
+              // Omit 'id' so Supabase generates the UUID, and omit 'synced'
+              // (that flag is local-only bookkeeping).
               user_id: h.user_id,
               type: h.type,
               amount: h.amount,
               post_id: h.post_id,
               comment_id: h.comment_id,
+              dedupe_key: h.dedupe_key,
               updated_at: h.updated_at,
               created_at: h.created_at
-            }))
+            })),
+            { onConflict: 'dedupe_key', ignoreDuplicates: true }
           );
 
           if (!error) {
@@ -127,8 +156,16 @@ export const useCreditsStore = create<CreditsStore>()(
           if (error || !data) return;
 
           const remote: CreditHistory[] = data.map((r: any) => ({ ...r, synced: true }));
+          const remoteKeys = new Set(
+            remote.map((r) => r.dedupe_key).filter(Boolean) as string[]
+          );
           set((state) => {
-            const localPending = state.history.filter((h) => !h.synced);
+            // Keep only local pending rows the server does NOT already have.
+            // Without this, a row that synced but whose 'synced' flag never
+            // flipped (e.g. app killed mid-sync) would be double-counted here.
+            const localPending = state.history.filter(
+              (h) => !h.synced && !(h.dedupe_key && remoteKeys.has(h.dedupe_key))
+            );
             const history = [...localPending, ...remote];
             const balance = history.reduce((sum, h) => sum + (h.amount || 0), 0);
             return { history, balance };

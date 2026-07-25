@@ -796,6 +796,7 @@ import { Video, ResizeMode } from "expo-av";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { useCreditsStore } from "@/src/store/useCreditsStore";
+import { triggerSyncNow } from "@/src/services/sync";
 import { Colors } from "@/constants/colors";
 import { router } from "expo-router";
 import { HugeiconsIcon } from "@hugeicons/react-native";
@@ -873,9 +874,19 @@ export interface FeedItem {
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 // ----------------------------------------------------------------------
-// TRANSPORT SUBREDDITS
+// FEED CATEGORIES (Step 3): the "For You" feed is restricted to finance, tech
+// and business only. These subreddits are the content sources for those three
+// categories; ad slots injected into this feed inherit the same categories once
+// the ads system lands (Step 4).
 // ----------------------------------------------------------------------
-const SUBREDDITS = ["cars", "driving", "roadtrip", "motorcycles", "travel", "carcamping", "autos"];
+const SUBREDDITS = [
+  // Finance
+  "personalfinance", "investing", "finance", "financialindependence",
+  // Tech
+  "technology", "gadgets", "programming", "artificial",
+  // Business
+  "business", "entrepreneur", "smallbusiness", "startups",
+];
 const REDDIT_BASE = "https://api.reddit.com/r";
 
 // ----------------------------------------------------------------------
@@ -1680,6 +1691,8 @@ export default function DiscoverTab({
     setIsRefreshing(true);
     setLastPostId("");
     fetchFeed("refresh");
+    // Pulling the For You feed also runs a full cloud sync in the background.
+    void triggerSyncNow();
   }, [fetchFeed]);
 
   const onEndReached = useCallback(() => {
@@ -1800,7 +1813,9 @@ export default function DiscoverTab({
       };
 
       if (user) {
-        addCredit("comment", CREDIT_REPLY, user.id, postId, commentId);
+        // Reply is its own credit type + dedup namespace (once per reply thread),
+        // so replying never blocks the +30 top-level comment credit on the same post.
+        addCredit("reply", CREDIT_REPLY, user.id, postId, commentId);
         addFloatingAnimation(CREDIT_REPLY, SCREEN_WIDTH / 2 - 20, SCREEN_HEIGHT / 2);
       }
 

@@ -5,13 +5,9 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { Colors } from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuthStore } from "@/src/store/useStore";
+import { usePoolStore } from "@/src/store/usePoolStore";
 
-import {
-  formatCoins,
-  formatNaira,
-  coinsToNaira,
-} from "@/src/utils/helpers";
+import { formatNaira } from "@/src/utils/helpers";
 
 interface BalanceCardProps {
   coins: number;
@@ -28,9 +24,11 @@ export default function BalanceCard({
 }: BalanceCardProps) {
   
   const { theme } = useSettingsStore();
-  const { user } = useAuthStore();
-  
-  const coins = user?.points_balance || 0;
+
+  // Real money pool (₦) — realised ad revenue that discounts the passenger's
+  // fares. This is spendable money, unlike the hidden engagement "credits".
+  // Driver trip earnings render elsewhere.
+  const pool = usePoolStore((s) => s.balance);
   const [balanceHidden, setBalanceHidden] = useState(false);
 
 
@@ -73,12 +71,10 @@ export default function BalanceCard({
         </Pressable>
         <View style={styles.balanceRow}>
           <Text style={[styles.balanceValue, {color: textColor}]}>
-            {balanceHidden ? "* * * * *" : formatCoins(coins)}
+            {balanceHidden ? "* * * * *" : formatNaira(pool)}
           </Text>
         </View>
-        <Text style={styles.balanceEquiv}>
-          ≈ {formatNaira(coinsToNaira(coins))}
-        </Text>
+        <Text style={styles.balanceEquiv}>Pool balance</Text>
 
       </View>
     </>

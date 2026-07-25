@@ -119,6 +119,77 @@ export interface CreditHistory extends Syncable {
   amount: number;
   post_id?: string;
   comment_id?: string;
+  // Deterministic "earn once" key (e.g. "<uid>:like:<postId>"). NULL/undefined
+  // for events that may repeat (ad_watch). Mirrors credits_history.dedupe_key.
+  dedupe_key?: string;
+  created_at: string;
+}
+
+// ─── Pool ledger (real ₦, distinct from engagement credits) ──────────────────
+// IMPORTANT: this is NOT the same thing as `credits`.
+//   • `CreditHistory` above = engagement points (likes/comments/…). A hidden
+//     "meter" used only for Program-Page eligibility. NOT spendable money.
+//   • `PoolEntry` below = real Naira in a passenger's pool. It grows ONLY when
+//     realised ad revenue lands (`ad_revenue`) and shrinks when a trip spends it
+//     (`trip_spend`). This is the money that actually funds the fare discount,
+//     the driver bonus and the company cut — so the balance must never be set
+//     directly; it is always the SUM of these entries (append-only ledger).
+export type PoolEntryKind =
+  | "ad_revenue"   // realised ad money credited in (positive) — added in Step 4
+  | "trip_spend"   // money drawn to fund a trip (negative)
+  | "adjustment";  // manual correction / admin-funded top-up (either sign)
+
+export interface PoolEntry extends Syncable {
+  id: string;
+  user_id: string;
+  amount: number;            // ₦; positive = credit in, negative = spend
+  kind: PoolEntryKind;
+  trip_id?: string;          // set for trip_spend rows
+  // Deterministic "apply once" key (e.g. "<uid>:trip:<tripId>"). Mirrors
+  // pool_history.dedupe_key UNIQUE so a retried/duplicated write can never
+  // double-spend or double-credit the same event. NULL for entries allowed to repeat.
+  dedupe_key?: string;
+  created_at: string;
+}
+
+// The three amounts a single trip pulls out of a passenger's pool, plus what
+// the passenger still pays from their bank. Returned by computeTripSplit().
+export interface TripSplit {
+  baseFare: number;          // the real fare entered
+  passengerBankPays: number; // charged to the passenger's real bank account
+  fareSubsidy: number;       // pool's contribution toward the fare (the "discount")
+  driverBonus: number;       // fuel bonus paid to the driver from the pool
+  companyCut: number;        // Emilgo's revenue from the pool
+  driverReceives: number;    // = baseFare + driverBonus (driver is always made whole)
+  poolDraw: number;          // = fareSubsidy + driverBonus + companyCut
+}
+
+// ─── Premium tiers ───────────────────────────────────────────────────────────
+// Price tracks fuel: Pro = 4× current litre price, Elite = 8× (see useTierStore).
+export type PremiumTier = "free" | "pro" | "elite";
+
+// ─── Revenue transaction record (audit trail of every money movement) ────────
+export type TransactionKind = "trip_payment" | "premium_subscription";
+
+export interface RevenueTransaction extends Syncable {
+  id: string;
+  user_id: string;
+  kind: TransactionKind;
+  // Trip payment fields (null for premium rows)
+  base_fare?: number;
+  passenger_bank_paid?: number;
+  pool_draw?: number;
+  driver_bonus?: number;
+  company_cut?: number;
+  driver_total?: number;
+  // Premium payment fields (null for trip rows)
+  premium_amount?: number;
+  station_share?: number;     // 60% → partner station subaccount
+  company_share?: number;     // 40% → Emilgo
+  station_subaccount?: string;
+  status: "recorded" | "success" | "failed";
+  // Idempotency: mirrors transactions.dedupe_key UNIQUE.
+  dedupe_key?: string;
   created_at: string;
 }
 

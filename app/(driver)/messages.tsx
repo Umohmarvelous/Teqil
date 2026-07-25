@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/colors";
 import { BroadcastsStorage } from "@/src/services/storage";
+import { triggerSyncNow } from "@/src/services/sync";
 import { formatDateTime } from "@/src/utils/helpers";
 import type { Broadcast } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
@@ -59,7 +60,8 @@ export default function MessagesScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await load();
+    // Reload messages AND run a full cloud sync.
+    await Promise.all([load(), triggerSyncNow()]);
     setRefreshing(false);
   };
 

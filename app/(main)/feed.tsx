@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
+import { triggerSyncNow } from '@/src/services/sync';
 import { Colors } from '@/constants/colors';
 
 interface Article {
@@ -78,7 +79,8 @@ export default function FeedScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchArticles(1, true);
+    // Refresh the feed AND run a full cloud sync.
+    await Promise.all([fetchArticles(1, true), triggerSyncNow()]);
     setRefreshing(false);
   }, [fetchArticles]);
 

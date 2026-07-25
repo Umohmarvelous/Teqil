@@ -14,6 +14,7 @@ import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/colors";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { TripsStorage, PassengersStorage } from "@/src/services/storage";
+import { triggerSyncNow } from "@/src/services/sync";
 import { formatDate } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
 import { HugeiconsIcon } from "@hugeicons/react-native";
@@ -171,7 +172,8 @@ export default function HomeTab() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadTrips();
+    // Pull-to-refresh reloads this screen AND runs a full cloud sync.
+    await Promise.all([loadTrips(), triggerSyncNow()]);
     setRefreshing(false);
   }, [loadTrips]);
 
