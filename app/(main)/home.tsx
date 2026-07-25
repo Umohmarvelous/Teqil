@@ -18,7 +18,7 @@ import { triggerSyncNow } from "@/src/services/sync";
 import { formatDate } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { CheckmarkCircle01Icon, ChevronRight, History, Message01Icon, Message02Icon, Navigation01Icon,  Plus,  QrCodeIcon,  Share01Icon,  ShieldCheck, Warning,
+import { CheckmarkCircle01Icon, ChevronRight, GiftIcon, History, Message01Icon, Message02Icon, Navigation01Icon,  Plus,  QrCodeIcon,  Share01Icon,  ShieldCheck, Trophy, Warning,
  } from "@hugeicons/core-free-icons";
 import { StatusBar } from "expo-status-bar";
 import QuickTransferModal from "@/components/QuickTransferModal";
@@ -29,6 +29,7 @@ import { useMessagesStore } from "@/src/store/useMessagesStore";
 import LocationPromptModal from "@/components/LocationPromptModal";
 import ActiveTripBanner from "@/components/ActiveTripBanner";
 import TripListener from "@/components/TripListener";
+import { useProgramStore } from "@/src/store/useProgramStore";
 
 
 export default function HomeTab() {
@@ -36,7 +37,13 @@ export default function HomeTab() {
   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const { user } = useAuthStore();
-  
+
+  const { programStatus, hydrateFromUser } = useProgramStore();
+  const enrolled = programStatus === "eligible" || programStatus === "enrolled";
+  useEffect(() => {
+    hydrateFromUser(user);
+  }, [user, hydrateFromUser]);
+
 
   const handlePayAction = () => {
       // router.push('/(passenger)/pay-fare');
@@ -230,6 +237,27 @@ export default function HomeTab() {
         </View>
 
 
+        {/* Loyalty Program entry */}
+        <Pressable
+          style={[styles.card, styles.promoGradient, { backgroundColor: cardBg, borderColor: Colors.gold, borderWidth: 1 }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+            router.push("/program");
+          }}
+        >
+          <View style={styles.loyaltyIconChip}>
+            <HugeiconsIcon icon={enrolled ? Trophy : GiftIcon} size={24} color={Colors.gold} />
+          </View>
+          <View style={styles.promoText}>
+            <Text style={[styles.promoTitle, { color: textColor }]}>Loyalty Program</Text>
+            <Text style={[styles.promoSub, { color: subTextColor }]}>
+              {enrolled ? "You're in the program ✓" : "Join the rewards program"}
+            </Text>
+          </View>
+          <HugeiconsIcon icon={ChevronRight} size={20} color={subTextColor} />
+        </Pressable>
+
+
         {userUnreadCount > 0 && (
           <Pressable
             style={[styles.card, { backgroundColor: cardBg, borderColor }]}
@@ -420,6 +448,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",    paddingHorizontal: 20, 
 
+  },
+  loyaltyIconChip: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.goldLight,
   },
   promoText: { flex: 1 },
   promoTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 15, color: "#fff" },

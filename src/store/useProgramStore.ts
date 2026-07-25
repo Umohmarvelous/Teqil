@@ -33,6 +33,8 @@ export interface ProgramForm {
   otp: string;
   bankCode: string;
   accountNumber: string;
+  /** Selfie/liveness capture URI. Passed to the (mock) KYC provider. */
+  selfie?: string;
 }
 
 export type SubmitResult =
@@ -90,6 +92,7 @@ export const useProgramStore = create<ProgramStore>()(
           const kyc = await KycService.verifyIdentity({
             idType: form.idType,
             idNumber: form.idNumber,
+            selfie: form.selfie,
           });
           if (!kyc.verified) {
             return {
