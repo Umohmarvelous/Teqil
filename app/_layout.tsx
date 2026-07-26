@@ -92,6 +92,10 @@ function RootLayoutNav() {
           name="program"
           options={{ headerShown: false, animation: "slide_from_right" }}
         />
+        <Stack.Screen
+          name="tiers"
+          options={{ headerShown: false, animation: "slide_from_right" }}
+        />
       </Stack>
     </>
   );

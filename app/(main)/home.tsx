@@ -80,17 +80,21 @@ export default function HomeTab() {
       if (payload.type === "TEQIL_DRV") {
         setScannerVisible(false);
         router.push({
-          pathname: "/(passenger)/verify-driver",
-          params: { driver_payload: JSON.stringify(payload) }
+          pathname: "/(passenger)/payment",
+          params: { driver_id: payload.driver_id, subaccount_code: payload.subaccount_code ?? "" }
         });
       } else {
         Alert.alert("Unknown QR Code", "This QR code type is not supported.");
       }
     } catch (e) {
       if (data.startsWith("TEQIL:DRV-")) {
-        const parsedId = data.split(" ")[0].replace("TEQIL:DRV-", "").trim();
+        const body = data.split(" ")[0].replace("TEQIL:DRV-", "").trim();
+        const [parsedId, subaccount] = body.split(":");
         setScannerVisible(false);
-        router.push(`/(passenger)/verify-driver?driver_id=${parsedId}`);
+        router.push({
+          pathname: "/(passenger)/payment",
+          params: { driver_id: parsedId, subaccount_code: subaccount ?? "" }
+        });
       } else {
         const parsed = data.replace("TEQIL:", "").trim();
         Alert.alert("QR Scanned Successfully", ` ${parsed}`);
@@ -239,14 +243,14 @@ export default function HomeTab() {
 
         {/* Loyalty Program entry */}
         <Pressable
-          style={[styles.card, styles.promoGradient, { backgroundColor: cardBg, borderColor: Colors.gold, borderWidth: 1 }]}
+          style={[styles.card, styles.promoGradient, { backgroundColor: cardBg, borderColor, borderWidth: 1 }]}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
             router.push("/program");
           }}
         >
           <View style={styles.loyaltyIconChip}>
-            <HugeiconsIcon icon={enrolled ? Trophy : GiftIcon} size={24} color={Colors.gold} />
+            <HugeiconsIcon icon={enrolled ? Trophy : GiftIcon} size={40} color={Colors.textSecondary} />
           </View>
           <View style={styles.promoText}>
             <Text style={[styles.promoTitle, { color: textColor }]}>Loyalty Program</Text>
@@ -339,7 +343,7 @@ export default function HomeTab() {
         {
         /* Empty state */}
         {recentTrips.length === 0 && (
-          <View style={[styles.card, { backgroundColor: cardBg, borderColor, alignItems: "center", paddingVertical: 32 }]}>
+          <View style={[styles.card, { alignItems: "center", paddingVertical: 32 }]}>
             <HugeiconsIcon icon={Warning} size={40} color={Colors.warning} />
             <View style={{alignItems:'center'}}>
               <Text style={[styles.emptyText, { color: Colors.warning }]}>
@@ -356,7 +360,7 @@ export default function HomeTab() {
 
 
         
-        <View style={[styles.promoBanner]}>
+        {/* <View style={[styles.promoBanner]}>
           <View
             style={[styles.promoGradient, styles.card, 
             {backgroundColor: cardBg, borderColor}
@@ -369,7 +373,7 @@ export default function HomeTab() {
               </Text>
             </View>
           </View>
-        </View>
+        </View> */}
 
       </ScrollView>
 
@@ -407,10 +411,8 @@ const styles = StyleSheet.create({
   },
   card: {
     justifyContent: 'space-between', 
-    borderRadius: 30,
+    borderRadius: 25,
     paddingVertical: 18,
-    // paddingBottom: 30,
-    // borderWidth: 1,
     gap: 20,
   },
   sectionTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, marginBottom: 0 },
@@ -418,13 +420,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderRadius: 30, 
     paddingVertical: 15,
-    // paddingBottom: 30,
-    // borderWidth: 1,
     gap: 20,
     flexDirection: "column",
     flex: 1,
     paddingHorizontal: 14,
-    // borderWidth: 1, borderColor: 'red',
   },
   shortcut: { alignItems: "flex-start", gap: 30, flex: 1, flexDirection: "row", justifyContent:'space-between', flexWrap:'wrap',
   },
@@ -452,10 +451,8 @@ const styles = StyleSheet.create({
   loyaltyIconChip: {
     width: 48,
     height: 48,
-    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: Colors.goldLight,
   },
   promoText: { flex: 1 },
   promoTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 15, color: "#fff" },

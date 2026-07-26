@@ -64,6 +64,11 @@ const STEPS = [
 ] as const;
 const LAST_STEP = STEPS.length - 1;
 
+// ⚠️ DEV ONLY — set to `true` to click through every wizard step without valid
+// inputs or enough credits (for testing the UI). MUST be `false` in production;
+// the final "Verify & Apply" still runs the real (mock) KYC checks either way.
+const DEV_BYPASS_STEP_GATES = false;
+
 export default function ProgramScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useSettingsStore();
@@ -102,6 +107,7 @@ export default function ProgramScreen() {
 
   // Whether the current step is complete enough to advance.
   const canAdvance = useMemo(() => {
+    if (DEV_BYPASS_STEP_GATES) return !submitting;
     switch (STEPS[step].key) {
       case "intro":
         return meetsCredits;
