@@ -441,6 +441,9 @@ export async function syncUserToPublicTable(user: User): Promise<void> {
         avg_rating:       user.avg_rating ?? null,
         profile_complete: user.profile_complete ?? false,
         push_token:       user.push_token ?? null,
+        payout_bank_code:      user.payout_bank_code ?? null,
+        payout_account_number: user.payout_account_number ?? null,
+        payout_account_name:   user.payout_account_name ?? null,
         updated_at:       new Date().toISOString(),
       },
       { onConflict: "id" }

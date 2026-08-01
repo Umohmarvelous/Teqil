@@ -14,7 +14,7 @@
  * both run SERVER-SIDE — the app never handles the secret key or the raw account no.
  */
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -36,8 +36,11 @@ import { Colors } from "@/constants/colors";
 import { supabase } from "@/src/services/supabase";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
+import { PaystackContext } from "react-native-paystack-webview";
 import { PaystackService } from "@/src/services/paystack";
+import { apiFetch, isServerConfigured } from "@/src/services/api";
 import { DEFAULT_DRIVER_BONUS } from "@/src/store/usePoolStore";
+import { useTransactionsStore } from "@/src/store/useTransactionsStore";
 import { formatNaira } from "@/src/utils/helpers";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -56,6 +59,10 @@ export default function PaymentScreen() {
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState("");
   const [processing, setProcessing] = useState(false);
+
+  // Paystack checkout context (null when no PaystackProvider / no public key).
+  const paystack = useContext(PaystackContext);
+  const hasPaystackKey = !!process.env.EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY;
 
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const cardBg = isDark ? Colors.overlayLight : Colors.textWhite;
@@ -105,39 +112,114 @@ export default function PaymentScreen() {
   // Whether the driver has payout details on file (used, never shown).
   const hasPayout = !!(driver?.payout_account_number || subaccount_code);
 
+  // After a successful charge (real or mock): verify → pay the driver out → record.
+  const completeTransfer = async (chargeRef: string) => {
+    // 1. Verify the charge server-side (best-effort; mock/test returns success).
+    try {
+      if (isServerConfigured()) {
+        await apiFetch(`/api/paystack/verify/${encodeURIComponent(chargeRef)}`);
+      }
+    } catch (e) {
+      console.warn("[Payment] verify failed", e);
+    }
+
+    // 2. Pay the driver out (half + bonus) to their stored bank via the server.
+    try {
+      if (isServerConfigured() && driver?.payout_account_number) {
+        await apiFetch("/api/paystack/transfer", {
+          method: "POST",
+          body: {
+            name: driver.payout_account_name || driver.full_name,
+            account_number: driver.payout_account_number,
+            bank_code: driver.payout_bank_code,
+            amount: driverReceives,
+            reason: "Emilgo fare payout",
+          },
+        });
+      }
+    } catch (e) {
+      console.warn("[Payment] driver payout failed", e);
+    }
+
+    // 3. Record to the revenue ledger (idempotent by charge reference).
+    if (user?.id) {
+      await useTransactionsStore.getState().record({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        user_id: user.id,
+        kind: "trip_payment",
+        base_fare: fare,
+        passenger_bank_paid: passengerPays,
+        pool_draw: driverBonus,
+        driver_bonus: driverBonus,
+        company_cut: 0,
+        driver_total: driverReceives,
+        status: "success",
+        dedupe_key: chargeRef,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    setProcessing(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Alert.alert(
+      "Transfer sent 🎉",
+      `${formatNaira(driverReceives)} sent to ${driver?.full_name || "the driver"} ` +
+        `(${formatNaira(passengerPays)} + ${formatNaira(driverBonus)} bonus).`,
+      [{ text: "Done", onPress: () => router.replace("/(main)") }]
+    );
+  };
+
   const handlePay = async () => {
     if (!canPay || !driver) return;
     setProcessing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Real Paystack checkout for the passenger's half (public key + provider present).
+    // Completion continues in onSuccess → completeTransfer.
+    if (hasPaystackKey && paystack?.popup) {
+      paystack.popup.checkout({
+        email: user?.email ?? "guest@emilgo.app",
+        amount: passengerPays, // Naira (the lib converts to kobo)
+        reference: `emilgo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        metadata: { driver_id: driver.id, kind: "qr_transfer" },
+        onSuccess: (data) => {
+          void completeTransfer(data.reference);
+        },
+        onCancel: () => {
+          setProcessing(false);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        },
+        onError: () => {
+          setProcessing(false);
+          Alert.alert("Payment error", "Could not start the payment. Please try again.");
+        },
+      });
+      return;
+    }
+
+    // Fallback: mock charge (no public key / dev).
     try {
-      // MOCK: charge the passenger (passengerPays) and transfer to the driver
-      // (driverReceives). Real version runs both legs server-side via Paystack.
       const res = await PaystackService.processTripPayment({
         passenger_email: user?.email ?? "guest@emilgo.app",
         base_fare: fare,
         passenger_bank_pays: passengerPays,
-        pool_draw: driverBonus, // bonus funded outside the passenger's pocket
+        pool_draw: driverBonus,
         driver_bonus: driverBonus,
         company_cut: 0,
         driver_total: driverReceives,
       });
       if (res.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          "Transfer sent 🎉",
-          `${formatNaira(driverReceives)} sent to ${driver.full_name || "the driver"} ` +
-            `(${formatNaira(passengerPays)} + ${formatNaira(driverBonus)} bonus).\nRef ${res.reference}`,
-          [{ text: "Done", onPress: () => router.replace("/(main)") }]
-        );
+        await completeTransfer(res.reference);
       } else {
+        setProcessing(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         Alert.alert("Transfer failed", "The payment could not be completed. Please try again.");
       }
     } catch (e) {
       console.warn("payment failed", e);
-      Alert.alert("Transfer failed", "Something went wrong. Please try again.");
-    } finally {
       setProcessing(false);
+      Alert.alert("Transfer failed", "Something went wrong. Please try again.");
     }
   };
 

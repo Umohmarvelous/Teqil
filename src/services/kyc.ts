@@ -11,6 +11,8 @@
  * to enforce "one identity per account". See the production note on hashIdentity.
  */
 
+import { apiFetch, isServerConfigured } from "./api";
+
 const DEV_OTP_CODE = "123456"; // mock: the only code that "works" until real OTP is wired
 
 // A fixed app-side salt for the identity hash. In production this should come from
@@ -71,6 +73,23 @@ export const KycService = {
    * Mock: accepts any non-empty numeric-ish id and returns a deterministic name.
    */
   verifyIdentity: async (params: VerifyIdentityParams): Promise<VerifyIdentityResult> => {
+    // Prefer the server (real Smile Identity when keys are set). The raw ID goes to
+    // the server only, never to a third party from the app. Mock fallback on error.
+    if (isServerConfigured()) {
+      try {
+        const data = await apiFetch<VerifyIdentityResult>("/api/kyc/verify", {
+          method: "POST",
+          body: { idType: params.idType, idNumber: params.idNumber, selfie: params.selfie },
+        });
+        return {
+          verified: !!data.verified,
+          id_name: data.id_name ?? "",
+          reference: data.reference ?? makeRef("kyc"),
+        };
+      } catch (e) {
+        console.warn("[KYC] verify via server failed, using mock", e);
+      }
+    }
     return new Promise((resolve) => {
       console.log("[KYC Mock] verifyIdentity", { idType: params.idType });
       setTimeout(() => {

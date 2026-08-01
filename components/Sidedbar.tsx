@@ -37,6 +37,7 @@ import {
   SearchIcon,
 } from "@hugeicons/core-free-icons";
 import FindDriverModal from "./FindDriverModal";
+import { withDangerousMod } from "expo/config-plugins";
 
 const SIDEBAR_WIDTH = 340;
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -185,14 +186,15 @@ export default function SidedBar() {
       </View>
 
       <View style={[styles.drawerHeader, { backgroundColor: 'transparent' }]}>
-          <View style={{ flexDirection: "row", gap: 10 }}>
+          <View style={{ flexDirection: "row", gap: 16 }}>
               <View
                 style={[
-                    styles.avatarActive, {backgroundColor: borderColor, borderColor}
+                  styles.avatarActive, { backgroundColor: borderColor, borderColor }, {}
                 ]}
               >
                 <Avatar
-                  name={user?.full_name || "U"}
+              name={user?.full_name || "U"}
+              style={[styles.avatarActive, {padding:10, }]}
                   photoUri={user?.profile_photo}
                   size={28}
                 />
@@ -283,7 +285,8 @@ const styles = StyleSheet.create({
   drawer: { flex: 1 , flexDirection: 'column', zIndex: 2 },
   drawerHeader: { width: 260, marginLeft: 20, paddingHorizontal: 10, paddingLeft: 2, paddingVertical: 30, paddingBottom: 20, flexDirection: "row", justifyContent: "space-between", zIndex: 10, },
   avatarActive: {
-    width: 39,
+    width: 38,
+    flex: 1,
     borderRadius: 56,
     borderWidth: .5,
     // borderColor: Colors.primary,

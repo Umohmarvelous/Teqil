@@ -1,5 +1,6 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
+import { PaystackProvider } from "react-native-paystack-webview";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View, useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -62,8 +63,10 @@ function ThemeSync() {
 // ----------------------------------------------------------------------
 // Main navigation structure
 // ----------------------------------------------------------------------
+const PAYSTACK_PUBLIC_KEY = process.env.EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY;
+
 function RootLayoutNav() {
-  return (
+  const nav = (
     <>
       <ThemeSync />
       <Stack screenOptions={{ headerShown: false }}>
@@ -99,6 +102,21 @@ function RootLayoutNav() {
       </Stack>
     </>
   );
+
+  // Wrap in PaystackProvider so screens can use usePaystack() for real checkout.
+  // When no public key is configured, render without it (services fall back to mock).
+  if (PAYSTACK_PUBLIC_KEY) {
+    return (
+      <PaystackProvider
+        publicKey={PAYSTACK_PUBLIC_KEY}
+        currency="NGN"
+        defaultChannels={["card", "bank", "ussd", "mobile_money", "bank_transfer"]}
+      >
+        {nav}
+      </PaystackProvider>
+    );
+  }
+  return nav;
 }
 
 // ----------------------------------------------------------------------

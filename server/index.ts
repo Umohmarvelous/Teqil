@@ -1,3 +1,4 @@
+import "./loadenv"; // MUST be first — loads .env before provider modules read keys
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
@@ -246,7 +247,8 @@ function setupErrorHandler(app: express.Application) {
     {
       port,
       host: "0.0.0.0",
-      reusePort: true,
+      // reusePort is unsupported on macOS/Windows (throws ENOTSUP); Replit is Linux.
+      reusePort: process.platform === "linux",
     },
     () => {
       log(`express server serving on port ${port}`);

@@ -12,6 +12,8 @@
  *      Subaccounts + Transaction Split (60% partner station, 40% Emilgo).
  */
 
+import { apiFetch, isServerConfigured } from "./api";
+
 export interface PaymentResult {
   success: boolean;
   reference: string;
@@ -58,6 +60,19 @@ export async function resolveBankAccount(
   accountNumber: string
 ): Promise<BankAccountResult> {
   const clean = accountNumber.replace(/\D/g, "");
+
+  // Prefer the server (real Paystack Resolve Account when keys are set).
+  if (isServerConfigured()) {
+    try {
+      const data = await apiFetch<{ account_name?: string }>(
+        `/api/paystack/resolve?account_number=${encodeURIComponent(clean)}&bank_code=${encodeURIComponent(bankCode)}`
+      );
+      return { resolved: !!data.account_name, account_name: data.account_name ?? "" };
+    } catch (e) {
+      console.warn("[Paystack] resolve via server failed, using mock", e);
+    }
+  }
+
   const names = ["Chidi Okonkwo", "Amina Bello", "Emeka Obi", "Ngozi Eze", "Tunde Alabi"];
   let sum = 0;
   for (let i = 0; i < clean.length; i++) sum += clean.charCodeAt(i);
@@ -91,6 +106,19 @@ export const PaystackService = {
    * move already handled by usePoolStore before this is called).
    */
   processTripPayment: async (params: TripPaymentParams): Promise<PaymentResult> => {
+    // Prefer the server: it initializes the charge (passenger_bank_pays) with the
+    // real Paystack secret when keys are set. Falls back to the mock on any error.
+    if (isServerConfigured()) {
+      try {
+        const data = await apiFetch<{ reference: string }>("/api/paystack/initialize", {
+          method: "POST",
+          body: { email: params.passenger_email, amount: params.passenger_bank_pays },
+        });
+        return { success: true, reference: data.reference };
+      } catch (e) {
+        console.warn("[Paystack] trip payment via server failed, using mock", e);
+      }
+    }
     return new Promise((resolve) => {
       console.log("[Paystack Mock] Trip payment…", params);
       setTimeout(() => {
@@ -113,6 +141,23 @@ export const PaystackService = {
     params: PremiumPaymentParams
   ): Promise<PaymentResult & PremiumSplit> => {
     const split = computePremiumSplit(params.amount);
+    // Prefer the server: it charges the full amount and (live) runs the 60/40 split
+    // via the station subaccount. Falls back to the mock on any error.
+    if (isServerConfigured()) {
+      try {
+        const data = await apiFetch<{ reference: string }>("/api/paystack/initialize", {
+          method: "POST",
+          body: {
+            email: params.email,
+            amount: params.amount,
+            subaccount: params.station_subaccount,
+          },
+        });
+        return { success: true, reference: data.reference, ...split };
+      } catch (e) {
+        console.warn("[Paystack] premium payment via server failed, using mock", e);
+      }
+    }
     return new Promise((resolve) => {
       console.log("[Paystack Mock] Premium payment…", params, split);
       setTimeout(() => {

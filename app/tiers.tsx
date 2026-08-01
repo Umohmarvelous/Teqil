@@ -31,9 +31,12 @@ import { Colors } from "@/constants/colors";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { useTierStore } from "@/src/store/useTierStore";
-import { PaystackService } from "@/src/services/paystack";
+import { PaystackService, computePremiumSplit } from "@/src/services/paystack";
+import { useTransactionsStore } from "@/src/store/useTransactionsStore";
 import { formatNaira } from "@/src/utils/helpers";
 import type { PremiumTier } from "@/src/models/types";
+
+const txnId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
 // Placeholder partner-station subaccount for the mock 60/40 split. Real code comes
 // from the station onboarding flow later.
@@ -117,6 +120,23 @@ export default function TiersScreen() {
       });
       if (res.success) {
         setTier(tier);
+        // Persist the purchase to the revenue ledger (idempotent by reference).
+        if (user?.id) {
+          const split = computePremiumSplit(amount);
+          await useTransactionsStore.getState().record({
+            id: txnId(),
+            user_id: user.id,
+            kind: "premium_subscription",
+            premium_amount: amount,
+            station_share: split.station_share,
+            company_share: split.company_share,
+            station_subaccount: MOCK_STATION_SUBACCOUNT,
+            status: "success",
+            dedupe_key: res.reference,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
           "You're on " + planName(tier) + " 🎉",

@@ -1,10 +1,17 @@
 import type { Express } from "express";
 import { createServer, type Server } from "node:http";
+import { registerPaystackRoutes } from "./paystack";
+import { registerKycRoutes } from "./kyc";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true });
   });
+
+  // Payments (Paystack) + KYC (Smile Identity). Secrets stay server-side; both are
+  // mock-by-default and go live automatically when their env keys are set.
+  registerPaystackRoutes(app);
+  registerKycRoutes(app);
 
   app.post("/api/webhooks/scan-success", async (req, res) => {
     try {

@@ -97,6 +97,16 @@ export default function QRReceiveScreen() {
       <View style={styles.profileContainer}>
         {/* <Ionicons name="warning" size={25} color={textColor} /> */}
         <Text style={[styles.shareText, {color: subTextColor}]}>Your QR code is private. Do not share it with anyone, they can scan it with their phone camera to see your details.</Text>
+
+        <Pressable
+          style={[styles.payoutBtn, { borderColor: Colors.primary }]}
+          onPress={() => router.push("/(driver)/payout-bank")}
+        >
+          <Ionicons name="card-outline" size={18} color={Colors.primary} />
+          <Text style={styles.payoutBtnText}>
+            {user?.payout_account_number ? "Payout account ✓ — edit" : "Set up payout account"}
+          </Text>
+        </Pressable>
       </View>
 
     </View>
@@ -104,13 +114,25 @@ export default function QRReceiveScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    alignItems: 'center', 
+  container: {
+    flex: 1,
+    alignItems: 'center',
     paddingHorizontal: 14,
     paddingBottom: 40,
     justifyContent: 'space-between'
   },
+  payoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  payoutBtnText: { fontFamily: 'Poppins_600SemiBold', fontSize: 14, color: Colors.primary },
   backBtn: {
     borderRadius: 50,
     justifyContent: 'center',
