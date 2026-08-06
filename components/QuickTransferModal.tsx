@@ -83,7 +83,7 @@ export default function QuickTransferModal({ visible, onClose }: QuickTransferMo
       >
     
         <Animated.View style={[styles.backdrop, { opacity: backdropOp }]}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         </Animated.View>
         <Animated.View style={[styles.sheet, { transform: [{ translateY: slideY }] }]}>
           <View style={styles.handle} />
@@ -163,7 +163,7 @@ export default function QuickTransferModal({ visible, onClose }: QuickTransferMo
 
 const styles = StyleSheet.create({
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: "rgba(0,0,0,0.55)",
     zIndex: 1,
   },

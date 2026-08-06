@@ -12,7 +12,7 @@ EMILGO (internally "Teqil") — a React Native / Expo app for Nigerian commercia
 npx expo start                 # start Metro (dev client / Expo Go)
 npm run expo:dev                # start Metro wired for Replit's proxy domain
 npm run expo:remote             # tunnel Metro + API via Cloudflare for remote testers (see below)
-npm run server:dev              # run the Express API alone (tsx server/index.ts), port 5000
+npm run server:dev              # run the Express API alone (tsx server/index.ts), port 5001
 npm run server:build            # bundle server for prod (esbuild -> server_dist/)
 npm run server:prod             # run the built server
 npm run lint                    # npx expo lint
@@ -31,7 +31,7 @@ Expo's `--tunnel` (ngrok) is unreliable on this machine. Use `npm run expo:remot
 
 ### Two backends exist; only one is wired up
 
-- **`server/` (active, port 5000)** — a small Express app that serves the Expo static web build / manifest and exposes just two routes today (`server/routes.ts`): `/api/health` and `/api/webhooks/scan-success` (Expo push notifications). This is the only server the mobile app currently reaches over HTTP.
+- **`server/` (active, port 5001; override with `PORT`)** — a small Express app that serves the Expo static web build / manifest and exposes just two routes today (`server/routes.ts`): `/api/health` and `/api/webhooks/scan-success` (Expo push notifications). This is the only server the mobile app currently reaches over HTTP.
 - **`services/` + `gateway/` + `docker-compose.yml` (not yet integrated)** — a microservices split (`auth-service`, `trip-service`, `payment-service`, `engagement-service`, `ad-analytics-service`, `notification-service`, `credits-service`), each written in a DDD-ish layered style (`domain/`, `application/`, `infrastructure/`, `interfaces/`) and fronted by an nginx gateway (`gateway/nginx.conf`) that proxies `/api/<service>/` paths. This stack is defined and buildable via Docker Compose but the Expo app does not call it — the app talks to Supabase directly instead. Treat this as in-progress backend work, not the live API surface.
 
 The mobile app itself does **not** go through either backend for auth/data — it talks straight to Supabase via `src/services/supabase.ts` (`@supabase/supabase-js`), using `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY`.

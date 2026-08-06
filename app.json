@@ -1,25 +1,19 @@
 {
   "expo": {
     "name": "EMILGO",
-    "slug": "emilgo",
+    "slug": "teqil",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "",
     "scheme": "teqil",
-    "userInterfaceStyle": "black",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/emilgo_logo_green.png",
       "resizeMode": "contain",
-      // "backgroundColor": "#009A43"
       "backgroundColor": "#000"
     },
     "ios": {
-      // "config": {
-      // "googleMaps": {
-      //     "apiKey": "your_actual_key_here"
-      //   }
-      // },
       "supportsTablet": false,
       "bundleIdentifier": "com.teqil.app",
       "infoPlist": {
@@ -31,11 +25,6 @@
       }
     },
     "android": {
-      // "config": {
-      // "googleMaps": {
-      //     "apiKey": "your_actual_key_here"
-      //   }
-      // },
       "package": "com.teqil.app",
       "adaptiveIcon": {
         "backgroundColor": "#0A0A0A",
@@ -67,7 +56,9 @@
       "expo-web-browser",
       "expo-location",
       "expo-image-picker",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-splash-screen",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true,

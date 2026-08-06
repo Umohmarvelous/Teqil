@@ -39,24 +39,56 @@ import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { PaystackContext } from "react-native-paystack-webview";
 import { PaystackService } from "@/src/services/paystack";
 import { apiFetch, isServerConfigured } from "@/src/services/api";
-import { DEFAULT_DRIVER_BONUS } from "@/src/store/usePoolStore";
+import {
+  DEFAULT_DRIVER_BONUS,
+  usePoolStore,
+  computeTripSplit,
+  chargeDriverCommission,
+} from "@/src/store/usePoolStore";
+import { useTierStore } from "@/src/store/useTierStore";
 import { useTransactionsStore } from "@/src/store/useTransactionsStore";
 import { formatNaira } from "@/src/utils/helpers";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export default function PaymentScreen() {
-  const { driver_id, subaccount_code } = useLocalSearchParams<{
+  const { driver_id, subaccount_code, driver_payload } = useLocalSearchParams<{
     driver_id?: string;
     subaccount_code?: string;
+    driver_payload?: string;
   }>();
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
 
-  const [driver, setDriver] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  // Seed the driver straight from the scanned QR payload so the screen renders
+  // instantly AND works even though RLS forbids a passenger from reading the
+  // driver's `users` row. The Supabase read below is best-effort enrichment.
+  const seededDriver = useMemo(() => {
+    if (driver_payload) {
+      try {
+        const p = JSON.parse(driver_payload);
+        if (p?.driver_id) {
+          return {
+            id: p.driver_id,
+            driver_id: p.driver_id,
+            full_name: p.name,
+            vehicle_details: p.vehicle,
+            avg_rating: p.rating,
+            profile_photo: p.photo,
+          };
+        }
+      } catch {
+        // ignore malformed payload — fall back to the id below
+      }
+    }
+    if (driver_id) return { id: driver_id, driver_id };
+    return null;
+  }, [driver_payload, driver_id]);
+
+  const [driver, setDriver] = useState<any>(seededDriver);
+  const [loading, setLoading] = useState(!seededDriver);
   const [amount, setAmount] = useState("");
   const [processing, setProcessing] = useState(false);
 
@@ -70,50 +102,94 @@ export default function PaymentScreen() {
   const subColor = Colors.textSecondary;
 
   useEffect(() => {
-    const fetchDriver = async () => {
+    let cancelled = false;
+
+    // Best-effort ENRICHMENT only. The screen already renders from the scanned
+    // QR payload (seededDriver), so a passenger never sees "Driver not found"
+    // just because RLS blocks reading another user's row. If the DB is
+    // reachable we merge fresher fields (rating, photo, payout-on-file) on top.
+    const enrichDriver = async () => {
       if (!driver_id) {
         setLoading(false);
         return;
       }
+      let data: any = null;
       try {
-        const isUUID = UUID_RE.test(driver_id);
-        const { data, error } = await supabase
-          .from("users")
-          .select("*")
-          .eq(isUUID ? "id" : "driver_id", driver_id)
-          .single();
-        if (error || !data) {
-          Alert.alert("Driver not found", "We couldn't find a driver for this QR code.");
-          router.back();
-          return;
+        // Preferred: a SECURITY DEFINER RPC that returns public driver fields
+        // under RLS (see supabase/migrations/migration_driver_lookup.sql).
+        const rpc = await supabase.rpc("get_driver_public", { p_driver_id: driver_id });
+        if (!rpc.error && Array.isArray(rpc.data) && rpc.data[0]) data = rpc.data[0];
+      } catch {
+        // RPC not deployed yet — fall through to a direct read.
+      }
+      if (!data) {
+        try {
+          const isUUID = UUID_RE.test(driver_id);
+          const res = await supabase
+            .from("users")
+            .select("*")
+            .eq(isUUID ? "id" : "driver_id", driver_id)
+            .maybeSingle();
+          if (!res.error && res.data) data = res.data;
+        } catch (e) {
+          console.warn("fetchDriver (enrichment) failed", e);
         }
-        setDriver(data);
-      } catch (e) {
-        console.warn("fetchDriver failed", e);
-        Alert.alert("Error", "Could not load the driver.");
-        router.back();
-      } finally {
+      }
+      if (!cancelled) {
+        if (data) setDriver((prev: any) => ({ ...(prev ?? {}), ...data }));
         setLoading(false);
       }
     };
-    fetchDriver();
+
+    enrichDriver();
+    return () => {
+      cancelled = true;
+    };
   }, [driver_id]);
 
-  // Money model: passenger pays HALF; driver receives HALF + bonus.
+  const poolBalance = usePoolStore((s) => s.balance);
+  const adminLossOverride = useTierStore((s) => s.adminLossOverride);
+
+  // Money model: the passenger pays HALF; the pool matches the other half + a
+  // fixed ₦100 bonus, so the driver receives the full fare + ₦100.
   const fare = useMemo(() => {
     const n = parseInt(amount.replace(/\D/g, ""), 10);
     return Number.isFinite(n) ? n : 0;
   }, [amount]);
-  const passengerPays = Math.round(fare / 2);
+
+  // Strict split — drives the block gate and the actual money movement. `blocked`
+  // when the passenger's pool can't fund the matching half + bonus.
+  const split = useMemo(
+    () =>
+      fare > 0
+        ? computeTripSplit(fare, poolBalance, { allowOverdraw: adminLossOverride })
+        : null,
+    [fare, poolBalance, adminLossOverride]
+  );
+
+  // Display amounts (the intended split, shown even while blocked).
   const driverBonus = DEFAULT_DRIVER_BONUS;
-  const driverReceives = passengerPays + driverBonus;
-  const canPay = fare > 0 && !processing;
+  const passengerPays = Math.round(fare / 2);
+  const driverReceives = fare > 0 ? fare + driverBonus : 0;
+  const canPay = fare > 0 && !processing && !!split && !split.blocked;
 
   // Whether the driver has payout details on file (used, never shown).
   const hasPayout = !!(driver?.payout_account_number || subaccount_code);
 
   // After a successful charge (real or mock): verify → pay the driver out → record.
-  const completeTransfer = async (chargeRef: string) => {
+  const completeTransfer = async (chargeRef: string, tripId: string) => {
+    // Draw the passenger's pool for this trip (idempotent). The returned split is
+    // authoritative for the amounts actually moved.
+    let drawn = split;
+    if (user?.id) {
+      const s = await usePoolStore
+        .getState()
+        .spendForTrip(user.id, fare, tripId, { allowOverdraw: adminLossOverride });
+      if (s && !s.blocked) drawn = s;
+    }
+    const eff =
+      drawn ?? computeTripSplit(fare, poolBalance, { allowOverdraw: adminLossOverride });
+
     // 1. Verify the charge server-side (best-effort; mock/test returns success).
     try {
       if (isServerConfigured()) {
@@ -123,7 +199,7 @@ export default function PaymentScreen() {
       console.warn("[Payment] verify failed", e);
     }
 
-    // 2. Pay the driver out (half + bonus) to their stored bank via the server.
+    // 2. Pay the driver out (full fare + bonus) to their stored bank via the server.
     try {
       if (isServerConfigured() && driver?.payout_account_number) {
         await apiFetch("/api/paystack/transfer", {
@@ -132,7 +208,7 @@ export default function PaymentScreen() {
             name: driver.payout_account_name || driver.full_name,
             account_number: driver.payout_account_number,
             bank_code: driver.payout_bank_code,
-            amount: driverReceives,
+            amount: eff.driverReceives,
             reason: "Emilgo fare payout",
           },
         });
@@ -141,20 +217,23 @@ export default function PaymentScreen() {
       console.warn("[Payment] driver payout failed", e);
     }
 
-    // 3. Record to the revenue ledger (idempotent by charge reference).
+    // 2b. Optional: take the fixed ₦100 commission from the DRIVER's own pool.
+    void chargeDriverCommission(driver?.driver_id || driver?.id, tripId);
+
+    // 3. Record to the revenue ledger (idempotent by trip).
     if (user?.id) {
       await useTransactionsStore.getState().record({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        id: tripId,
         user_id: user.id,
         kind: "trip_payment",
-        base_fare: fare,
-        passenger_bank_paid: passengerPays,
-        pool_draw: driverBonus,
-        driver_bonus: driverBonus,
-        company_cut: 0,
-        driver_total: driverReceives,
+        base_fare: eff.baseFare,
+        passenger_bank_paid: eff.passengerBankPays,
+        pool_draw: eff.poolDraw,
+        driver_bonus: eff.driverBonus,
+        company_cut: eff.companyCut,
+        driver_total: eff.driverReceives,
         status: "success",
-        dedupe_key: chargeRef,
+        dedupe_key: `${user.id}:trip:${tripId}`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
@@ -164,27 +243,40 @@ export default function PaymentScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     Alert.alert(
       "Transfer sent 🎉",
-      `${formatNaira(driverReceives)} sent to ${driver?.full_name || "the driver"} ` +
-        `(${formatNaira(passengerPays)} + ${formatNaira(driverBonus)} bonus).`,
+      `${formatNaira(eff.driverReceives)} sent to ${driver?.full_name || "the driver"}`,
       [{ text: "Done", onPress: () => router.replace("/(main)") }]
     );
   };
 
   const handlePay = async () => {
-    if (!canPay || !driver) return;
+    if (!canPay || !driver || !split) return;
+
+    // Strict model: refuse if the pool can't fund the matching half + bonus.
+    if (split.blocked) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        "Ride can't be completed yet",
+        `Your rewards pool needs ₦${split.shortfall.toLocaleString("en-NG")} more to cover this fare. Your pool fills up as you engage and watch ads.`
+      );
+      return;
+    }
+
     setProcessing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Stable id for this attempt → pool + transaction dedupe key.
+    const tripId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
     // Real Paystack checkout for the passenger's half (public key + provider present).
     // Completion continues in onSuccess → completeTransfer.
     if (hasPaystackKey && paystack?.popup) {
       paystack.popup.checkout({
         email: user?.email ?? "guest@emilgo.app",
-        amount: passengerPays, // Naira (the lib converts to kobo)
+        amount: split.passengerBankPays, // Naira (the lib converts to kobo)
         reference: `emilgo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         metadata: { driver_id: driver.id, kind: "qr_transfer" },
         onSuccess: (data) => {
-          void completeTransfer(data.reference);
+          void completeTransfer(data.reference, tripId);
         },
         onCancel: () => {
           setProcessing(false);
@@ -202,15 +294,15 @@ export default function PaymentScreen() {
     try {
       const res = await PaystackService.processTripPayment({
         passenger_email: user?.email ?? "guest@emilgo.app",
-        base_fare: fare,
-        passenger_bank_pays: passengerPays,
-        pool_draw: driverBonus,
-        driver_bonus: driverBonus,
-        company_cut: 0,
-        driver_total: driverReceives,
+        base_fare: split.baseFare,
+        passenger_bank_pays: split.passengerBankPays,
+        pool_draw: split.poolDraw,
+        driver_bonus: split.driverBonus,
+        company_cut: split.companyCut,
+        driver_total: split.driverReceives,
       });
       if (res.success) {
-        await completeTransfer(res.reference);
+        await completeTransfer(res.reference, tripId);
       } else {
         setProcessing(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -254,17 +346,25 @@ export default function PaymentScreen() {
               source={{ uri: driver?.profile_photo || "https://via.placeholder.com/150" }}
               style={styles.avatar}
             />
-            <View style={{ flex: 1 }}>
+            <View style={{flex: 1, alignItems:'flex-start'}}>
               <Text style={[styles.driverName, { color: textColor }]}>
                 {driver?.full_name || "Driver"}
               </Text>
               <Text style={[styles.driverMeta, { color: subColor }]}>
-                {driver?.vehicle_details || "Standard Vehicle"}
+                {user?.driver_id || "username"}
               </Text>
-              <View style={styles.ratingRow}>
-                <Ionicons name="star" size={13} color={Colors.gold} />
-                <Text style={[styles.ratingText, { color: subColor }]}>
-                  {driver?.avg_rating?.toFixed?.(1) || "New"} · ID{" "}
+              <Text style={[styles.driverMeta, { color: subColor }]}>
+                Vehicle: {driver?.vehicle_details || "Standard Vehicle"}
+              </Text>
+              <View style={[styles.ratingRow]}>
+                <View style={[{flexDirection: 'row', gap: 4, paddingHorizontal: 0,paddingVertical: 2, borderRadius: 9, alignItems: 'center', justifyContent:'center'}, { backgroundColor: cardBg }]}>
+                  <Ionicons name="star" size={13} color={Colors.gold} />
+                  <Text style={[styles.ratingText, { color: subColor }]}>
+                    {driver?.avg_rating?.toFixed?.(1) || "New"}
+                  </Text> 
+                </View>
+
+                <Text style={[styles.ratingText, { color: subColor }]}> ID{" "}
                   {driver?.driver_id || driver?.id?.slice(0, 8)}
                 </Text>
               </View>
@@ -272,7 +372,7 @@ export default function PaymentScreen() {
           </View>
 
           {/* Bank details are used, never shown */}
-          <View style={[styles.secureRow, { backgroundColor: cardBg }]}>
+          <View style={[styles.secureRow]}>
             <Ionicons name="lock-closed" size={16} color={Colors.primary} />
             <Text style={[styles.secureText, { color: subColor }]}>
               {hasPayout
@@ -281,40 +381,43 @@ export default function PaymentScreen() {
             </Text>
           </View>
 
-          {/* Amount input */}
-          <Text style={[styles.label, { color: textColor }]}>Fare amount</Text>
-          <View style={[styles.amountBox, { backgroundColor: cardBg }]}>
-            <Text style={[styles.naira, { color: textColor }]}>₦</Text>
-            <TextInput
-              style={[styles.amountInput, { color: textColor }]}
-              value={amount}
-              onChangeText={setAmount}
-              placeholder="0"
-              placeholderTextColor={isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)"}
-              keyboardType="number-pad"
-              maxLength={7}
-            />
-          </View>
-
-          {/* Live breakdown */}
-          {fare > 0 && (
-            <View style={[styles.breakdown, { backgroundColor: cardBg }]}>
-              <Row label="Fare entered" value={formatNaira(fare)} color={textColor} sub={subColor} />
-              <Row label="You pay (half)" value={formatNaira(passengerPays)} color={textColor} sub={subColor} />
-              <Row label="Driver bonus" value={`+ ${formatNaira(driverBonus)}`} color={textColor} sub={subColor} />
-              <View style={styles.divider} />
-              <Row
-                label="Driver receives"
-                value={formatNaira(driverReceives)}
-                color={Colors.primary}
-                sub={subColor}
-                bold
+            <Text style={[styles.label, { color: textColor }]}>Fare amount</Text>
+          <View style={[styles.amountBoxContainer, { backgroundColor: cardBg }]}>
+  
+            {/* Amount input */}
+            <View style={[styles.amountBox ]}>
+              <Text style={[styles.naira, { color: textColor }]}>₦</Text>
+              <TextInput
+                style={[styles.amountInput, { color: textColor }]}
+                value={amount}
+                onChangeText={setAmount}
+                placeholder="0"
+                placeholderTextColor={isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)"}
+                keyboardType="number-pad"
+                maxLength={7}
               />
             </View>
-          )}
+
+            {/* Live breakdown */}
+            {fare > 0 && (
+              <View style={[styles.breakdown]}>
+                {/* <Row label="Fare entered" value={formatNaira(fare)} color={textColor} sub={subColor} /> */}
+                <Row label="You pay (half)" value={formatNaira(passengerPays)} color={textColor} sub={subColor} />
+                <Row label="Driver bonus" value={`+ ${formatNaira(driverBonus)}`} color={textColor} sub={subColor} />
+                <View style={styles.divider} />
+                <Row
+                  label="Driver receives"
+                  value={formatNaira(driverReceives)}
+                  color={Colors.primary}
+                  sub={subColor}
+                  bold
+                />
+              </View>
+            )}
+          </View>
 
           <Text style={[styles.note, { color: subColor }]}>
-            You pay half the fare; the driver receives that half plus a {formatNaira(driverBonus)} fuel bonus.
+            You pay half the fare; your rewards pool covers the other half, so the driver receives the full fare plus a {formatNaira(driverBonus)} bonus.
           </Text>
         </ScrollView>
 
@@ -328,7 +431,11 @@ export default function PaymentScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.payBtnText}>
-                {fare > 0 ? `Send ${formatNaira(driverReceives)} to driver` : "Enter an amount"}
+                {split?.blocked
+                  ? `Pool needs ${formatNaira(split.shortfall)} more`
+                  : fare > 0
+                    ? `Send ${formatNaira(driverReceives)} to driver`
+                    : "Enter an amount"}
               </Text>
             )}
           </Pressable>
@@ -373,21 +480,26 @@ const styles = StyleSheet.create({
   headerTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 17 },
   content: { paddingHorizontal: 18, gap: 14, paddingTop: 4 },
 
-  driverCard: { flexDirection: "row", alignItems: "center", gap: 14, borderRadius: 20, padding: 16 },
-  avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: "rgba(128,128,128,0.15)" },
-  driverName: { fontFamily: "Poppins_600SemiBold", fontSize: 16 },
+  driverCard: { flexDirection: "row", alignItems: "flex-start", gap: 14, borderRadius: 20, padding: 16 },
+
+  avatar: { width: 73, height: 73, borderRadius: 58, backgroundColor: "rgba(128,128,128,0.15)" },
+  driverName: { fontFamily: "Poppins_600SemiBold", fontSize: 18 },
   driverMeta: { fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 2 },
-  ratingRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 4 },
+  ratingRow: { flexDirection: "column-reverse",  gap: 5, marginTop: 14 },
   ratingText: { fontFamily: "Poppins_500Medium", fontSize: 12 },
 
   secureRow: { flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 14, padding: 14 },
   secureText: { fontFamily: "Poppins_400Regular", fontSize: 11, flex: 1, lineHeight: 16 },
 
   label: { fontFamily: "Poppins_500Medium", fontSize: 13, marginLeft: 4, marginTop: 4 },
+  amountBoxContainer: {
+    borderRadius: 16,
+    justifyContent: 'center',
+  },
   amountBox: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 16,
+    justifyContent: 'center',
     paddingHorizontal: 18,
     height: 64,
     gap: 8,
@@ -395,7 +507,7 @@ const styles = StyleSheet.create({
   naira: { fontFamily: "Poppins_700Bold", fontSize: 24 },
   amountInput: { flex: 1, fontFamily: "Poppins_700Bold", fontSize: 24, height: "100%" },
 
-  breakdown: { borderRadius: 16, padding: 16, gap: 4 },
+  breakdown: { padding: 26, gap: 10, borderTopWidth: 1, borderTopColor: "rgba(128 128 128 / 0.11)" },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 5 },
   rowLabel: { fontFamily: "Poppins_400Regular", fontSize: 13 },
   rowValue: { fontFamily: "Poppins_500Medium", fontSize: 14 },

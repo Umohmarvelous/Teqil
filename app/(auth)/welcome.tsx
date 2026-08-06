@@ -107,7 +107,7 @@ function FeatureSlide({
       
       <LinearGradient
         colors={slide.gradient}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         start={{ x: 0.2, y: 0 }}
         end={{ x: 0.8, y: 1 }}
       />
@@ -287,7 +287,7 @@ function RoleSlide({ scrollX }: { scrollX: Animated.Value }) {
     <Animated.View style={{ width: W, height: H, opacity }}>
       <LinearGradient
         colors={["#080808", "#0D0D0D", "#111"]}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
 
       {/* Subtle green glow top-center */}

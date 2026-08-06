@@ -147,7 +147,7 @@
 //     <View style={styles.container}>
 //       <MapView
 //         ref={mapRef}
-//         style={StyleSheet.absoluteFillObject}
+//         style={StyleSheet.absoluteFill}
 //         provider={PROVIDER_GOOGLE}
 //         customMapStyle={DARK_MAP_STYLE}
 //         showsUserLocation={false} 
@@ -558,7 +558,7 @@ const counterStyles = StyleSheet.create({
     marginBottom:  4,
   },
   glow:  {
-    ...StyleSheet.absoluteFillObject,
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
     borderRadius: 20,
   },
   value: {
@@ -711,7 +711,7 @@ function SaveRouteSheet({
 
 const sheetStyles = StyleSheet.create({
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent:  "flex-end",
     zIndex:          20,
@@ -965,7 +965,7 @@ export default function LiveTripScreen() {
       {/* ── Map ── */}
       <MapView
         ref={mapRef}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         provider={PROVIDER_GOOGLE}
         customMapStyle={MAP_STYLE}
         showsUserLocation={false}
@@ -1029,7 +1029,7 @@ export default function LiveTripScreen() {
           <BlurView
             intensity={80}
             tint={theme === "dark" ? "dark" : "light"}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
           />
         )}
 

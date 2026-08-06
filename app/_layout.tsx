@@ -28,6 +28,7 @@ import NetworkBanner from "@/components/NetworkBanner";
 import AppLock from "@/src/components/AppLock";
 import FloatingCreditAnimation from "@/src/components/FloatingCreditAnimation";
 import EmilgoSplash from "../components/EmilgoSplash";
+import { Colors } from "@/constants/colors";
 
 // ----------------------------------------------------------------------
 // Notifications setup
@@ -53,7 +54,7 @@ function ThemeSync() {
 
   useEffect(() => {
     if (systemTheme && systemTheme !== theme) {
-      setTheme(systemTheme);
+      setTheme(systemTheme === "dark" ? "dark" : "light");
     }
   }, [systemTheme, theme, setTheme]);
 
@@ -136,10 +137,12 @@ export default function RootLayout() {
   const { setUser, setIsAuthenticated, setIsLoading, user, language } = useAuthStore();
   const { theme } = useSettingsStore();
   const pushNotifications = useSettingsStore((s) => s.pushNotifications);
+  const isDark = theme === "dark";
 
   // ----- refs -----
   const userRef = useRef<SyncUser | null>(null);
   const prevUserIdRef = useRef<string | null>(null);
+
 
   // ----- keep userRef in sync -----
   useEffect(() => {
@@ -237,13 +240,12 @@ export default function RootLayout() {
           {splashDone && (
             <StatusBar
               style={theme === "dark" ? "light" : "dark"}
-              backgroundColor="transparent"
               animated
             />
           )}
 
           {/* <SessionTimeout> */}
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, backgroundColor: isDark ? Colors.background : Colors.textWhite }}>
               <AppLock>
                 <RootLayoutNav />
               </AppLock>

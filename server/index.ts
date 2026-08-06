@@ -242,7 +242,8 @@ function setupErrorHandler(app: express.Application) {
 
   setupErrorHandler(app);
 
-  const port = parseInt(process.env.PORT || "5000", 10);
+  // 5001, not 5000: macOS AirPlay Receiver (ControlCenter) squats on 5000.
+  const port = parseInt(process.env.PORT || "5001", 10);
   server.listen(
     {
       port,

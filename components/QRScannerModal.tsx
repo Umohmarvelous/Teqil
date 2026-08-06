@@ -172,7 +172,7 @@
 //     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
 //       <View style={scanStyles.root}>
 //         <CameraView
-//           style={StyleSheet.absoluteFillObject}
+//           style={StyleSheet.absoluteFill}
 //           facing="back"
 //           onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
 //           barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
@@ -544,7 +544,7 @@ export default function QRScannerModal({
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={scanStyles.root}>
         <CameraView
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           facing="back"
           enableTorch={flashOn}
           onBarcodeScanned={scanned || showInstruction ? undefined : handleBarCodeScanned}

@@ -19,6 +19,7 @@
 */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { parseDriverQR } from "@/src/utils/qr";
 import {
   View,
   Text,
@@ -39,7 +40,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/colors";
 import { useAuthStore } from "@/src/store/useStore";
-import { usePoolStore, computeTripSplit } from "@/src/store/usePoolStore";
+import { usePoolStore, computeTripSplit, chargeDriverCommission } from "@/src/store/usePoolStore";
 import { useTierStore } from "@/src/store/useTierStore";
 import { useTransactionsStore } from "@/src/store/useTransactionsStore";
 import { formatNaira, generateId } from "@/src/utils/helpers";
@@ -269,7 +270,7 @@ function QRScannerModal({
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={scanStyles.root}>
         <CameraView
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           facing="back"
           onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
           barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
@@ -393,11 +394,14 @@ export default function PayFareScreen() {
   }, []); // opacity/translateY are stable Animated.Value refs
 
   const handleQRScan = useCallback((data: string) => {
-    // QR codes from drivers contain their driver ID or trip code
-    // Format expected: "TEQIL:DRV-XXXXXX" or "TEQIL:TRIPCODE"
-    const parsed = data.replace("TEQIL:", "").trim();
-    setDriverRef(parsed);
-    Alert.alert("QR Scanned Successfully ", ` ${parsed}`);
+    // Accept both the current JSON QR and legacy "TEQIL:DRV-…" strings.
+    const parsed = parseDriverQR(data);
+    if (!parsed) {
+      Alert.alert("Unrecognized QR", "That isn't a valid Emilgo driver code.");
+      return;
+    }
+    setDriverRef(parsed.driver_id);
+    Alert.alert("QR Scanned", `Driver ${parsed.name || parsed.driver_id} ready — enter the fare.`);
   }, []);
 
   const handleQuickAmount = useCallback((val: number) => {
@@ -446,6 +450,19 @@ export default function PayFareScreen() {
         return;
       }
 
+      // Strict model: if the pool can't fund the matching half + ₦100 bonus, the
+      // payment is refused (the driver is never shorted, the passenger never pays
+      // more than half). No pool entry was written.
+      if (split.blocked) {
+        setIsProcessing(false);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        Alert.alert(
+          "Ride can't be completed yet",
+          `Your rewards pool needs ₦${split.shortfall.toLocaleString("en-NG")} more to cover this fare. Your pool fills up as you engage and watch ads.`
+        );
+        return;
+      }
+
       // ── 2. Charge the passenger's bank + route driver/company shares. ──────
       const result = await PaystackService.processTripPayment({
         passenger_email: user.email || "passenger@teqil.app",
@@ -480,6 +497,10 @@ export default function PayFareScreen() {
         created_at: new Date().toISOString(),
       });
 
+      // Optional: take the fixed ₦100 commission from the DRIVER's own pool
+      // (best-effort; a no-op unless the driver's pool can afford it).
+      void chargeDriverCommission(driverRef, tripId);
+
       setLastSplit(split);
       setIsProcessing(false);
       setPaymentSuccess(true);
@@ -505,7 +526,7 @@ export default function PayFareScreen() {
     <View style={styles.root}>
       <LinearGradient
         colors={["#009A43", "#009A43"]}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
 
       {/* Header */}
@@ -974,7 +995,7 @@ const styles = StyleSheet.create({
 
 const successStyles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: "rgba(0,0,0,0.85)",
     alignItems: "center",
     justifyContent: "center",

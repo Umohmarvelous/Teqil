@@ -10,8 +10,8 @@ export default function IndexScreen() {
   useEffect(() => {
     if (!isAuthenticated || !user) {
       // Not logged in → go to login screen
+      // router.replace("/(driver)/qr-receive");
       router.replace("/(main)");
-      // router.push("/(driver)/create-trip");
       return;
     }
 
@@ -19,9 +19,10 @@ export default function IndexScreen() {
     // goes to the unified (main) dashboard
     if (user.role === "driver" && !user.profile_complete) {
       router.replace("/(auth)/driver-profile");
+      // return
     } else {
+      // router.replace("/(driver)/qr-receive");
       router.replace("/(main)");
-      // router.push("/(driver)/create-trip");
     }
   }, [isAuthenticated, user]);
 

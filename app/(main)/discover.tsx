@@ -729,7 +729,7 @@
 //   adCtaButtonText: { color: "#FFF" },
 
 //   // Auth
-//   authOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.7)", alignItems: "center", justifyContent: "flex-end", paddingBottom: 80, paddingHorizontal: 24 },
+//   authOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.7)", alignItems: "center", justifyContent: "flex-end", paddingBottom: 80, paddingHorizontal: 24 },
 //   authCard: { backgroundColor: "#fff", borderRadius: 24, padding: 28, width: "100%", alignItems: "center", gap: 12 },
 //   authTitle: { fontFamily: "Poppins_700Bold", fontSize: 22 },
 //   authSub: { fontSize: 14, textAlign: "center" },
@@ -792,7 +792,6 @@ import {
   PanResponder,
 } from "react-native";
 import * as Haptics from "expo-haptics";
-import { Video, ResizeMode } from "expo-av";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { useCreditsStore } from "@/src/store/useCreditsStore";
@@ -826,6 +825,12 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+
+// expo-av was removed in Expo SDK 57. These lightweight stubs let the (currently
+// disabled / network-gated) video feed keep compiling — <Video> renders nothing.
+// Migrate to expo-video to re-enable inline video playback.
+const ResizeMode = { CONTAIN: "contain", COVER: "cover", STRETCH: "stretch" } as const;
+const Video = (_props: any) => null;
 
 // ----------------------------------------------------------------------
 // Credit Constants — single source of truth in constants/credits.ts (imported at
@@ -2138,7 +2143,7 @@ const styles = StyleSheet.create({
   adCtaButtonText: { color: "#FFF" },
 
   // Auth
-  authOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.7)", alignItems: "center", justifyContent: "flex-end", paddingBottom: 80, paddingHorizontal: 24 },
+  authOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.7)", alignItems: "center", justifyContent: "flex-end", paddingBottom: 80, paddingHorizontal: 24 },
   authCard: { backgroundColor: "#fff", borderRadius: 24, padding: 28, width: "100%", alignItems: "center", gap: 12 },
   authTitle: { fontFamily: "Poppins_700Bold", fontSize: 22 },
   authSub: { fontSize: 14, textAlign: "center" },

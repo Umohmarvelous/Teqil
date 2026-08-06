@@ -144,7 +144,7 @@
 
 // const styles = StyleSheet.create({
 //   overlay: {
-//     ...StyleSheet.absoluteFillObject,
+//     position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
 //     alignItems: 'center',
 //     justifyContent: 'center',
 //     zIndex: 999,
@@ -345,7 +345,7 @@
 
 // const styles = StyleSheet.create({
 //   overlay: {
-//     ...StyleSheet.absoluteFillObject,
+//     position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
 //     alignItems: 'center',
 //     justifyContent: 'center',
 //     zIndex: 999,
@@ -565,7 +565,7 @@ export default function EmilgoSplash({ onFinish, backgroundColor = '#000000' }: 
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 999,

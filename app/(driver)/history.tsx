@@ -22,6 +22,8 @@ import { BarcodeScanIcon, Calendar, Star, Time01Icon } from "@hugeicons/core-fre
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useActivityFeed } from "@/src/hooks/useActivityFeed";
+import ActivityFeed from "@/components/ActivityFeed";
 
 
 type FilterTab = "all" | "active" | "completed";
@@ -237,6 +239,10 @@ export default function DriverHistoryScreen() {
   const [filter, setFilter] = useState<FilterTab>("all");
   const [refreshing, setRefreshing] = useState(false);
 
+  // Unified history: payments (with receipts), achievements and watched ads,
+  // shown above the trips list. Trips have their own rich cards below.
+  const nonTripActivity = useActivityFeed().filter((a) => a.kind !== "trip");
+
   const load = useCallback(async () => {
     if (!user?.id) return;
     const raw = await TripsStorage.getByDriverId(user.id);
@@ -339,6 +345,20 @@ export default function DriverHistoryScreen() {
           />
         }
         ListHeaderComponent={
+          <>
+          {nonTripActivity.length > 0 && (
+            <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6, gap: 8, backgroundColor: tabBarBg }}>
+              <Text style={[styles.headerTitle, { color: textColor, fontSize: 15 }]}>Payments & rewards</Text>
+              <ActivityFeed
+                activities={nonTripActivity}
+                textColor={textColor}
+                subColor={subTextColor}
+                cardBg={cardBg}
+                borderColor={borderColor}
+                limit={6}
+              />
+            </View>
+          )}
           <View style={[styles.FilterTabHolder, {backgroundColor: tabBarBg, borderBottomColor: borderColor}]}>
             {allTrips.length > 0 && (
               <StatSummary
@@ -349,6 +369,7 @@ export default function DriverHistoryScreen() {
             )}
             <FilterTabs active={filter} onChange={setFilter} counts={counts} />
           </View>
+          </>
         }
         ListEmptyComponent={
           <EmptyState filter={filter} />

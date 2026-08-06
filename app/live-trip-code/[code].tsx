@@ -524,11 +524,11 @@ function ActionSheetModal({
       {/* Backdrop */}
       <Animated.View
         style={[
-          StyleSheet.absoluteFillObject,
+          StyleSheet.absoluteFill,
           { backgroundColor: "rgba(0,0,0,0.4)", opacity: backdropOpacity },
         ]}
       >
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
 
       {/* Sheet */}
@@ -1523,7 +1523,7 @@ export default function LiveTripScreen() {
       {/* Map */}
       <MapView
         ref={mapRef}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         provider={
           Platform.OS === "android" || Platform.OS === "web"
             ? PROVIDER_GOOGLE
@@ -2441,7 +2441,7 @@ const styles = StyleSheet.create({
 // ─── AI Modal Styles ──────────────────────────────────────────────────────────
 const aiStyles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: "rgba(0,0,0,0.76)",
   },
   overlayTap: { flex: 1 },

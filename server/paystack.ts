@@ -28,6 +28,16 @@ function mockRef(prefix: string): string {
   return `${prefix}_mock_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/** Card brand from BIN — display only. */
+function brandOf(pan: string): string {
+  const n = String(pan).replace(/\D/g, "");
+  if (/^4/.test(n)) return "visa";
+  if (/^(5[1-5]|2[2-7])/.test(n)) return "mastercard";
+  if (/^(506[01]|507[89]|6500)/.test(n)) return "verve";
+  if (/^3[47]/.test(n)) return "amex";
+  return "card";
+}
+
 /** Thin wrapper around the Paystack REST API with the secret key attached. */
 async function paystack(
   path: string,
@@ -147,6 +157,123 @@ export function registerPaystackRoutes(app: Express): void {
     );
     if (!ok) return res.status(400).json(json);
     return res.json(json.data);
+  });
+
+  // ── Tokenize a card → reusable authorization_code ───────────────────────────
+  // ⚠️ Sending a raw PAN to your server puts you in PCI-DSS scope. For production,
+  // prefer the Paystack Inline/popup (client-side, react-native-paystack-webview is
+  // already bundled) so the card never touches your server. This server path backs
+  // the custom card form + test keys. We keep ONLY the returned authorization_code.
+  app.post("/api/paystack/tokenize-card", async (req: Request, res: Response) => {
+    const { email, number, cvv, exp_month, exp_year } = req.body ?? {};
+    if (!email || !number || !cvv || !exp_month || !exp_year) {
+      return res.status(400).json({ error: "email, number, cvv, exp_month, exp_year required" });
+    }
+    const digits = String(number).replace(/\D/g, "");
+    if (!isLive) {
+      if (digits.length < 12) return res.status(400).json({ error: "invalid card number" });
+      return res.json({ token: mockRef("authz"), brand: brandOf(digits), last4: digits.slice(-4) });
+    }
+    // Charge a small verification amount to obtain a reusable authorization.
+    const { ok, json } = await paystack("/charge", "POST", {
+      email,
+      amount: 5000, // ₦50 verification (refund server-side if you wish)
+      card: {
+        number: digits,
+        cvv: String(cvv),
+        expiry_month: String(exp_month).padStart(2, "0"),
+        expiry_year: String(exp_year).slice(-2),
+      },
+    });
+    // A full integration must also handle data.status of "send_otp" | "send_pin" |
+    // "open_url" (3-D Secure) before an authorization is issued.
+    const auth = json?.data?.authorization;
+    if (!ok || !auth?.authorization_code) {
+      return res.status(400).json({
+        error: json?.data?.gateway_response || json?.message || "Card could not be verified",
+        status: json?.data?.status,
+      });
+    }
+    return res.json({
+      token: auth.authorization_code,
+      brand: auth.brand || brandOf(digits),
+      last4: auth.last4 || digits.slice(-4),
+    });
+  });
+
+  // ── Direct-debit mandate (passenger authorizes future debits) ───────────────
+  app.post("/api/paystack/mandate", async (req: Request, res: Response) => {
+    const { email, account_number, bank_code } = req.body ?? {};
+    if (!email || !account_number || !bank_code) {
+      return res.status(400).json({ error: "email, account_number, bank_code required" });
+    }
+    if (!isLive) {
+      return res.json({ token: mockRef("mandate"), bank_name: "Mock Bank" });
+    }
+    // Initiate a bank charge; the customer authorizes with an OTP, after which the
+    // returned authorization_code is the reusable mandate. Production must complete
+    // the OTP step (/charge/submit_otp) before the mandate is usable.
+    const { ok, json } = await paystack("/charge", "POST", {
+      email,
+      amount: 5000,
+      bank: { code: bank_code, account_number: String(account_number).replace(/\D/g, "") },
+    });
+    if (!ok) return res.status(400).json({ error: json?.message || "Could not start direct debit" });
+    const auth = json?.data?.authorization;
+    if (auth?.authorization_code) {
+      return res.json({ token: auth.authorization_code, bank_name: auth.bank || undefined });
+    }
+    // OTP pending — surface the next step; the app should collect + submit the OTP.
+    return res.json({ status: json?.data?.status, reference: json?.data?.reference, next: "otp" });
+  });
+
+  // ── Charge a saved authorization / mandate ──────────────────────────────────
+  app.post("/api/paystack/charge-authorization", async (req: Request, res: Response) => {
+    const { email, amount, authorization_code } = req.body ?? {};
+    if (!email || !amount || !authorization_code) {
+      return res.status(400).json({ error: "email, amount, authorization_code required" });
+    }
+    const kobo = Math.round(Number(amount) * 100);
+    if (!isLive) {
+      return res.json({ status: "success", reference: mockRef("chg"), amount: kobo });
+    }
+    const { ok, json } = await paystack("/transaction/charge_authorization", "POST", {
+      email,
+      amount: kobo,
+      authorization_code,
+    });
+    const d = json?.data;
+    if (!ok) return res.status(400).json({ status: "failed", reason: json?.message || "charge_failed" });
+    if (d?.status === "success") return res.json({ status: "success", reference: d.reference });
+    // e.g. "Insufficient funds" → "insufficient_funds" so the app can match it.
+    return res.json({
+      status: d?.status || "failed",
+      reason: String(d?.gateway_response || "declined").toLowerCase().replace(/\s+/g, "_"),
+    });
+  });
+
+  // ── Create a verified transfer recipient (driver payout) ────────────────────
+  // Paystack runs the NIBSS name enquiry when the recipient is created.
+  app.post("/api/paystack/transfer-recipient", async (req: Request, res: Response) => {
+    const { name, account_number, bank_code } = req.body ?? {};
+    if (!account_number || !bank_code) {
+      return res.status(400).json({ error: "account_number and bank_code required" });
+    }
+    if (!isLive) {
+      return res.json({ recipient_code: mockRef("rcp"), account_name: name || "Mock Account Holder" });
+    }
+    const { ok, json } = await paystack("/transferrecipient", "POST", {
+      type: "nuban",
+      name,
+      account_number: String(account_number).replace(/\D/g, ""),
+      bank_code,
+      currency: "NGN",
+    });
+    if (!ok) return res.status(400).json({ error: json?.message || "Could not verify account" });
+    return res.json({
+      recipient_code: json.data.recipient_code,
+      account_name: json.data.details?.account_name,
+    });
   });
 
   // ── Webhook (charge.success / transfer.success), signature-verified ─────────

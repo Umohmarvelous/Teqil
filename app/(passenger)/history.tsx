@@ -21,6 +21,8 @@ import { Time02Icon } from "@hugeicons/core-free-icons";
 import { router } from "expo-router";
 import { Colors } from "@/constants/colors";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
+import { useActivityFeed } from "@/src/hooks/useActivityFeed";
+import ActivityFeed from "@/components/ActivityFeed";
 
 interface TripCardProps {
   trip: Trip;
@@ -127,6 +129,7 @@ export default function PassengerHistoryScreen() {
   const { t } = useTranslation();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const nonTripActivity = useActivityFeed().filter((a) => a.kind !== "trip");
 
 
   const { theme } = useSettingsStore();
@@ -184,7 +187,22 @@ export default function PassengerHistoryScreen() {
         renderItem={({ item }) => <TripCard trip={item} />}
         contentContainerStyle={[styles.listContent]}
         showsVerticalScrollIndicator={false}
-        scrollEnabled={!!trips.length}
+        scrollEnabled={!!trips.length || nonTripActivity.length > 0}
+        ListHeaderComponent={
+          nonTripActivity.length > 0 ? (
+            <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6, gap: 8 }}>
+              <Text style={[styles.headerTitle, { color: textColor, fontSize: 15 }]}>Payments & rewards</Text>
+              <ActivityFeed
+                activities={nonTripActivity}
+                textColor={textColor}
+                subColor={isDark ? Colors.textSecondary : Colors.textTertiary}
+                cardBg={cardBg}
+                borderColor={borderColor}
+                limit={6}
+              />
+            </View>
+          ) : null
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

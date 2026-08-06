@@ -604,7 +604,7 @@ export default function MainLayout() {
               <BlurView
                 intensity={0}
                 tint={isDark ? "dark" : "light"}
-                style={StyleSheet.absoluteFillObject}
+                style={StyleSheet.absoluteFill}
               />
             )}
             <View
@@ -810,7 +810,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
     // backgroundColor: "rgb(85 84 84 0.45)",
     borderRadius: HOME_BORDER_RADIUS,
     // Above the top/bottom bars (zIndex 100) so it dims and covers them too.
@@ -818,7 +818,7 @@ const styles = StyleSheet.create({
   },
   // Decorative outline that fades in with the overlay when the sidebar opens.
   homeBorder: {
-    ...StyleSheet.absoluteFillObject,
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
     borderWidth: HOME_BORDER_WIDTH,
     borderRadius: HOME_BORDER_RADIUS,
     zIndex: 201,

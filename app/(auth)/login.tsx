@@ -57,9 +57,9 @@ import type { User } from "@/src/models/types";
 // ─── Role → route helper ──────────────────────────────────────────────────────
 
 function routeByRole(role: string, profileComplete: boolean | undefined) {
-  if (role === "driver") {
-    return profileComplete ? "/(main)" : "/(auth)/driver-profile";
-  }
+  // if (role === "driver") {
+  //   return profileComplete ? "/(main)" : "/(auth)/driver-profile";
+  // }
   return "/(main)";
 }
 
@@ -133,9 +133,9 @@ export default function LoginScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setUser(user);
       setIsAuthenticated(true);
-      if (offlineMode) {
-        Alert.alert("Offline Mode", "Signed in from cache. Some features need internet.");
-      }
+      // if (offlineMode) {
+      //   Alert.alert("Offline Mode", "Signed in from cache. Some features need internet.");
+      // }
       router.replace(routeByRole(user.role, user.profile_complete) as any);
     },
     [setUser, setIsAuthenticated]

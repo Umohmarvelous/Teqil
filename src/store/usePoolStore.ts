@@ -17,35 +17,40 @@ import { supabase } from "../services/supabase";
  *   provable — you cannot fake a balance, you can only add entries that a server
  *   can verify.
  *
- * In Step 3 the pool starts empty for everyone (no ad revenue exists yet), so no
- * discount is given and the passenger pays the full fare from their bank — the
- * safe default. Step 4 credits realised ad revenue in via `ad_revenue` entries,
- * at which point discounts switch on automatically.
+ * The pool starts empty for everyone (ad revenue lands in Step 4), so until a
+ * pool is funded every trip is BLOCKED — the passenger is never charged and the
+ * driver is never shorted. Funding a pool (`ad_revenue`, or the admin override)
+ * switches the discounted split on automatically.
  */
 
-// ─── Tunable revenue amounts (spec §Step 3; user will re-adjust later) ───────
+// ─── Fixed revenue amounts (per spec) ────────────────────────────────────────
 // Named constants, not magic numbers, so they are easy to change in one place.
-// From the confirmed example (fare ₦500): pool ideally covers the other ₦250
-// (half), plus a small ₦100 fuel bonus for the driver, plus ₦250 company cut.
-export const DEFAULT_DRIVER_BONUS = 100; // ₦ fuel bonus paid to the driver
-export const DEFAULT_COMPANY_CUT = 250;  // ₦ Emilgo's revenue per trip
+// Confirmed example (fare ₦1000): passenger pays ₦500, the pool matches ₦500 +
+// ₦100 driver bonus (driver nets ₦1100), and a ₦100 company cut is taken from
+// the pool only when it can still afford it.
+export const DEFAULT_DRIVER_BONUS = 100;      // ₦ fixed fuel bonus paid to the driver
+export const DEFAULT_COMPANY_CUT = 100;       // ₦ fixed, optional Emilgo revenue per trip (passenger pool)
+export const DEFAULT_DRIVER_COMMISSION = 100; // ₦ fixed, optional Emilgo cut from the DRIVER's own pool
 
 /**
  * Pure, side-effect-free split calculator — the heart of the revenue system.
  *
- * The pool funds three things, in strict priority order so that when funds are
- * thin the RIGHT thing is sacrificed first:
- *   1. Fare subsidy (the passenger's discount)  ← the product's core promise
- *   2. Driver fuel bonus                         ← a perk, only if money remains
- *   3. Company cut                               ← Emilgo profits only on surplus
+ * Strict rule (confirmed): the passenger ALWAYS pays exactly HALF the fare, and
+ * the pool MATCHES that half + pays a fixed ₦100 driver bonus, so the driver is
+ * always made whole at `baseFare + ₦100`. Both are mandatory:
  *
- * The driver is ALWAYS made whole: `driverReceives = baseFare + driverBonus`,
- * because whatever the pool does not subsidise, the passenger pays from their
- * bank (`passengerBankPays = baseFare - fareSubsidy`).
+ *   • If the pool cannot cover `half + bonus`, the trip is BLOCKED (the caller
+ *     must refuse the payment) — we never short the driver, never make the
+ *     passenger pay more than half.
+ *   • The ₦100 company cut is OPTIONAL — taken from the pool only if it still
+ *     has it after the mandatory part.
  *
- * With `allowOverdraw` (the admin loss-override) the pool may go negative — this
- * is the ONLY path by which Emilgo funds rewards out of its own pocket, and it
- * is off by default.
+ * `allowOverdraw` (the admin loss-override) treats the pool as unlimited — the
+ * ONLY path by which Emilgo deliberately funds a trip out of its own pocket, and
+ * the way to demo/test the funded flow while pools are ₦0. Off by default.
+ *
+ * NOTE: the separate ₦100 driver commission is drawn from the DRIVER's OWN pool
+ * via charge_driver_commission() at payment time — not part of this split.
  */
 export function computeTripSplit(
   baseFare: number,
@@ -59,33 +64,76 @@ export function computeTripSplit(
   const driverBonusTarget = opts?.driverBonus ?? DEFAULT_DRIVER_BONUS;
   const companyCutTarget = opts?.companyCut ?? DEFAULT_COMPANY_CUT;
 
-  // The pool ideally covers "the other half" of the fare.
-  const halfFare = Math.round(baseFare / 2);
+  // The passenger always pays exactly half; the pool must match that half.
+  const half = Math.round(baseFare / 2);
 
-  // How much the pool is allowed to spend. Normally its real balance (never
-  // below 0); with the admin override, unlimited (Emilgo absorbs the shortfall).
+  // Spendable pool: its real balance (never below 0), or unlimited under the
+  // admin override (Emilgo deliberately funds the shortfall).
   const available = opts?.allowOverdraw ? Infinity : Math.max(0, poolBalance);
 
-  // Allocate in priority order.
-  const fareSubsidy = Math.min(available, halfFare);
-  const afterSubsidy = available - fareSubsidy;
-  const driverBonus = Math.min(afterSubsidy, driverBonusTarget);
-  const afterBonus = afterSubsidy - driverBonus;
-  const companyCut = Math.min(afterBonus, companyCutTarget);
+  // Mandatory: matching half + fixed driver bonus. Can't cover it → BLOCK.
+  const required = half + driverBonusTarget;
+  if (available < required) {
+    return {
+      baseFare,
+      passengerBankPays: half, // what they *would* pay once the pool is funded
+      fareSubsidy: 0,
+      driverBonus: 0,
+      companyCut: 0,
+      driverReceives: 0,
+      poolDraw: 0,
+      blocked: true,
+      shortfall: required - available,
+    };
+  }
 
-  const passengerBankPays = baseFare - fareSubsidy;
-  const driverReceives = baseFare + driverBonus;
-  const poolDraw = fareSubsidy + driverBonus + companyCut;
+  // Funded: pool matches the half + pays the bonus; company cut only if the pool
+  // still affords it after the mandatory part.
+  const fareSubsidy = half;
+  const driverBonus = driverBonusTarget;
+  const companyCut = available - required >= companyCutTarget ? companyCutTarget : 0;
 
   return {
     baseFare,
-    passengerBankPays,
+    passengerBankPays: half,
     fareSubsidy,
     driverBonus,
     companyCut,
-    driverReceives,
-    poolDraw,
+    driverReceives: baseFare + driverBonus,
+    poolDraw: fareSubsidy + driverBonus + companyCut,
+    blocked: false,
+    shortfall: 0,
   };
+}
+
+/**
+ * Charge the fixed ₦100 driver commission from the DRIVER's OWN pool — optional,
+ * best-effort, never blocks a trip.
+ *
+ * A passenger can't write another user's pool_history (RLS = own row), so this
+ * runs through the `charge_driver_commission` SECURITY DEFINER RPC, which debits
+ * the driver's pool ONLY if it can afford it and is idempotent per trip. Returns
+ * the amount actually charged (0 if skipped — e.g. driver pool empty, or the RPC
+ * isn't deployed yet). See supabase/migrations/migration_driver_commission.sql.
+ */
+export async function chargeDriverCommission(
+  driverId: string | undefined | null,
+  tripId: string,
+  amount: number = DEFAULT_DRIVER_COMMISSION
+): Promise<number> {
+  if (!driverId) return 0;
+  try {
+    const { data, error } = await supabase.rpc("charge_driver_commission", {
+      p_driver_id: driverId,
+      p_trip_id: tripId,
+      p_amount: amount,
+    });
+    if (error) return 0;
+    return typeof data === "number" ? data : 0;
+  } catch (e) {
+    console.warn("[Pool] driver commission skipped", e);
+    return 0;
+  }
 }
 
 interface PoolStore {
@@ -105,9 +153,10 @@ interface PoolStore {
 
   /**
    * Spend from the pool to fund a trip. Computes the split against the CURRENT
-   * balance, writes ONE negative `trip_spend` entry (idempotent by trip id) and
-   * returns the split so the caller can charge the bank / record the txn.
-   * Returns null if this trip was already spent (duplicate guard).
+   * balance; if funded, writes ONE negative `trip_spend` entry (idempotent by
+   * trip id) and returns the split. If the pool can't cover half + bonus the
+   * returned split has `blocked: true` and NO entry is written. Returns null if
+   * this trip was already spent (duplicate guard).
    */
   spendForTrip: (
     userId: string,
@@ -169,8 +218,13 @@ export const usePoolStore = create<PoolStore>()(
 
         const split = computeTripSplit(baseFare, get().balance, opts);
 
-        // A zero draw (empty pool, no override) still succeeds — the passenger
-        // simply pays the full fare from their bank; we skip writing an empty row.
+        // Blocked: the pool can't fund the matching half + bonus. Write NOTHING
+        // and hand the blocked split back so the caller refuses the payment.
+        if (split.blocked) {
+          return split;
+        }
+
+        // Funded: draw the pool once (idempotent by trip id).
         if (split.poolDraw > 0) {
           await get().addPoolEntry(userId, -split.poolDraw, "trip_spend", {
             tripId,

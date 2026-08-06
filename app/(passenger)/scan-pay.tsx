@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
-
-const QR_PREFIX = 'TEQIL:DRV-';
+import { parseDriverQR, toDriverPayload } from '@/src/utils/qr';
+import { usePaymentMethodsStore } from '@/src/store/usePaymentMethodsStore';
 
 export default function ScanPayScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -11,6 +11,10 @@ export default function ScanPayScreen() {
 
   // Prevent duplicate scans while navigating
   const scannedRef = useRef(false);
+
+  // Gate: a passenger must have a saved payment method (direct debit) before
+  // they can scan & pay for a ride.
+  const hasMethod = usePaymentMethodsStore((s) => s.methods.length > 0);
 
   useEffect(() => {
     if (!permission?.granted) requestPermission();
@@ -20,9 +24,9 @@ export default function ScanPayScreen() {
     // Guard: ignore if already handled
     if (scannedRef.current) return;
 
-    // Validate format: TEQIL:DRV-{driver_id}:{subaccount_code}
-    if (!data.startsWith(QR_PREFIX)) {
-      Alert.alert('Invalid QR', 'This QR code is not a valid TEQIL driver code.', [
+    const parsed = parseDriverQR(data);
+    if (!parsed) {
+      Alert.alert('Invalid QR', 'This QR code is not a valid Emilgo driver code.', [
         { text: 'Try Again', onPress: () => { scannedRef.current = false; setScanned(false); } },
       ]);
       scannedRef.current = true;
@@ -30,25 +34,40 @@ export default function ScanPayScreen() {
       return;
     }
 
-    // Parse: strip prefix, split on ':'
-    const payload = data.slice(QR_PREFIX.length); // "{driver_id}:{subaccount_code}"
-    const colonIdx = payload.indexOf(':');
-    if (colonIdx === -1) {
-      Alert.alert('Malformed QR', 'Could not parse driver data.');
-      return;
-    }
-
-    const driver_id = payload.slice(0, colonIdx);
-    const subaccount_code = payload.slice(colonIdx + 1);
-
     scannedRef.current = true;
     setScanned(true);
 
     router.push({
       pathname: '/(passenger)/payment',
-      params: { driver_id, subaccount_code, trip_type: 'short' },
+      params: {
+        driver_id: parsed.driver_id,
+        subaccount_code: parsed.subaccount_code ?? '',
+        driver_payload: toDriverPayload(parsed),
+        trip_type: 'short',
+      },
     });
   };
+
+  if (!hasMethod) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.message}>
+          Add a payment method before you can scan & pay for rides.
+        </Text>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() =>
+            router.push({
+              pathname: "/checkout",
+              params: { item: "Add a payment method for rides", amount: "0", kind: "setup" },
+            } as any)
+          }
+        >
+          <Text style={styles.buttonText}>Add payment method</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   if (!permission) return <View style={styles.container} />;
 
@@ -66,7 +85,7 @@ export default function ScanPayScreen() {
   return (
     <View style={styles.container}>
       <CameraView
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         facing="back"
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
         barcodeScannerSettings={{ barcodeTypes: ['qr'] }}

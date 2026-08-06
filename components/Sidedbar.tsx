@@ -102,20 +102,21 @@ export default function SidedBar() {
   };
 
   const navItems: SidebarItem[] = [
-    { id: "home", icon: Home01Icon as any, label: "Home", onPress: () => router.push("/(main)") },
+    // { id: "home", icon: Home01Icon as any, label: "Home", onPress: () => router.push("/(main)") },
     { id: "profile", icon: UserIcon as any, label: "My Profile", onPress: () => router.push("/(main)/profile") },
-    { id: "messages", icon: Message02Icon as any, label: "Messages", onPress: () => router.push("/(main)/messages") },
-    {
-      id: "trips",
-      icon: Navigation01Icon as any,
-      label: "Trip History",
-      onPress: () => {
-        const role = user?.role;
-        if (role === "driver") router.push("/(driver)/history");
-        else router.push("/(passenger)/history");
-      },
-    },
+    // { id: "messages", icon: Message02Icon as any, label: "Messages", onPress: () => router.push("/(main)/messages") },
+    // {
+    //   id: "trips",
+    //   icon: Navigation01Icon as any,
+    //   label: "Trip History",
+    //   onPress: () => {
+    //     const role = user?.role;
+    //     if (role === "driver") router.push("/(driver)/history");
+    //     else router.push("/(passenger)/history");
+    //   },
+    // },
     { id: "program", icon: IdentityCardFreeIcons as any, label: "Loyalty Program", onPress: () => router.push("/program") },
+    { id: "free-rides", icon: Navigation01Icon as any, label: "Free Rides", onPress: () => router.push("/free-rides" as any) },
     { id: "tiers", icon: CrownIcon as any, label: "Emilgo Premium", onPress: () => router.push("/tiers") },
     { id: "settings", icon: Settings01Icon as any, label: "Settings", onPress: () => router.push("/(main)/settings") },
     { id: "referral", icon: GiftIcon as any, label: "Refer a Friend", onPress: () => Alert.alert("Refer", "Coming soon!") },
@@ -186,28 +187,30 @@ export default function SidedBar() {
       </View>
 
       <View style={[styles.drawerHeader, { backgroundColor: 'transparent' }]}>
-          <View style={{ flexDirection: "row", gap: 16 }}>
+          <View style={{ flexDirection: "row", gap: 8, justifyContent: 'space-between' }}>
               <View
                 style={[
-                  styles.avatarActive, { backgroundColor: borderColor, borderColor }, {}
+                  styles.avatarActive, { backgroundColor: borderColor },
                 ]}
               >
                 <Avatar
-              name={user?.full_name || "U"}
-              style={[styles.avatarActive, {padding:10, }]}
+                  name={user?.full_name || "U"}
+                  style={[ { margin: 1}]}
                   photoUri={user?.profile_photo}
-                  size={28}
+                  size={35}
                 />
               </View>
-            <View style={{ flexDirection: "column", justifyContent: "flex-start" }}>
-              <Text style={[styles.userName, { color: textColor }]}>{user?.full_name || "No user"}</Text>
-              <View style={styles.roleContainer}>
-                <HugeiconsIcon icon={IdentityCardFreeIcons} size={16} color={Colors.primary} />
-                <Text style={[styles.userRole, { color: Colors.primary }]}>
-                  {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "no role"}
-                </Text>
+
+              
+              <View style={{ flexDirection: "column", justifyContent: "flex-start" }}>
+                <Text style={[styles.userName, { color: textColor }]}>{user?.full_name || "No user"}</Text>
+                <View style={styles.roleContainer}>
+                  <HugeiconsIcon icon={IdentityCardFreeIcons} size={16} color={Colors.primary} />
+                  <Text style={[styles.userRole, { color: Colors.primary }]}>
+                    {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "no role"}
+                  </Text>
+                </View>
               </View>
-            </View>
           </View>
           
           <View style={styles.drawerRightIcon}>
@@ -285,11 +288,11 @@ const styles = StyleSheet.create({
   drawer: { flex: 1 , flexDirection: 'column', zIndex: 2 },
   drawerHeader: { width: 260, marginLeft: 20, paddingHorizontal: 10, paddingLeft: 2, paddingVertical: 30, paddingBottom: 20, flexDirection: "row", justifyContent: "space-between", zIndex: 10, },
   avatarActive: {
-    width: 38,
-    flex: 1,
-    borderRadius: 56,
-    borderWidth: .5,
-    // borderColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 100,
+    // borderWidth: .5,
+    padding: 3
   },
 
 

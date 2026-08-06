@@ -30,6 +30,7 @@ import LocationPromptModal from "@/components/LocationPromptModal";
 import ActiveTripBanner from "@/components/ActiveTripBanner";
 import TripListener from "@/components/TripListener";
 import { useProgramStore } from "@/src/store/useProgramStore";
+import { parseDriverQR, toDriverPayload } from "@/src/utils/qr";
 
 
 export default function HomeTab() {
@@ -75,32 +76,20 @@ export default function HomeTab() {
 
 
   const handleQRScan = useCallback((data: string) => {
-    try {
-      const payload = JSON.parse(data);
-      if (payload.type === "TEQIL_DRV") {
-        setScannerVisible(false);
-        router.push({
-          pathname: "/(passenger)/payment",
-          params: { driver_id: payload.driver_id, subaccount_code: payload.subaccount_code ?? "" }
-        });
-      } else {
-        Alert.alert("Unknown QR Code", "This QR code type is not supported.");
-      }
-    } catch (e) {
-      if (data.startsWith("TEQIL:DRV-")) {
-        const body = data.split(" ")[0].replace("TEQIL:DRV-", "").trim();
-        const [parsedId, subaccount] = body.split(":");
-        setScannerVisible(false);
-        router.push({
-          pathname: "/(passenger)/payment",
-          params: { driver_id: parsedId, subaccount_code: subaccount ?? "" }
-        });
-      } else {
-        const parsed = data.replace("TEQIL:", "").trim();
-        Alert.alert("QR Scanned Successfully", ` ${parsed}`);
-        console.log('Alert:',e)
-      }
+    const parsed = parseDriverQR(data);
+    if (!parsed) {
+      Alert.alert("Unknown QR Code", "This QR code isn't a valid Emilgo driver code.");
+      return;
     }
+    setScannerVisible(false);
+    router.push({
+      pathname: "/(passenger)/payment",
+      params: {
+        driver_id: parsed.driver_id,
+        subaccount_code: parsed.subaccount_code ?? "",
+        driver_payload: toDriverPayload(parsed),
+      },
+    });
   }, []);
 
 

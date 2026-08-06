@@ -53,7 +53,7 @@ export default function QuickReceiveModal({ visible, onClose, driverId }: QuickR
   return (
     <Modal transparent visible animationType="none" onRequestClose={onClose}>
       <Animated.View style={[qr.backdrop, { opacity: backdropOp }]}>
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
       <Animated.View style={[qr.sheet, { transform: [{ translateY: slideY }] }, {backgroundColor: bg}]}>
         <View style={qr.handle} />
@@ -67,7 +67,7 @@ export default function QuickReceiveModal({ visible, onClose, driverId }: QuickR
 
 const qr = StyleSheet.create({
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: "rgba(0,0,0,0.55)",
     zIndex: 1,
   },

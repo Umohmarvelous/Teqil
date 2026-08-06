@@ -148,8 +148,9 @@ export interface CreditHistory extends Syncable {
 //     directly; it is always the SUM of these entries (append-only ledger).
 export type PoolEntryKind =
   | "ad_revenue"   // realised ad money credited in (positive) — added in Step 4
-  | "trip_spend"   // money drawn to fund a trip (negative)
-  | "adjustment";  // manual correction / admin-funded top-up (either sign)
+  | "trip_spend"        // money drawn to fund a trip (negative)
+  | "driver_commission" // ₦ cut taken from the DRIVER's own pool per trip (negative)
+  | "adjustment";       // manual correction / admin-funded top-up (either sign)
 
 export interface PoolEntry extends Syncable {
   id: string;
@@ -164,16 +165,24 @@ export interface PoolEntry extends Syncable {
   created_at: string;
 }
 
-// The three amounts a single trip pulls out of a passenger's pool, plus what
-// the passenger still pays from their bank. Returned by computeTripSplit().
+// The amounts a single trip pulls out of a passenger's pool, plus what the
+// passenger still pays from their bank. Returned by computeTripSplit().
+//
+// Strict model: the passenger ALWAYS pays exactly half; the pool must MATCH that
+// half and pay the fixed ₦100 driver bonus (so the driver nets base + ₦100). If
+// the pool can't cover half + bonus the trip is `blocked` (payment refused). The
+// ₦100 company cut is taken from the pool only if it still has it. The separate
+// ₦100 driver commission (from the DRIVER's own pool) is NOT part of this split.
 export interface TripSplit {
   baseFare: number;          // the real fare entered
-  passengerBankPays: number; // charged to the passenger's real bank account
-  fareSubsidy: number;       // pool's contribution toward the fare (the "discount")
-  driverBonus: number;       // fuel bonus paid to the driver from the pool
-  companyCut: number;        // Emilgo's revenue from the pool
+  passengerBankPays: number; // charged to the passenger's real bank account (= half)
+  fareSubsidy: number;       // pool's matching half toward the fare
+  driverBonus: number;       // fixed ₦100 fuel bonus paid to the driver from the pool
+  companyCut: number;        // Emilgo's optional ₦100 revenue from the pool
   driverReceives: number;    // = baseFare + driverBonus (driver is always made whole)
   poolDraw: number;          // = fareSubsidy + driverBonus + companyCut
+  blocked: boolean;          // true = pool can't fund half + bonus; payment must be refused
+  shortfall: number;         // ₦ still needed in the pool when blocked (0 otherwise)
 }
 
 // ─── Premium tiers ───────────────────────────────────────────────────────────
@@ -192,7 +201,8 @@ export interface RevenueTransaction extends Syncable {
   passenger_bank_paid?: number;
   pool_draw?: number;
   driver_bonus?: number;
-  company_cut?: number;
+  company_cut?: number;         // ₦ optional cut taken from the PASSENGER's pool
+  driver_commission?: number;   // ₦ optional cut taken from the DRIVER's pool (best-effort RPC)
   driver_total?: number;
   // Premium payment fields (null for trip rows)
   premium_amount?: number;

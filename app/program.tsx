@@ -43,6 +43,8 @@ import { useProgramStore, ProgramForm } from "@/src/store/useProgramStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { EARN_RULES, MIN_CREDITS_TO_APPLY } from "@/constants/credits";
 import { DEV_OTP_CODE } from "@/src/services/kyc";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import { Tick01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 
 // A small set of Nigerian banks for the payout picker (code = Paystack bank code).
 const BANKS = [
@@ -280,7 +282,13 @@ export default function ProgramScreen() {
                     {credits} / {MIN_CREDITS_TO_APPLY} credits
                   </Text>
                   <Text style={[styles.earnAmount, { color: meetsCredits ? Colors.primary : Colors.gold }]}>
-                    {meetsCredits ? "Eligible ✓" : "Keep earning"}
+                    {meetsCredits ?                    
+                      (
+                        <>
+                          <Text>Eligible</Text>
+                          < HugeiconsIcon icon={Tick02Icon} size={14} color="#fff" />
+                        </>
+                      ) : "Keep earning"}
                   </Text>
                 </View>
                 <View style={styles.progressTrack}>

@@ -1,16 +1,15 @@
 /**
  * app/tiers.tsx
  *
- * Emilgo Premium — the Free / Pro / Elite tier chooser. Top-level route (registered
- * in app/_layout.tsx) so it opens full-screen over the tab shell.
+ * Emilgo Premium — Free / Pro / Elite. Redesigned to match the provided premium
+ * mockups: a row of plan cards with a "Popular" highlight on top, a Free/Pro/Elite
+ * benefits comparison table below, and a sticky upgrade CTA.
  *
- * Pricing is DERIVED from the current fuel price via useTierStore (Pro = 4× a litre,
- * Elite = 8×), so it stays consistent with the rest of the app. Upgrading runs the
- * mock Paystack premium charge (60/40 station/company split) and then sets the tier.
- *
- * NOTE: there is no revenue-persistence store yet, so the purchase is not recorded
- * to a ledger here — that lands with the revenue/premium work later. This screen
- * only performs the (mock) charge and updates the active tier.
+ * Pricing is DERIVED from the current fuel price via useTierStore (Pro = 4× a
+ * litre, Elite = 8×). The CTA runs the (mock) Paystack premium charge (60/40
+ * station/company split) and records the purchase to the revenue ledger — which
+ * then surfaces as a receipt in the user's history. When the checkout screen is
+ * live, the CTA will route there instead of charging inline.
  */
 
 import React, { useState } from "react";
@@ -37,55 +36,21 @@ import { formatNaira } from "@/src/utils/helpers";
 import type { PremiumTier } from "@/src/models/types";
 
 const txnId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-
-// Placeholder partner-station subaccount for the mock 60/40 split. Real code comes
-// from the station onboarding flow later.
 const MOCK_STATION_SUBACCOUNT = "ACCT_mock_station";
 
-interface PlanMeta {
-  tier: PremiumTier;
-  name: string;
-  tagline: string;
-  features: string[];
-  recommended?: boolean;
-}
+const PLAN_ORDER: PremiumTier[] = ["free", "pro", "elite"];
+const PLAN_NAME: Record<PremiumTier, string> = { free: "Free", pro: "Pro", elite: "Elite" };
 
-const PLANS: PlanMeta[] = [
-  {
-    tier: "free",
-    name: "Free",
-    tagline: "The essentials to ride & earn",
-    features: [
-      "Standard fares & live trip tracking",
-      "Earn fuel coins on trips",
-      "Basic in-app support",
-    ],
-  },
-  {
-    tier: "pro",
-    name: "Pro",
-    tagline: "Priority rides & bigger rewards",
-    recommended: true,
-    features: [
-      "Everything in Free",
-      "Priority driver matching",
-      "Higher reward multiplier",
-      "Ad-free feed",
-      "Priority support",
-    ],
-  },
-  {
-    tier: "elite",
-    name: "Elite",
-    tagline: "Maximum perks & rewards",
-    features: [
-      "Everything in Pro",
-      "Maximum reward multiplier",
-      "Free-ride & free-fuel boosts",
-      "Exclusive routes & offers",
-      "Dedicated support line",
-    ],
-  },
+// Unified benefit matrix for the comparison table.
+const BENEFITS: { icon: keyof typeof Ionicons.glyphMap; label: string; free: boolean; pro: boolean; elite: boolean }[] = [
+  { icon: "navigate-outline", label: "Live trip tracking", free: true, pro: true, elite: true },
+  { icon: "cash-outline", label: "Earn fuel coins", free: true, pro: true, elite: true },
+  { icon: "flash-outline", label: "Priority driver matching", free: false, pro: true, elite: true },
+  { icon: "trending-up-outline", label: "Higher reward multiplier", free: false, pro: true, elite: true },
+  { icon: "eye-off-outline", label: "Ad-free feed", free: false, pro: true, elite: true },
+  { icon: "gift-outline", label: "Free-ride & fuel boosts", free: false, pro: false, elite: true },
+  { icon: "map-outline", label: "Exclusive routes & offers", free: false, pro: false, elite: true },
+  { icon: "headset-outline", label: "Priority support", free: false, pro: true, elite: true },
 ];
 
 export default function TiersScreen() {
@@ -98,19 +63,22 @@ export default function TiersScreen() {
   const setTier = useTierStore((s) => s.setTier);
   const priceForTier = useTierStore((s) => s.priceForTier);
 
-  const [processing, setProcessing] = useState<PremiumTier | null>(null);
+  const [selected, setSelected] = useState<PremiumTier>(currentTier === "free" ? "pro" : currentTier);
+  const [processing, setProcessing] = useState(false);
 
   const textColor = isDark ? Colors.textWhite : Colors.text;
-  const cardBg = isDark ? Colors.overlayLight : Colors.textWhite;
-  const bg = isDark ? Colors.background : Colors.border;
-  const subColor = Colors.textSecondary;
+  const cardBg = isDark ? Colors.overlayLight : "#FFFFFF";
+  const bg = isDark ? Colors.background : "#F6F7FB";
+  const subColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const borderColor = isDark ? "rgba(255,255,255,0.10)" : "#ECEEF3";
 
-  const planName = (t: PremiumTier) => PLANS.find((p) => p.tier === t)?.name ?? t;
+  const selectedPrice = priceForTier(selected);
+  const isSelectedCurrent = selected === currentTier;
 
-  // Runs the (mock) charge and switches the tier, with visible confirmation.
+  // Runs the (mock) charge, switches tier, records the purchase to history.
   const runUpgrade = async (tier: PremiumTier) => {
     const amount = priceForTier(tier);
-    setProcessing(tier);
+    setProcessing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       const res = await PaystackService.processPremiumPayment({
@@ -120,7 +88,6 @@ export default function TiersScreen() {
       });
       if (res.success) {
         setTier(tier);
-        // Persist the purchase to the revenue ledger (idempotent by reference).
         if (user?.id) {
           const split = computePremiumSplit(amount);
           await useTransactionsStore.getState().record({
@@ -139,23 +106,22 @@ export default function TiersScreen() {
         }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
-          "You're on " + planName(tier) + " 🎉",
-          `Payment of ${formatNaira(amount)} succeeded (ref ${res.reference}). Your plan is now active.`
+          `You're on ${PLAN_NAME[tier]} 🎉`,
+          `Payment of ${formatNaira(amount)} succeeded. Your plan is now active — the receipt is in your history.`
         );
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         Alert.alert("Payment failed", "We couldn't complete the payment. Please try again.");
       }
     } finally {
-      setProcessing(null);
+      setProcessing(false);
     }
   };
 
-  const handleSelect = (tier: PremiumTier) => {
-    if (tier === currentTier || processing) return;
+  const onCtaPress = () => {
+    if (isSelectedCurrent || processing) return;
 
-    // Downgrade / switch to Free — no charge, just confirm.
-    if (tier === "free") {
+    if (selected === "free") {
       Alert.alert("Switch to Free?", "You'll lose your premium perks at the end of the cycle.", [
         { text: "Cancel", style: "cancel" },
         {
@@ -170,182 +136,252 @@ export default function TiersScreen() {
       return;
     }
 
-    // Paid tier — confirm the charge first (this is where Paystack checkout will open
-    // once real keys are wired; today it runs the mock charge).
-    const amount = priceForTier(tier);
-    Alert.alert(
-      `Upgrade to ${planName(tier)}`,
-      `You'll be charged ${formatNaira(amount)} / month. Continue?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: `Pay ${formatNaira(amount)}`, onPress: () => runUpgrade(tier) },
-      ]
-    );
+    // Route through the tokenized checkout, which performs the charge, records the
+    // purchase (→ receipt in history) and activates the plan.
+    Haptics.selectionAsync();
+    router.push({
+      pathname: "/checkout",
+      params: {
+        item: `Emilgo ${PLAN_NAME[selected]} (monthly)`,
+        amount: String(selectedPrice),
+        kind: "premium",
+        plan: selected,
+      },
+    } as any);
   };
+
+  const ctaLabel = isSelectedCurrent
+    ? "Your current plan"
+    : selected === "free"
+      ? "Switch to Free"
+      : `Start ${PLAN_NAME[selected]} now`;
 
   return (
     <View style={[styles.root, { backgroundColor: bg }]}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color={textColor} />
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <Pressable style={styles.close} onPress={() => router.back()} hitSlop={12}>
+          <Ionicons name="close" size={24} color={textColor} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: textColor }]}>Emilgo Premium</Text>
-        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: Math.max(insets.bottom, 24) + 24 },
-        ]}
+        contentContainerStyle={[styles.content, { paddingBottom: 150 }]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.lede, { color: subColor }]}>
-          Choose a plan. Pricing tracks the fuel price so it stays fair —
-          Pro is 4× a litre, Elite is 8×.
-        </Text>
+        <View style={styles.hero}>
+          <View style={styles.diamond}>
+            <Ionicons name="diamond" size={26} color={Colors.gold} />
+          </View>
+          <Text style={[styles.title, { color: textColor }]}>Get Premium!</Text>
+          <Text style={[styles.subtitle, { color: subColor }]}>
+            Priority rides, bigger rewards, ad-free.
+          </Text>
+        </View>
 
-        {PLANS.map((plan) => {
-          const isCurrent = plan.tier === currentTier;
-          const price = priceForTier(plan.tier);
-          const isBusy = processing === plan.tier;
-
-          return (
-            <View
-              key={plan.tier}
-              style={[
-                styles.card,
-                { backgroundColor: cardBg },
-                plan.recommended && styles.cardRecommended,
-                isCurrent && styles.cardCurrent,
-              ]}
-            >
-              {plan.recommended && (
-                <View style={styles.ribbon}>
-                  <Text style={styles.ribbonText}>RECOMMENDED</Text>
-                </View>
-              )}
-
-              <View style={styles.cardHead}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.planName, { color: textColor }]}>{plan.name}</Text>
-                  <Text style={[styles.planTagline, { color: subColor }]}>{plan.tagline}</Text>
-                </View>
-                <View style={{ alignItems: "flex-end" }}>
-                  <Text style={[styles.planPrice, { color: textColor }]}>
-                    {price === 0 ? "Free" : formatNaira(price)}
-                  </Text>
-                  {price > 0 && <Text style={[styles.planPer, { color: subColor }]}>/ month</Text>}
-                </View>
-              </View>
-
-              <View style={styles.features}>
-                {plan.features.map((f) => (
-                  <View key={f} style={styles.featureRow}>
-                    <Ionicons name="checkmark-circle" size={17} color={Colors.primary} />
-                    <Text style={[styles.featureText, { color: textColor }]}>{f}</Text>
+        {/* Plan cards */}
+        <View style={styles.plans}>
+          {PLAN_ORDER.map((tier) => {
+            const price = priceForTier(tier);
+            const isSel = selected === tier;
+            const popular = tier === "pro";
+            return (
+              <Pressable
+                key={tier}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSelected(tier);
+                }}
+                style={[
+                  styles.plan,
+                  { backgroundColor: cardBg, borderColor },
+                  popular && styles.planPopular,
+                  isSel && { borderColor: Colors.primary, borderWidth: 2 },
+                ]}
+              >
+                {popular && (
+                  <View style={styles.ribbon}>
+                    <Text style={styles.ribbonText}>Popular</Text>
                   </View>
-                ))}
-              </View>
+                )}
+                <Text style={[styles.planName, { color: textColor }]}>{PLAN_NAME[tier]}</Text>
+                <Text style={[styles.planPrice, { color: textColor }]}>
+                  {price === 0 ? "Free" : formatNaira(price)}
+                </Text>
+                <Text style={[styles.planPer, { color: subColor }]}>
+                  {price === 0 ? "forever" : "per month"}
+                </Text>
+                {tier === currentTier && (
+                  <View style={styles.currentTag}>
+                    <Text style={styles.currentTagText}>Current</Text>
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
 
-              {isCurrent ? (
-                <View style={[styles.cta, styles.ctaCurrent]}>
-                  <Ionicons name="checkmark" size={16} color={Colors.primary} />
-                  <Text style={styles.ctaCurrentText}>Current plan</Text>
-                </View>
-              ) : (
-                <Pressable
-                  style={[styles.cta, styles.ctaActive, isBusy && styles.ctaDisabled]}
-                  onPress={() => handleSelect(plan.tier)}
-                  disabled={isBusy}
-                >
-                  {isBusy ? (
-                    <ActivityIndicator color="#fff" />
+        {/* Benefits comparison */}
+        <View style={[styles.table, { backgroundColor: cardBg, borderColor }]}>
+          <View style={[styles.tableHeader, { borderBottomColor: borderColor }]}>
+            <Text style={[styles.benefitsHead, { color: textColor }]}>Benefits</Text>
+            {PLAN_ORDER.map((t) => (
+              <Text
+                key={t}
+                style={[
+                  styles.colHead,
+                  { color: t === selected ? Colors.primary : subColor },
+                ]}
+              >
+                {PLAN_NAME[t]}
+              </Text>
+            ))}
+          </View>
+
+          {BENEFITS.map((b) => (
+            <View key={b.label} style={[styles.tableRow, { borderBottomColor: borderColor }]}>
+              <View style={styles.benefitLabel}>
+                <Ionicons name={b.icon} size={16} color={Colors.primary} />
+                <Text style={[styles.benefitText, { color: textColor }]} numberOfLines={2}>
+                  {b.label}
+                </Text>
+              </View>
+              {([b.free, b.pro, b.elite] as boolean[]).map((on, i) => (
+                <View key={i} style={styles.cell}>
+                  {on ? (
+                    <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
                   ) : (
-                    <Text style={styles.ctaActiveText}>
-                      {plan.tier === "free" ? "Switch to Free" : `Upgrade to ${plan.name}`}
-                    </Text>
+                    <Text style={[styles.dash, { color: subColor }]}>—</Text>
                   )}
-                </Pressable>
-              )}
+                </View>
+              ))}
             </View>
-          );
-        })}
+          ))}
+        </View>
 
         <Text style={[styles.footnote, { color: subColor }]}>
-          Premium payments are split 60% to the partner fuel station and 40% to Emilgo.
-          You can change or cancel your plan anytime.
+          Premium is split 60% to the partner fuel station and 40% to Emilgo. Change or
+          cancel anytime.
         </Text>
       </ScrollView>
+
+      {/* Sticky CTA */}
+      <View style={[styles.ctaBar, { backgroundColor: bg, paddingBottom: insets.bottom + 12, borderTopColor: borderColor }]}>
+        <Pressable
+          style={[styles.ctaBtn, (isSelectedCurrent || processing) && styles.ctaDisabled]}
+          onPress={onCtaPress}
+          disabled={isSelectedCurrent || processing}
+        >
+          {processing ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Text style={styles.ctaText}>{ctaLabel}</Text>
+              {!isSelectedCurrent && selected !== "free" && (
+                <Text style={styles.ctaSub}>
+                  {formatNaira(selectedPrice)} / month · cancel anytime
+                </Text>
+              )}
+            </>
+          )}
+        </Pressable>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
-  backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 17 },
-  content: { paddingHorizontal: 18, gap: 14, paddingTop: 4 },
-  lede: { fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 19, marginBottom: 2 },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingBottom: 4 },
+  close: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20 },
+  content: { paddingHorizontal: 18 },
 
-  card: {
-    borderRadius: 22,
-    padding: 18,
-    gap: 16,
-    borderWidth: 1.5,
-    borderColor: "transparent",
-  },
-  cardRecommended: { borderColor: Colors.gold },
-  cardCurrent: { borderColor: Colors.primary },
-  ribbon: {
-    position: "absolute",
-    top: -1,
-    right: 18,
-    backgroundColor: Colors.gold,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
-  },
-  ribbonText: { fontFamily: "Poppins_700Bold", fontSize: 9, color: "#fff", letterSpacing: 0.5 },
-
-  cardHead: { flexDirection: "row", alignItems: "flex-start", gap: 12, marginTop: 4 },
-  planName: { fontFamily: "Poppins_700Bold", fontSize: 20 },
-  planTagline: { fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 2 },
-  planPrice: { fontFamily: "Poppins_700Bold", fontSize: 20 },
-  planPer: { fontFamily: "Poppins_400Regular", fontSize: 11 },
-
-  features: { gap: 10 },
-  featureRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  featureText: { fontFamily: "Poppins_500Medium", fontSize: 13, flex: 1 },
-
-  cta: {
-    height: 48,
-    borderRadius: 14,
-    flexDirection: "row",
-    gap: 6,
+  hero: { alignItems: "center", gap: 4, marginBottom: 20 },
+  diamond: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: Colors.goldLight,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 6,
   },
-  ctaActive: { backgroundColor: Colors.primary },
-  ctaActiveText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: "#fff" },
-  ctaDisabled: { opacity: 0.6 },
-  ctaCurrent: { backgroundColor: "rgba(0,154,67,0.12)" },
-  ctaCurrentText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: Colors.primary },
+  title: { fontFamily: "Poppins_700Bold", fontSize: 24 },
+  subtitle: { fontFamily: "Poppins_400Regular", fontSize: 13.5, textAlign: "center" },
+
+  plans: { flexDirection: "row", gap: 10, marginBottom: 18 },
+  plan: {
+    flex: 1,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    paddingVertical: 18,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    gap: 2,
+  },
+  planPopular: { backgroundColor: "#FFFBEB", borderColor: Colors.gold },
+  ribbon: {
+    position: "absolute",
+    top: -10,
+    backgroundColor: Colors.gold,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  ribbonText: { fontFamily: "Poppins_700Bold", fontSize: 9, color: "#fff", letterSpacing: 0.4 },
+  planName: { fontFamily: "Poppins_600SemiBold", fontSize: 14, marginTop: 4 },
+  planPrice: { fontFamily: "Poppins_700Bold", fontSize: 17 },
+  planPer: { fontFamily: "Poppins_400Regular", fontSize: 10.5 },
+  currentTag: {
+    marginTop: 6,
+    backgroundColor: "rgba(0,154,67,0.12)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  currentTagText: { fontFamily: "Poppins_600SemiBold", fontSize: 9, color: Colors.primary },
+
+  table: { borderRadius: 20, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 4 },
+  tableHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  benefitsHead: { flex: 1, fontFamily: "Poppins_700Bold", fontSize: 13 },
+  colHead: { width: 46, textAlign: "center", fontFamily: "Poppins_600SemiBold", fontSize: 12 },
+  tableRow: { flexDirection: "row", alignItems: "center", paddingVertical: 13, borderBottomWidth: 1 },
+  benefitLabel: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, paddingRight: 8 },
+  benefitText: { fontFamily: "Poppins_400Regular", fontSize: 12.5, flex: 1 },
+  cell: { width: 46, alignItems: "center", justifyContent: "center" },
+  dash: { fontFamily: "Poppins_500Medium", fontSize: 14 },
 
   footnote: {
     fontFamily: "Poppins_400Regular",
     fontSize: 11,
     lineHeight: 17,
     textAlign: "center",
-    marginTop: 6,
+    marginTop: 16,
   },
+
+  ctaBar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    borderTopWidth: 1,
+  },
+  ctaBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 30,
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+  },
+  ctaDisabled: { opacity: 0.5 },
+  ctaText: { fontFamily: "Poppins_700Bold", fontSize: 16, color: "#fff" },
+  ctaSub: { fontFamily: "Poppins_400Regular", fontSize: 11.5, color: "rgba(255,255,255,0.85)" },
 });

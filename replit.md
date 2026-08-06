@@ -5,7 +5,7 @@ Teqil is a mobile app for Nigerian commercial drivers, passengers, and park owne
 
 ## Architecture
 - **Frontend**: React Native with Expo (SDK 54), TypeScript, Expo Router (file-based routing)
-- **Backend**: Express.js server (port 5000) with landing page
+- **Backend**: Express.js server (port 5001) with landing page
 - **State**: Zustand (persisted with AsyncStorage)
 - **Database**: AsyncStorage for local persistence, Supabase for cloud sync (optional)
 - **i18n**: i18next with English + Nigerian Pidgin

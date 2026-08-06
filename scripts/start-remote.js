@@ -13,7 +13,7 @@ const { spawn } = require("child_process");
 const http = require("http");
 
 const METRO_PORT = process.env.METRO_PORT || "8081";
-const API_PORT = process.env.PORT || "5000";
+const API_PORT = process.env.PORT || "5001";
 const TUNNEL_URL_RE = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/;
 
 const children = [];

@@ -421,6 +421,6 @@ const styles = StyleSheet.create({
   joinSection: { marginTop: 8 },
   joinBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: Colors.primary, borderRadius: 18, height: 60, overflow: "hidden", shadowColor: Colors.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 10 },
   joinBtnDisabled: { opacity: 0.55 },
-  joinBtnGlow: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(255,255,255,0.06)" },
+  joinBtnGlow: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(255,255,255,0.06)" },
   joinBtnText: { fontFamily: "Poppins_700Bold", fontSize: 17, color: Colors.textWhite, letterSpacing: 0.5 },
 });

@@ -271,7 +271,7 @@
 // //   const [infoVisible, setInfoVisible] = useState(false);
 // //   const [isRecording, setIsRecording] = useState(false);
 
-// //   const recordingRef = useRef<Audio.Recording | null>(null);
+// //   const recordingRef = useRef<any>(null);
 // //   const listRef      = useRef<FlatList>(null);
 // //   const typingTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
 // //   const insets       = useSafeAreaInsets();
@@ -1619,7 +1619,7 @@
 //   const [infoVisible, setInfoVisible] = useState(false);
 //   const [isRecording, setIsRecording] = useState(false);
 
-//   const recordingRef = useRef<Audio.Recording | null>(null);
+//   const recordingRef = useRef<any>(null);
 //   const listRef      = useRef<FlatList>(null);
 //   const typingTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
 //   const insets       = useSafeAreaInsets();
@@ -2761,7 +2761,14 @@ import { StatusBar }  from 'expo-status-bar';
 import Swipeable      from 'react-native-gesture-handler/Swipeable';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase }   from '@/src/services/supabase';
-import { Audio }      from 'expo-av';
+// expo-av was removed in Expo SDK 57 — stub so the voice-recording code compiles.
+// Recording is disabled (permission returns "denied") until migrated to expo-audio.
+const Audio: any = {
+  requestPermissionsAsync: async () => ({ status: 'denied' }),
+  setAudioModeAsync: async () => {},
+  Recording: { createAsync: async () => { throw new Error('Voice recording unavailable'); } },
+  RecordingOptionsPresets: { HIGH_QUALITY: {} },
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -2899,7 +2906,7 @@ export function ChatScreen({
   const [infoVisible, setInfoVisible] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
 
-  const recordingRef = useRef<Audio.Recording | null>(null);
+  const recordingRef = useRef<any>(null);
   const listRef      = useRef<FlatList>(null);
   const typingTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets       = useSafeAreaInsets();

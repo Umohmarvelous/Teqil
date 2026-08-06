@@ -69,6 +69,14 @@ import BalanceCard from "@/components/BalanceCard";
 
 import FindDriverModal from "@/components/FindDriverModal";
 import { getBiometricCredentials } from "@/src/services/auth";
+import CreditMeter from "@/components/CreditMeter";
+import AchievementsCard from "@/components/AchievementsCard";
+import { useCreditsStore } from "@/src/store/useCreditsStore";
+import { useProgramStore } from "@/src/store/useProgramStore";
+import { useTransactionsStore } from "@/src/store/useTransactionsStore";
+import { useAchievementsStore } from "@/src/store/useAchievementsStore";
+import { useActivityFeed } from "@/src/hooks/useActivityFeed";
+import ActivityFeed from "@/components/ActivityFeed";
 
 // Slide-in "Copied" toast, shared via context so every copy action triggers it.
 const CopyToastContext = React.createContext<() => void>(() => {});
@@ -85,7 +93,7 @@ function CopyToast({ nonce }: { nonce: number }) {
     const t = setTimeout(() => {
       ty.value = withTiming(-160, { duration: 260 });
       op.value = withTiming(0, { duration: 260 });
-    }, 1600);
+    }, 1400);
     return () => clearTimeout(t);
   }, [nonce, ty, op]);
 
@@ -95,10 +103,10 @@ function CopyToast({ nonce }: { nonce: number }) {
   }));
 
   return (
-    <Animated.View pointerEvents="none" style={[toastStyles.wrap, { top: insets.top + 10 }, aStyle]}>
+    <Animated.View pointerEvents="none" style={[toastStyles.wrap, { top: insets.top + 0 }, aStyle]}>
       <View style={toastStyles.pill}>
         <HugeiconsIcon icon={CheckmarkBadge01Icon as any} size={18} color="#fff" />
-        <Text style={toastStyles.text}>Copied successfully ✅</Text>
+        <Text style={toastStyles.text}>Copied successfully</Text>
       </View>
     </Animated.View>
   );
@@ -244,6 +252,42 @@ export default function ProfileTab() {
 
   const [knownEmail, setKnownEmail] = useState<string | null>(null);
 
+  // ── Step 7: credit meter + achievements ──────────────────────────────────
+  const credits = useCreditsStore((s) => s.balance);
+  const creditHistory = useCreditsStore((s) => s.history);
+  const programStatus = useProgramStore((s) => s.programStatus);
+  const hydrateProgram = useProgramStore((s) => s.hydrateFromUser);
+  const txHistory = useTransactionsStore((s) => s.history);
+  const evaluateAchievements = useAchievementsStore((s) => s.evaluate);
+  const activities = useActivityFeed();
+
+  useEffect(() => {
+    hydrateProgram(user ?? null);
+  }, [user, hydrateProgram]);
+
+  // Re-evaluate achievements whenever the inputs change (best-effort, idempotent).
+  useEffect(() => {
+    if (!user?.id) return;
+    const creditsByType: Record<string, number> = {};
+    for (const h of creditHistory) {
+      creditsByType[h.type] = (creditsByType[h.type] ?? 0) + 1;
+    }
+    const trips = txHistory.filter((t) => t.kind === "trip_payment");
+    const savings = trips.reduce(
+      (s, t) => s + Math.max(0, (t.base_fare ?? 0) - (t.passenger_bank_paid ?? 0)),
+      0
+    );
+    const maxFare = trips.reduce((m, t) => Math.max(m, t.base_fare ?? 0), 0);
+    void evaluateAchievements(user.id, {
+      credits,
+      creditsByType,
+      programStatus,
+      tripCount: trips.length,
+      savings,
+      maxFare,
+    });
+  }, [user?.id, credits, creditHistory, programStatus, txHistory, evaluateAchievements]);
+
   // Load the device's stored account on mount.
   useEffect(() => {
     (async () => {
@@ -385,27 +429,37 @@ export default function ProfileTab() {
                 <View style={styles.roleBadge}>
 
                   <Text style={styles.roleText}>
-                    {user?.role === "driver" ? (
-                      <View style={styles.roleContainer}>
-                        {!!user?.username && (
-                          <Text style={[{ color: subTextColor }]}>@{user.username}</Text>
-                        )}
-                        {!!user?.driver_id && (
+                      {user?.role === "driver" && (
+                        <View style={styles.roleContainer}>
+                          {/* {user?.username && user?.driver_id && ( */}
+                          <Text style={[{ color: Colors.warning }]}>@{user?.username}</Text>
+                          {/* )} */}
+                          {/* {!!user?.driver_id && (
+                          <View style={styles.driverIdChip}>
+                            <Text style={styles.driverIdText}>@ {user.username}</Text>
+                          </View>
+                        )} */}
+                          {/* {!!user?.driver_id && (
                           <View style={styles.driverIdChip}>
                             <Text style={styles.driverIdText}>@ {user.driver_id}</Text>
                           </View>
-                        )}
-                      </View>
-                    ) : (
+                        )} */}
+                        </View>
+                      )}
+                      {user?.role === "passenger" && (
                       <View style={styles.roleContainer}>
-                        <Text style={[{ color: subTextColor }]}>
-                          {user?.username
+                          <Text style={[{ color: Colors.warning }]}>@{user?.username}</Text>
+                          
+                          {/* {user?.username
                             ? `@${user.username}`
                             : user?.role === "park_owner"
                               ? "Park Owner"
-                              : "—"}
-                        </Text>
+                              :   (
+                                    <Text style={[{ color: Colors.warning }]}>@{user?.username}</Text>
+                                  )} */}
                       </View>
+                      //   ) :
+                      // (<Text style={[{ color: Colors.warning }]}>@username</Text>)
                     )}
                   </Text>
                   <Pressable style={styles.copyIcon} onPress={handleCopy} hitSlop={912}>
@@ -466,8 +520,56 @@ export default function ProfileTab() {
 
           <View style={styles.scrollContent}>
 
+            {/* ── Step 7: credit meter · partner CTA · achievements ── */}
+            <CreditMeter textColor={textColor} subColor={subTextColor} cardBg={cardBg} />
 
+            {programStatus === "none" && (
+              <Pressable
+                style={[styles.partnerBtn, { backgroundColor: Colors.primary }]}
+                onPress={() => router.push("/program")}
+              >
+                <HugeiconsIcon icon={CheckmarkBadge01Icon as any} size={20} color="#fff" />
+                <Text style={styles.partnerBtnText}>Become a partner</Text>
+                <HugeiconsIcon icon={ChevronRight as any} size={18} color="#fff" />
+              </Pressable>
+            )}
 
+            <AchievementsCard
+              textColor={textColor}
+              subColor={subTextColor}
+              cardBg={cardBg}
+              borderColor={borderColor}
+            />
+
+            {/* Recent activity (unified history: trips · payments · rewards · ads) */}
+            <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <Text style={[styles.cardTitle, { color: textColor }]}>Recent activity</Text>
+                <Pressable
+                  onPress={() =>
+                    router.push(
+                      (user?.role === "driver"
+                        ? "/(driver)/history"
+                        : "/(passenger)/history") as any
+                    )
+                  }
+                  hitSlop={8}
+                >
+                  <Text style={{ fontFamily: "Poppins_500Medium", fontSize: 12, color: Colors.primary }}>
+                    See all
+                  </Text>
+                </Pressable>
+              </View>
+              <ActivityFeed
+                activities={activities}
+                textColor={textColor}
+                subColor={subTextColor}
+                cardBg={isDark ? "rgba(255,255,255,0.04)" : "#F7F9FB"}
+                borderColor={borderColor}
+                limit={5}
+                emptyText="No activity yet. Your trips, payments and rewards will show here."
+              />
+            </View>
 
 
 
@@ -750,7 +852,7 @@ export default function ProfileTab() {
           style={styles.editOverlay}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setEditField(null)} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setEditField(null)} />
           <View style={[styles.editSheet, { backgroundColor: modalBg }]}>
             <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
               <Text style={[styles.editTitle, { color: textColor }]}>Edit {editField?.replace("_", " ")}</Text>
@@ -889,6 +991,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0, marginTop: 50,
     flex: 1, flexDirection:'column'
   },
+  partnerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 30,
+    paddingVertical: 15,
+    marginBottom: 10,
+  },
+  partnerBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: "#fff" },
   coinbalanceSection: {
     padding: 20,
     borderRadius: 30,
@@ -965,7 +1077,7 @@ const styles = StyleSheet.create({
     gap: 30,
     borderWidth: 1,
   },
-  editOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0 0 0 / 0.77)", justifyContent: "flex-end", zIndex: 200, },
+  editOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0 0 0 / 0.77)", justifyContent: "flex-end", zIndex: 200, },
   editSheet: { borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 34, paddingBottom: 190, gap: 16, top: 100 },
   editTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 16, textTransform: "capitalize", alignSelf: 'flex-end' },
   editInput: { borderWidth: .5, borderRadius: 54, paddingHorizontal: 14, paddingVertical: 13, fontFamily: "Poppins_400Regular", fontSize: 15 },

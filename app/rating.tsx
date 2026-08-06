@@ -381,7 +381,7 @@ export default function RatingScreen() {
       {/* Background gradient */}
       <LinearGradient
         colors={["#0A1A0E", "#0D2B14", "#0A0A0A"]}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       />

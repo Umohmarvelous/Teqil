@@ -60,7 +60,7 @@ export default function FeedScreen() {
 
   const fetchArticles = useCallback(async (pageNum: number, replace = false) => {
     try {
-      const domain = process.env.EXPO_PUBLIC_DOMAIN || 'localhost:5000';
+      const domain = process.env.EXPO_PUBLIC_DOMAIN || 'localhost:5001';
       const url = `https://${domain}/api/feed?page=${pageNum}&limit=10`;
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch');

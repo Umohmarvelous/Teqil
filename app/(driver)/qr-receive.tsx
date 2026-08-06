@@ -8,6 +8,9 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { StatusBar } from "expo-status-bar";
+import { buildDriverQRValue } from '@/src/utils/qr';
+import { Tick01Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from "@hugeicons/react-native";
 
 export default function QRReceiveScreen() {
   const { user } = useAuthStore();
@@ -20,26 +23,47 @@ export default function QRReceiveScreen() {
   const subTextColor = isDark ? Colors.textSecondary : Colors.overlay;
   const cardBg = isDark ? Colors.overlayLight : "#FFFFFF";
   const avatarBg = isDark ? Colors.text : Colors.textWhite;
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
-
-  const driverIdStr = user?.driver_id || user?.id || "";
-
-  // QR format now uses a JSON payload for instant passenger verification
-  const qrPayload = {
-    type: "TEQIL_DRV",
-    driver_id: driverIdStr,
-    name: user?.full_name || "Driver",
-    vehicle: user?.vehicle_details || "Standard Vehicle",
-    rating: user?.avg_rating || 5.0,
-    photo: user?.profile_photo || ""
-  };
-  const qrValue = JSON.stringify(qrPayload);
+  // QR format is centralized in src/utils/qr.ts so the generator and every
+  // scanner agree. It encodes a JSON payload so a passenger sees the driver
+  // instantly on scan — no users-table read, which RLS blocks across accounts.
+  const qrValue = buildDriverQRValue(user);
 
   const handleShare = () => {
     Share.share({
       message: `Scan my TEQIL QR to start a trip: ${qrValue}`,
     });
   };
+
+  // Gate: a driver must have a verified payout account before they can show a QR
+  // to receive fare payments.
+  if (!user?.payout_account_number) {
+    return (
+      <View
+        style={[
+          styles.container,
+          { paddingTop: insets.top + 15, backgroundColor: bg, alignItems: "center", justifyContent: "center", gap: 14, paddingHorizontal: 28 },
+        ]}
+      >
+        <StatusBar style={isDark ? "light" : "dark"} />
+        <Ionicons name="wallet-outline" size={60} color={Colors.primary} />
+        <Text style={[styles.heading, { color: textColor, textAlign: "center" }]}>Add your payout account</Text>
+        <Text style={[styles.subtext, { color: subTextColor, textAlign: "center" }]}>
+          You need a verified bank account to receive fare payments before you can show your QR code.
+        </Text>
+        <Pressable
+          style={{ backgroundColor: Colors.primary, borderRadius: 30, paddingVertical: 14, paddingHorizontal: 30, marginTop: 6 }}
+          onPress={() => router.push("/(driver)/payout-bank" as any)}
+        >
+          <Text style={{ color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 }}>Add payout account</Text>
+        </Pressable>
+        <Pressable onPress={() => router.back()} hitSlop={8}>
+          <Text style={{ color: subTextColor, fontFamily: "Poppins_400Regular", fontSize: 13 }}>Not now</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 15 }, { backgroundColor: bg }]}>
@@ -86,7 +110,7 @@ export default function QRReceiveScreen() {
         <View style={[styles.qrContainer, {backgroundColor: isDark ? Colors.textWhite : Colors.text}]}>
           <QRCode
             value={qrValue}
-            size={190}
+            size={210}
             color={isDark ? Colors.textWhite : Colors.text}
             backgroundColor={isDark ? Colors.text : "#fff"}
           />
@@ -98,15 +122,31 @@ export default function QRReceiveScreen() {
         {/* <Ionicons name="warning" size={25} color={textColor} /> */}
         <Text style={[styles.shareText, {color: subTextColor}]}>Your QR code is private. Do not share it with anyone, they can scan it with their phone camera to see your details.</Text>
 
-        <Pressable
-          style={[styles.payoutBtn, { borderColor: Colors.primary }]}
-          onPress={() => router.push("/(driver)/payout-bank")}
-        >
-          <Ionicons name="card-outline" size={18} color={Colors.primary} />
-          <Text style={styles.payoutBtnText}>
-            {user?.payout_account_number ? "Payout account ✓ — edit" : "Set up payout account"}
-          </Text>
-        </Pressable>
+        
+        <View style={[{ borderRadius: 50, padding: 9, borderWidth: .5,  },{backgroundColor: cardBg,  borderColor}]}>
+          {user?.payout_account_number ? (
+              <View style={{flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'space-between'}}>
+              <Text style={[styles.payoutBtnText, { color: Colors.primary }]}>Bank details saved ✓ 
+                  <HugeiconsIcon icon={Tick01Icon} size={14} color="#fff"/>
+                </Text>
+                <Pressable
+                    style={[{ borderRadius: 50, padding: 11, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'space-between' }, { backgroundColor: bg }]}
+                    onPress={() => router.push("/(driver)/payout-bank")}
+                >
+                  <Text style={[styles.payoutBtnText, {color: textColor}]}>update</Text>
+                  <Ionicons name="pencil" size={18} color={textColor} />
+                </Pressable>
+              </View>
+            )
+          : (
+              <View style={{flexDirection: 'row', gap: 7, padding: 5}}>
+                <Ionicons name="card-outline" size={18} color={textColor} />
+                {/* <Pressable style={[styles.payoutBtn, { borderWidth: 1, borderColor: Colors.primary }]}> */}
+                  <Text style={[styles.payoutBtnText, {color: textColor}]}>Set up payout account</Text>
+                {/* </Pressable> */}
+              </View>
+          )}
+        </View>
       </View>
 
     </View>
@@ -132,7 +172,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  payoutBtnText: { fontFamily: 'Poppins_600SemiBold', fontSize: 14, color: Colors.primary },
+  payoutBtnText: { fontFamily: 'Poppins_600SemiBold', fontSize: 14,  },
   backBtn: {
     borderRadius: 50,
     justifyContent: 'center',
@@ -160,7 +200,7 @@ const styles = StyleSheet.create({
     alignItems:'center',
   },
   qrContainer: {
-    padding: 24,
+    padding: 10,
     borderRadius: 20,
     alignItems:'center'
   },

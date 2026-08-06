@@ -132,7 +132,7 @@ export default function VerifyDriverScreen() {
       });
 
       try {
-        const webhookUrl = process.env.EXPO_PUBLIC_WEBHOOK_URL || 'http://localhost:5000/api/webhooks/scan-success';
+        const webhookUrl = process.env.EXPO_PUBLIC_WEBHOOK_URL || 'http://localhost:5001/api/webhooks/scan-success';
         await fetch(webhookUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
