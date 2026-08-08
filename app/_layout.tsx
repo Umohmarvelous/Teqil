@@ -21,6 +21,7 @@ import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { supabase } from "@/src/services/supabase";
 import { syncAll, startConnectivityListener, SyncUser } from "@/src/services/sync";
+import { flushPendingRoute } from "@/src/services/locationTracking";
 import { syncUserToPublicTable } from "@/src/services/auth";
 import { registerForPushNotifications } from "@/src/services/notifications";
 import NetworkBanner from "@/components/NetworkBanner";
@@ -186,6 +187,11 @@ export default function RootLayout() {
 
     syncAll({ id: user.id, role: user.role, park_name: user.park_name }).catch((err) =>
       console.warn("[Layout] initial sync error:", err)
+    );
+
+    // Upload a GPS track left behind by an app kill or an offline trip end.
+    flushPendingRoute().catch((err) =>
+      console.warn("[Layout] pending route flush error:", err)
     );
   }, [user]);
 

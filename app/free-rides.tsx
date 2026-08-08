@@ -20,36 +20,23 @@ import { StatusBar } from "expo-status-bar";
 import { Colors } from "@/constants/colors";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
-import { useTierStore } from "@/src/store/useTierStore";
+import { useIsPremium, useIsElite } from "@/src/store/useTierStore";
 import { useFreeRidesStore, type FreeRideOffer } from "@/src/store/useFreeRidesStore";
-
-async function ensureGpsOn(): Promise<boolean> {
-  try {
-    const Location = await import("expo-location");
-    let { status } = await Location.getForegroundPermissionsAsync();
-    if (status !== "granted") {
-      status = (await Location.requestForegroundPermissionsAsync()).status;
-    }
-    const enabled = await Location.hasServicesEnabledAsync();
-    return status === "granted" && enabled;
-  } catch {
-    return false;
-  }
-}
+import { ensureGpsOn } from "@/src/services/locationTracking";
 
 export default function FreeRidesScreen() {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const isDark = useSettingsStore((s) => s.theme) === "dark";
-  const tier = useTierStore((s) => s.tier);
   const { openOffers, fetchOpenOffers, acceptOffer } = useFreeRidesStore();
 
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const isDriver = user?.role === "driver";
-  const isPremium = tier !== "free";
-  const isElite = tier === "elite";
+  // Entitlements, not the raw tier — honours the dev override in development.
+  const isPremium = useIsPremium();
+  const isElite = useIsElite();
 
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subColor = isDark ? Colors.textSecondary : Colors.textTertiary;
@@ -81,12 +68,14 @@ export default function FreeRidesScreen() {
   const accept = async (offer: FreeRideOffer) => {
     if (!user?.id || !requirePremium()) return;
     setBusyId(offer.id);
-    const gpsOk = await ensureGpsOn();
-    if (!gpsOk) {
+    const gps = await ensureGpsOn();
+    if (!gps.ok) {
       setBusyId(null);
       Alert.alert(
         "Turn on location",
-        "GPS must be ON to take a tracked free ride. Enable location for Emilgo in Settings, then try again."
+        gps.granted
+          ? "GPS is switched off on this device. Turn on location services, then try again."
+          : "GPS must be ON to take a tracked free ride. Enable location for Emilgo in Settings, then try again."
       );
       return;
     }
@@ -98,9 +87,27 @@ export default function FreeRidesScreen() {
         "Ride accepted 🎉",
         offer.mode === "reward"
           ? "Your free ride is booked and will be GPS-tracked from pickup to drop-off. Meet your driver."
-          : "You've accepted. Confirm the exchange with your driver — the ride is tracked."
+          : "You've accepted. Confirm the exchange with your driver — the ride is tracked.",
+        [
+          { text: "Later", style: "cancel", onPress: load },
+          {
+            text: "Start tracking",
+            onPress: () => {
+              load();
+              router.push({
+                pathname: "/free-ride-track/[claimId]",
+                params: {
+                  claimId,
+                  mode: offer.mode,
+                  origin: offer.origin ?? "",
+                  destination: offer.destination ?? "",
+                  role: "passenger",
+                },
+              } as any);
+            },
+          },
+        ]
       );
-      load();
     } else {
       Alert.alert("Couldn't accept", "This offer may be full or already taken. Try another.");
     }
@@ -120,9 +127,13 @@ export default function FreeRidesScreen() {
       return;
     }
     if (!requirePremium()) return;
-    // Bargaining happens in chat with the driver.
+    // Structured bargaining: proposals, counter-offers and a recorded agreement,
+    // rather than a chat thread nobody can be held to.
     Haptics.selectionAsync();
-    router.push({ pathname: "/direct-chat/[conversationId]", params: { conversationId: offer.driver_id } } as any);
+    router.push({
+      pathname: "/barter/[offerId]",
+      params: { offerId: offer.id, driverId: offer.driver_id },
+    } as any);
   };
 
   return (

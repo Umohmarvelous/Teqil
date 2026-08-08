@@ -98,6 +98,74 @@ export function transactionToReceipt(t: RevenueTransaction): ReceiptData {
   return { title: ok ? "Payment Successful" : "Payment Failed", ok, sections: [payment, details], shareText };
 }
 
+/**
+ * Receipt for a completed free ride.
+ *
+ * A free ride moves no fare, so this documents the *other* thing that matters:
+ * the GPS track that backs it and whatever fuel the pool actually paid out. The
+ * outcome text comes from the server's completion reason, so the receipt never
+ * claims a payout that didn't happen.
+ */
+export function freeRideToReceipt(input: {
+  claimId: string;
+  mode?: "reward" | "barter";
+  outcome: string;
+  gpsValidated: boolean;
+  fuelAwarded: number;
+  distanceKm: number;
+  durationLabel: string;
+  pointCount: number;
+  completedAt?: string;
+}): ReceiptData {
+  const ok = input.gpsValidated;
+
+  const ride = {
+    title: "Ride Details",
+    rows: [
+      { label: "Reference", value: shortRef(input.claimId) },
+      { label: "Completed", value: fmtTime(input.completedAt ?? new Date().toISOString()) },
+      { label: "Type", value: input.mode === "barter" ? "Barter ride" : "Reward ride" },
+      { label: "Fare", value: "Free", strong: true },
+    ],
+  };
+
+  const tracking = {
+    title: "GPS Verification",
+    rows: [
+      { label: "Distance tracked", value: `${input.distanceKm.toFixed(2)} km` },
+      { label: "Duration", value: input.durationLabel },
+      { label: "GPS fixes", value: String(input.pointCount) },
+      {
+        label: "Verification",
+        value: ok ? "Verified" : "Not verified",
+        status: (ok ? "success" : "pending") as "success" | "pending",
+      },
+      {
+        label: "Driver fuel reward",
+        value: input.fuelAwarded > 0 ? formatNaira(input.fuelAwarded) : "₦0",
+        strong: true,
+      },
+    ],
+  };
+
+  const shareText = [
+    `EMILGO — Free Ride ${ok ? "Verified" : "Recorded"}`,
+    ...ride.rows.map((r) => `${r.label}: ${r.value}`),
+    "",
+    tracking.title,
+    ...tracking.rows.map((r) => `${r.label}: ${r.value}`),
+    "",
+    input.outcome,
+  ].join("\n");
+
+  return {
+    title: ok ? "Free Ride Verified" : "Free Ride Recorded",
+    ok,
+    sections: [ride, tracking],
+    shareText,
+  };
+}
+
 /** Build the unified, newest-first activity feed from all the user's sources. */
 export function buildActivity(input: {
   transactions?: RevenueTransaction[];

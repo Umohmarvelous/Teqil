@@ -1,6 +1,6 @@
 # Emilgo — Project Handoff
 
-_Last updated: 2026-08-05. Written so a fresh Claude Code session (started from this
+_Last updated: 2026-08-07. Written so a fresh Claude Code session (started from this
 directory) has full context. Read this first._
 
 ---
@@ -114,6 +114,86 @@ Redemptions are capped at the *realized* balance via an advisory-locked RPC.
   (`FUEL_REWARD_PER_RIDE = 500`).
 - Sidebar "Free Rides" entry in `components/Sidedbar.tsx`.
 
+### Free-ride completion → fuel redemption + receipts (step 2 — DONE 2026-08-07)
+- **`complete_free_ride(p_claim_id, p_route_id, p_amount)` RPC** —
+  `supabase/migrations/migration_free_ride_completion.sql`, **applied**. This is the
+  only path from a tracked ride to a payout, and it is server-authoritative:
+  - caller must be the claim's driver or passenger (else `forbidden`);
+  - the `route_history` row must exist, carry that claim's `claim_id`, and have been
+    recorded by one of the two parties (else `route_mismatch`);
+  - fuel is drawn **only** when `mode = 'reward'` **and** the trigger-set
+    `gps_validated` is true — then via `redeem_fuel()`, so the advisory lock and the
+    "never overdraw" cap still apply;
+  - idempotent — a second call returns `already_completed` and pays nothing.
+  - Returns JSONB `{ ok, reason, mode, gps_validated, fuel_awarded, already }`.
+    `reason` ∈ paid | not_gps_validated | pool_empty | barter_no_fuel |
+    already_completed | route_mismatch | forbidden | cancelled | violated.
+- **Verified against the live DB** in rolled-back transactions (nothing persisted;
+  all tables still at 0 rows, pool ₦0): valid ride pays ₦500 and debits the pool;
+  short track → `not_gps_validated`, ₦0; orphan route → `route_mismatch`; stranger →
+  `forbidden`; **valid ride against the empty pool → `pool_empty`, ₦0, pool stays 0**
+  (the real current path, since the pool is only fed by real premium money).
+- `useFreeRidesStore.completeRide({ claimId, routeId, distanceKm })` now calls that
+  RPC and returns a `FreeRideCompletion`; `describeCompletion()` turns the reason into
+  the sentence shown to the user, so the UI never claims a payout that didn't happen.
+  _(The old `completeRide(claim)` signature had no callers and was replaced.)_
+- `freeRideToReceipt()` in `src/utils/activity.ts` → free-ride receipt (fare "Free",
+  GPS verification block, fuel actually credited) rendered by `components/Receipt.tsx`
+  from the tracker's end-of-ride panel.
+- ⚠️ `computeFuelReward()` still returns the flat `FUEL_REWARD_PER_RIDE = 500` —
+  distance now flows into it but is deliberately **unused**, since changing the
+  economics needs an explicit ask.
+
+### GPS tracking + live map + route history (step 1 — DONE 2026-08-06)
+- **`src/services/locationTracking.ts` rewritten** into a session-based engine:
+  `startLocationTracking(string | TrackingSessionInit)` (old string signature still
+  works), `stopLocationTracking(): Promise<TrackingSummary | null>`, `ensureGpsOn()`,
+  `flushPendingRoute()`, `estimateGpsValid()`.
+  - Fix filtering: rejects accuracy > 50 m and >200 km/h teleports; sub-5 m jitter
+    doesn't move the anchor, so slow traffic still accumulates.
+  - **One** Realtime channel per session, subscribed once, broadcast throttled to 3 s
+    (previously a fresh unsubscribed channel per point — every send failed).
+  - Checkpoints to AsyncStorage every 10 fixes; `flushPendingRoute()` runs on login
+    from `app/_layout.tsx` so an app kill mid-ride doesn't lose the track.
+  - `compulsory: true` (free rides) force-enables the `shareLocation` setting instead
+    of throwing; everything else still respects the toggle.
+  - On stop, uploads a Douglas–Peucker-simplified path (≤500 pts) to `route_history`.
+- **`route_history` table** — `supabase/migrations/migration_route_history.sql`,
+  **already applied** to `orygxuxgjmhamcisjkfu`. `gps_validated` is set by a BEFORE
+  INSERT/UPDATE trigger via `route_is_gps_valid()` (≥10 fixes, ≥0.3 km, ≥60 s,
+  avg 1–120 km/h) — the client cannot assert it. Step 2's fuel redemption should
+  gate on this column.
+- **Screens**: `app/route-history/index.tsx` (list, SVG thumbnails via
+  `components/RouteThumbnail.tsx` — not N MapViews), `app/route-history/[id].tsx`
+  (full map, stats, "save as route" → `saved_routes`),
+  `app/free-ride-track/[claimId].tsx` (compulsory-GPS gate, live map, watchdog that
+  warns if GPS is killed mid-ride, end → validated summary).
+- **`src/hooks/useRouteHistory.ts`** — `useRouteHistory()`, `useRouteHistoryEntry()`,
+  `regionForPath()`.
+- Wired: free-rides accept → tracker; driver "Track" on claimed offers; live-trip
+  records history + "View tracked route"; sidebar + Settings entries.
+- ⚠️ Root-level **`migration_live_trips.sql` is stale** — its `saved_routes` schema
+  predates the live table. Don't run it.
+
+### Barter bargaining + settings toggles (steps 3 & 4 — DONE 2026-08-07)
+- **`migration_barter_bargaining.sql`** — ⚠️ **written but NOT applied.**
+  `free_ride_bargains` (offer/counter thread), `free_ride_agreements` (the
+  consented snapshot), `free_ride_violations`. RPCs: `propose_barter`,
+  `respond_barter`, `report_barter_violation`, `resolve_barter_violation`
+  (admin/service-role only — not granted to `authenticated`),
+  `fulfil_barter_agreement`, `user_barter_standing`.
+  Tables grant **no** client INSERT/UPDATE on purpose — turn-taking and consent
+  can only be changed through the SECURITY DEFINER functions.
+  Upholding a violation flips the claim to `violated`, which `complete_free_ride`
+  already refuses to pay on. Suspension stays a human decision.
+- `src/store/useBarterStore.ts` + `app/barter/[offerId].tsx` (built on the
+  `components/ios` kit). "Bargain" in free-rides now routes here, not to chat.
+- **Settings toggles**, all genuinely wired — nothing decorative:
+  `autoStartTracking` (tracker begins on open vs manual tap), `confirmEndTrip`,
+  `dataSaver` (coarser GPS + 4× slower broadcasts in locationTracking),
+  `hapticFeedback` (via new `src/utils/haptics.ts` — import that, not expo-haptics),
+  `distanceUnit` (km/mi in `formatDistance`).
+
 ### Platform / build
 - **Upgraded SDK 54 → 57.0.0** (RN 0.86.2, React 19.2.3). Handled breaking changes:
   `StyleSheet.absoluteFillObject`→`absoluteFill`, removed `expo-av`, removed obsolete
@@ -128,12 +208,12 @@ Redemptions are capped at the *realized* balance via an advisory-locked RPC.
 Continue **without asking for approval** (per the user's standing instruction) — finish
 each feature perfectly, then move to the next:
 
-1. **GPS tracking + live map + saved route history** — compulsory during free rides;
-   tracking toggle auto-on.
-2. **Free-ride receipts + completion → fuel redemption** — wire `completeRide` to draw
-   from the fuel pool via `redeem_fuel`.
-3. **Barter bargaining + agreement / consequences** — T&C, violation penalties.
-4. **More settings toggles** — keep expanding the settings page.
+1. ~~**GPS tracking + live map + saved route history**~~ — **DONE**, see above.
+2. ~~**Free-ride receipts + completion → fuel redemption**~~ — **DONE**, see above.
+3. ~~**Barter bargaining + agreement / consequences**~~ — **code DONE**, see §4.
+   ⚠️ `migration_barter_bargaining.sql` is **NOT YET APPLIED** (Supabase MCP was
+   disconnected). Apply it before testing.
+4. ~~**More settings toggles**~~ — **DONE**, see §4.
 5. **Driver subscription.**
 6. **Direct-sold local/route ads** (functional) — see `migration_revenue_ads.sql`.
 7. **Sponsored feed posts.**
@@ -143,19 +223,36 @@ each feature perfectly, then move to the next:
 
 ## 6. Migrations — RUN THESE (manual step for you)
 
-The sandbox can't reach Supabase, so these were **not** applied. Run them in the
-**Supabase SQL Editor** (or, once you start a session from this dir, the **Supabase MCP**
-lets me apply them directly). Files in `supabase/migrations/`:
+Supabase project is **`orygxuxgjmhamcisjkfu`** ("Teq_database"), reachable via the
+**Supabase MCP** when a session starts from this directory.
 
+**Live tables as of 2026-08-07:** `users`, `parks`, `trips`, `passengers`, `ratings`,
+`broadcasts`, `conversations`, `message`, `chats`, `messages`, `saved_routes`,
+`credits_history`, `pool_history`, `transactions`, `program_applications`,
+`route_history`, `fuel_pool_history`, `free_ride_offers`, `free_ride_claims`.
+
+Applied:
+- `migration_route_history.sql` — ✅ 2026-08-06.
+- `migration_fuel_pool.sql` — ✅ 2026-08-07 (`fuel_pool_history`, `fuel_pool_balance()`,
+  `redeem_fuel()`).
+- `migration_free_rides.sql` — ✅ 2026-08-07 (`free_ride_offers`, `free_ride_claims`,
+  `claim_free_ride()`).
+- `migration_free_ride_completion.sql` — ✅ 2026-08-07 (`complete_free_ride()`).
+- `saved_routes` is **already** on the extended schema (`label`, `origin_label`,
+  `dest_label`, `use_count`, `last_used_at`), so `useSavedRoutes.ts` works as written.
+
+All four new tables are at **0 rows** and the fuel pool balance is **₦0** — no seed or
+dummy data was inserted, per the no-fake-funding rule.
+
+Still **NOT** applied — run these in the SQL Editor or via MCP:
 - `migration_driver_lookup.sql` — `get_driver_public` RPC
 - `migration_driver_commission.sql`
 - `migration_achievements.sql`
 - `migration_payment_methods.sql` — tokens only, no raw PAN
-- `migration_fuel_pool.sql` — `fuel_pool_history` + `fuel_pool_balance()` + `redeem_fuel()`
-- `migration_free_rides.sql` — `free_ride_offers` + `free_ride_claims` + `claim_free_ride()`
 - `migration_revenue_ads.sql` — ads
-- _(others present: `migration_consolidated.sql`, `migration_fix_signup_trigger.sql`,
-  `migration_username_login.sql` — check which are already applied before re-running.)_
+- _(also present: `migration_consolidated.sql`, `migration_fix_signup_trigger.sql`,
+  `migration_username_login.sql` — parts of these are clearly already live; diff before
+  re-running.)_
 
 **Verify** what's already live before running, so you don't double-apply.
 
@@ -178,6 +275,19 @@ lets me apply them directly). Files in `supabase/migrations/`:
   (RN reverted to 0.81 → Metro crash). If installs fail: re-run `expo install --fix` on a
   warm cache, uninterrupted.
 - **macOS has no `timeout` command** — use a bash watchdog for long scripts.
+- **`LANG` is unset on this machine**, so Ruby defaults to US-ASCII and CocoaPods
+  dies with `Unicode Normalization not appropriate for ASCII-8BIT`. Always run pod
+  commands as `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install`, or better, add
+  `export LANG=en_US.UTF-8` to `~/.zshrc` once.
+- **`cmake` is NOT installed** and Hermes' podspec requires it → `pod install`
+  cannot finish → **no iOS dev build is currently possible.** `brew install cmake`
+  fails on this network (see below).
+- **npm is unusable on this network; bun is fine.** npm hits truncated metadata
+  fetches that surface as bogus `ETARGET` errors; `bun install --dry-run` completes
+  in ~0.5s. Use `bun add` / `bun install`. A project `.npmrc` (retries, `maxsockets=3`)
+  is in place for the paths that force npm, but bun is the reliable route.
+  Homebrew fails the same way — `formulae.brew.sh` throttles to <100 B/s and the
+  git-tap fallback dies with `fatal: early EOF`.
 - **Typecheck baseline = ~10 pre-existing, unrelated errors** (create-trip, driver/history
   `textColor`, driver/messages overload, main/messages route, find-driver, QuickTransfer
   route, trip-service). Reaching 10 = clean; new work should not add more.

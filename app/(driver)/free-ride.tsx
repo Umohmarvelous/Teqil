@@ -32,8 +32,12 @@ import { StatusBar } from "expo-status-bar";
 import { Colors } from "@/constants/colors";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
-import { useTierStore } from "@/src/store/useTierStore";
-import { useFreeRidesStore, type FreeRideMode } from "@/src/store/useFreeRidesStore";
+import { useIsPremium } from "@/src/store/useTierStore";
+import {
+  useFreeRidesStore,
+  type FreeRideMode,
+  type FreeRideOffer,
+} from "@/src/store/useFreeRidesStore";
 import { useFuelPoolStore } from "@/src/store/useFuelPoolStore";
 import { formatNaira } from "@/src/utils/helpers";
 
@@ -41,8 +45,8 @@ export default function OfferFreeRideScreen() {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const isDark = useSettingsStore((s) => s.theme) === "dark";
-  const tier = useTierStore((s) => s.tier);
-  const { createOffer, fetchOpenOffers, closeOffer, openOffers } = useFreeRidesStore();
+  const { createOffer, fetchOpenOffers, closeOffer, openOffers, fetchMyClaims, myClaims } =
+    useFreeRidesStore();
   const fuelPool = useFuelPoolStore((s) => s.balance);
   const refreshPool = useFuelPoolStore((s) => s.refresh);
 
@@ -53,11 +57,50 @@ export default function OfferFreeRideScreen() {
   const [barterTerms, setBarterTerms] = useState("");
   const [publishing, setPublishing] = useState(false);
 
-  const isPremium = tier !== "free";
+  const isPremium = useIsPremium();
   const myOffers = useMemo(
     () => openOffers.filter((o) => o.driver_id === user?.id),
     [openOffers, user?.id]
   );
+
+  /**
+   * Open the compulsory-GPS tracker for a passenger who has claimed this offer.
+   * A claim is what gets tracked (and what the fuel reward hangs off), so the
+   * offer alone isn't enough — find the live claim first.
+   */
+  const trackRide = async (offer: FreeRideOffer) => {
+    if (!user?.id) return;
+    await fetchMyClaims(user.id);
+
+    const live = useFreeRidesStore
+      .getState()
+      .myClaims.find(
+        (c) =>
+          c.offer_id === offer.id &&
+          c.driver_id === user.id &&
+          (c.status === "accepted" || c.status === "in_progress")
+      );
+
+    if (!live) {
+      Alert.alert(
+        "No ride to track yet",
+        "Tracking starts once a passenger has claimed this offer and is ready to travel."
+      );
+      return;
+    }
+
+    Haptics.selectionAsync();
+    router.push({
+      pathname: "/free-ride-track/[claimId]",
+      params: {
+        claimId: live.id,
+        mode: offer.mode,
+        origin: offer.origin ?? "",
+        destination: offer.destination ?? "",
+        role: "driver",
+      },
+    } as any);
+  };
 
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subColor = isDark ? Colors.textSecondary : Colors.textTertiary;
@@ -300,17 +343,25 @@ export default function OfferFreeRideScreen() {
                     </Text>
                   )}
                 </View>
-                <Pressable
-                  onPress={() =>
-                    Alert.alert("Close offer?", "Passengers will no longer see this offer.", [
-                      { text: "Cancel", style: "cancel" },
-                      { text: "Close", style: "destructive", onPress: () => closeOffer(o.id) },
-                    ])
-                  }
-                  hitSlop={10}
-                >
-                  <Text style={styles.closeLink}>Close</Text>
-                </Pressable>
+                <View style={styles.offerActions}>
+                  {o.claimed_count > 0 && (
+                    <Pressable style={styles.trackBtn} onPress={() => trackRide(o)} hitSlop={8}>
+                      <Ionicons name="navigate" size={13} color={Colors.primary} />
+                      <Text style={styles.trackBtnText}>Track</Text>
+                    </Pressable>
+                  )}
+                  <Pressable
+                    onPress={() =>
+                      Alert.alert("Close offer?", "Passengers will no longer see this offer.", [
+                        { text: "Cancel", style: "cancel" },
+                        { text: "Close", style: "destructive", onPress: () => closeOffer(o.id) },
+                      ])
+                    }
+                    hitSlop={10}
+                  >
+                    <Text style={styles.closeLink}>Close</Text>
+                  </Pressable>
+                </View>
               </View>
             ))}
           </View>
@@ -355,4 +406,16 @@ const styles = StyleSheet.create({
   offerTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
   offerSub: { fontFamily: "Poppins_400Regular", fontSize: 11.5, marginTop: 2 },
   closeLink: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: Colors.error },
+  offerActions: { flexDirection: "row", alignItems: "center", gap: 12 },
+  trackBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  trackBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 12, color: Colors.primary },
 });

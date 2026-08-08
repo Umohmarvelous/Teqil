@@ -9,9 +9,10 @@ dist/
 web-build/
 expo-env.d.ts
 
-# Native
-ios/
-android/
+# Native — root-anchored on purpose. Unanchored `ios/` matched ANY directory
+# named ios at any depth, which silently excluded components/ios/ (the iOS UI kit).
+/ios/
+/android/
 *.orig.*
 *.jks
 *.p8

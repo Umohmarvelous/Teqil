@@ -237,10 +237,29 @@ export function coinsToNaira(coins: number): number {
   return coins * 0.7;
 }
 
-export function formatDistance(km: number): string {
-  if (km < 1) {
-    return `${Math.round(km * 1000)}m`;
+/**
+ * Render a distance in the user's chosen unit (Settings → Distance units).
+ *
+ * Reads the store imperatively so every existing `formatDistance(km)` call site
+ * picks the setting up without changing its signature. Pass `unit` explicitly
+ * to override, e.g. when rendering a fixed-unit report.
+ */
+export function formatDistance(km: number, unit?: "km" | "mi"): string {
+  // Required lazily: helpers.ts is imported by the store layer, and a top-level
+  // import would create a cycle.
+  const resolved =
+    unit ??
+    (require("../store/useSettingsStore").useSettingsStore.getState()
+      .distanceUnit as "km" | "mi");
+
+  if (resolved === "mi") {
+    const miles = km * 0.621371;
+    // Below a tenth of a mile, feet read better than "0.0mi".
+    if (miles < 0.1) return `${Math.round(miles * 5280)}ft`;
+    return `${miles.toFixed(1)}mi`;
   }
+
+  if (km < 1) return `${Math.round(km * 1000)}m`;
   return `${km.toFixed(1)}km`;
 }
 

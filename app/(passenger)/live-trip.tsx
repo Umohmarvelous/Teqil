@@ -445,9 +445,9 @@ import {
 } from "react-native";
 import MapView, {
   Polyline,
-  PROVIDER_GOOGLE,
   Marker,
 } from "react-native-maps";
+import { MAP_PROVIDER } from "@/src/utils/maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -860,6 +860,8 @@ export default function LiveTripScreen() {
   const [tripEnded,        setTripEnded]        = useState(false);
   const [saveSheetVisible, setSaveSheetVisible] = useState(false);
   const [routeSaved,       setRouteSaved]       = useState(false);
+  // route_history row for this trip's GPS track, once it's been recorded.
+  const [trackId,          setTrackId]          = useState<string | null>(null);
 
   const mapRef      = useRef<MapView>(null);
   const panelSlideY = useRef(new Animated.Value(200)).current;
@@ -896,10 +898,20 @@ export default function LiveTripScreen() {
       }
 
       try {
-        await startLocationTracking(activeTrip?.id || "live_trip");
+        await startLocationTracking({
+          sessionId:   activeTrip?.id || "live_trip",
+          context:     "trip",
+          role:        "passenger",
+          tripId:      activeTrip?.id ?? null,
+          originLabel: activeTrip?.origin ?? null,
+          destLabel:   activeTrip?.destination ?? null,
+        });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (e) {
-        Alert.alert("Tracking Error", "Could not start location tracking.");
+        Alert.alert(
+          "Tracking Error",
+          e instanceof Error ? e.message : "Could not start location tracking.",
+        );
       }
     };
 
@@ -919,7 +931,9 @@ export default function LiveTripScreen() {
 
   const handleEndTrip = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    await stopLocationTracking();
+    // Stopping also writes the GPS track to route_history.
+    const summary = await stopLocationTracking();
+    setTrackId(summary?.routeHistoryId ?? null);
     setTripEnded(true);
     // Only offer save if there's a real route
     if (routeCoordinates.length >= 2) {
@@ -966,7 +980,7 @@ export default function LiveTripScreen() {
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
-        provider={PROVIDER_GOOGLE}
+        provider={MAP_PROVIDER}
         customMapStyle={MAP_STYLE}
         showsUserLocation={false}
         showsMyLocationButton={false}
@@ -1068,6 +1082,16 @@ export default function LiveTripScreen() {
                 <Ionicons name="bookmark" size={15} color={Colors.primary} />
                 <Text style={styles.savedIndicatorText}>Route saved</Text>
               </View>
+            )}
+
+            {trackId && (
+              <Pressable
+                style={({ pressed }) => [styles.saveRouteBtn, pressed && { opacity: 0.8 }]}
+                onPress={() => router.push(`/route-history/${trackId}`)}
+              >
+                <Ionicons name="map-outline" size={16} color={Colors.primary} />
+                <Text style={styles.saveRouteBtnText}>View tracked route</Text>
+              </Pressable>
             )}
 
             <Pressable

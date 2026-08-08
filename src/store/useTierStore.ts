@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { PremiumTier } from "../models/types";
+import { resolveEffectiveTier } from "../config/devFlags";
 
 /**
  * src/store/useTierStore.ts
@@ -31,8 +32,13 @@ export const ELITE_FUEL_MULTIPLIER = 8;
 const DEFAULT_FUEL_PRICE = 1200;
 
 interface TierStore {
+  /**
+   * The tier the account has actually paid for. Feature gates should NOT read
+   * this directly — use `useEffectiveTier()` so the dev override is honoured.
+   */
   tier: PremiumTier;
   fuelPricePerLitre: number;
+
 
   /**
    * Admin-only loss override. When true, computeTripSplit is allowed to overdraw
@@ -84,3 +90,33 @@ export const useTierStore = create<TierStore>()(
     }
   )
 );
+
+// ─── Entitlements ────────────────────────────────────────────────────────────
+//
+// Every premium gate in the app goes through these. They're the ONLY place the
+// dev override is applied, so there's exactly one thing to audit — and removing
+// the bypass later means changing one file, not hunting `tier !== "free"` checks
+// across screens.
+
+/**
+ * The tier the app should behave as: the real one in production, or the
+ * simulated one in development. Reactive — re-renders when either changes.
+ */
+export function useEffectiveTier(): PremiumTier {
+  return useTierStore((s) => resolveEffectiveTier(s.tier));
+}
+
+/** Pro or Elite. */
+export function useIsPremium(): boolean {
+  return useEffectiveTier() !== "free";
+}
+
+/** Elite only. */
+export function useIsElite(): boolean {
+  return useEffectiveTier() === "elite";
+}
+
+/** Non-hook read, for use outside React (services, store actions). */
+export function getEffectiveTier(): PremiumTier {
+  return resolveEffectiveTier(useTierStore.getState().tier);
+}

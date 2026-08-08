@@ -44,6 +44,58 @@ export interface FreeRideClaim {
   completed_at?: string | null;
 }
 
+/** Why a completed ride paid what it paid — surfaced verbatim to the user. */
+export type FreeRideCompletionReason =
+  | "paid"
+  | "not_gps_validated"
+  | "pool_empty"
+  | "barter_no_fuel"
+  | "already_completed"
+  | "route_mismatch"
+  | "claim_not_found"
+  | "forbidden"
+  | "cancelled"
+  | "violated"
+  | "error";
+
+export interface FreeRideCompletion {
+  ok: boolean;
+  reason: FreeRideCompletionReason;
+  mode?: FreeRideMode;
+  gpsValidated: boolean;
+  fuelAwarded: number;
+  /** True when the claim had already been completed by the other party. */
+  already: boolean;
+}
+
+/** Plain-English explanation of a completion outcome, for receipts and alerts. */
+export function describeCompletion(r: FreeRideCompletion): string {
+  switch (r.reason) {
+    case "paid":
+      return "GPS verified — the driver's free fuel has been credited.";
+    case "not_gps_validated":
+      return "The ride was recorded but the GPS track was too short to verify, so no fuel was drawn.";
+    case "pool_empty":
+      return "The fuel pool can't cover this reward right now, so no fuel was drawn. The ride is still recorded.";
+    case "barter_no_fuel":
+      return "Barter rides are a free-will exchange — Emilgo funds no fuel for them.";
+    case "already_completed":
+      return "This ride was already completed.";
+    case "route_mismatch":
+      return "No GPS track was found for this ride, so it can't be verified.";
+    case "forbidden":
+      return "Only the driver or passenger on this ride can complete it.";
+    case "cancelled":
+      return "This ride was cancelled.";
+    case "violated":
+      return "This ride was flagged for violating its terms.";
+    case "claim_not_found":
+      return "This ride no longer exists.";
+    default:
+      return "Couldn't complete the ride. Check your connection and try again.";
+  }
+}
+
 interface FreeRidesStore {
   openOffers: FreeRideOffer[];
   myClaims: FreeRideClaim[];
@@ -56,13 +108,16 @@ interface FreeRidesStore {
   closeOffer: (offerId: string) => Promise<void>;
   /** Passenger accepts an offer → returns the new claim id (null if full/closed/duplicate). */
   acceptOffer: (offerId: string, passengerId: string) => Promise<string | null>;
-  /** Completing a tracked ride → awards free fuel (reward mode). Returns ₦ awarded. */
-  completeRide: (claim: {
-    id: string;
-    driver_id: string;
-    mode: FreeRideMode;
-    trip_id: string;
-  }) => Promise<number>;
+  /**
+   * Complete a tracked ride. The server decides the payout from the recorded
+   * GPS track — see the complete_free_ride RPC.
+   */
+  completeRide: (params: {
+    claimId: string;
+    /** route_history.id for the track recorded during this ride. */
+    routeId: string;
+    distanceKm?: number;
+  }) => Promise<FreeRideCompletion>;
   fetchMyClaims: (userId: string) => Promise<void>;
 }
 
@@ -133,27 +188,74 @@ export const useFreeRidesStore = create<FreeRidesStore>()(
         }
       },
 
-      completeRide: async (claim) => {
-        let fuel = 0;
-        // Reward mode: draw the driver's free fuel from the shared pool (capped).
-        if (claim.mode === "reward") {
-          const target = computeFuelReward();
-          fuel = await useFuelPoolStore.getState().redeemFuel(claim.driver_id, target, claim.trip_id);
-        }
+      completeRide: async ({ claimId, routeId, distanceKm }) => {
+        const failure = (reason: FreeRideCompletionReason): FreeRideCompletion => ({
+          ok: false,
+          reason,
+          gpsValidated: false,
+          fuelAwarded: 0,
+          already: false,
+        });
+
+        // The server owns this decision: it re-checks that the GPS track belongs
+        // to the claim and was validated by the DB trigger, then draws from the
+        // pool under the same advisory lock as every other redemption. The
+        // client can't shortcut any of it.
         try {
-          await supabase
-            .from("free_ride_claims")
-            .update({
-              status: "completed",
-              trip_id: claim.trip_id,
-              fuel_awarded: fuel,
-              completed_at: new Date().toISOString(),
-            })
-            .eq("id", claim.id);
+          const { data, error } = await supabase.rpc("complete_free_ride", {
+            p_claim_id: claimId,
+            p_route_id: routeId,
+            p_amount: computeFuelReward({ distanceKm }),
+          });
+
+          if (error || !data) {
+            console.warn("[FreeRides] complete_free_ride failed", error);
+            return failure("error");
+          }
+
+          const row = data as {
+            ok: boolean;
+            reason: FreeRideCompletionReason;
+            mode?: FreeRideMode;
+            gps_validated?: boolean;
+            fuel_awarded?: number;
+            already?: boolean;
+          };
+
+          const result: FreeRideCompletion = {
+            ok: !!row.ok,
+            reason: row.reason ?? "error",
+            mode: row.mode,
+            gpsValidated: !!row.gps_validated,
+            fuelAwarded: Number(row.fuel_awarded ?? 0),
+            already: !!row.already,
+          };
+
+          if (result.ok) {
+            // Reflect the debit locally; refresh() re-syncs the true balance.
+            if (result.fuelAwarded > 0) {
+              await useFuelPoolStore.getState().refresh();
+            }
+            set((s) => ({
+              myClaims: s.myClaims.map((c) =>
+                c.id === claimId
+                  ? {
+                      ...c,
+                      status: "completed",
+                      trip_id: routeId,
+                      fuel_awarded: result.fuelAwarded,
+                      completed_at: new Date().toISOString(),
+                    }
+                  : c
+              ),
+            }));
+          }
+
+          return result;
         } catch (e) {
-          console.warn("[FreeRides] completeRide update failed", e);
+          console.warn("[FreeRides] completeRide failed", e);
+          return failure("error");
         }
-        return fuel;
       },
 
       fetchMyClaims: async (userId) => {

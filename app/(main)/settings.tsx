@@ -46,6 +46,7 @@ import {
 
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
+import { haptics } from "@/src/utils/haptics";
 import { Colors } from "@/constants/colors";
 import { supabase } from "@/src/services/supabase";
 import { queryClient } from "@/lib/query-client";
@@ -172,6 +173,16 @@ export default function SettingsTab() {
     shareLocation,
     setShareLocation,
     referralCode,
+    autoStartTracking,
+    setAutoStartTracking,
+    dataSaver,
+    setDataSaver,
+    hapticFeedback,
+    setHapticFeedback,
+    distanceUnit,
+    setDistanceUnit,
+    confirmEndTrip,
+    setConfirmEndTrip,
   } = useSettingsStore();
 
   const isDark = theme === "dark";
@@ -391,10 +402,87 @@ export default function SettingsTab() {
             iconName={Location}
             iconColor={textColor}
             label="Share Location During Trips"
-            description="Allow live location tracking while a trip is active"
+            description="Allow live location tracking while a trip is active. Free rides always track — turning this off won't stop them."
             rightElement={switchEl(shareLocation, (v) => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setShareLocation(v);
+            })}
+            {...rowProps}
+          />
+          <SettingRow
+            iconName={Location}
+            iconColor={textColor}
+            label="Route History"
+            description="See the GPS routes of trips and free rides you've taken"
+            onPress={() => router.push("/route-history" as any)}
+            {...rowProps}
+          />
+        </Section>
+
+        <Section title="Tracking">
+          <SettingRow
+            iconName={Location}
+            iconColor={textColor}
+            label="Start Tracking Automatically"
+            description="Begin recording as soon as a tracked ride opens. Off means you tap to start — GPS is still required either way."
+            rightElement={switchEl(autoStartTracking, (v) => {
+              haptics.tap();
+              setAutoStartTracking(v);
+            })}
+            {...rowProps}
+          />
+          <SettingRow
+            iconName={Location}
+            iconColor={textColor}
+            label="Confirm Before Ending a Ride"
+            description="Ask before stopping tracking, so a stray tap can't cut a ride short"
+            rightElement={switchEl(confirmEndTrip, (v) => {
+              haptics.tap();
+              setConfirmEndTrip(v);
+            })}
+            {...rowProps}
+          />
+          <SettingRow
+            iconName={Location}
+            iconColor={textColor}
+            label="Data Saver"
+            description="Coarser GPS and slower live updates. Saves battery and data; the route is still recorded and still verifiable."
+            rightElement={switchEl(dataSaver, (v) => {
+              haptics.tap();
+              setDataSaver(v);
+            })}
+            {...rowProps}
+          />
+          <SettingRow
+            iconName={Location}
+            iconColor={textColor}
+            label="Distance Units"
+            description={distanceUnit === "km" ? "Kilometres" : "Miles"}
+            onPress={() => {
+              haptics.select();
+              setDistanceUnit(distanceUnit === "km" ? "mi" : "km");
+            }}
+            rightElement={
+              <View style={[styles.pill, { backgroundColor: Colors.primaryLight }]}>
+                <Text style={[styles.pillText, { color: Colors.primary }]}>
+                  {distanceUnit.toUpperCase()}
+                </Text>
+              </View>
+            }
+            {...rowProps}
+          />
+        </Section>
+
+        <Section title="Feedback">
+          <SettingRow
+            iconName={Notification}
+            iconColor={textColor}
+            label="Haptic Feedback"
+            description="Vibration on taps, confirmations and alerts"
+            rightElement={switchEl(hapticFeedback, (v) => {
+              // Buzz on the way ON so the change is felt, not just seen.
+              setHapticFeedback(v);
+              if (v) haptics.success();
             })}
             {...rowProps}
           />
