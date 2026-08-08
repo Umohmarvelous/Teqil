@@ -450,8 +450,8 @@ import {
 } from "@hugeicons/core-free-icons";
 import { Colors } from "@/constants/colors";
 
-type BannerState = "hidden" | "offline" | "weak" | "restored";
-type Condition = "good" | "weak" | "offline";
+type BannerState = "hidden" | "offline" | "restored";
+type Condition = "good" | "offline";
 
 const GOOD_NETWORK_STARTUP_DELAY_MS = 5000;
 const GOOD_BANNER_DURATION_MS = 3000;
@@ -500,11 +500,11 @@ function assessNetwork(state: NetInfoState): NetworkStrength {
         : type === "cellular"
           ? "Cellular"
           : type.charAt(0).toUpperCase() + type.slice(1);
-    return {
-      condition: "weak",
-      connectionLabel: base,
-      strengthLabel: `${base} · no internet`,
-    };
+    // return {
+    //   condition: "weak",
+    //   connectionLabel: base,
+    //   strengthLabel: `${base} · no internet`,
+    // };
   }
 
   if (type === "wifi") {
@@ -519,7 +519,7 @@ function assessNetwork(state: NetInfoState): NetworkStrength {
     let strengthText = "signal unknown";
     if (strength != null) {
       strengthText = `${Math.round(strength)}% signal`;
-      if (strength < 40) level = "weak";
+      // if (strength < 40) level = "weak";
     }
 
     return {
@@ -542,12 +542,12 @@ function assessNetwork(state: NetInfoState): NetworkStrength {
         : null;
 
     let level: Condition = "good";
-    if (generation === "2G" || generation === "3G") level = "weak";
+    // if (generation === "2G" || generation === "3G") level = "weak";
 
     const genLabel = generation ?? "Cellular";
     const parts = [genLabel];
     if (carrier) parts.push(carrier);
-    parts.push(level === "weak" ? "weak signal" : "good signal");
+    // parts.push(level === "weak" ? "weak signal" : "good signal");
 
     return {
       condition: level,
@@ -713,24 +713,24 @@ export default function NetworkBanner({ onRetry }: NetworkBannerProps) {
         return;
       }
 
-      if (isRapidToggle || currentCondition === "weak") {
-        pendingGoodRevealRef.current = false;
-        setBannerState("weak");
-        slideIn();
-        autoDismissTimerRef.current = setTimeout(() => {
-          if (!isVisibleRef.current) return;
-          slideOut(() => {
-            const lastState = lastNetInfoStateRef.current;
-            if (!lastState) return;
-            const last = assessNetwork(lastState);
-            if (last.condition === "good" && goodRevealAllowedRef.current) {
-              setStrengthLabel(last.strengthLabel);
-              showRestoredBanner();
-            }
-          });
-        }, WEAK_BANNER_DURATION_MS);
-        return;
-      }
+      // if (isRapidToggle || currentCondition === "weak") {
+      //   pendingGoodRevealRef.current = false;
+      //   setBannerState("weak");
+      //   slideIn();
+      //   autoDismissTimerRef.current = setTimeout(() => {
+      //     if (!isVisibleRef.current) return;
+      //     slideOut(() => {
+      //       const lastState = lastNetInfoStateRef.current;
+      //       if (!lastState) return;
+      //       const last = assessNetwork(lastState);
+      //       if (last.condition === "good" && goodRevealAllowedRef.current) {
+      //         setStrengthLabel(last.strengthLabel);
+      //         showRestoredBanner();
+      //       }
+      //     });
+      //   }, WEAK_BANNER_DURATION_MS);
+      //   return;
+      // }
 
       // Good network
       if (!goodRevealAllowedRef.current) {
@@ -816,13 +816,13 @@ export default function NetworkBanner({ onRetry }: NetworkBannerProps) {
   if (!isVisible) return null;
 
   const topPad = Platform.OS === "ios" ? insets.top : 8;
-  const isOfflineOrWeak = bannerState === "offline" || bannerState === "weak";
+  const isOfflineOrWeak = bannerState === "offline" ;
 
   const bannerConfig = {
     offline: {
-      bg: "#B91C1C",
+      bg: "#952020EE",
       icon: WifiDisconnected01Icon,
-      iconColor: "#FCA5A5",
+      iconColor: "#FFFFFF",
       title: "No internet connection",
       subtitleFallback: "Changes will sync when you're back online",
     },

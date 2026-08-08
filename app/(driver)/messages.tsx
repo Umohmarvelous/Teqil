@@ -87,7 +87,7 @@ export default function MessagesScreen() {
         <View style={{alignItems: 'center'}}>
           <Text style={[styles.headerTitle, {color: textColor}]}>{t("driver.messages")}</Text>
         </View>
-        <View style={[styles.sideElement, {borderWidth: 'none'}]} />
+        <View style={[styles.sideElement]} />
       </View>
 
       <FlatList

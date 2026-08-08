@@ -12,29 +12,19 @@ import {
   ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
-import { useAuthStore } from "@/src/store/useStore";
+
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { useMessagesStore } from "@/src/store/useMessagesStore";
 import { Colors } from "@/constants/colors";
-import Avatar from "@/components/Avatar";
 import ProfileTab from "./profile";
 import MessagesTab from "./messages";
 import SettingsTab from "./settings";
 import DiscoverTab from "./discover";
 import type { FeedItem } from "./discover";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import {
-  HomeIcon,
-  Home01Icon,
-  SettingsIcon,
-  Settings01Icon,
-  MessageIcon,
-  Message01Icon,
-  Menu02Icon,
-  Search02Icon,
-} from "@hugeicons/core-free-icons";
+import { Menu02Icon, Search02Icon } from "@hugeicons/core-free-icons";
+import { IOSTabBar, TAB_BAR_HEIGHT, type IOSTab } from "@/components/ios";
 import BottomSheet from "@gorhom/bottom-sheet";
 import { CommentSheet } from "@/components/CommentSheet";
 import MainTab from "./index";
@@ -46,7 +36,18 @@ import { useOnboarding } from "@/src/hooks/useOnboarding";
 type Tab = "home" | "profile" | "messages" | "settings";
 type TopTab = "home" | "discover";
 
-const TAB_HEIGHT = 60;
+/**
+ * Bottom tabs, as SF Symbols. iOS pairs an outline symbol with its `.fill`
+ * variant for the selected state — that's what makes a tab bar read as native,
+ * so we follow it rather than swapping icon sets.
+ */
+const TABS: IOSTab[] = [
+  { key: "home",     label: "Home",     symbol: "house",              symbolActive: "house.fill" },
+  { key: "profile",  label: "You",      symbol: "person.crop.circle", symbolActive: "person.crop.circle.fill" },
+  { key: "messages", label: "Messages", symbol: "message",            symbolActive: "message.fill" },
+  { key: "settings", label: "Settings", symbol: "gearshape",          symbolActive: "gearshape.fill" },
+];
+
 const SIDEBAR_WIDTH = 330;
 const EDGE_WIDTH = 60;
 // How far to pull the home screen LEFT of the fully-open position.
@@ -72,7 +73,6 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 export default function MainLayout() {
   const insets = useSafeAreaInsets();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
-  const { user } = useAuthStore();
   const { conversations } = useMessagesStore();
 
   const { shouldShow, isLoaded, complete } = useOnboarding();
@@ -338,7 +338,8 @@ export default function MainLayout() {
 
   const HEADER_HEIGHT = topPadding + 85;
   // const HEADER_HEIGHT = topPadding + 110;
-  const BOTTOM_HEIGHT = TAB_HEIGHT + Math.max(insets.bottom, 16);
+  // Content padding so the last row clears the translucent bar it scrolls under.
+  const BOTTOM_HEIGHT = TAB_BAR_HEIGHT + insets.bottom;
 
   const renderMainContent = () => {
     if (activeTab !== "home") {
@@ -577,150 +578,29 @@ export default function MainLayout() {
 
           <View style={[styles.content]}>{renderMainContent()}</View>
 
-          {/* Absolute Bottom Bar */}
+          {/* Absolute Bottom Bar — frosted translucent, content scrolls under it */}
           <Animated.View
-            style={[
-              styles.tabBar,
-              {
-                position: "absolute",
-                bottom: 0,
-                left: 0,
-                right: 0,
-                zIndex: 100,
-                height: BOTTOM_HEIGHT,
-                backgroundColor: tabBarBg,
-                // Make sure bottom bar isn't tucked when visiting profile, settings, etc
-                transform: [
-                  {
-                    translateY:
-                      activeTab === "home" ? actualBottomTranslateY : 0,
-                  },
-                ],
-              },
-              { borderBottomLeftRadius: 40 },
-            ]}
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              zIndex: 100,
+              // Keeps the existing hide-on-scroll behaviour on the Discover feed.
+              transform: [
+                { translateY: activeTab === "home" ? actualBottomTranslateY : 0 },
+              ],
+            }}
           >
-            {Platform.OS === "ios" && (
-              <BlurView
-                intensity={0}
-                tint={isDark ? "dark" : "light"}
-                style={StyleSheet.absoluteFill}
-              />
-            )}
-            <View
-              style={[
-                styles.tabBarBorder,
-                {
-                  backgroundColor: isDark
-                    ? "rgba(255,255,255,0.07)"
-                    : "#E8ECF0",
-                },
-              ]}
+            <IOSTabBar
+              tabs={TABS.map((t) =>
+                t.key === "messages" ? { ...t, badge: totalUnread } : t,
+              )}
+              active={activeTab}
+              onChange={(key) => handleTabPress(key as Tab)}
             />
-            <View style={[styles.tabBarInner]}>
-              <TabItem
-                id="home"
-                activeIcon={HomeIcon}
-                inactiveIcon={Home01Icon}
-                label="Home"
-                active={activeTab === "home"}
-                onPress={() => handleTabPress("home")}
-                isDark={isDark}
-              />
-              <Pressable
-                style={styles.tabItem}
-                onPress={() => handleTabPress("profile")}
-              >
-                <View
-                  style={
-                    activeTab === "profile"
-                      ? styles.avatarActive
-                      : styles.avatarInactive
-                  }
-                >
-                  <Avatar
-                    name={user?.full_name || "U"}
-                    photoUri={user?.profile_photo}
-                    size={28}
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.tabLabel,
-                    {
-                      color:
-                        activeTab === "profile"
-                          ? Colors.primary
-                          : isDark
-                            ? "#FFFFFF"
-                            : Colors.textSecondary,
-                      fontFamily:
-                        activeTab === "profile"
-                          ? "Poppins_600SemiBold"
-                          : "Poppins_400Regular",
-                    },
-                  ]}
-                >
-                  You
-                </Text>
-              </Pressable>
-              <Pressable
-                style={styles.tabItem}
-                onPress={() => handleTabPress("messages")}
-              >
-                <View style={{ position: "relative" }}>
-                  <HugeiconsIcon
-                    icon={
-                      activeTab === "messages" ? MessageIcon : Message01Icon
-                    }
-                    size={24}
-                    color={
-                      activeTab === "messages"
-                        ? Colors.primary
-                        : isDark
-                          ? "#FFFFFF"
-                          : Colors.textSecondary
-                    }
-                  />
-                  {totalUnread > 0 && (
-                    <View style={styles.unreadBadge}>
-                      <Text style={styles.unreadBadgeText}>
-                        {totalUnread > 9 ? "9+" : totalUnread}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                <Text
-                  style={[
-                    styles.tabLabel,
-                    {
-                      color:
-                        activeTab === "messages"
-                          ? Colors.primary
-                          : isDark
-                            ? "#FFFFFF"
-                            : Colors.textSecondary,
-                      fontFamily:
-                        activeTab === "messages"
-                          ? "Poppins_600SemiBold"
-                          : "Poppins_400Regular",
-                    },
-                  ]}
-                >
-                  Messages
-                </Text>
-              </Pressable>
-              <TabItem
-                id="settings"
-                activeIcon={SettingsIcon}
-                inactiveIcon={Settings01Icon}
-                label="Settings"
-                active={activeTab === "settings"}
-                onPress={() => handleTabPress("settings")}
-                isDark={isDark}
-              />
-            </View>
           </Animated.View>
+
         </View>
       </Animated.View>
 
@@ -739,41 +619,6 @@ export default function MainLayout() {
 
       {isLoaded && shouldShow && <OnboardingOverlay onComplete={complete} />}
     </View>
-  );
-}
-
-function TabItem({
-  activeIcon,
-  inactiveIcon,
-  label,
-  active,
-  onPress,
-  isDark,
-}: any) {
-  const color = active
-    ? Colors.primary
-    : isDark
-      ? "#FFFFFF"
-      : Colors.textSecondary;
-  return (
-    <Pressable style={styles.tabItem} onPress={onPress}>
-      <HugeiconsIcon
-        icon={active ? activeIcon : inactiveIcon}
-        size={24}
-        color={color}
-      />
-      <Text
-        style={[
-          styles.tabLabel,
-          {
-            color,
-            fontFamily: active ? "Poppins_600SemiBold" : "Poppins_400Regular",
-          },
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
   );
 }
 

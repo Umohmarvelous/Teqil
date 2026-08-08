@@ -95,7 +95,7 @@
 // // }) {
 // //   if (!conversation) return null;
 // //   const textColor = isDark ? Colors.textWhite    : Colors.text;
-// //   const subColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
+// //   const subTextColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
 // //   const cardBg    = isDark ? Colors.primaryDarker : "#FFFFFF";
 
 // //   const call = () => {
@@ -131,7 +131,7 @@
 // //               {conversation.participant_driver_id}
 // //             </Text>
 // //             {conversation.participant_vehicle ? (
-// //               <Text style={[S.infoSub, { color: subColor }]}>
+// //               <Text style={[S.infoSub, { color: subTextColor }]}>
 // //                 🚗 {conversation.participant_vehicle}
 // //               </Text>
 // //             ) : null}
@@ -278,7 +278,7 @@
 
 // //   const bg        = isDark ? Colors.background    : "#F5F5F5";
 // //   const textColor = isDark ? Colors.textWhite      : Colors.text;
-// //   const subColor  = isDark ? Colors.textSecondary  : Colors.textTertiary;
+// //   const subTextColor  = isDark ? Colors.textSecondary  : Colors.textTertiary;
 // //   const cardBg    = isDark ? Colors.primaryDarker  : "#FFFFFF";
 // //   const border    = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 // //   const inputBg   = isDark ? "#1C2921"             : "#F0F0F0";
@@ -555,13 +555,13 @@
 // //             onCopy={() => handleCopy(item)}
 // //             isDark={isDark}
 // //             textColor={textColor}
-// //             subTextColor={subColor}
+// //             subTextColor={subTextColor}
 // //           />
 // //         )}
 // //         ListEmptyComponent={
 // //           <View style={S.emptyChat}>
-// //             <HugeiconsIcon icon={Message02Icon} size={44} color={subColor} />
-// //             <Text style={[S.emptyChatText, { color: subColor }]}>
+// //             <HugeiconsIcon icon={Message02Icon} size={44} color={subTextColor} />
+// //             <Text style={[S.emptyChatText, { color: subTextColor }]}>
 // //               No messages yet. Say hello!
 // //             </Text>
 // //           </View>
@@ -582,7 +582,7 @@
 // //         <TextInput
 // //           style={[S.textInput, { backgroundColor: inputBg, color: textColor }]}
 // //           placeholder="Type a message..."
-// //           placeholderTextColor={subColor}
+// //           placeholderTextColor={subTextColor}
 // //           value={text}
 // //           onChangeText={handleTyping}
 // //           multiline
@@ -640,7 +640,7 @@
 // //   const [result, setResult] = useState<DriverRecord | null>(null);
 
 // //   const textColor = isDark ? Colors.textWhite     : Colors.text;
-// //   const subColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
+// //   const subTextColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
 // //   const cardBg    = isDark ? Colors.primaryDarker : "#FFFFFF";
 // //   const border    = isDark ? "rgba(255,255,255,0.12)" : "#E8ECF0";
 // //   const inputBg   = isDark ? Colors.background    : "#F4F6FA";
@@ -760,17 +760,17 @@
 // //           <View style={S.handle} />
 
 // //           <Text style={[S.newTitle, { color: textColor }]}>New Message</Text>
-// //           <Text style={[S.newSub, { color: subColor }]}>
+// //           <Text style={[S.newSub, { color: subTextColor }]}>
 // //             {`Enter the driver's ID or UUID`}
 // //           </Text>
 
 // //           {/* ── Input ── */}
 // //           <View style={[S.newInputRow, { backgroundColor: inputBg, borderColor: border }]}>
-// //             <HugeiconsIcon icon={Search01Icon} size={18} color={subColor} />
+// //             <HugeiconsIcon icon={Search01Icon} size={18} color={subTextColor} />
 // //             <TextInput
 // //               style={[S.newInput, { color: textColor }]}
 // //               placeholder="DRV-A3X9KL"
-// //               placeholderTextColor={subColor}
+// //               placeholderTextColor={subTextColor}
 // //               value={query}
 // //               onChangeText={(v) => { setQuery(v); reset(); }}
 // //               autoFocus
@@ -781,7 +781,7 @@
 // //             />
 // //             {query.length > 0 && (
 // //               <Pressable hitSlop={8} onPress={() => { setQuery(""); reset(); }}>
-// //                 <Text style={{ color: subColor, fontSize: 18 }}>{`×`}</Text>
+// //                 <Text style={{ color: subTextColor, fontSize: 18 }}>{`×`}</Text>
 // //               </Pressable>
 // //             )}
 // //           </View>
@@ -801,7 +801,7 @@
 // //             {status === "searching" ? (
 // //               <ActivityIndicator size="small" color="#fff" />
 // //             ) : (
-// //               <Text style={[S.newSearchBtnText, { color: query.trim() ? "#fff" : subColor }]}>
+// //               <Text style={[S.newSearchBtnText, { color: query.trim() ? "#fff" : subTextColor }]}>
 // //                 Search Driver
 // //               </Text>
 // //             )}
@@ -832,7 +832,7 @@
 // //                       {result.driver_id}
 // //                     </Text>
 // //                     {result.vehicle_details ? (
-// //                       <Text style={[S.resultSub, { color: subColor }]}>
+// //                       <Text style={[S.resultSub, { color: subTextColor }]}>
 // //                         🚗 {result.vehicle_details}
 // //                       </Text>
 // //                     ) : null}
@@ -842,7 +842,7 @@
 // //                     <Text style={[S.resultName, { color: Colors.gold }]}>
 // //                       Invalid driver_id
 // //                     </Text>
-// //                     <Text style={[S.resultSub, { color: subColor }]}>
+// //                     <Text style={[S.resultSub, { color: subTextColor }]}>
 // //                       {`"${query.trim()}" is not a registered driver. You can still
 // //                       open a chat but messages wont be delivered.`}
 // //                     </Text>
@@ -877,7 +877,7 @@
 // //   onDelete,
 // //   isDark,
 // //   textColor,
-// //   subColor,
+// //   subTextColor,
 // //   cardBg,
 // //   border,
 // // }: {
@@ -886,7 +886,7 @@
 // //   onDelete: () => void;
 // //   isDark: boolean;
 // //   textColor: string;
-// //   subColor: string;
+// //   subTextColor: string;
 // //   cardBg: string;
 // //   border: string;
 // // }) {
@@ -928,11 +928,11 @@
 // //             >
 // //               {item.participant_name}
 // //             </Text>
-// //             <Text style={[S.convTime, { color: subColor }]}>{timeStr}</Text>
+// //             <Text style={[S.convTime, { color: subTextColor }]}>{timeStr}</Text>
 // //           </View>
 // //           <View style={S.convBottomRow}>
 // //             <Text
-// //               style={[S.convLast, { color: subColor }]}
+// //               style={[S.convLast, { color: subTextColor }]}
 // //               numberOfLines={1}
 // //             >
 // //               {item.last_message || "Tap to start chatting"}
@@ -977,7 +977,7 @@
 // //   const isDark    = theme === "dark";
 // //   const bg        = isDark ? Colors.background    : "#F0F0F0";
 // //   const textColor = isDark ? Colors.textWhite      : Colors.text;
-// //   const subColor  = isDark ? Colors.textSecondary  : Colors.textTertiary;
+// //   const subTextColor  = isDark ? Colors.textSecondary  : Colors.textTertiary;
 // //   const cardBg    = isDark ? Colors.primaryDarker  : "#FFFFFF";
 // //   const border    = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 // //   const topPad    = Platform.OS === "web" ? 67 : insets.top;
@@ -1083,7 +1083,7 @@
 // //                 style={{
 // //                   fontFamily: "Poppins_400Regular",
 // //                   fontSize: 12,
-// //                   color: subColor,
+// //                   color: subTextColor,
 // //                   marginTop: 1,
 // //                 }}
 // //               >
@@ -1118,7 +1118,7 @@
 // //               item={item}
 // //               isDark={isDark}
 // //               textColor={textColor}
-// //               subColor={subColor}
+// //               subTextColor={subTextColor}
 // //               cardBg={cardBg}
 // //               border={border}
 // //               onPress={() => {
@@ -1130,13 +1130,13 @@
 // //           )}
 // //           ListEmptyComponent={
 // //             <View style={S.empty}>
-// //               <HugeiconsIcon icon={ChartBubbleIcon} size={52} color={subColor} />
+// //               <HugeiconsIcon icon={ChartBubbleIcon} size={52} color={subTextColor} />
 // //               <Text style={[S.emptyTitle, { color: textColor }]}>
 // //                 {user?.role === "driver"
 // //                   ? "No messages yet"
 // //                   : "No conversations yet"}
 // //               </Text>
-// //               <Text style={[S.emptySub, { color: subColor }]}>
+// //               <Text style={[S.emptySub, { color: subTextColor }]}>
 // //                 {user?.role === "driver"
 // //                   ? "When passengers message you, they'll appear here."
 // //                   : "Tap + and enter a driver's ID to start chatting."}
@@ -1443,7 +1443,7 @@
 // }) {
 //   if (!conversation) return null;
 //   const textColor = isDark ? Colors.textWhite    : Colors.text;
-//   const subColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
+//   const subTextColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
 //   const cardBg    = isDark ? Colors.primaryDarker : "#FFFFFF";
 
 //   const call = () => {
@@ -1479,7 +1479,7 @@
 //               {conversation.participant_driver_id}
 //             </Text>
 //             {conversation.participant_vehicle ? (
-//               <Text style={[S.infoSub, { color: subColor }]}>
+//               <Text style={[S.infoSub, { color: subTextColor }]}>
 //                 🚗 {conversation.participant_vehicle}
 //               </Text>
 //             ) : null}
@@ -1632,7 +1632,7 @@
 
 //   const bg        = isDark ? Colors.background    : "#F5F5F5";
 //   const textColor = isDark ? Colors.textWhite      : Colors.text;
-//   const subColor  = isDark ? Colors.textSecondary  : Colors.textTertiary;
+//   const subTextColor  = isDark ? Colors.textSecondary  : Colors.textTertiary;
 //   const cardBg    = isDark ? Colors.primaryDarker  : "#FFFFFF";
 //   const border    = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 //   const inputBg   = isDark ? "#1C2921"             : "#F0F0F0";
@@ -1909,13 +1909,13 @@
 //             onCopy={() => handleCopy(item)}
 //             isDark={isDark}
 //             textColor={textColor}
-//             subTextColor={subColor}
+//             subTextColor={subTextColor}
 //           />
 //         )}
 //         ListEmptyComponent={
 //           <View style={S.emptyChat}>
-//             <HugeiconsIcon icon={Message02Icon} size={44} color={subColor} />
-//             <Text style={[S.emptyChatText, { color: subColor }]}>
+//             <HugeiconsIcon icon={Message02Icon} size={44} color={subTextColor} />
+//             <Text style={[S.emptyChatText, { color: subTextColor }]}>
 //               No messages yet. Say hello!
 //             </Text>
 //           </View>
@@ -1936,7 +1936,7 @@
 //         <TextInput
 //           style={[S.textInput, { backgroundColor: inputBg, color: textColor }]}
 //           placeholder="Type a message..."
-//           placeholderTextColor={subColor}
+//           placeholderTextColor={subTextColor}
 //           value={text}
 //           onChangeText={handleTyping}
 //           multiline
@@ -1995,7 +1995,7 @@
 //   const [result, setResult] = useState<DriverRecord | null>(null);
 
 //   const textColor = isDark ? Colors.textWhite     : Colors.text;
-//   const subColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
+//   const subTextColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
 //   const cardBg    = isDark ? Colors.primaryDarker : "#FFFFFF";
 //   const border    = isDark ? "rgba(255,255,255,0.12)" : "#E8ECF0";
 //   const inputBg   = isDark ? Colors.background    : "#F4F6FA";
@@ -2129,7 +2129,7 @@
 //           <View style={S.handle} />
 
 //           <Text style={[S.newTitle, { color: textColor }]}>New Message</Text>
-//           <Text style={[S.newSub, { color: subColor }]}>
+//           <Text style={[S.newSub, { color: subTextColor }]}>
 //             {user?.role === "driver"
 //               ? "Enter a passenger's user ID to start chatting"
 //               : "Enter the driver's ID (e.g. DRV-A3X9KL) or their user ID"}
@@ -2137,11 +2137,11 @@
 
 //           {/* ── Input ── */}
 //           <View style={[S.newInputRow, { backgroundColor: inputBg, borderColor: border }]}>
-//             <HugeiconsIcon icon={Search01Icon} size={18} color={subColor} />
+//             <HugeiconsIcon icon={Search01Icon} size={18} color={subTextColor} />
 //             <TextInput
 //               style={[S.newInput, { color: textColor }]}
 //               placeholder="DRV-A3X9KL"
-//               placeholderTextColor={subColor}
+//               placeholderTextColor={subTextColor}
 //               value={query}
 //               onChangeText={(v) => { setQuery(v); reset(); }}
 //               autoFocus
@@ -2152,7 +2152,7 @@
 //             />
 //             {query.length > 0 && (
 //               <Pressable hitSlop={8} onPress={() => { setQuery(""); reset(); }}>
-//                 <Text style={{ color: subColor, fontSize: 18 }}>×</Text>
+//                 <Text style={{ color: subTextColor, fontSize: 18 }}>×</Text>
 //               </Pressable>
 //             )}
 //           </View>
@@ -2172,7 +2172,7 @@
 //             {status === "searching" ? (
 //               <ActivityIndicator size="small" color="#fff" />
 //             ) : (
-//               <Text style={[S.newSearchBtnText, { color: query.trim() ? "#fff" : subColor }]}>
+//               <Text style={[S.newSearchBtnText, { color: query.trim() ? "#fff" : subTextColor }]}>
 //                 Search Driver
 //               </Text>
 //             )}
@@ -2205,7 +2205,7 @@
 //                       {result.driver_id}
 //                     </Text>
 //                     {result.vehicle_details ? (
-//                       <Text style={[S.resultSub, { color: subColor }]}>
+//                       <Text style={[S.resultSub, { color: subTextColor }]}>
 //                         🚗 {result.vehicle_details}
 //                       </Text>
 //                     ) : null}
@@ -2215,7 +2215,7 @@
 //                     <Text style={[S.resultName, { color: Colors.gold }]}>
 //                       Invalid driver_id
 //                     </Text>
-//                     <Text style={[S.resultSub, { color: subColor }]}>
+//                     <Text style={[S.resultSub, { color: subTextColor }]}>
 //                       {`"{query.trim()}" is not a registered driver. You can still
 //                       open a chat but messages won't be delivered.`}
 //                     </Text>
@@ -2250,7 +2250,7 @@
 //   onDelete,
 //   isDark,
 //   textColor,
-//   subColor,
+//   subTextColor,
 //   cardBg,
 //   border,
 // }: {
@@ -2259,7 +2259,7 @@
 //   onDelete: () => void;
 //   isDark: boolean;
 //   textColor: string;
-//   subColor: string;
+//   subTextColor: string;
 //   cardBg: string;
 //   border: string;
 // }) {
@@ -2301,11 +2301,11 @@
 //             >
 //               {item.participant_name}
 //             </Text>
-//             <Text style={[S.convTime, { color: subColor }]}>{timeStr}</Text>
+//             <Text style={[S.convTime, { color: subTextColor }]}>{timeStr}</Text>
 //           </View>
 //           <View style={S.convBottomRow}>
 //             <Text
-//               style={[S.convLast, { color: subColor }]}
+//               style={[S.convLast, { color: subTextColor }]}
 //               numberOfLines={1}
 //             >
 //               {item.last_message || "Tap to start chatting"}
@@ -2350,7 +2350,7 @@
 //   const isDark    = theme === "dark";
 //   const bg        = isDark ? Colors.background    : "#F0F0F0";
 //   const textColor = isDark ? Colors.textWhite      : Colors.text;
-//   const subColor  = isDark ? Colors.textSecondary  : Colors.textTertiary;
+//   const subTextColor  = isDark ? Colors.textSecondary  : Colors.textTertiary;
 //   const cardBg    = isDark ? Colors.primaryDarker  : "#FFFFFF";
 //   const border    = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 //   const topPad    = Platform.OS === "web" ? 67 : insets.top;
@@ -2468,7 +2468,7 @@
 //         >
 //           <View style={{ flex: 1 }}>
 //             <Text style={[S.headerTitle, { color: textColor }]}>Messages</Text>
-//             <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 12, color: subColor, marginTop: 1 }}>
+//             <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 12, color: subTextColor, marginTop: 1 }}>
 //               {user?.role === "driver"
 //                 ? "Tap + to message a passenger"
 //                 : "Tap + to message a driver"}
@@ -2497,7 +2497,7 @@
 //               item={item}
 //               isDark={isDark}
 //               textColor={textColor}
-//               subColor={subColor}
+//               subTextColor={subTextColor}
 //               cardBg={cardBg}
 //               border={border}
 //               onPress={() => {
@@ -2509,11 +2509,11 @@
 //           )}
 //           ListEmptyComponent={
 //             <View style={S.empty}>
-//               <HugeiconsIcon icon={ChartBubbleIcon} size={52} color={subColor} />
+//               <HugeiconsIcon icon={ChartBubbleIcon} size={52} color={subTextColor} />
 //               <Text style={[S.emptyTitle, { color: textColor }]}>
 //                 No conversations yet
 //               </Text>
-//               <Text style={[S.emptySub, { color: subColor }]}>
+//               <Text style={[S.emptySub, { color: subTextColor }]}>
 //                 {user?.role === "driver"
 //                   ? "Tap + to start a conversation with a passenger."
 //                   : "Tap + to start a conversation with a driver."}
@@ -2756,6 +2756,7 @@ import {
   UserIcon,        // ← new: used for direct-chat list items
   Car01Icon,       // ← new: used for trip-based list items
   IdentityCardIcon, // ← new: Driver ID tab icon
+  Chat, // ← new: Driver ID tab icon
 } from '@hugeicons/core-free-icons';
 import { StatusBar }  from 'expo-status-bar';
 import Swipeable      from 'react-native-gesture-handler/Swipeable';
@@ -2786,7 +2787,7 @@ function ContactInfoModal({
 }: { visible: boolean; onClose: () => void; conversation: Conversation | null; isDark: boolean }) {
   if (!conversation) return null;
   const textColor = isDark ? Colors.textWhite    : Colors.text;
-  const subColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const subTextColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
   const cardBg    = isDark ? Colors.primaryDarker : '#FFFFFF';
 
   const call = () => {
@@ -2813,7 +2814,7 @@ function ContactInfoModal({
             <Text style={[S.infoName, { color: textColor }]}>{conversation.participant_name}</Text>
             <Text style={[S.infoSub,  { color: Colors.primary }]}>{conversation.participant_driver_id}</Text>
             {conversation.participant_vehicle
-              ? <Text style={[S.infoSub, { color: subColor }]}>🚗 {conversation.participant_vehicle}</Text>
+              ? <Text style={[S.infoSub, { color: subTextColor }]}>🚗 {conversation.participant_vehicle}</Text>
               : null}
           </View>
           <View style={S.infoActions}>
@@ -2918,7 +2919,7 @@ export function ChatScreen({
 
   const bg        = isDark ? Colors.background   : '#F5F5F5';
   const textColor = isDark ? Colors.textWhite     : Colors.text;
-  const subColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const subTextColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
   const cardBg    = isDark ? Colors.primaryDarker : '#FFFFFF';
   const border    = isDark ? 'rgba(255,255,255,0.08)' : '#E8ECF0';
   const inputBg   = isDark ? '#1C2921' : '#F0F0F0';
@@ -3120,13 +3121,13 @@ export function ChatScreen({
             onCopy={() => handleCopy(item)}
             isDark={isDark}
             textColor={textColor}
-            subTextColor={subColor}
+            subTextColor={subTextColor}
           />
         )}
         ListEmptyComponent={
           <View style={S.emptyChat}>
-            <HugeiconsIcon icon={Message02Icon} size={44} color={subColor} />
-            <Text style={[S.emptyChatText, { color: subColor }]}>No messages yet. Say hello!</Text>
+            <HugeiconsIcon icon={Message02Icon} size={44} color={subTextColor} />
+            <Text style={[S.emptyChatText, { color: subTextColor }]}>No messages yet. Say hello!</Text>
           </View>
         }
       />
@@ -3135,7 +3136,7 @@ export function ChatScreen({
         <TextInput
           style={[S.textInput, { backgroundColor: inputBg, color: textColor }]}
           placeholder="Type a message…"
-          placeholderTextColor={subColor}
+          placeholderTextColor={subTextColor}
           value={text}
           onChangeText={handleTyping}
           multiline
@@ -3190,7 +3191,7 @@ function NewChatModal({
   const [driverError,   setDriverError]   = useState('');
 
   const textColor = isDark ? Colors.textWhite     : Colors.text;
-  const subColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const subTextColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
   const cardBg    = isDark ? Colors.primaryDarker : '#FFFFFF';
   const border    = isDark ? 'rgba(255,255,255,0.12)' : '#E8ECF0';
   const inputBg   = isDark ? Colors.background    : '#F4F6FA';
@@ -3284,7 +3285,7 @@ function NewChatModal({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onClose();
       router.push({
-        pathname: '/(main)/direct-chat/[conversationId]',
+        pathname: '/direct-chat/[conversationId]',
         params: {
           conversationId: conversation.id,
           driverName:     driverUser.full_name ?? 'Driver',
@@ -3318,19 +3319,19 @@ function NewChatModal({
               style={[S.tabBtn, tab === 'trip' && { backgroundColor: cardBg }]}
               onPress={() => { setTab('trip'); reset(); setQuery(''); }}
             >
-              <HugeiconsIcon icon={Car01Icon} size={14} color={tab === 'trip' ? Colors.primary : subColor} />
-              <Text style={[S.tabBtnText, { color: tab === 'trip' ? Colors.primary : subColor }]}>Trip Code</Text>
+              <HugeiconsIcon icon={Car01Icon} size={14} color={tab === 'trip' ? Colors.primary : subTextColor} />
+              <Text style={[S.tabBtnText, { color: tab === 'trip' ? Colors.primary : subTextColor }]}>Trip Code</Text>
             </Pressable>
             <Pressable
               style={[S.tabBtn, tab === 'driver' && { backgroundColor: cardBg }]}
               onPress={() => { setTab('driver'); reset(); setQuery(''); }}
             >
-              <HugeiconsIcon icon={IdentityCardIcon} size={14} color={tab === 'driver' ? Colors.primary : subColor} />
-              <Text style={[S.tabBtnText, { color: tab === 'driver' ? Colors.primary : subColor }]}>Driver ID</Text>
+              <HugeiconsIcon icon={IdentityCardIcon} size={14} color={tab === 'driver' ? Colors.primary : subTextColor} />
+              <Text style={[S.tabBtnText, { color: tab === 'driver' ? Colors.primary : subTextColor }]}>Driver ID</Text>
             </Pressable>
           </View>
 
-          <Text style={[S.newSub, { color: subColor }]}>
+          <Text style={[S.newSub, { color: subTextColor }]}>
             {tab === 'trip'
               ? user?.role === 'driver' ? 'Enter a passengers user ID to start chatting' : 'Enter the drivers ID (e.g. DRV-A3X9KL) or their user ID'
               : 'Enter the drivers badge ID (e.g. DRV-A1B2C3) to start a private chat'}
@@ -3338,11 +3339,11 @@ function NewChatModal({
 
           {/* ── Input ── */}
           <View style={[S.newInputRow, { backgroundColor: inputBg, borderColor: border }]}>
-            <HugeiconsIcon icon={Search01Icon} size={18} color={subColor} />
+            <HugeiconsIcon icon={Search01Icon} size={18} color={subTextColor} />
             <TextInput
               style={[S.newInput, { color: textColor }]}
               placeholder={tab === 'trip' ? 'DRV-A3X9KL or user ID' : 'DRV-A1B2C3'}
-              placeholderTextColor={subColor}
+              placeholderTextColor={subTextColor}
               value={query}
               onChangeText={(v) => { setQuery(tab === 'driver' ? v.toUpperCase() : v); reset(); }}
               autoFocus
@@ -3353,7 +3354,7 @@ function NewChatModal({
             />
             {query.length > 0 && (
               <Pressable hitSlop={8} onPress={() => { setQuery(''); reset(); }}>
-                <Text style={{ color: subColor, fontSize: 18 }}>×</Text>
+                <Text style={{ color: subTextColor, fontSize: 18 }}>×</Text>
               </Pressable>
             )}
           </View>
@@ -3375,7 +3376,7 @@ function NewChatModal({
             >
               {driverLoading
                 ? <ActivityIndicator size="small" color="#fff" />
-                : <Text style={[S.newSearchBtnText, { color: query.trim() ? '#fff' : subColor }]}>Find & Open Chat</Text>
+                : <Text style={[S.newSearchBtnText, { color: query.trim() ? '#fff' : subTextColor }]}>Find & Open Chat</Text>
               }
             </Pressable>
           ) : (
@@ -3390,7 +3391,7 @@ function NewChatModal({
               >
                 {status === 'searching'
                   ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={[S.newSearchBtnText, { color: query.trim() ? '#fff' : subColor }]}>Search Driver</Text>
+                  : <Text style={[S.newSearchBtnText, { color: query.trim() ? '#fff' : subTextColor }]}>Search Driver</Text>
                 }
               </Pressable>
 
@@ -3407,13 +3408,13 @@ function NewChatModal({
                         <Text style={[S.resultName, { color: textColor }]}>{result.full_name || 'Driver'}</Text>
                         <Text style={[S.resultDriverId, { color: Colors.primary }]}>{result.driver_id}</Text>
                         {result.vehicle_details
-                          ? <Text style={[S.resultSub, { color: subColor }]}>🚗 {result.vehicle_details}</Text>
+                          ? <Text style={[S.resultSub, { color: subTextColor }]}>🚗 {result.vehicle_details}</Text>
                           : null}
                       </>
                     ) : (
                       <>
                         <Text style={[S.resultName, { color: Colors.gold }]}>Invalid driver_id</Text>
-                        <Text style={[S.resultSub, { color: subColor }]}>
+                        <Text style={[S.resultSub, { color: subTextColor }]}>
                           {`"${query.trim()}" is not a registered driver. You can still open a chat but messages won't be delivered.`}
                         </Text>
                       </>
@@ -3438,14 +3439,14 @@ function NewChatModal({
 // ─── Conversation List Item ───────────────────────────────────────────────────
 
 function ConvItem({
-  item, onPress, onDelete, isDark, textColor, subColor, cardBg, border,
+  item, onPress, onDelete, isDark, textColor, subTextColor, cardBg, border,
 }: {
   item:      Conversation;
   onPress:   () => void;
   onDelete:  () => void;
   isDark:    boolean;
   textColor: string;
-  subColor:  string;
+  subTextColor:  string;
   cardBg:    string;
   border:    string;
 }) {
@@ -3487,10 +3488,10 @@ function ConvItem({
             <Text style={[S.convName, { color: textColor }]} numberOfLines={1}>
               {item.participant_name}
             </Text>
-            <Text style={[S.convTime, { color: subColor }]}>{timeStr}</Text>
+            <Text style={[S.convTime, { color: subTextColor }]}>{timeStr}</Text>
           </View>
           <View style={S.convBottomRow}>
-            <Text style={[S.convLast, { color: subColor }]} numberOfLines={1}>
+            <Text style={[S.convLast, { color: subTextColor }]} numberOfLines={1}>
               {item.last_message || (isDirectChat ? 'Direct message' : 'Tap to start chatting')}
             </Text>
             {(item.unread_count ?? 0) > 0 && (
@@ -3524,7 +3525,7 @@ export default function MessagesTab() {
   const isDark    = theme === 'dark';
   const bg        = isDark ? Colors.background : Colors.border;
   const textColor = isDark ? Colors.textWhite     : Colors.text;
-  const subColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const subTextColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
   const cardBg    = isDark ? Colors.primaryDarker : '#FFFFFF';
   const border    = isDark ? 'rgba(255,255,255,0.08)' : '#E8ECF0';
   const topPad    = Platform.OS === 'web' ? 67 : insets.top;
@@ -3630,7 +3631,7 @@ export default function MessagesTab() {
               item={item}
               isDark={isDark}
               textColor={textColor}
-              subColor={subColor}
+              subTextColor={subTextColor}
               cardBg={cardBg}
               border={border}
               onPress={() => {
@@ -3652,12 +3653,34 @@ export default function MessagesTab() {
               onDelete={() => confirmDelete(item.id)}
             />
           )}
+          // ListEmptyComponent={
+          //   <View style={[S.empty]}>
+          //     {/* <HugeiconsIcon icon={ChartBubbleIcon} size={52} color={subTextColor} /> */}
+          //     <Text style={[S.emptyTitle, { color: textColor }]}>Opps!...No message yet.</Text>
+          //     <Text style={[S.emptySub, { color: subTextColor }]}>
+          //       {user?.role === 'driver'
+          //         ? (<>
+          //             <Text>
+          //               Tap <Text style={[{ color: Colors.primary }]}> + </Text> to start a conversation.
+          //             </Text>
+          //           </>)
+          //         :
+          //           <>
+          //             <Text>
+          //               Tap <Text style={[{ color: Colors.primary }]}> + </Text> to start a conversation.
+          //             </Text>
+          //           </>
+          //       }
+          //     </Text>
+          //   </View>
+          // }
           ListEmptyComponent={
-            <View style={[S.empty]}>
-              {/* <HugeiconsIcon icon={ChartBubbleIcon} size={52} color={subColor} /> */}
-              <Text style={[S.emptyTitle, { color: textColor }]}>Opps!...No message yet.</Text>
-              <Text style={[S.emptySub, { color: subColor }]}>
-                {user?.role === 'driver'
+            <View style={S.emptyState}>
+              <View style={S.emptyIconBg}>
+                <HugeiconsIcon icon={Chat} size={60}  color={Colors.primary}/>
+              </View>
+              <Text style={[S.emptyTitle,{color: Colors.primary}]}>No messages yet!</Text>
+              <Text style={[S.emptySubtitle, { color: subTextColor }]}>Recent {user?.role === 'driver'
                   ? (<>
                       <Text>
                         Tap <Text style={[{ color: Colors.primary }]}> + </Text> to start a conversation.
@@ -3714,11 +3737,44 @@ const S = StyleSheet.create({
   badgeText: { fontFamily: 'Poppins_700Bold', fontSize: 10, color: '#fff' },
   deleteSwipe: { width: 70, alignItems: 'center', justifyContent: 'center' },
 
-  empty:        { alignItems: 'center', paddingHorizontal: 40, gap: 12, margin: 'auto' },
-  emptyTitle:   { fontFamily: 'Poppins_500Medium', fontSize: 18, textAlign: 'center' },
-  emptySub:     { fontFamily: 'Poppins_400Regular', fontSize: 14, textAlign: 'center', lineHeight: 22 },
-  emptyBtn:     { borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12, marginTop: 8 },
-  emptyBtnText: { fontFamily: 'Poppins_600SemiBold', fontSize: 14, color: '#fff' },
+  // empty:        { alignItems: 'center', paddingHorizontal: 40, gap: 12, margin: 'auto' },
+  // emptyTitle:   { fontFamily: 'Poppins_500Medium', fontSize: 18, textAlign: 'center' },
+  // emptySub:     { fontFamily: 'Poppins_400Regular', fontSize: 14, textAlign: 'center', lineHeight: 22 },
+  // emptyBtn:     { borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12, marginTop: 8 },
+  // emptyBtnText: { fontFamily: 'Poppins_600SemiBold', fontSize: 14, color: '#fff' },
+
+
+
+  // Empty state
+  emptyState: {
+    alignItems: "center",
+    alignSelf: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+    flex: 1,
+  },
+  emptyIconBg: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyTitle: {
+    fontFamily: "Poppins_500Medium",
+    fontSize: 16,
+    color: Colors.text,
+    textAlign: "center",
+  },
+  emptySubtitle: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    // lineHeight: 10,
+    paddingVertical: 15
+  },
+
 
   // New Chat Modal
   newSheet:      { position: 'absolute', bottom: 0, left: 0, right: 0, borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 24, paddingBottom: 344, gap: 14 },
