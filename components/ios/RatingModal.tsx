@@ -1,8 +1,15 @@
 // components/ios/RatingModal.tsx
 //
-// "Rate Us", in the style X/Twitter uses: a single large prompt, animated stars,
-// and a branch on the score.
+// "Rate Us" — presented as a centred ALERT, not a bottom sheet, which is how
+// X/Twitter prompts for a rating. An alert is the right call here: it's a short,
+// interrupting, yes/no-shaped decision, and the HIG reserves sheets for tasks
+// the user can partially complete or drag away from.
 //
+// Geometry matches UIAlertController exactly — 270pt wide, 14pt radius, blur
+// material, hairline-divided 44pt buttons — with a custom content area holding
+// the stars, which is the one thing a system alert can't express.
+//
+// Score branches:
 //   4–5★ → hand off to the native App Store / Play review flow (expo-store-review).
 //   1–3★ → switch to a private feedback form instead of sending an unhappy user
 //          to a public review page.
@@ -15,21 +22,31 @@
 // is checked and there's an App Store URL fallback.
 
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, Pressable, StyleSheet, Platform, Linking } from "react-native";
+import {
+  Modal,
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  Platform,
+  Linking,
+  ActivityIndicator,
+  useWindowDimensions,
+} from "react-native";
+import { BlurView } from "expo-blur";
 import { SymbolView } from "expo-symbols";
 import * as StoreReview from "expo-store-review";
-import * as Haptics from "expo-haptics";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withTiming,
   withDelay,
 } from "react-native-reanimated";
 
-import { IOSSheet } from "./IOSSheet";
-import { IOSButton } from "./IOSButton";
+import { haptics } from "@/src/utils/haptics";
 import { FeedbackModal } from "./FeedbackModal";
-import { useIOSTheme, IOSFont } from "./theme";
+import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
 
 /** Score at or above which we send the user to the public store listing. */
 const HAPPY_THRESHOLD = 4;
@@ -50,6 +67,8 @@ function storeUrl(): string | null {
 
 const LABELS = ["", "Not good", "Could be better", "It's okay", "Really good", "Love it!"];
 
+// ─── Star ────────────────────────────────────────────────────────────────────
+
 function Star({
   index,
   filled,
@@ -60,11 +79,11 @@ function Star({
   onPress: () => void;
 }) {
   const theme = useIOSTheme();
-  const scale = useSharedValue(0.6);
+  const scale = useSharedValue(0.5);
 
-  // Stagger the stars in as the sheet appears.
+  // Stagger the stars in as the alert appears.
   useEffect(() => {
-    scale.value = withDelay(index * 55, withSpring(1, { damping: 11, stiffness: 220 }));
+    scale.value = withDelay(60 + index * 50, withSpring(1, { damping: 11, stiffness: 240 }));
   }, [index, scale]);
 
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -72,22 +91,22 @@ function Star({
   return (
     <Pressable
       onPress={() => {
-        scale.value = withSpring(1.25, { damping: 8, stiffness: 400 }, () => {
+        scale.value = withSpring(1.3, { damping: 8, stiffness: 420 }, () => {
           scale.value = withSpring(1, { damping: 12, stiffness: 300 });
         });
         onPress();
       }}
-      hitSlop={6}
+      hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel={`${index + 1} star${index ? "s" : ""}`}
     >
       <Animated.View style={style}>
         <SymbolView
           name={filled ? "star.fill" : "star"}
-          size={40}
+          size={32}
           tintColor={filled ? "#FFB800" : theme.systemGray3}
           fallback={
-            <Text style={{ fontSize: 36, color: filled ? "#FFB800" : theme.systemGray3 }}>
+            <Text style={{ fontSize: 29, color: filled ? "#FFB800" : theme.systemGray3 }}>
               {filled ? "★" : "☆"}
             </Text>
           }
@@ -96,6 +115,8 @@ function Star({
     </Pressable>
   );
 }
+
+// ─── Modal ───────────────────────────────────────────────────────────────────
 
 export interface RatingModalProps {
   visible: boolean;
@@ -114,10 +135,21 @@ export function RatingModal({
   onRated,
 }: RatingModalProps) {
   const theme = useIOSTheme();
+  const { width } = useWindowDimensions();
 
   const [rating, setRating] = useState(0);
   const [busy, setBusy] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+
+  // Alert presentation: scale-and-fade, matching UIAlertController.
+  const progress = useSharedValue(0);
+  const open = visible && !showFeedback;
+
+  useEffect(() => {
+    progress.value = open
+      ? withSpring(1, { damping: 26, stiffness: 340 })
+      : withTiming(0, { duration: 150 });
+  }, [open, progress]);
 
   useEffect(() => {
     if (visible) {
@@ -127,8 +159,15 @@ export function RatingModal({
     }
   }, [visible]);
 
+  const cardStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [{ scale: 1.16 - progress.value * 0.16 }],
+  }));
+
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
+
   const pick = useCallback((value: number) => {
-    Haptics.selectionAsync();
+    haptics.select();
     setRating(value);
   }, []);
 
@@ -138,13 +177,13 @@ export function RatingModal({
 
     if (rating < HAPPY_THRESHOLD) {
       // Unhappy: keep it private, collect detail instead of a public review.
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      haptics.press();
       setShowFeedback(true);
       return;
     }
 
     setBusy(true);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    haptics.success();
 
     try {
       // Preferred: the OS-native review sheet, which never leaves the app.
@@ -167,53 +206,122 @@ export function RatingModal({
     onClose();
   }, [rating, onRated, onClose]);
 
+  const primaryLabel = rating >= HAPPY_THRESHOLD ? "Rate on the App Store" : "Send feedback";
+
   return (
     <>
-      <IOSSheet
-        visible={visible && !showFeedback}
-        onClose={onClose}
-        detent={0.52}
-        showGrabber
+      <Modal
+        visible={open}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={onClose}
       >
-        <View style={styles.wrap}>
-          <View style={[styles.iconCircle, { backgroundColor: theme.tint + "1A" }]}>
-            <SymbolView name="star.bubble.fill" size={34} tintColor={theme.tint} fallback={null} />
-          </View>
+        <View style={styles.root}>
+          {/* Dimmed, lightly blurred backdrop — tapping it dismisses. */}
+          <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]}>
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss"
+            >
+              <BlurView
+                intensity={12}
+                tint={theme.scheme === "dark" ? "dark" : "light"}
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.scrim }]} />
+            </Pressable>
+          </Animated.View>
 
-          <Text style={[IOSFont.title2, { color: theme.label, textAlign: "center" }]}>{title}</Text>
-          <Text
-            style={[IOSFont.subheadline, { color: theme.secondaryLabel, textAlign: "center" }]}
+          {/* Alert card */}
+          <Animated.View
+            style={[styles.card, { width: Math.min(width - 96, 270) }, cardStyle]}
+            accessibilityViewIsModal
           >
-            {subtitle}
-          </Text>
-
-          <View style={styles.stars}>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <Star key={n} index={n - 1} filled={n <= rating} onPress={() => pick(n)} />
-            ))}
-          </View>
-
-          {/* Reserve the row height so the sheet doesn't jump when a label appears. */}
-          <View style={styles.labelSlot}>
-            {rating > 0 && (
-              <Text style={[IOSFont.headline, { color: theme.tint }]}>{LABELS[rating]}</Text>
-            )}
-          </View>
-
-          <View style={styles.actions}>
-            <IOSButton
-              title={rating >= HAPPY_THRESHOLD ? "Rate on the App Store" : "Continue"}
-              variant="filled"
-              size="large"
-              fullWidth
-              disabled={!rating}
-              loading={busy}
-              onPress={submit}
+            <BlurView intensity={70} tint={theme.blurTint} style={StyleSheet.absoluteFill} />
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  backgroundColor:
+                    theme.scheme === "dark" ? "rgba(44,44,46,0.78)" : "rgba(250,250,250,0.78)",
+                },
+              ]}
             />
-            <IOSButton title="Not now" variant="borderless" fullWidth onPress={onClose} />
-          </View>
+
+            {/* Content */}
+            <View style={styles.content}>
+              <Text style={[IOSFont.headline, styles.centered, { color: theme.label }]}>
+                {title}
+              </Text>
+              <Text
+                style={[IOSFont.footnote, styles.centered, { color: theme.label, marginTop: 3 }]}
+              >
+                {subtitle}
+              </Text>
+
+              <View style={styles.stars}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Star key={n} index={n - 1} filled={n <= rating} onPress={() => pick(n)} />
+                ))}
+              </View>
+
+              {/* Reserved height so the card doesn't resize when a label appears. */}
+              <View style={styles.labelSlot}>
+                {rating > 0 && (
+                  <Text style={[IOSFont.footnote, { color: theme.secondaryLabel }]}>
+                    {LABELS[rating]}
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            {/* Buttons — hairline-divided, 44pt, exactly like a system alert. */}
+            <View style={[styles.divider, { backgroundColor: theme.separator }]} />
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.button,
+                pressed && { backgroundColor: theme.systemFill },
+              ]}
+              onPress={submit}
+              disabled={!rating || busy}
+              accessibilityRole="button"
+            >
+              {busy ? (
+                <ActivityIndicator color={theme.systemBlue} />
+              ) : (
+                <Text
+                  style={[
+                    IOSFont.body,
+                    {
+                      color: rating ? theme.systemBlue : theme.tertiaryLabel,
+                      fontWeight: "600",
+                    },
+                  ]}
+                >
+                  {primaryLabel}
+                </Text>
+              )}
+            </Pressable>
+
+            <View style={[styles.divider, { backgroundColor: theme.separator }]} />
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.button,
+                pressed && { backgroundColor: theme.systemFill },
+              ]}
+              onPress={onClose}
+              accessibilityRole="button"
+            >
+              <Text style={[IOSFont.body, { color: theme.systemBlue }]}>Not now</Text>
+            </Pressable>
+          </Animated.View>
         </View>
-      </IOSSheet>
+      </Modal>
 
       {/* Low ratings land here instead of the public store page. */}
       <FeedbackModal
@@ -233,18 +341,21 @@ export function RatingModal({
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, alignItems: "center", gap: 8, paddingTop: 6 },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  root: { flex: 1, alignItems: "center", justifyContent: "center" },
+  card: {
+    borderRadius: IOSMetrics.alertRadius,
+    overflow: "hidden",
+  },
+  content: { paddingHorizontal: 16, paddingTop: 19, paddingBottom: 14, alignItems: "center" },
+  centered: { textAlign: "center" },
+  stars: { flexDirection: "row", gap: 6, marginTop: 16 },
+  labelSlot: { height: 22, justifyContent: "center", marginTop: 6 },
+  divider: { height: IOSMetrics.hairline, width: "100%" },
+  button: {
+    height: IOSMetrics.minTouchTarget,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
   },
-  stars: { flexDirection: "row", gap: 12, marginTop: 16 },
-  labelSlot: { height: 26, justifyContent: "center" },
-  actions: { width: "100%", marginTop: "auto", gap: 4 },
 });
 
 export default RatingModal;

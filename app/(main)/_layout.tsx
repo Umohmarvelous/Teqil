@@ -393,12 +393,12 @@ export default function MainLayout() {
         keyboardShouldPersistTaps="handled"
       >
         <View
-          style={{
+          style={[{
             width: SCREEN_WIDTH,
             flex: 1,
             paddingTop: HEADER_HEIGHT,
-            paddingBottom: BOTTOM_HEIGHT,
-          }}
+            paddingBottom: BOTTOM_HEIGHT
+          }, {backgroundColor: bg}]}
         >
           <MainTab />
         </View>
@@ -437,6 +437,7 @@ export default function MainLayout() {
         style={[
           styles.mainSlider,
           { transform: [{ translateX: mainTranslateX }] },
+          // { backgroundColor: bg }, {borderWidth: 1, borderColor: 'red'}
         ]}
         {...panResponder.panHandlers}
       >
@@ -472,23 +473,23 @@ export default function MainLayout() {
           {/* Absolute Top Bar */}
           {activeTab === "home" && (
             <Animated.View
-              style={{
+              style={[{
                 position: "absolute",
                 top: 0,
                 left: 0,
                 right: 0,
                 zIndex: 100,
                 backgroundColor: tabBarBg,
+                // backgroundColor: bg,
                 borderTopLeftRadius: 45,
                 transform: [{ translateY: actualHeaderTranslateY }],
-              }}
+              }, {}]}
             >
               <View
                 style={[
                   styles.header,
                   {
                     paddingTop: topPadding + 5,
-                    backgroundColor: tabBarBg,
                   },
                 ]}
               >
@@ -535,7 +536,6 @@ export default function MainLayout() {
                 style={[
                   styles.topTabBar,
                   {
-                    backgroundColor: tabBarBg,
                     borderBottomColor: borderColor,
                   },
                 ]}
@@ -710,7 +710,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderRadius: 50,
+    // borderRadius: 50,
   },
   menuList: {
     borderRadius: 30,

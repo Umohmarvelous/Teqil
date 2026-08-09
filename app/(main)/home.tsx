@@ -177,7 +177,7 @@ export default function HomeTab() {
 
       {/* Header */}
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 12,}]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 12 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -390,8 +390,10 @@ export default function HomeTab() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1,},
-  searchWrap: { zIndex: 100, flexDirection:'row', 
+  root: { flex: 1 },
+  searchWrap: { 
+    zIndex: 100,
+    flexDirection: 'row', 
   },
   scrollContent: { 
     paddingHorizontal: 8,

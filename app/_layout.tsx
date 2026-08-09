@@ -265,7 +265,7 @@ export default function RootLayout() {
           {/* </SessionTimeout> */}
 
           {/* Hidden until splash finishes */}
-          {splashDone && <NetworkBanner onRetry={handleNetworkRetry} />}
+          {/* {splashDone && <NetworkBanner onRetry={handleNetworkRetry} />} */}
 
           {/* App-wide host for native-style dialogs — see components/ios/AlertHost. */}
           <AlertHost />

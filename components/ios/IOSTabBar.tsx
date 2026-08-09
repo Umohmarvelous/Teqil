@@ -321,23 +321,24 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.16,
     shadowRadius: 20,
-    elevation: 12,
+    elevation: 12,  
   },
   rim: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: TAB_BAR_HEIGHT / 2,
+    // paddingVertical: 20
   },
   row: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    marginHorizontal: ROW_PADDING,
+    marginHorizontal: ROW_PADDING, 
   },
   item: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    height: "100%",
+    height: "130%",
     // Apple's minimum tappable target.
     minHeight: 44,
   },
@@ -347,7 +348,7 @@ const styles = StyleSheet.create({
     bottom: 5,
     left: 0,
     // A capsule, matching the bar's own geometry.
-    borderRadius: 999,
+    borderRadius: 999, 
   },
   itemInner: { alignItems: "center", justifyContent: "center", gap: 3 },
   label: { ...IOSFont.caption2, fontSize: 11, lineHeight: 13 },
