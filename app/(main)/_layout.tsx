@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -105,6 +105,22 @@ export default function MainLayout() {
   // --- Scroll Animation Setup for "For You" Feed ---
   const feedScrollY = useRef(new Animated.Value(0)).current;
 
+  // iOS 26 `.tabBarMinimizeBehavior(.onScrollDown)`: the tab bar shrinks on the
+  // way down to hand the screen back to content, and returns on the way up.
+  const [tabBarMinimized, setTabBarMinimized] = useState(false);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const id = feedScrollY.addListener(({ value }) => {
+      const dy = value - lastScrollY.current;
+      // Ignore jitter and rubber-banding at the very top.
+      if (Math.abs(dy) < 8) return;
+      lastScrollY.current = value;
+      setTabBarMinimized(dy > 0 && value > 48);
+    });
+    return () => feedScrollY.removeListener(id);
+  }, [feedScrollY]);
+
   // Prevent iOS bounce from causing erratic clamping
   const clampedScrollY = feedScrollY.interpolate({
     inputRange: [0, 1],
@@ -120,12 +136,6 @@ export default function MainLayout() {
     extrapolate: "clamp",
   });
 
-  const rawBottomTranslateY = scrollClamp.interpolate({
-    inputRange: [0, 150],
-    outputRange: [0, 150],
-    extrapolate: "clamp",
-  });
-
   // Conditionally multiply the clamping so it ONLY applies when scrollX is looking at Discover tab
   const hideMultiplier = scrollX.interpolate({
     inputRange: [0, SCREEN_WIDTH],
@@ -135,10 +145,6 @@ export default function MainLayout() {
 
   const actualHeaderTranslateY = Animated.multiply(
     rawHeaderTranslateY,
-    hideMultiplier,
-  );
-  const actualBottomTranslateY = Animated.multiply(
-    rawBottomTranslateY,
     hideMultiplier,
   );
   // -----------------------------
@@ -591,19 +597,17 @@ export default function MainLayout() {
 
           <View style={[styles.content]}>{renderMainContent()}</View>
 
-          {/* Absolute Bottom Bar — frosted translucent, content scrolls under it */}
-          <Animated.View
+          {/* Floating Liquid Glass tab bar. Content scrolls under it, and it
+              minimises rather than sliding away — the iOS 26 behaviour. */}
+          <View
             style={{
               position: "absolute",
               bottom: 0,
               left: 0,
               right: 0,
               zIndex: 100,
-              // Keeps the existing hide-on-scroll behaviour on the Discover feed.
-              transform: [
-                { translateY: activeTab === "home" ? actualBottomTranslateY : 0 },
-              ],
             }}
+            pointerEvents="box-none"
           >
             <IOSTabBar
               tabs={TABS.map((t) => {
@@ -626,8 +630,9 @@ export default function MainLayout() {
               })}
               active={activeTab}
               onChange={(key) => handleTabPress(key as Tab)}
+              minimized={activeTab === "home" && tabBarMinimized}
             />
-          </Animated.View>
+          </View>
 
         </View>
       </Animated.View>

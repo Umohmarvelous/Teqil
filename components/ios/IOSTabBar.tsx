@@ -1,38 +1,65 @@
 // components/ios/IOSTabBar.tsx
 //
-// The floating, fully-rounded tab bar — the shape WhatsApp uses on current iOS:
-// a translucent capsule inset from the screen edges, sitting above the home
-// indicator, with the selected tab marked by a filled rounded highlight behind
-// it rather than by a colour change.
+// The iOS 26 "Liquid Glass" tab bar, as shipped by WhatsApp and the system apps.
 //
-// Icons are supplied by the caller (Emilgo uses its Hugeicons set) or drawn with
-// a `render` callback, which is how the profile tab shows the user's avatar.
-// SF Symbols are deliberately NOT used here: the app's own icon set is part of
-// its identity, and a capsule bar reads as native on its shape and material.
+// What makes it read as current-iOS rather than a rounded rectangle:
 //
-// Purely presentational — takes tabs + active + onChange. That matters because
-// Emilgo's (main)/_layout.tsx is a hand-rolled tab shell, not an expo-router
-// <Tabs>, so a navigator-coupled component wouldn't drop in.
+//  1. It is a CAPSULE that FLOATS. It is inset from all three edges and sits
+//     over the content rather than being welded to the bottom of the screen.
+//  2. The material is genuinely translucent — content is visible and blurred
+//     through it. Liquid Glass belongs to the navigation layer only; it is never
+//     applied to content (lists, media), per Apple's HIG.
+//  3. A specular rim. Real glass catches light at its edge: a hairline highlight
+//     along the top, a darker one along the bottom. Without this the bar reads
+//     as flat translucent plastic.
+//  4. The selection indicator is a capsule that SLIDES between tabs with a
+//     spring. It does not cut or fade — the movement is the affordance.
+//  5. The selected glyph is TINTED as well as highlighted. iOS 26 uses colour
+//     *and* shape for the active tab, not one or the other.
+//  6. It minimises on scroll-down (`.tabBarMinimizeBehavior(.onScrollDown)`),
+//     shrinking to give content the screen back, and returns on scroll-up.
 //
-// Screens must pad their scroll content by useTabBarInset() so the last row
-// isn't trapped under the floating bar.
+// Icons are supplied by the caller (Emilgo passes its Hugeicons set) or drawn
+// with a `render` callback, which is how the profile tab shows the user's
+// avatar. Purely presentational: tabs + active + onChange, because Emilgo's
+// (main)/_layout.tsx is a hand-rolled shell, not an expo-router <Tabs>.
+//
+// Screens must pad scroll content by useTabBarInset() so the last row clears it.
 
 import React, { useCallback, useState } from "react";
-import { View, Text, Pressable, StyleSheet, Platform } from "react-native";
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  Platform,
+  type LayoutChangeEvent,
+} from "react-native";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
+import Animated, {
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 
 import { haptics } from "@/src/utils/haptics";
 import { useIOSTheme, IOSFont } from "./theme";
 
-/** Height of the capsule itself. */
+/** Height of the capsule at rest. */
 export const TAB_BAR_HEIGHT = 64;
+/** Height when minimised by scroll. */
+export const TAB_BAR_MIN_HEIGHT = 44;
 /** Gap between the capsule and the safe-area bottom. */
-export const TAB_BAR_BOTTOM_GAP = 8;
+export const TAB_BAR_BOTTOM_GAP = 10;
 /** Inset from the left/right screen edges. */
-const H_MARGIN = 12;
+const H_MARGIN = 16;
+/** Inner padding either side of the tab row. */
+const ROW_PADDING = 5;
+
+/** The spring iOS uses for the selection capsule — quick, barely any overshoot. */
+const SELECT_SPRING = { damping: 20, stiffness: 260, mass: 0.9 };
 
 export interface IOSTab {
   key: string;
@@ -56,39 +83,56 @@ export interface IOSTabBarProps {
   onChange: (key: string) => void;
   /** Hide labels for an icon-only bar. */
   hideLabels?: boolean;
+  /**
+   * Collapse to a compact capsule, giving content the screen back. Drive this
+   * from scroll direction to match `.tabBarMinimizeBehavior(.onScrollDown)`.
+   */
+  minimized?: boolean;
 }
 
-/** Bottom padding a screen needs so content clears the floating bar. */
+/** Bottom padding a screen needs so content clears the floating capsule. */
 export function useTabBarInset(): number {
   const insets = useSafeAreaInsets();
   return TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + insets.bottom;
 }
 
+// ─── One tab ─────────────────────────────────────────────────────────────────
+
 function TabItem({
   tab,
   active,
   hideLabel,
+  minimized,
   onPress,
 }: {
   tab: IOSTab;
   active: boolean;
   hideLabel?: boolean;
+  minimized?: boolean;
   onPress: () => void;
 }) {
   const theme = useIOSTheme();
   const [pressed, setPressed] = useState(false);
 
-  // The capsule marks selection by the highlight behind the item, so the glyph
-  // stays legible in both states rather than dimming to near-invisible.
-  const color = active ? theme.label : theme.secondaryLabel;
+  // iOS 26 marks the active tab with colour AND the capsule behind it.
+  const color = active ? theme.tint : theme.secondaryLabel;
 
-  // Driven from state rather than by writing a shared value in the press
-  // handlers: the same spring, but no mutation for the compiler to flag.
+  // Driven from state rather than by mutating a shared value in the press
+  // handlers, so the React Compiler has nothing to flag.
   const animStyle = useAnimatedStyle(
     () => ({
       transform: [{ scale: withSpring(pressed ? 0.9 : 1, { damping: 16, stiffness: 380 }) }],
     }),
     [pressed],
+  );
+
+  // Labels fade out as the bar minimises, leaving the glyphs.
+  const labelStyle = useAnimatedStyle(
+    () => ({
+      opacity: withTiming(minimized ? 0 : 1, { duration: 160 }),
+      height: withTiming(minimized ? 0 : 14, { duration: 180 }),
+    }),
+    [minimized],
   );
 
   const glyph = active ? (tab.iconActive ?? tab.icon) : tab.icon;
@@ -102,19 +146,13 @@ function TabItem({
       accessibilityRole="tab"
       accessibilityLabel={tab.label}
       accessibilityState={{ selected: active }}
+      // The HIG minimum, kept even while minimised.
+      hitSlop={6}
     >
-      {/* Selected highlight — the rounded fill behind the active tab. */}
-      {active && (
-        <View
-          pointerEvents="none"
-          style={[styles.highlight, { backgroundColor: theme.tertiarySystemFill }]}
-        />
-      )}
-
       <Animated.View style={[styles.itemInner, animStyle]}>
         <View>
           {tab.render
-            ? tab.render({ active, color, size: 26 })
+            ? tab.render({ active, color, size: 25 })
             : glyph
               ? <HugeiconsIcon icon={glyph as never} size={25} color={color} />
               : <View style={{ width: 25, height: 25 }} />}
@@ -129,23 +167,44 @@ function TabItem({
         </View>
 
         {!hideLabel && (
-          <Text
-            numberOfLines={1}
-            // Tab labels don't grow with Dynamic Type on iOS — they'd truncate.
-            maxFontSizeMultiplier={1.2}
-            style={[styles.label, { color, fontWeight: active ? "600" : "400" }]}
-          >
-            {tab.label}
-          </Text>
+          <Animated.View style={labelStyle}>
+            <Text
+              numberOfLines={1}
+              // Tab labels don't scale with Dynamic Type on iOS — they'd truncate.
+              maxFontSizeMultiplier={1.2}
+              style={[styles.label, { color, fontWeight: active ? "600" : "400" }]}
+            >
+              {tab.label}
+            </Text>
+          </Animated.View>
         )}
       </Animated.View>
     </Pressable>
   );
 }
 
-export function IOSTabBar({ tabs, active, onChange, hideLabels }: IOSTabBarProps) {
+// ─── Bar ─────────────────────────────────────────────────────────────────────
+
+export function IOSTabBar({
+  tabs,
+  active,
+  onChange,
+  hideLabels,
+  minimized = false,
+}: IOSTabBarProps) {
   const theme = useIOSTheme();
   const insets = useSafeAreaInsets();
+  const isDark = theme.scheme === "dark";
+
+  // Measured so the selection capsule can be positioned exactly, whatever the
+  // screen width or tab count.
+  const [rowWidth, setRowWidth] = useState(0);
+  const onRowLayout = useCallback((e: LayoutChangeEvent) => {
+    setRowWidth(e.nativeEvent.layout.width);
+  }, []);
+
+  const activeIndex = Math.max(0, tabs.findIndex((t) => t.key === active));
+  const tabWidth = tabs.length > 0 && rowWidth > 0 ? rowWidth / tabs.length : 0;
 
   const handlePress = useCallback(
     (key: string) => {
@@ -155,45 +214,96 @@ export function IOSTabBar({ tabs, active, onChange, hideLabels }: IOSTabBarProps
     [active, onChange],
   );
 
+  // The signature iOS 26 move: the capsule slides to the selected tab.
+  const highlightStyle = useAnimatedStyle(
+    () => ({
+      width: tabWidth,
+      transform: [{ translateX: withSpring(activeIndex * tabWidth, SELECT_SPRING) }],
+      opacity: tabWidth > 0 ? 1 : 0,
+    }),
+    [activeIndex, tabWidth],
+  );
+
+  // Collapse the whole capsule when minimised.
+  const capsuleStyle = useAnimatedStyle(() => {
+    const h = withSpring(minimized ? TAB_BAR_MIN_HEIGHT : TAB_BAR_HEIGHT, {
+      damping: 22,
+      stiffness: 220,
+    });
+    return { height: h, borderRadius: TAB_BAR_HEIGHT / 2 };
+  }, [minimized]);
+
   return (
     <View
-      style={[
-        styles.container,
-        { bottom: insets.bottom + TAB_BAR_BOTTOM_GAP },
-      ]}
-      // The capsule floats over content; only the capsule itself takes touches.
+      style={[styles.container, { bottom: insets.bottom + TAB_BAR_BOTTOM_GAP }]}
+      // Only the capsule takes touches; the rest of the row lets content through.
       pointerEvents="box-none"
     >
-      <View style={[styles.capsule, { shadowColor: theme.scheme === "dark" ? "#000" : "#1B2B22" }]}>
+      <Animated.View
+        style={[
+          styles.capsule,
+          capsuleStyle,
+          { shadowColor: isDark ? "#000" : "#0B1F16" },
+        ]}
+      >
         <BlurView
-          intensity={Platform.OS === "ios" ? 80 : 40}
+          intensity={Platform.OS === "ios" ? 70 : 32}
           tint={theme.blurTint}
           style={StyleSheet.absoluteFill}
         />
-        {/* Blur alone is too transparent for a floating bar (and much weaker on
-            Android), so back it with the system surface colour. */}
+
+        {/* Liquid Glass is genuinely see-through: this is a light veil to keep
+            glyphs legible, not an opaque fill. Android's blur is much weaker, so
+            it gets more backing. */}
         <View
           style={[
             StyleSheet.absoluteFill,
             {
-              backgroundColor:
-                theme.scheme === "dark" ? "rgba(28,28,30,0.82)" : "rgba(255,255,255,0.86)",
+              backgroundColor: isDark
+                ? Platform.OS === "ios" ? "rgba(30,30,32,0.55)" : "rgba(28,28,30,0.86)"
+                : Platform.OS === "ios" ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.90)",
             },
           ]}
         />
 
-        <View style={styles.row}>
+        {/* Specular rim — glass catches light along its top edge and shades along
+            the bottom. This is what stops it reading as flat plastic. */}
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            styles.rim,
+            {
+              borderColor: isDark ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.75)",
+              borderTopColor: isDark ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.95)",
+              borderBottomColor: isDark ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.06)",
+            },
+          ]}
+        />
+
+        <View style={styles.row} onLayout={onRowLayout}>
+          {/* Selection capsule, sliding under the tabs. */}
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.highlight,
+              highlightStyle,
+              { backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.06)" },
+            ]}
+          />
+
           {tabs.map((tab) => (
             <TabItem
               key={tab.key}
               tab={tab}
               active={tab.key === active}
               hideLabel={hideLabels}
+              minimized={minimized}
               onPress={() => handlePress(tab.key)}
             />
           ))}
         </View>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -206,37 +316,41 @@ const styles = StyleSheet.create({
   },
   capsule: {
     marginHorizontal: H_MARGIN,
-    height: TAB_BAR_HEIGHT,
-    borderRadius: TAB_BAR_HEIGHT / 2,
     overflow: "hidden",
-    // Lifts the capsule off the content behind it.
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.14,
-    shadowRadius: 16,
-    elevation: 10,
+    // Floats the glass off the content behind it.
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  rim: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: TAB_BAR_HEIGHT / 2,
   },
   row: {
+    flex: 1,
     flexDirection: "row",
-    height: "100%",
     alignItems: "center",
-    paddingHorizontal: 6,
+    marginHorizontal: ROW_PADDING,
   },
   item: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     height: "100%",
+    // Apple's minimum tappable target.
+    minHeight: 44,
   },
   highlight: {
     position: "absolute",
-    left: 4,
-    right: 4,
-    top: 6,
-    bottom: 6,
-    borderRadius: 22,
+    top: 5,
+    bottom: 5,
+    left: 0,
+    // A capsule, matching the bar's own geometry.
+    borderRadius: 999,
   },
   itemInner: { alignItems: "center", justifyContent: "center", gap: 3 },
-  label: { ...IOSFont.caption2, fontSize: 11 },
+  label: { ...IOSFont.caption2, fontSize: 11, lineHeight: 13 },
   badge: {
     position: "absolute",
     top: -4,
