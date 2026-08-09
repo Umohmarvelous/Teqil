@@ -1,567 +1,243 @@
-/**
- * app/(main)/settings.tsx
- *
- * Lean settings — every row maps to a REAL, working behavior:
- *  - Dark Mode              → useSettingsStore.theme (applied by ThemeSync)
- *  - Language               → useAuthStore.language (drives i18n)
- *  - Biometric App Lock     → useSettingsStore.biometricLock (gates <AppLock>)
- *  - Change Password        → Supabase password-reset email
- *  - Push Notifications     → useSettingsStore.pushNotifications (gates registration)
- *  - Share Location         → useSettingsStore.shareLocation (gates trip tracking)
- *  - Clear Cache            → wipes local synced record caches
- *  - Referral Code          → share sheet
- *  - Sign Out / Delete      → Supabase auth
- */
-import React from "react";
+// app/(main)/settings.tsx
+//
+// Settings root. Sections push to their own screens (WhatsApp-style) rather than
+// living on one long scroll — with 30+ settings, a single page stops being
+// scannable and search becomes the only realistic way to find anything.
+//
+// Which is why the search bar is here and not optional: it queries a flat index
+// (src/data/settingsIndex.ts) covering EVERY setting across every section, and
+// each result deep-links to the section that owns it. Modelled on Telegram's
+// search — inline results, a Cancel button, and section attribution on each row.
+
+import React, { useCallback, useMemo, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  Pressable,
   ScrollView,
+  Pressable,
   Platform,
-  Switch,
-  Alert,
-  Share,
+  Keyboard,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
-import { HugeiconsIcon } from "@hugeicons/react-native";
+import { SymbolView } from "expo-symbols";
+
 import {
-  Moon02Icon,
-  Globe02Icon,
-  Notification,
-  Fingerprint,
-  Location,
-  Trash2,
-  Gift,
-  LockPasswordIcon,
-  Logout01Icon,
-  DeleteThrowIcon,
-} from "@hugeicons/core-free-icons";
-
+  IOSSearchBar,
+  IOSListSection,
+  IOSListRow,
+  useTabBarInset,
+  useIOSTheme,
+  IOSFont,
+  IOSMetrics,
+  type IOSPalette,
+} from "@/components/ios";
+import {
+  SETTINGS_SECTIONS,
+  searchSettings,
+  type SettingsSearchResult,
+} from "@/src/data/settingsIndex";
 import { useAuthStore } from "@/src/store/useStore";
-import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { haptics } from "@/src/utils/haptics";
-import { Colors } from "@/constants/colors";
-import { supabase } from "@/src/services/supabase";
-import { queryClient } from "@/lib/query-client";
-import { iosAlert } from "@/components/ios";
 
-// ─── Section ──────────────────────────────────────────────────────────────────
+// ─── Search results ──────────────────────────────────────────────────────────
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  const isDark = useSettingsStore((s) => s.theme) === "dark";
-  const textColor = isDark ? Colors.textWhite : Colors.text;
-  return (
-    <View style={sectionStyles.wrap}>
-      <Text style={[sectionStyles.title, { color: textColor }]}>{title.toUpperCase()}</Text>
-      <View style={sectionStyles.inner}>{children}</View>
-    </View>
-  );
-}
-
-const sectionStyles = StyleSheet.create({
-  wrap: { marginBottom: 23 },
-  title: {
-    fontFamily: "Poppins_500Medium",
-    fontSize: 12,
-    letterSpacing: 1,
-    paddingHorizontal: 4,
-    marginVertical: 12,
-  },
-  inner: { borderRadius: 30, overflow: "hidden" },
-});
-
-// ─── Row ──────────────────────────────────────────────────────────────────────
-
-function SettingRow({
-  iconName,
-  iconColor,
-  label,
-  description,
-  rightElement,
+function ResultRow({
+  result,
+  ios,
   onPress,
-  danger,
-  isDark,
-  cardBg,
-  textColor,
-  subTextColor,
 }: {
-  iconName: any;
-  iconColor: string;
-  label: string;
-  description?: string;
-  rightElement?: React.ReactNode;
-  onPress?: () => void;
-  danger?: boolean;
-  isDark: boolean;
-  cardBg: string;
-  textColor: string;
-  subTextColor: string;
+  result: SettingsSearchResult;
+  ios: IOSPalette;
+  onPress: () => void;
 }) {
   return (
     <Pressable
-      style={({ pressed }) => [
-        rowStyles.row,
-        {
-          backgroundColor: cardBg,
-          borderBottomColor: isDark ? "#3E3E3E" : "#CDCDCD",
-          opacity: pressed && onPress ? 0.85 : 1,
-        },
-      ]}
       onPress={onPress}
-      disabled={!onPress}
+      style={({ pressed }) => [
+        styles.resultRow,
+        { backgroundColor: pressed ? ios.systemFill : "transparent" },
+      ]}
+      accessibilityRole="button"
     >
-      <View style={rowStyles.iconBox}>
-        <HugeiconsIcon icon={iconName as any} size={22} color={danger ? Colors.error : iconColor} />
+      <View style={[styles.resultIcon, { backgroundColor: ios.tertiarySystemFill }]}>
+        <SymbolView name={result.symbol as never} size={16} tintColor={ios.tint} fallback={null} />
       </View>
-      <View style={rowStyles.textBlock}>
-        <Text style={[rowStyles.label, { color: danger ? Colors.error : textColor }]}>{label}</Text>
-        {description ? (
-          <Text style={[rowStyles.description, { color: subTextColor }]}>{description}</Text>
-        ) : null}
+
+      <View style={{ flex: 1 }}>
+        <Text numberOfLines={1} style={[IOSFont.body, { color: ios.label }]}>
+          {result.label}
+        </Text>
+        <Text numberOfLines={1} style={[IOSFont.footnote, { color: ios.secondaryLabel }]}>
+          {result.detail ? `${result.section_title} · ${result.detail}` : result.section_title}
+        </Text>
       </View>
-      {rightElement ?? null}
+
+      <SymbolView name="chevron.right" size={13} tintColor={ios.tertiaryLabel} fallback={null} />
     </Pressable>
   );
 }
 
-const rowStyles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 15,
-  },
-  iconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  textBlock: { flex: 1 },
-  label: { fontFamily: "Poppins_500Medium", fontSize: 14 },
-  description: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12,
-    marginTop: 2,
-    lineHeight: 17,
-  },
-});
+// ─── Screen ──────────────────────────────────────────────────────────────────
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
-
-export default function SettingsTab() {
+export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const ios = useIOSTheme();
+  const tabInset = useTabBarInset();
   const { t } = useTranslation();
-  const { user, logout, language, setLanguage } = useAuthStore();
-  const {
-    theme,
-    setTheme,
-    pushNotifications,
-    setPushNotifications,
-    biometricLock,
-    setBiometricLock,
-    shareLocation,
-    setShareLocation,
-    referralCode,
-    autoStartTracking,
-    setAutoStartTracking,
-    dataSaver,
-    setDataSaver,
-    hapticFeedback,
-    setHapticFeedback,
-    distanceUnit,
-    setDistanceUnit,
-    confirmEndTrip,
-    setConfirmEndTrip,
-  } = useSettingsStore();
+  const user = useAuthStore((s) => s.user);
 
-  const isDark = theme === "dark";
-  const bg = isDark ? Colors.background : Colors.border;
-  const textColor = isDark ? Colors.textWhite : Colors.text;
-  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
-  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
 
-  const rowProps = { isDark, cardBg, textColor, subTextColor };
+  const results = useMemo(() => searchSettings(query), [query]);
+  const showResults = searching || query.length > 0;
 
-  const switchEl = (value: boolean, onValueChange: (v: boolean) => void) => (
-    <Switch
-      value={value}
-      onValueChange={onValueChange}
-      trackColor={{ false: "#E5E7EB", true: Colors.primary + "60" }}
-      thumbColor={value ? Colors.primary : "#fff"}
-    />
-  );
+  const topPadding = Platform.OS === "web" ? 20 : insets.top;
 
-  const toggleTheme = (v: boolean) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setTheme(v ? "dark" : "light");
-  };
+  const openSection = useCallback((route: string) => {
+    haptics.tap();
+    router.push(route as never);
+  }, []);
 
-  const toggleLanguage = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setLanguage(language === "en" ? "pid" : "en");
-  };
-
-  // Only enable the lock if the device can actually satisfy it.
-  const toggleBiometricLock = async (v: boolean) => {
-    if (v) {
-      try {
-        const LA = await import("expo-local-authentication");
-        const [hasHardware, enrolled] = await Promise.all([
-          LA.hasHardwareAsync(),
-          LA.isEnrolledAsync(),
-        ]);
-        if (!hasHardware || !enrolled) {
-          iosAlert(
-            "Not available",
-            "Set up Face ID / Touch ID or a device passcode first, then try again."
-          );
-          return;
-        }
-      } catch {
-        iosAlert("Not available", "Biometric authentication isn't available on this device.");
-        return;
-      }
-    }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setBiometricLock(v);
-  };
-
-  const handleChangePassword = () => {
-    if (!user?.email) {
-      iosAlert("No email on file", "This account has no email to send a reset link to.");
-      return;
-    }
-    iosAlert(
-      "Change Password",
-      `We'll email a password-reset link to ${user.email}.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Send link",
-          onPress: async () => {
-            const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-              redirectTo:
-                Platform.OS === "web" ? window.location.origin : "teqil://reset-password",
-            });
-            if (error) iosAlert("Couldn't send", error.message);
-            else iosAlert("Sent", "Check your email for the reset link.");
-          },
-        },
-      ]
-    );
-  };
-
-  const handleClearCache = () => {
-    iosAlert(
-      "Clear Cache",
-      "Clears cached trips and feed data on this device. Your login and credits are kept and will re-sync when online.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Clear",
-          style: "destructive",
-          onPress: async () => {
-            await AsyncStorage.multiRemove([
-              "teqil_trips",
-              "teqil_passengers",
-              "teqil_ratings",
-              "teqil_broadcasts",
-              "teqil_active_trip_code",
-            ]);
-            try {
-              queryClient.clear();
-            } catch {
-              /* no-op */
-            }
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            iosAlert("Done", "Local cache cleared.");
-          },
-        },
-      ]
-    );
-  };
-
-  const handleReferral = () => {
-    Share.share({
-      message: `Join me on Teqil — Nigeria's ride network. Use my code ${referralCode} to get started: https://teqil.app`,
-    });
-  };
-
-  const signOutFlow = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch {
-      /* ignore — clear local session regardless */
-    }
-    logout();
-    router.replace("/(auth)/login");
-  };
-
-  const handleSignOut = () => {
-    iosAlert("Sign Out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Sign Out", style: "destructive", onPress: signOutFlow },
-    ]);
-  };
-
-  const handleDeleteAccount = () => {
-    iosAlert(
-      "Delete Account",
-      "This permanently deletes your account and data. This cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: signOutFlow },
-      ]
-    );
-  };
+  const openResult = useCallback((result: SettingsSearchResult) => {
+    haptics.tap();
+    Keyboard.dismiss();
+    // Deep-link to the owning section and tell it which row to highlight.
+    router.push({ pathname: result.route, params: { highlight: result.id } } as never);
+  }, []);
 
   return (
-    <View style={[styles.root, { backgroundColor: bg }]}>
-      <StatusBar style={isDark ? "light" : "dark"} />
+    <View style={[styles.root, { backgroundColor: ios.systemGroupedBackground }]}>
+      <StatusBar style={ios.scheme === "dark" ? "light" : "dark"} />
 
-      <View
-        style={[
-          styles.header,
-          { backgroundColor: cardBg, paddingTop: topPadding + 12, borderBottomColor: borderColor },
-        ]}
-      >
-        <Text style={[styles.headerTitle, { color: textColor }]}>{t("nav.settings", "Settings")}</Text>
+      {/* Large title — hidden while searching, as iOS does. */}
+      {!showResults && (
+        <View style={styles.titleWrap}>
+          <Text style={[IOSFont.largeTitle, { color: ios.label }]}>
+            {t("nav.settings", "Settings")}
+          </Text>
+        </View>
+      )}
+
+      <View style={[styles.searchWrap, { paddingTop: showResults ? topPadding + 10 : 4 }]}>
+        <IOSSearchBar
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search settings"
+          onFocusChange={setSearching}
+          onCancel={() => {
+            setQuery("");
+            setSearching(false);
+          }}
+          active={showResults}
+        />
       </View>
 
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <Section title="Appearance">
-          <SettingRow
-            iconName={Moon02Icon}
-            iconColor={textColor}
-            label="Dark Mode"
-            description="Switch between light and dark themes"
-            rightElement={switchEl(isDark, toggleTheme)}
-            {...rowProps}
-          />
-          <SettingRow
-            iconName={Globe02Icon}
-            iconColor={textColor}
-            label="Language"
-            description={`Currently: ${language === "pid" ? "Nigerian Pidgin" : "English"}`}
-            onPress={toggleLanguage}
-            {...rowProps}
-          />
-        </Section>
+      {showResults ? (
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={{ paddingTop: 10, paddingBottom: tabInset + 40 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {query.length === 0 ? (
+            <Text style={[IOSFont.subheadline, styles.hint, { color: ios.secondaryLabel }]}>
+              Search any setting by name — you don&apos;t need to know which section it&apos;s in.
+            </Text>
+          ) : results.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <SymbolView name="magnifyingglass" size={44} tintColor={ios.tertiaryLabel} fallback={null} />
+              <Text style={[IOSFont.headline, { color: ios.label }]}>No results</Text>
+              <Text style={[IOSFont.subheadline, styles.center, { color: ios.secondaryLabel }]}>
+                Nothing matches “{query}”.
+              </Text>
+            </View>
+          ) : (
+            <View
+              style={[
+                styles.resultsCard,
+                { backgroundColor: ios.secondarySystemGroupedBackground },
+              ]}
+            >
+              {results.map((r, i) => (
+                <View key={r.id}>
+                  {i > 0 && (
+                    <View style={[styles.separator, { backgroundColor: ios.separator }]} />
+                  )}
+                  <ResultRow result={r} ios={ios} onPress={() => openResult(r)} />
+                </View>
+              ))}
+            </View>
+          )}
+        </ScrollView>
+      ) : (
+        <ScrollView
+          contentContainerStyle={{ paddingTop: 14, paddingBottom: tabInset + 40 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Account summary, as every system Settings app opens with. */}
+          <IOSListSection>
+            <IOSListRow
+              symbol="person.crop.circle.fill"
+              label={user?.full_name || user?.username || "Your profile"}
+              detail={user?.phone || user?.email || "Tap to edit your details"}
+              accessory={{ type: "disclosure" }}
+              onPress={() => openSection("/(main)/profile")}
+            />
+          </IOSListSection>
 
-        <Section title="Security">
-          <SettingRow
-            iconName={Fingerprint}
-            iconColor={textColor}
-            label="Biometric App Lock"
-            description="Require Face ID / Touch ID or passcode to open the app"
-            rightElement={switchEl(biometricLock, toggleBiometricLock)}
-            {...rowProps}
-          />
-          <SettingRow
-            iconName={LockPasswordIcon}
-            iconColor={textColor}
-            label="Change Password"
-            description="Email yourself a password-reset link"
-            onPress={handleChangePassword}
-            {...rowProps}
-          />
-        </Section>
-
-        <Section title="Notifications">
-          <SettingRow
-            iconName={Notification}
-            iconColor={textColor}
-            label="Push Notifications"
-            description="Trip updates and alerts on this device"
-            rightElement={switchEl(pushNotifications, (v) => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setPushNotifications(v);
-            })}
-            {...rowProps}
-          />
-        </Section>
-
-        <Section title="Privacy">
-          <SettingRow
-            iconName={Location}
-            iconColor={textColor}
-            label="Share Location During Trips"
-            description="Allow live location tracking while a trip is active. Free rides always track — turning this off won't stop them."
-            rightElement={switchEl(shareLocation, (v) => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setShareLocation(v);
-            })}
-            {...rowProps}
-          />
-          <SettingRow
-            iconName={Location}
-            iconColor={textColor}
-            label="Route History"
-            description="See the GPS routes of trips and free rides you've taken"
-            onPress={() => router.push("/route-history" as any)}
-            {...rowProps}
-          />
-        </Section>
-
-        <Section title="Tracking">
-          <SettingRow
-            iconName={Location}
-            iconColor={textColor}
-            label="Start Tracking Automatically"
-            description="Begin recording as soon as a tracked ride opens. Off means you tap to start — GPS is still required either way."
-            rightElement={switchEl(autoStartTracking, (v) => {
-              haptics.tap();
-              setAutoStartTracking(v);
-            })}
-            {...rowProps}
-          />
-          <SettingRow
-            iconName={Location}
-            iconColor={textColor}
-            label="Confirm Before Ending a Ride"
-            description="Ask before stopping tracking, so a stray tap can't cut a ride short"
-            rightElement={switchEl(confirmEndTrip, (v) => {
-              haptics.tap();
-              setConfirmEndTrip(v);
-            })}
-            {...rowProps}
-          />
-          <SettingRow
-            iconName={Location}
-            iconColor={textColor}
-            label="Data Saver"
-            description="Coarser GPS and slower live updates. Saves battery and data; the route is still recorded and still verifiable."
-            rightElement={switchEl(dataSaver, (v) => {
-              haptics.tap();
-              setDataSaver(v);
-            })}
-            {...rowProps}
-          />
-          <SettingRow
-            iconName={Location}
-            iconColor={textColor}
-            label="Distance Units"
-            description={distanceUnit === "km" ? "Kilometres" : "Miles"}
-            onPress={() => {
-              haptics.select();
-              setDistanceUnit(distanceUnit === "km" ? "mi" : "km");
-            }}
-            rightElement={
-              <View style={[styles.pill, { backgroundColor: Colors.primaryLight }]}>
-                <Text style={[styles.pillText, { color: Colors.primary }]}>
-                  {distanceUnit.toUpperCase()}
-                </Text>
-              </View>
-            }
-            {...rowProps}
-          />
-        </Section>
-
-        <Section title="Feedback">
-          <SettingRow
-            iconName={Notification}
-            iconColor={textColor}
-            label="Haptic Feedback"
-            description="Vibration on taps, confirmations and alerts"
-            rightElement={switchEl(hapticFeedback, (v) => {
-              // Buzz on the way ON so the change is felt, not just seen.
-              setHapticFeedback(v);
-              if (v) haptics.success();
-            })}
-            {...rowProps}
-          />
-        </Section>
-
-        <Section title="Data">
-          <SettingRow
-            iconName={Trash2}
-            iconColor={textColor}
-            label="Clear Cache"
-            description="Free up space; keeps your login and credits"
-            onPress={handleClearCache}
-            {...rowProps}
-          />
-        </Section>
-
-        <Section title="Referrals">
-          <SettingRow
-            iconName={Gift}
-            iconColor="#EC4899"
-            label="My Referral Code"
-            description={referralCode}
-            onPress={handleReferral}
-            rightElement={
-              <View style={[styles.pill, { backgroundColor: "#FCE7F3" }]}>
-                <Text style={[styles.pillText, { color: "#BE185D" }]}>{referralCode}</Text>
-              </View>
-            }
-            {...rowProps}
-          />
-        </Section>
-
-        <Section title="Account">
-          <SettingRow
-            iconName={Logout01Icon}
-            iconColor={textColor}
-            label="Sign Out"
-            description="Log out of this device"
-            onPress={handleSignOut}
-            {...rowProps}
-          />
-          <SettingRow
-            iconName={DeleteThrowIcon}
-            iconColor={Colors.error}
-            label="Delete Account"
-            description="Permanently remove your account"
-            onPress={handleDeleteAccount}
-            danger
-            {...rowProps}
-          />
-        </Section>
-
-        <Text style={[styles.version, { color: subTextColor }]}>
-          Teqil v1.0.0 · Made in Nigeria 🇳🇬
-        </Text>
-      </ScrollView>
+          <IOSListSection>
+            {SETTINGS_SECTIONS.map((s) => (
+              <IOSListRow
+                key={s.id}
+                symbol={s.symbol as never}
+                symbolColor={ios[s.tint]}
+                label={s.title}
+                detail={s.summary}
+                accessory={{ type: "disclosure" }}
+                onPress={() => openSection(s.route)}
+              />
+            ))}
+          </IOSListSection>
+        </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1 },
-  headerTitle: { fontFamily: "Poppins_700Bold", fontSize: 24 },
-  scrollContent: { padding: 16, gap: 6 },
-  pill: {
-    borderRadius: 20,
+  titleWrap: { paddingTop: 8, paddingHorizontal: IOSMetrics.groupedInset, paddingBottom: 6 },
+  searchWrap: { paddingBottom: 6 },
+
+  resultsCard: {
+    marginHorizontal: IOSMetrics.groupedInset,
+    borderRadius: IOSMetrics.groupedRadius,
+    overflow: "hidden",
+  },
+  resultRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     paddingHorizontal: 14,
-    paddingVertical: 4,
+    paddingVertical: 10,
+    minHeight: IOSMetrics.minTouchTarget,
+  },
+  resultIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 7,
     alignItems: "center",
     justifyContent: "center",
   },
-  pillText: { fontFamily: "Poppins_500Medium", fontSize: 13, letterSpacing: 2 },
-  version: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12,
-    textAlign: "center",
-    marginTop: 8,
-    paddingBottom: 8,
-  },
+  // Inset to align with the label, not the icon — the iOS convention.
+  separator: { height: IOSMetrics.hairline, marginLeft: 56 },
+
+  hint: { paddingHorizontal: IOSMetrics.groupedInset + 4, lineHeight: 20 },
+  emptyWrap: { alignItems: "center", paddingTop: 70, paddingHorizontal: 44, gap: 8 },
+  center: { textAlign: "center" },
 });

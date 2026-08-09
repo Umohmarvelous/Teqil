@@ -48,11 +48,11 @@ import { haptics } from "@/src/utils/haptics";
 import { useIOSTheme, IOSFont } from "./theme";
 
 /** Height of the capsule at rest. */
-export const TAB_BAR_HEIGHT = 64;
+export const TAB_BAR_HEIGHT = 74;
 /** Height when minimised by scroll. */
 export const TAB_BAR_MIN_HEIGHT = 44;
 /** Gap between the capsule and the safe-area bottom. */
-export const TAB_BAR_BOTTOM_GAP = 10;
+export const TAB_BAR_BOTTOM_GAP = 1;
 /** Inset from the left/right screen edges. */
 const H_MARGIN = 16;
 /** Inner padding either side of the tab row. */
@@ -326,7 +326,6 @@ const styles = StyleSheet.create({
   rim: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: TAB_BAR_HEIGHT / 2,
-    // paddingVertical: 20
   },
   row: {
     flex: 1,
@@ -338,7 +337,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    height: "130%",
+    height: "100%",
     // Apple's minimum tappable target.
     minHeight: 44,
   },
@@ -350,7 +349,7 @@ const styles = StyleSheet.create({
     // A capsule, matching the bar's own geometry.
     borderRadius: 999, 
   },
-  itemInner: { alignItems: "center", justifyContent: "center", gap: 3 },
+  itemInner: { alignItems: "center", justifyContent: "center", gap: 3, },
   label: { ...IOSFont.caption2, fontSize: 11, lineHeight: 13 },
   badge: {
     position: "absolute",

@@ -48,6 +48,8 @@ export interface IOSListRowProps {
   onPress?: () => void;
   destructive?: boolean;
   disabled?: boolean;
+  /** Briefly tinted after a settings-search deep link. See useHighlight. */
+  highlighted?: boolean;
   /** Injected by IOSListSection — don't set manually. */
   __isLast?: boolean;
 }
@@ -61,6 +63,7 @@ export function IOSListRow({
   onPress,
   destructive,
   disabled,
+  highlighted,
   __isLast,
 }: IOSListRowProps) {
   const theme = useIOSTheme();
@@ -125,13 +128,16 @@ export function IOSListRow({
           accessibilityState={{ disabled: !!disabled }}
           style={({ pressed }) => [
             styles.row,
+            highlighted && { backgroundColor: theme.tint + "26" },
             pressed && { backgroundColor: theme.systemFill },
           ]}
         >
           {body}
         </Pressable>
       ) : (
-        <View style={styles.row}>{body}</View>
+        <View style={[styles.row, highlighted && { backgroundColor: theme.tint + "26" }]}>
+          {body}
+        </View>
       )}
 
       {/* Separator inset to the label, iOS-style — not full bleed. */}

@@ -76,7 +76,7 @@ const CLOSE_THRESHOLD = 40;
 const FLICK_VELOCITY = 0.15;
 
 // ── Rounded "card" look of the home screen while the sidebar is open ─────────
-const HOME_BORDER_RADIUS = 40;
+const HOME_BORDER_RADIUS = 0;
 const HOME_BORDER_WIDTH = 1;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");

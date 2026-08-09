@@ -13,6 +13,7 @@ export { IOSAlert, type IOSAlertProps, type IOSAlertAction } from "./IOSAlert";
 export { useIOSAlert, type UseIOSAlert } from "./useIOSAlert";
 export { AlertHost, iosAlert, iosActionSheet, type IOSAlertButton } from "./AlertHost";
 export { IOSMenu, type IOSMenuProps, type IOSMenuItem } from "./IOSMenu";
+export { IOSSearchBar, type IOSSearchBarProps } from "./IOSSearchBar";
 export {
   IOSListSection,
   IOSListRow,
