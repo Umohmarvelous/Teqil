@@ -12,6 +12,7 @@ import {
   ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 
 import { useSettingsStore } from "@/src/store/useSettingsStore";
@@ -40,9 +41,9 @@ import BottomSheet from "@gorhom/bottom-sheet";
 import { CommentSheet } from "@/components/CommentSheet";
 import MainTab from "./index";
 import SidedBar from "@/components/Sidedbar";
-import FindDriverModal from "@/components/FindDriverModal";
 import OnboardingOverlay from "@/components/OnboardingOverlay";
 import { useOnboarding } from "@/src/hooks/useOnboarding";
+import { haptics } from "@/src/utils/haptics";
 
 type Tab = "home" | "profile" | "messages" | "settings";
 type TopTab = "home" | "discover";
@@ -83,6 +84,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function MainLayout() {
   const insets = useSafeAreaInsets();
+  // Measured so the search screen can grow its field out of this exact icon.
+  const searchIconRef = useRef<View>(null);
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const { conversations } = useMessagesStore();
   const user = useAuthStore((s) => s.user);
@@ -91,7 +94,6 @@ export default function MainLayout() {
 
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [activeTopTab, setActiveTopTab] = useState<TopTab>("home");
-  const [finderVisible, setFinderVisible] = useState(false);
 
   const sidebarOpen = useRef(false);
   const sidebarAnim = useRef(new Animated.Value(0)).current;
@@ -350,8 +352,24 @@ export default function MainLayout() {
     setActiveTab(tab);
   };
 
+  /**
+   * Measure the search icon on screen and hand its rect to the search screen,
+   * which grows the field out of exactly that spot. Without the measurement the
+   * expand would start from a guessed position and visibly jump.
+   */
   const toggleSearch = () => {
-    setFinderVisible(true);
+    haptics.tap();
+    const node = searchIconRef.current;
+    if (!node) {
+      router.push("/driver-search" as never);
+      return;
+    }
+    node.measureInWindow((x, y, w, h) => {
+      router.push({
+        pathname: "/driver-search",
+        params: { x: String(x), y: String(y), w: String(w), h: String(h) },
+      } as never);
+    });
   };
 
   const HEADER_HEIGHT = topPadding + 85;
@@ -513,7 +531,10 @@ export default function MainLayout() {
                   />
                 </Pressable>
                 <Pressable
+                  ref={searchIconRef}
                   onPress={toggleSearch}
+                  accessibilityRole="button"
+                  accessibilityLabel="Search for a driver"
                   style={[
                     styles.menuList,
                     {
@@ -643,11 +664,6 @@ export default function MainLayout() {
         isDark={isDark}
         onClose={() => setCommentSheetPost(null)}
         onAddComment={handleAddComment}
-      />
-
-      <FindDriverModal
-        visible={finderVisible}
-        onClose={() => setFinderVisible(false)}
       />
 
       {isLoaded && shouldShow && <OnboardingOverlay onComplete={complete} />}
