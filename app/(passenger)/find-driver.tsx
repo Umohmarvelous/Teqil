@@ -14,7 +14,6 @@ import {
   Pressable,
   Image,
   ActivityIndicator,
-  Alert,
   Keyboard,
 } from "react-native";
 import { router } from "expo-router";
@@ -28,6 +27,7 @@ import { useMessagesStore } from "@/src/store/useMessagesStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { Colors } from "@/constants/colors";
 import { getInitials } from "@/src/utils/helpers";
+import { iosAlert } from "@/components/ios";
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -346,7 +346,7 @@ export default function FindDriverScreen() {
           },
         });
       } catch (err: any) {
-        Alert.alert("Couldn't open chat", err?.message ?? "Please try again.");
+        iosAlert("Couldn't open chat", err?.message ?? "Please try again.");
       } finally {
         setMessaging(null);
       }

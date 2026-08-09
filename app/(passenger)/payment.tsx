@@ -21,7 +21,6 @@ import {
   StyleSheet,
   Pressable,
   TextInput,
-  Alert,
   ActivityIndicator,
   Image,
   ScrollView,
@@ -48,6 +47,7 @@ import {
 import { useTierStore } from "@/src/store/useTierStore";
 import { useTransactionsStore } from "@/src/store/useTransactionsStore";
 import { formatNaira } from "@/src/utils/helpers";
+import { iosAlert } from "@/components/ios";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -241,7 +241,7 @@ export default function PaymentScreen() {
 
     setProcessing(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert(
+    iosAlert(
       "Transfer sent 🎉",
       `${formatNaira(eff.driverReceives)} sent to ${driver?.full_name || "the driver"}`,
       [{ text: "Done", onPress: () => router.replace("/(main)") }]
@@ -254,7 +254,7 @@ export default function PaymentScreen() {
     // Strict model: refuse if the pool can't fund the matching half + bonus.
     if (split.blocked) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert(
+      iosAlert(
         "Ride can't be completed yet",
         `Your rewards pool needs ₦${split.shortfall.toLocaleString("en-NG")} more to cover this fare. Your pool fills up as you engage and watch ads.`
       );
@@ -284,7 +284,7 @@ export default function PaymentScreen() {
         },
         onError: () => {
           setProcessing(false);
-          Alert.alert("Payment error", "Could not start the payment. Please try again.");
+          iosAlert("Payment error", "Could not start the payment. Please try again.");
         },
       });
       return;
@@ -306,12 +306,12 @@ export default function PaymentScreen() {
       } else {
         setProcessing(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert("Transfer failed", "The payment could not be completed. Please try again.");
+        iosAlert("Transfer failed", "The payment could not be completed. Please try again.");
       }
     } catch (e) {
       console.warn("payment failed", e);
       setProcessing(false);
-      Alert.alert("Transfer failed", "Something went wrong. Please try again.");
+      iosAlert("Transfer failed", "Something went wrong. Please try again.");
     }
   };
 

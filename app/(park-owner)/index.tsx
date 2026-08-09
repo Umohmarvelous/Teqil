@@ -12,7 +12,6 @@ import {
   ScrollView,
   Pressable,
   Platform,
-  Alert,
   TextInput,
   RefreshControl,
   Animated,
@@ -28,6 +27,7 @@ import { syncAll } from "@/src/services/sync";
 import { generateId, formatNaira, coinsToNaira } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
+import { iosAlert } from "@/components/ios";
 
 const FB = {
   navy: "#00205B",
@@ -185,16 +185,16 @@ export default function ParkOwnerDashboard() {
         syncAll({ id: user.id, role: user.role, park_name: user.park_name }).catch(() => {});
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Sent!", "Message broadcast to all drivers.");
+      iosAlert("Sent!", "Message broadcast to all drivers.");
     } catch {
-      Alert.alert("Error", "Could not send. Try again.");
+      iosAlert("Error", "Could not send. Try again.");
     } finally {
       setIsSending(false);
     }
   };
 
   const handleLogout = () => {
-    Alert.alert("Sign Out", "Are you sure?", [
+    iosAlert("Sign Out", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Sign Out",
@@ -314,7 +314,7 @@ export default function ParkOwnerDashboard() {
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     if (item.route) router.push(item.route as any);
-                    else Alert.alert("Coming Soon", `${item.label} feature coming soon.`);
+                    else iosAlert("Coming Soon", `${item.label} feature coming soon.`);
                   }}
                   style={styles.quickTileInner}
                 >

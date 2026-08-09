@@ -12,7 +12,6 @@ import {
   Pressable,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Platform,
 } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
@@ -26,6 +25,7 @@ import { useSavedRoutes } from "@/src/hooks/useSavedRoutes";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { MAP_PROVIDER } from "@/src/utils/maps";
 import { Colors } from "@/constants/colors";
+import { iosAlert } from "@/components/ios";
 import {
   formatDistance,
   formatDuration,
@@ -131,7 +131,7 @@ export default function RouteHistoryDetailScreen() {
       setBookmarked(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else {
-      Alert.alert("Couldn't save", "This route wasn't bookmarked. Please try again.");
+      iosAlert("Couldn't save", "This route wasn't bookmarked. Please try again.");
     }
   }, [entry, path, saveRoute]);
 

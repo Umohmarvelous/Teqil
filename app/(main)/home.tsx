@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  Alert,
   RefreshControl,
 } from "react-native";
 import { router } from "expo-router";
@@ -31,6 +30,7 @@ import ActiveTripBanner from "@/components/ActiveTripBanner";
 import TripListener from "@/components/TripListener";
 import { useProgramStore } from "@/src/store/useProgramStore";
 import { parseDriverQR, toDriverPayload } from "@/src/utils/qr";
+import { iosAlert } from "@/components/ios";
 
 
 export default function HomeTab() {
@@ -78,7 +78,7 @@ export default function HomeTab() {
   const handleQRScan = useCallback((data: string) => {
     const parsed = parseDriverQR(data);
     if (!parsed) {
-      Alert.alert("Unknown QR Code", "This QR code isn't a valid Emilgo driver code.");
+      iosAlert("Unknown QR Code", "This QR code isn't a valid Emilgo driver code.");
       return;
     }
     setScannerVisible(false);
@@ -116,13 +116,13 @@ export default function HomeTab() {
         setScannerVisible(true)
         break;
       case "share":
-        Alert.alert("Share Trip", "Share your live trip link with family or friends from the live trip screen.");
+        iosAlert("Share Trip", "Share your live trip link with family or friends from the live trip screen.");
         break;
       case "history":
         router.push("/(passenger)/history");
         break;
       case "sos":
-        Alert.alert("Emergency SOS", "SOS is available during a live trip. Start or join a trip to activate it.");
+        iosAlert("Emergency SOS", "SOS is available during a live trip. Start or join a trip to activate it.");
         break;
 
       // Driver's Actions

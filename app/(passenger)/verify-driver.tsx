@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/src/services/supabase';
 import { useTripStore, useAuthStore } from '@/src/store/useStore';
 import { startLocationTracking } from '@/src/services/locationTracking';
+import { iosAlert } from "@/components/ios";
 
 // You can keep your brand's primary color, but we'll define dynamic colors for the UI
 const BrandColors = {
@@ -78,7 +79,7 @@ export default function VerifyDriverScreen() {
           
         if (error || !data) {
           if (!driver_payload) {
-            Alert.alert('Driver Not Found', 'We could not find a driver with this QR code.');
+            iosAlert('Driver Not Found', 'We could not find a driver with this QR code.');
             router.back();
           }
         } else {
@@ -87,7 +88,7 @@ export default function VerifyDriverScreen() {
       } catch (err) {
         console.warn(err);
         if (!driver_payload) {
-          Alert.alert('Error', 'An error occurred while verifying the driver.');
+          iosAlert('Error', 'An error occurred while verifying the driver.');
           router.back();
         }
       } finally {
@@ -151,7 +152,7 @@ export default function VerifyDriverScreen() {
       router.replace('/(passenger)/live-trip');
     } catch (e) {
       console.warn("Failed to start trip:", e);
-      Alert.alert("Error", "Could not start the trip.");
+      iosAlert("Error", "Could not start the trip.");
       setStarting(false);
     }
   };

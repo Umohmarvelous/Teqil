@@ -418,6 +418,7 @@ import * as Haptics from "expo-haptics";
 import * as Linking from "expo-linking";
 import * as ImagePicker from "expo-image-picker";
 import { Colors } from "@/constants/colors";
+import { iosAlert } from "@/components/ios";
 
 let CameraView: React.ComponentType<any> | null = null;
 let _useCameraPermissions: (() => [any, () => Promise<any>]) | null = null;
@@ -491,7 +492,7 @@ export default function QRScannerModal({
       if (!result.canceled && result.assets && result.assets.length > 0) {
         // Fallback or external logic to scan QR from static image
         // as CameraView doesn't natively expose an easy JS method for static images
-        Alert.alert("QR Picked", "This feature integrates with your static QR parser.");
+        iosAlert("QR Picked", "This feature integrates with your static QR parser.");
       }
     } catch (error) {
       console.log("Error picking image:", error);

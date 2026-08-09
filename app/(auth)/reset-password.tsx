@@ -20,7 +20,6 @@ import {
   StyleSheet,
   Pressable,
   TextInput,
-  Alert,
   Platform,
   ActivityIndicator,
 } from "react-native";
@@ -34,6 +33,7 @@ import { Colors } from "@/constants/colors";
 import { supabase } from "@/src/services/supabase";
 import { checkUsernameExists } from "@/src/services/auth";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
+import { iosAlert } from "@/components/ios";
 
 /** Extract key/value pairs from a deep-link URL's query string AND fragment. */
 function parseAuthParams(url: string): Record<string, string> {
@@ -125,11 +125,11 @@ export default function ResetPasswordScreen() {
 
   const onSubmit = useCallback(async () => {
     if (password.length < 8) {
-      Alert.alert("Weak password", "Password must be at least 8 characters.");
+      iosAlert("Weak password", "Password must be at least 8 characters.");
       return;
     }
     if (password !== confirm) {
-      Alert.alert("Passwords don't match", "Please re-enter the same password.");
+      iosAlert("Passwords don't match", "Please re-enter the same password.");
       return;
     }
     const uname = newUsername.trim().toLowerCase();
@@ -140,7 +140,7 @@ export default function ResetPasswordScreen() {
         const taken = await checkUsernameExists(uname);
         if (taken) {
           setLoading(false);
-          Alert.alert("Username taken", `"${uname}" is already in use.`);
+          iosAlert("Username taken", `"${uname}" is already in use.`);
           return;
         }
       }
@@ -161,7 +161,7 @@ export default function ResetPasswordScreen() {
 
       await supabase.auth.signOut();
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
+      iosAlert(
         "All set",
         uname
           ? "Your password and username were updated. Please sign in."
@@ -170,7 +170,7 @@ export default function ResetPasswordScreen() {
       router.replace("/(auth)/login");
     } catch (err) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Couldn't update", err instanceof Error ? err.message : "Please try again.");
+      iosAlert("Couldn't update", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setLoading(false);
     }

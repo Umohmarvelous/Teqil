@@ -14,7 +14,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Alert,
   ActivityIndicator,
   AppState,
   Platform,
@@ -45,6 +44,7 @@ import { freeRideToReceipt } from "@/src/utils/activity";
 import { Colors } from "@/constants/colors";
 import { MAP_PROVIDER } from "@/src/utils/maps";
 import { formatDistance, formatDuration, formatNaira } from "@/src/utils/helpers";
+import { iosAlert } from "@/components/ios";
 
 /** How often to re-check that device location services are still on. */
 const GPS_WATCHDOG_MS = 8000;
@@ -240,7 +240,7 @@ export default function FreeRideTrackScreen() {
       return;
     }
 
-    Alert.alert("End this free ride?", "Tracking stops and the route is recorded.", [
+    iosAlert("End this free ride?", "Tracking stops and the route is recorded.", [
       { text: "Keep riding", style: "cancel" },
       { text: "End ride", style: "destructive", onPress: () => void finish() },
     ]);

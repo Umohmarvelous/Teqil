@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   Platform,
-  Alert,
   TextInput,
   Modal,
   KeyboardAvoidingView,
@@ -77,6 +76,7 @@ import { useTransactionsStore } from "@/src/store/useTransactionsStore";
 import { useAchievementsStore } from "@/src/store/useAchievementsStore";
 import { useActivityFeed } from "@/src/hooks/useActivityFeed";
 import ActivityFeed from "@/components/ActivityFeed";
+import { iosAlert } from "@/components/ios";
 
 // Slide-in "Copied" toast, shared via context so every copy action triggers it.
 const CopyToastContext = React.createContext<() => void>(() => {});
@@ -340,7 +340,7 @@ export default function ProfileTab() {
         await supabase.auth.updateUser({ data: { profile_photo: uri } });
         updateUser({ profile_photo: uri });
       } catch {
-        Alert.alert("Error", "Could not update photo.");
+        iosAlert("Error", "Could not update photo.");
       }
     }
   };
@@ -360,7 +360,7 @@ export default function ProfileTab() {
       updateUser(update as any);
       setEditField(null);
     } catch {
-      Alert.alert("Error", "Could not save changes.");
+      iosAlert("Error", "Could not save changes.");
     } finally {
       setSaving(false);
     }
@@ -490,7 +490,7 @@ export default function ProfileTab() {
                 <Pressable
                   style={[styles.signOutBtn, { borderColor: "transparent" }]}
                   onPress={() => {
-                    Alert.alert("Sign Out", "Are you sure?", [
+                    iosAlert("Sign Out", "Are you sure?", [
                       { text: "Cancel", style: "cancel" },
                       {
                         text: "Sign Out",

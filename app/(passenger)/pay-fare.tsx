@@ -28,7 +28,6 @@ import {
   TextInput,
   ScrollView,
   Platform,
-  Alert,
   Animated,
   Easing,
   Modal,
@@ -46,6 +45,7 @@ import { useTransactionsStore } from "@/src/store/useTransactionsStore";
 import { formatNaira, generateId } from "@/src/utils/helpers";
 import { PaystackService } from "@/src/services/paystack";
 import type { TripSplit } from "@/src/models/types";
+import { iosAlert } from "@/components/ios";
 
 // Revenue split is computed by computeTripSplit() in usePoolStore — the passenger
 // pays half the fare from their bank and the rest (plus driver bonus + company
@@ -397,11 +397,11 @@ export default function PayFareScreen() {
     // Accept both the current JSON QR and legacy "TEQIL:DRV-…" strings.
     const parsed = parseDriverQR(data);
     if (!parsed) {
-      Alert.alert("Unrecognized QR", "That isn't a valid Emilgo driver code.");
+      iosAlert("Unrecognized QR", "That isn't a valid Emilgo driver code.");
       return;
     }
     setDriverRef(parsed.driver_id);
-    Alert.alert("QR Scanned", `Driver ${parsed.name || parsed.driver_id} ready — enter the fare.`);
+    iosAlert("QR Scanned", `Driver ${parsed.name || parsed.driver_id} ready — enter the fare.`);
   }, []);
 
   const handleQuickAmount = useCallback((val: number) => {
@@ -411,7 +411,7 @@ export default function PayFareScreen() {
 
   const handlePay = useCallback(async () => {
     if (!driverRef.trim()) {
-      Alert.alert(
+      iosAlert(
         "Missing Info",
         "Please enter a driver ID or trip code, or scan a QR code."
       );
@@ -419,11 +419,11 @@ export default function PayFareScreen() {
     }
     const baseFare = parseFloat(amount);
     if (!amount || isNaN(baseFare) || baseFare < 50) {
-      Alert.alert("Invalid Amount", "Please enter an amount of at least ₦50.");
+      iosAlert("Invalid Amount", "Please enter an amount of at least ₦50.");
       return;
     }
     if (!user?.id) {
-      Alert.alert("Not signed in", "Please sign in again to pay a fare.");
+      iosAlert("Not signed in", "Please sign in again to pay a fare.");
       return;
     }
 
@@ -446,7 +446,7 @@ export default function PayFareScreen() {
 
       if (!split) {
         setIsProcessing(false);
-        Alert.alert("Already Processed", "This payment was already recorded.");
+        iosAlert("Already Processed", "This payment was already recorded.");
         return;
       }
 
@@ -456,7 +456,7 @@ export default function PayFareScreen() {
       if (split.blocked) {
         setIsProcessing(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        Alert.alert(
+        iosAlert(
           "Ride can't be completed yet",
           `Your rewards pool needs ₦${split.shortfall.toLocaleString("en-NG")} more to cover this fare. Your pool fills up as you engage and watch ads.`
         );
@@ -476,7 +476,7 @@ export default function PayFareScreen() {
 
       if (!result.success) {
         setIsProcessing(false);
-        Alert.alert("Payment Failed", "Could not process payment. Please try again.");
+        iosAlert("Payment Failed", "Could not process payment. Please try again.");
         return;
       }
 
@@ -507,7 +507,7 @@ export default function PayFareScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       setIsProcessing(false);
-      Alert.alert("Payment Error", "An error occurred while processing your payment.");
+      iosAlert("Payment Error", "An error occurred while processing your payment.");
     }
   }, [driverRef, amount, user?.id, user?.email, adminLossOverride]);
 

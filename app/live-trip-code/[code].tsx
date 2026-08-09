@@ -26,7 +26,6 @@ import {
   Pressable,
   ScrollView,
   Platform,
-  Alert,
   Dimensions,
   TextInput,
   KeyboardAvoidingView,
@@ -81,6 +80,7 @@ import { useTranslation } from "react-i18next";
 import RatingModal from "@/components/RatingModal";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { AiChat02Icon, Car01Icon, InformationCircleIcon } from "@hugeicons/core-free-icons";
+import { iosAlert } from "@/components/ios";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const GMAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
@@ -1353,7 +1353,7 @@ export default function LiveTripScreen() {
   // End trip (driver) → show rating for first passenger, then navigate home
   const handleEndTrip = useCallback(() => {
     setActionSheetVisible(false);
-    Alert.alert(t("trip.endTrip"), "This will complete the trip for all passengers.", [
+    iosAlert(t("trip.endTrip"), "This will complete the trip for all passengers.", [
       {
         text: t("common.cancel"),
         style: "cancel",
@@ -1417,7 +1417,7 @@ export default function LiveTripScreen() {
   // Leave trip (passenger) → show rating for driver
   const handleLeaveTrip = useCallback(() => {
     setActionSheetVisible(false);
-    Alert.alert("Leave Trip", "Are you sure you want to leave this trip?", [
+    iosAlert("Leave Trip", "Are you sure you want to leave this trip?", [
       {
         text: t("common.cancel"),
         style: "cancel",
@@ -1494,7 +1494,7 @@ export default function LiveTripScreen() {
         locationStr
       ).catch(() => {});
     }
-    Alert.alert(
+    iosAlert(
       "SOS Sent",
       "Emergency contacts and park owner have been notified."
     );

@@ -8,7 +8,6 @@ import {
   Pressable,
   RefreshControl,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +16,7 @@ import { Colors } from "@/constants/colors";
 import { supabase } from "@/src/services/supabase";
 import { useTranslation } from "react-i18next";
 import type { User } from "@/src/models/types";
+import { iosAlert } from "@/components/ios";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -230,7 +230,7 @@ export default function DriversScreen() {
 
   // ── Verify handler ─────────────────────────────────────────────────────────
   const handleVerify = async (driver: DriverWithStatus) => {
-    Alert.alert(
+    iosAlert(
       t("parkOwner.verify", { defaultValue: "Verify Driver" }),
       `Verify ${driver.full_name || "this driver"}?`,
       [
@@ -255,7 +255,7 @@ export default function DriversScreen() {
               );
             } catch (err) {
               console.error("[DriversScreen] Verify error:", err);
-              Alert.alert(
+              iosAlert(
                 "Error",
                 "Could not verify driver right now. Please try again."
               );

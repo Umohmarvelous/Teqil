@@ -11,7 +11,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Alert, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, RefreshControl } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,6 +23,7 @@ import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { useIsPremium, useIsElite } from "@/src/store/useTierStore";
 import { useFreeRidesStore, type FreeRideOffer } from "@/src/store/useFreeRidesStore";
 import { ensureGpsOn } from "@/src/services/locationTracking";
+import { iosAlert } from "@/components/ios";
 
 export default function FreeRidesScreen() {
   const insets = useSafeAreaInsets();
@@ -58,7 +59,7 @@ export default function FreeRidesScreen() {
 
   const requirePremium = (): boolean => {
     if (isPremium) return true;
-    Alert.alert("Premium only", "Free rides are available to Pro and Elite members.", [
+    iosAlert("Premium only", "Free rides are available to Pro and Elite members.", [
       { text: "Not now", style: "cancel" },
       { text: "See plans", onPress: () => router.push("/tiers" as any) },
     ]);
@@ -71,7 +72,7 @@ export default function FreeRidesScreen() {
     const gps = await ensureGpsOn();
     if (!gps.ok) {
       setBusyId(null);
-      Alert.alert(
+      iosAlert(
         "Turn on location",
         gps.granted
           ? "GPS is switched off on this device. Turn on location services, then try again."
@@ -83,7 +84,7 @@ export default function FreeRidesScreen() {
     setBusyId(null);
     if (claimId) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
+      iosAlert(
         "Ride accepted 🎉",
         offer.mode === "reward"
           ? "Your free ride is booked and will be GPS-tracked from pickup to drop-off. Meet your driver."
@@ -109,14 +110,14 @@ export default function FreeRidesScreen() {
         ]
       );
     } else {
-      Alert.alert("Couldn't accept", "This offer may be full or already taken. Try another.");
+      iosAlert("Couldn't accept", "This offer may be full or already taken. Try another.");
     }
   };
 
   const bargain = (offer: FreeRideOffer) => {
     // Reward offers are accept-only unless you're Elite. Barter is bargainable by all.
     if (offer.mode === "reward" && !isElite) {
-      Alert.alert(
+      iosAlert(
         "Bargaining is Elite-only here",
         "This is a fixed 'reward' offer — you can only accept it. Upgrade to Elite to bargain on reward offers.",
         [

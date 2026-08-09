@@ -7,7 +7,6 @@ import {
   TextInput,
   ScrollView,
   Platform,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
@@ -32,6 +31,7 @@ import type { Trip } from "@/src/models/types";
 
 import { Colors } from "@/constants/colors";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
+import { iosAlert } from "@/components/ios";
 // ─── Animated Input ───────────────────────────────────────────────────────────
 interface AnimatedInputProps {
   label: string;
@@ -189,7 +189,7 @@ export default function CreateTripScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert(
+        iosAlert(
           "Location Permission",
           "Allow location access to auto-fill your starting position.",
           [{ text: "OK" }]
@@ -241,7 +241,7 @@ export default function CreateTripScreen() {
 
   const handleCreate = async () => {
     if (!user) {
-      Alert.alert("Not logged in", "Please sign in first.");
+      iosAlert("Not logged in", "Please sign in first.");
       router.replace("/(auth)/login");
       return;
     }
@@ -288,11 +288,17 @@ export default function CreateTripScreen() {
       try {
         await router.push(`/live-trip-code/${tripCode}`);
       } catch (e) {
-        Alert.alert("Trip Created!", `Trip code: ${tripCode}`, [{ text: "OK", onPress: () => router.back() }], e);
+        // Navigation failed, but the trip exists — surface the code so it isn't
+        // lost. (The error was previously passed as a 4th alert argument, where
+        // it was silently ignored.)
+        console.warn("[CreateTrip] navigation to live-trip-code failed:", e);
+        iosAlert("Trip Created!", `Trip code: ${tripCode}`, [
+          { text: "OK", onPress: () => router.back() },
+        ]);
       }
     } catch (err) {
       console.error("[CreateTrip] Error:", err);
-      Alert.alert("Error", "Could not create trip. Please try again.");
+      iosAlert("Error", "Could not create trip. Please try again.");
     } finally {
       setIsLoading(false);
     }

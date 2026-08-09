@@ -23,7 +23,6 @@ import {
   Pressable,
   ScrollView,
   TextInput,
-  Alert,
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
@@ -45,6 +44,7 @@ import Receipt, { type ReceiptData } from "@/components/Receipt";
 import CreditCardVisual from "@/components/CreditCardVisual";
 import { formatNaira } from "@/src/utils/helpers";
 import type { RevenueTransaction, PremiumTier } from "@/src/models/types";
+import { iosAlert } from "@/components/ios";
 
 const METHODS: { type: PaymentMethodType; label: string; icon: keyof typeof Ionicons.glyphMap; soon?: boolean }[] = [
   { type: "card", label: "Debit / Credit card", icon: "card-outline" },
@@ -181,7 +181,7 @@ export default function CheckoutScreen() {
         if (!res.ok || !res.token) {
           setProcessing(false);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          Alert.alert("Card declined", res.error ?? "That card couldn't be verified. Check the details and try again.");
+          iosAlert("Card declined", res.error ?? "That card couldn't be verified. Check the details and try again.");
           return;
         }
         token = res.token;
@@ -205,7 +205,7 @@ export default function CheckoutScreen() {
       if (setupMode) {
         setProcessing(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert("Payment method saved", "You're all set — you can now scan and pay for rides.", [
+        iosAlert("Payment method saved", "You're all set — you can now scan and pay for rides.", [
           { text: "Done", onPress: () => router.back() },
         ]);
         return;
@@ -213,7 +213,7 @@ export default function CheckoutScreen() {
 
       if (!token) {
         setProcessing(false);
-        Alert.alert("No payment method", "Add or select a card to continue.");
+        iosAlert("No payment method", "Add or select a card to continue.");
         return;
       }
 
@@ -222,7 +222,7 @@ export default function CheckoutScreen() {
       if (!charge.ok || !charge.reference) {
         setProcessing(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert(
+        iosAlert(
           "Payment unsuccessful",
           charge.reason === "insufficient_funds"
             ? "You don't have sufficient funds for this payment. Top up or use another card."
@@ -237,7 +237,7 @@ export default function CheckoutScreen() {
     } catch (e) {
       console.warn("[Checkout] pay failed", e);
       setProcessing(false);
-      Alert.alert("Something went wrong", "We couldn't complete the payment. Please try again.");
+      iosAlert("Something went wrong", "We couldn't complete the payment. Please try again.");
     }
   };
 
@@ -280,7 +280,7 @@ export default function CheckoutScreen() {
                     setSelectedId(m.id);
                   }}
                   onRemove={() =>
-                    Alert.alert("Remove card", `Remove the card ending ${m.last4 ?? ""}?`, [
+                    iosAlert("Remove card", `Remove the card ending ${m.last4 ?? ""}?`, [
                       { text: "Cancel", style: "cancel" },
                       { text: "Remove", style: "destructive", onPress: () => remove(m.id) },
                     ])

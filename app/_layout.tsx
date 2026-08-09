@@ -25,6 +25,7 @@ import { flushPendingRoute } from "@/src/services/locationTracking";
 import { syncUserToPublicTable } from "@/src/services/auth";
 import { registerForPushNotifications } from "@/src/services/notifications";
 import NetworkBanner from "@/components/NetworkBanner";
+import { AlertHost } from "@/components/ios";
 // import SessionTimeout from "@/src/components/SessionTimeout";
 import AppLock from "@/src/components/AppLock";
 import FloatingCreditAnimation from "@/src/components/FloatingCreditAnimation";
@@ -265,6 +266,9 @@ export default function RootLayout() {
 
           {/* Hidden until splash finishes */}
           {splashDone && <NetworkBanner onRetry={handleNetworkRetry} />}
+
+          {/* App-wide host for native-style dialogs — see components/ios/AlertHost. */}
+          <AlertHost />
         </GestureHandlerRootView>
       </QueryClientProvider>
     </ErrorBoundary>

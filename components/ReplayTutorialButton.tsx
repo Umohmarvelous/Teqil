@@ -166,7 +166,7 @@
 //     ]).start();
 //     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-//     Alert.alert(
+//     iosAlert(
 //       "Replay Tutorial",
 //       "The tutorial will start next time you open the Home screen.",
 //       [
@@ -254,6 +254,7 @@ import * as Haptics from "expo-haptics";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { useOnboarding } from "@/src/hooks/useOnboarding";
 import { Colors } from "@/constants/colors";
+import { iosAlert } from "@/components/ios";
 
 export default function ReplayTutorialButton() {
   const { theme } = useSettingsStore();
@@ -269,7 +270,7 @@ export default function ReplayTutorialButton() {
     ]).start();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    Alert.alert(
+    iosAlert(
       "Replay Tutorial",
       "The tutorial will start next time you open the Home screen.",
       [

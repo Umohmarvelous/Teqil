@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
   View, Text, StyleSheet, Pressable, TextInput, ScrollView,
-  Platform, Alert, Animated, Easing, KeyboardAvoidingView,
+  Platform, Animated, Easing, KeyboardAvoidingView,
   ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
@@ -17,6 +17,7 @@ import { useTranslation } from "react-i18next";
 import { Colors } from "@/constants/colors";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { ChevronLeft } from "@hugeicons/core-free-icons";
+import { iosAlert } from "@/components/ios";
 
 
 // ─── Entrance animation hook ───────────────────────────────────────────────────
@@ -89,20 +90,20 @@ export default function FindTripScreen() {
 
   const handleSearch = async () => {
     if (!code.trim() || code.trim().length !== 6) {
-      Alert.alert("Invalid Code", "Please enter a valid 6-character trip code.");
+      iosAlert("Invalid Code", "Please enter a valid 6-character trip code.");
       return;
     }
     setIsSearching(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       const trip = await TripsStorage.getByCode(code.trim().toUpperCase());
-      if (!trip) { Alert.alert("Trip Not Found", t("passenger.tripNotFound")); return; }
-      if (trip.status !== "active") { Alert.alert("Trip Ended", "This trip has already been completed."); return; }
+      if (!trip) { iosAlert("Trip Not Found", t("passenger.tripNotFound")); return; }
+      if (trip.status !== "active") { iosAlert("Trip Ended", "This trip has already been completed."); return; }
       setFoundTrip(trip);
       setStep("details");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
-      Alert.alert("Error", "Could not search for trip.");
+      iosAlert("Error", "Could not search for trip.");
     } finally {
       setIsSearching(false);
     }
@@ -151,7 +152,7 @@ export default function FindTripScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.push(`/live-trip-code/${foundTrip.trip_code}`);
     } catch {
-      Alert.alert("Error", "Could not join trip. Please try again.");
+      iosAlert("Error", "Could not join trip. Please try again.");
     } finally {
       setIsJoining(false);
     }

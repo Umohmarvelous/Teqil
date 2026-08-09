@@ -4,6 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { parseDriverQR, toDriverPayload } from '@/src/utils/qr';
 import { usePaymentMethodsStore } from '@/src/store/usePaymentMethodsStore';
+import { iosAlert } from "@/components/ios";
 
 export default function ScanPayScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -26,7 +27,7 @@ export default function ScanPayScreen() {
 
     const parsed = parseDriverQR(data);
     if (!parsed) {
-      Alert.alert('Invalid QR', 'This QR code is not a valid Emilgo driver code.', [
+      iosAlert('Invalid QR', 'This QR code is not a valid Emilgo driver code.', [
         { text: 'Try Again', onPress: () => { scannedRef.current = false; setScanned(false); } },
       ]);
       scannedRef.current = true;

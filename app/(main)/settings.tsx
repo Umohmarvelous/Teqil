@@ -12,13 +12,15 @@
  *  - Referral Code          → share sheet
  *  - Sign Out / Delete      → Supabase auth
  */
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
   StyleSheet,
+  Pressable,
   ScrollView,
   Platform,
+  Switch,
   Alert,
   Share,
 } from "react-native";
@@ -26,7 +28,21 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import {
+  Moon02Icon,
+  Globe02Icon,
+  Notification,
+  Fingerprint,
+  Location,
+  Trash2,
+  Gift,
+  LockPasswordIcon,
+  Logout01Icon,
+  DeleteThrowIcon,
+} from "@hugeicons/core-free-icons";
 
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
@@ -34,15 +50,113 @@ import { haptics } from "@/src/utils/haptics";
 import { Colors } from "@/constants/colors";
 import { supabase } from "@/src/services/supabase";
 import { queryClient } from "@/lib/query-client";
-import {
-  IOSListSection,
-  IOSListRow,
-  RatingModal,
-  FeedbackModal,
-  useIOSTheme,
-  useTabBarInset,
-  IOSFont,
-} from "@/components/ios";
+import { iosAlert } from "@/components/ios";
+
+// ─── Section ──────────────────────────────────────────────────────────────────
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const isDark = useSettingsStore((s) => s.theme) === "dark";
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  return (
+    <View style={sectionStyles.wrap}>
+      <Text style={[sectionStyles.title, { color: textColor }]}>{title.toUpperCase()}</Text>
+      <View style={sectionStyles.inner}>{children}</View>
+    </View>
+  );
+}
+
+const sectionStyles = StyleSheet.create({
+  wrap: { marginBottom: 23 },
+  title: {
+    fontFamily: "Poppins_500Medium",
+    fontSize: 12,
+    letterSpacing: 1,
+    paddingHorizontal: 4,
+    marginVertical: 12,
+  },
+  inner: { borderRadius: 30, overflow: "hidden" },
+});
+
+// ─── Row ──────────────────────────────────────────────────────────────────────
+
+function SettingRow({
+  iconName,
+  iconColor,
+  label,
+  description,
+  rightElement,
+  onPress,
+  danger,
+  isDark,
+  cardBg,
+  textColor,
+  subTextColor,
+}: {
+  iconName: any;
+  iconColor: string;
+  label: string;
+  description?: string;
+  rightElement?: React.ReactNode;
+  onPress?: () => void;
+  danger?: boolean;
+  isDark: boolean;
+  cardBg: string;
+  textColor: string;
+  subTextColor: string;
+}) {
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        rowStyles.row,
+        {
+          backgroundColor: cardBg,
+          borderBottomColor: isDark ? "#3E3E3E" : "#CDCDCD",
+          opacity: pressed && onPress ? 0.85 : 1,
+        },
+      ]}
+      onPress={onPress}
+      disabled={!onPress}
+    >
+      <View style={rowStyles.iconBox}>
+        <HugeiconsIcon icon={iconName as any} size={22} color={danger ? Colors.error : iconColor} />
+      </View>
+      <View style={rowStyles.textBlock}>
+        <Text style={[rowStyles.label, { color: danger ? Colors.error : textColor }]}>{label}</Text>
+        {description ? (
+          <Text style={[rowStyles.description, { color: subTextColor }]}>{description}</Text>
+        ) : null}
+      </View>
+      {rightElement ?? null}
+    </Pressable>
+  );
+}
+
+const rowStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 15,
+  },
+  iconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  textBlock: { flex: 1 },
+  label: { fontFamily: "Poppins_500Medium", fontSize: 14 },
+  description: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    marginTop: 2,
+    lineHeight: 17,
+  },
+});
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -73,24 +187,31 @@ export default function SettingsTab() {
   } = useSettingsStore();
 
   const isDark = theme === "dark";
+  const bg = isDark ? Colors.background : Colors.border;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
-  // iOS semantic palette + the inset so the last row clears the translucent bar.
-  const ios = useIOSTheme();
-  const tabInset = useTabBarInset();
+  const rowProps = { isDark, cardBg, textColor, subTextColor };
 
-  const [feedbackVisible, setFeedbackVisible] = useState(false);
-  const [ratingVisible, setRatingVisible] = useState(false);
+  const switchEl = (value: boolean, onValueChange: (v: boolean) => void) => (
+    <Switch
+      value={value}
+      onValueChange={onValueChange}
+      trackColor={{ false: "#E5E7EB", true: Colors.primary + "60" }}
+      thumbColor={value ? Colors.primary : "#fff"}
+    />
+  );
 
   const toggleTheme = (v: boolean) => {
-    haptics.tap();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setTheme(v ? "dark" : "light");
   };
 
   const toggleLanguage = () => {
-    haptics.tap();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLanguage(language === "en" ? "pid" : "en");
   };
 
@@ -104,27 +225,27 @@ export default function SettingsTab() {
           LA.isEnrolledAsync(),
         ]);
         if (!hasHardware || !enrolled) {
-          Alert.alert(
+          iosAlert(
             "Not available",
             "Set up Face ID / Touch ID or a device passcode first, then try again."
           );
           return;
         }
       } catch {
-        Alert.alert("Not available", "Biometric authentication isn't available on this device.");
+        iosAlert("Not available", "Biometric authentication isn't available on this device.");
         return;
       }
     }
-    haptics.tap();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setBiometricLock(v);
   };
 
   const handleChangePassword = () => {
     if (!user?.email) {
-      Alert.alert("No email on file", "This account has no email to send a reset link to.");
+      iosAlert("No email on file", "This account has no email to send a reset link to.");
       return;
     }
-    Alert.alert(
+    iosAlert(
       "Change Password",
       `We'll email a password-reset link to ${user.email}.`,
       [
@@ -136,8 +257,8 @@ export default function SettingsTab() {
               redirectTo:
                 Platform.OS === "web" ? window.location.origin : "teqil://reset-password",
             });
-            if (error) Alert.alert("Couldn't send", error.message);
-            else Alert.alert("Sent", "Check your email for the reset link.");
+            if (error) iosAlert("Couldn't send", error.message);
+            else iosAlert("Sent", "Check your email for the reset link.");
           },
         },
       ]
@@ -145,7 +266,7 @@ export default function SettingsTab() {
   };
 
   const handleClearCache = () => {
-    Alert.alert(
+    iosAlert(
       "Clear Cache",
       "Clears cached trips and feed data on this device. Your login and credits are kept and will re-sync when online.",
       [
@@ -166,8 +287,8 @@ export default function SettingsTab() {
             } catch {
               /* no-op */
             }
-            haptics.success();
-            Alert.alert("Done", "Local cache cleared.");
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            iosAlert("Done", "Local cache cleared.");
           },
         },
       ]
@@ -191,14 +312,14 @@ export default function SettingsTab() {
   };
 
   const handleSignOut = () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+    iosAlert("Sign Out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
       { text: "Sign Out", style: "destructive", onPress: signOutFlow },
     ]);
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
+    iosAlert(
       "Delete Account",
       "This permanently deletes your account and data. This cannot be undone.",
       [
@@ -209,233 +330,216 @@ export default function SettingsTab() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: ios.systemGroupedBackground }]}>
+    <View style={[styles.root, { backgroundColor: bg }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
 
-      {/* Large title, as every system Settings-style screen uses. */}
-      <View style={{ paddingTop: topPadding + 8, paddingHorizontal: 16, paddingBottom: 8 }}>
-        <Text style={{ ...IOSFont.largeTitle, color: ios.label }}>
-          {t("nav.settings", "Settings")}
-        </Text>
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: cardBg, paddingTop: topPadding + 12, borderBottomColor: borderColor },
+        ]}
+      >
+        <Text style={[styles.headerTitle, { color: textColor }]}>{t("nav.settings", "Settings")}</Text>
       </View>
 
       <ScrollView
-        contentContainerStyle={{ paddingTop: 8, paddingBottom: tabInset + 40 }}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 }]}
         showsVerticalScrollIndicator={false}
-        contentInsetAdjustmentBehavior="automatic"
       >
-        <IOSListSection header="Appearance">
-          <IOSListRow
-            symbol="moon.fill"
-            symbolColor={ios.systemBlue}
+        <Section title="Appearance">
+          <SettingRow
+            iconName={Moon02Icon}
+            iconColor={textColor}
             label="Dark Mode"
-            accessory={{ type: "switch", value: isDark, onValueChange: toggleTheme }}
+            description="Switch between light and dark themes"
+            rightElement={switchEl(isDark, toggleTheme)}
+            {...rowProps}
           />
-          <IOSListRow
-            symbol="globe"
-            symbolColor={ios.systemBlue}
+          <SettingRow
+            iconName={Globe02Icon}
+            iconColor={textColor}
             label="Language"
-            accessory={{
-              type: "detail",
-              text: language === "pid" ? "Nigerian Pidgin" : "English",
-            }}
+            description={`Currently: ${language === "pid" ? "Nigerian Pidgin" : "English"}`}
             onPress={toggleLanguage}
+            {...rowProps}
           />
-        </IOSListSection>
+        </Section>
 
-        <IOSListSection header="Security">
-          <IOSListRow
-            symbol="faceid"
-            symbolColor={ios.systemGreen}
+        <Section title="Security">
+          <SettingRow
+            iconName={Fingerprint}
+            iconColor={textColor}
             label="Biometric App Lock"
-            detail="Face ID, Touch ID or passcode to open the app"
-            accessory={{ type: "switch", value: biometricLock, onValueChange: toggleBiometricLock }}
+            description="Require Face ID / Touch ID or passcode to open the app"
+            rightElement={switchEl(biometricLock, toggleBiometricLock)}
+            {...rowProps}
           />
-          <IOSListRow
-            symbol="key.fill"
-            symbolColor={ios.systemGray}
+          <SettingRow
+            iconName={LockPasswordIcon}
+            iconColor={textColor}
             label="Change Password"
-            accessory={{ type: "disclosure" }}
+            description="Email yourself a password-reset link"
             onPress={handleChangePassword}
+            {...rowProps}
           />
-        </IOSListSection>
+        </Section>
 
-        <IOSListSection header="Notifications">
-          <IOSListRow
-            symbol="bell.badge.fill"
-            symbolColor={ios.systemRed}
+        <Section title="Notifications">
+          <SettingRow
+            iconName={Notification}
+            iconColor={textColor}
             label="Push Notifications"
-            detail="Trip updates and alerts on this device"
-            accessory={{
-              type: "switch",
-              value: pushNotifications,
-              onValueChange: (v) => {
-                haptics.tap();
-                setPushNotifications(v);
-              },
-            }}
+            description="Trip updates and alerts on this device"
+            rightElement={switchEl(pushNotifications, (v) => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setPushNotifications(v);
+            })}
+            {...rowProps}
           />
-        </IOSListSection>
+        </Section>
 
-        <IOSListSection
-          header="Privacy"
-          footer="Free rides are always tracked — turning this off won't stop them."
-        >
-          <IOSListRow
-            symbol="location.fill"
-            symbolColor={ios.systemBlue}
+        <Section title="Privacy">
+          <SettingRow
+            iconName={Location}
+            iconColor={textColor}
             label="Share Location During Trips"
-            accessory={{
-              type: "switch",
-              value: shareLocation,
-              onValueChange: (v) => {
-                haptics.tap();
-                setShareLocation(v);
-              },
-            }}
+            description="Allow live location tracking while a trip is active. Free rides always track — turning this off won't stop them."
+            rightElement={switchEl(shareLocation, (v) => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShareLocation(v);
+            })}
+            {...rowProps}
           />
-          <IOSListRow
-            symbol="map.fill"
-            symbolColor={ios.tint}
+          <SettingRow
+            iconName={Location}
+            iconColor={textColor}
             label="Route History"
-            detail="GPS routes of trips and free rides you've taken"
-            accessory={{ type: "disclosure" }}
+            description="See the GPS routes of trips and free rides you've taken"
             onPress={() => router.push("/route-history" as any)}
+            {...rowProps}
           />
-        </IOSListSection>
+        </Section>
 
-        <IOSListSection
-          header="Tracking"
-          footer="Data Saver keeps the route recorded and still verifiable — it only lowers GPS precision and update rate."
-        >
-          <IOSListRow
-            symbol="play.circle.fill"
-            symbolColor={ios.tint}
+        <Section title="Tracking">
+          <SettingRow
+            iconName={Location}
+            iconColor={textColor}
             label="Start Tracking Automatically"
-            detail="Begin recording as soon as a tracked ride opens"
-            accessory={{
-              type: "switch",
-              value: autoStartTracking,
-              onValueChange: (v) => {
-                haptics.tap();
-                setAutoStartTracking(v);
-              },
-            }}
+            description="Begin recording as soon as a tracked ride opens. Off means you tap to start — GPS is still required either way."
+            rightElement={switchEl(autoStartTracking, (v) => {
+              haptics.tap();
+              setAutoStartTracking(v);
+            })}
+            {...rowProps}
           />
-          <IOSListRow
-            symbol="hand.raised.fill"
-            symbolColor={ios.systemOrange}
+          <SettingRow
+            iconName={Location}
+            iconColor={textColor}
             label="Confirm Before Ending a Ride"
-            detail="So a stray tap can't cut a ride short"
-            accessory={{
-              type: "switch",
-              value: confirmEndTrip,
-              onValueChange: (v) => {
-                haptics.tap();
-                setConfirmEndTrip(v);
-              },
-            }}
+            description="Ask before stopping tracking, so a stray tap can't cut a ride short"
+            rightElement={switchEl(confirmEndTrip, (v) => {
+              haptics.tap();
+              setConfirmEndTrip(v);
+            })}
+            {...rowProps}
           />
-          <IOSListRow
-            symbol="battery.25"
-            symbolColor={ios.systemGreen}
+          <SettingRow
+            iconName={Location}
+            iconColor={textColor}
             label="Data Saver"
-            detail="Coarser GPS, slower live updates"
-            accessory={{
-              type: "switch",
-              value: dataSaver,
-              onValueChange: (v) => {
-                haptics.tap();
-                setDataSaver(v);
-              },
-            }}
+            description="Coarser GPS and slower live updates. Saves battery and data; the route is still recorded and still verifiable."
+            rightElement={switchEl(dataSaver, (v) => {
+              haptics.tap();
+              setDataSaver(v);
+            })}
+            {...rowProps}
           />
-          <IOSListRow
-            symbol="ruler.fill"
-            symbolColor={ios.systemGray}
+          <SettingRow
+            iconName={Location}
+            iconColor={textColor}
             label="Distance Units"
-            accessory={{ type: "detail", text: distanceUnit === "km" ? "Kilometres" : "Miles" }}
+            description={distanceUnit === "km" ? "Kilometres" : "Miles"}
             onPress={() => {
               haptics.select();
               setDistanceUnit(distanceUnit === "km" ? "mi" : "km");
             }}
+            rightElement={
+              <View style={[styles.pill, { backgroundColor: Colors.primaryLight }]}>
+                <Text style={[styles.pillText, { color: Colors.primary }]}>
+                  {distanceUnit.toUpperCase()}
+                </Text>
+              </View>
+            }
+            {...rowProps}
           />
-        </IOSListSection>
+        </Section>
 
-        <IOSListSection header="Feedback">
-          <IOSListRow
-            symbol="iphone.radiowaves.left.and.right"
-            symbolColor={ios.systemBlue}
+        <Section title="Feedback">
+          <SettingRow
+            iconName={Notification}
+            iconColor={textColor}
             label="Haptic Feedback"
-            detail="Vibration on taps, confirmations and alerts"
-            accessory={{
-              type: "switch",
-              value: hapticFeedback,
-              onValueChange: (v) => {
-                // Buzz on the way ON so the change is felt, not just seen.
-                setHapticFeedback(v);
-                if (v) haptics.success();
-              },
-            }}
+            description="Vibration on taps, confirmations and alerts"
+            rightElement={switchEl(hapticFeedback, (v) => {
+              // Buzz on the way ON so the change is felt, not just seen.
+              setHapticFeedback(v);
+              if (v) haptics.success();
+            })}
+            {...rowProps}
           />
-          <IOSListRow
-            symbol="envelope.fill"
-            symbolColor={ios.tint}
-            label="Send Feedback"
-            accessory={{ type: "disclosure" }}
-            onPress={() => setFeedbackVisible(true)}
-          />
-          <IOSListRow
-            symbol="star.fill"
-            symbolColor={ios.systemOrange}
-            label="Rate Emilgo"
-            accessory={{ type: "disclosure" }}
-            onPress={() => setRatingVisible(true)}
-          />
-        </IOSListSection>
+        </Section>
 
-        <IOSListSection header="Data">
-          <IOSListRow
-            symbol="trash.fill"
-            symbolColor={ios.systemGray}
+        <Section title="Data">
+          <SettingRow
+            iconName={Trash2}
+            iconColor={textColor}
             label="Clear Cache"
-            detail="Frees space; keeps your login and credits"
-            accessory={{ type: "disclosure" }}
+            description="Free up space; keeps your login and credits"
             onPress={handleClearCache}
+            {...rowProps}
           />
-        </IOSListSection>
+        </Section>
 
-        <IOSListSection header="Referrals">
-          <IOSListRow
-            symbol="gift.fill"
-            symbolColor="#EC4899"
+        <Section title="Referrals">
+          <SettingRow
+            iconName={Gift}
+            iconColor="#EC4899"
             label="My Referral Code"
-            accessory={{ type: "detail", text: referralCode }}
+            description={referralCode}
             onPress={handleReferral}
+            rightElement={
+              <View style={[styles.pill, { backgroundColor: "#FCE7F3" }]}>
+                <Text style={[styles.pillText, { color: "#BE185D" }]}>{referralCode}</Text>
+              </View>
+            }
+            {...rowProps}
           />
-        </IOSListSection>
+        </Section>
 
-        <IOSListSection footer="Teqil v1.0.0 · Made in Nigeria 🇳🇬">
-          <IOSListRow
-            symbol="rectangle.portrait.and.arrow.right"
-            symbolColor={ios.systemGray}
+        <Section title="Account">
+          <SettingRow
+            iconName={Logout01Icon}
+            iconColor={textColor}
             label="Sign Out"
-            accessory={{ type: "disclosure" }}
+            description="Log out of this device"
             onPress={handleSignOut}
+            {...rowProps}
           />
-          <IOSListRow
-            symbol="trash.fill"
-            symbolColor={ios.systemRed}
+          <SettingRow
+            iconName={DeleteThrowIcon}
+            iconColor={Colors.error}
             label="Delete Account"
-            destructive
-            accessory={{ type: "disclosure" }}
+            description="Permanently remove your account"
             onPress={handleDeleteAccount}
+            danger
+            {...rowProps}
           />
-        </IOSListSection>
-      </ScrollView>
+        </Section>
 
-      <FeedbackModal visible={feedbackVisible} onClose={() => setFeedbackVisible(false)} />
-      <RatingModal visible={ratingVisible} onClose={() => setRatingVisible(false)} />
+        <Text style={[styles.version, { color: subTextColor }]}>
+          Teqil v1.0.0 · Made in Nigeria 🇳🇬
+        </Text>
+      </ScrollView>
     </View>
   );
 }

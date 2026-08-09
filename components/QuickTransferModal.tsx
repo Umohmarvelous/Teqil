@@ -7,7 +7,6 @@ import {
   Pressable,
   Modal,
   TextInput,
-  Alert,
   Animated,
   KeyboardAvoidingView,
   Platform,
@@ -17,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { FB } from "@/constants/fbPalette";
+import { iosAlert } from "@/components/ios";
 
 interface QuickTransferModalProps {
   visible: boolean;
@@ -63,11 +63,11 @@ export default function QuickTransferModal({ visible, onClose }: QuickTransferMo
 
   const handleSend = () => {
     if (!driverRef.trim() || !amount || parseFloat(amount) < 50) {
-      Alert.alert("Invalid", "Enter a driver ID/code and amount ≥ ₦50.");
+      iosAlert("Invalid", "Enter a driver ID/code and amount ≥ ₦50.");
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert("Transfer Sent!", `₦${amount} sent to ${driverRef}`);
+    iosAlert("Transfer Sent!", `₦${amount} sent to ${driverRef}`);
     setDriverRef("");
     setAmount("");
     onClose();

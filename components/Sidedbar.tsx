@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  Alert,
   Dimensions,
   Animated,
   Image,
@@ -39,6 +38,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import FindDriverModal from "./FindDriverModal";
 import { withDangerousMod } from "expo/config-plugins";
+import { iosAlert } from "@/components/ios";
 
 const SIDEBAR_WIDTH = 340;
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -87,7 +87,7 @@ export default function SidedBar() {
   };
 
   const handleLogout = () => {
-    Alert.alert("Sign Out", "Are you sure?", [
+    iosAlert("Sign Out", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Sign Out",
@@ -121,8 +121,8 @@ export default function SidedBar() {
     { id: "route-history", icon: Route01Icon as any, label: "Route History", onPress: () => router.push("/route-history" as any) },
     { id: "tiers", icon: CrownIcon as any, label: "Emilgo Premium", onPress: () => router.push("/tiers") },
     { id: "settings", icon: Settings01Icon as any, label: "Settings", onPress: () => router.push("/(main)/settings") },
-    { id: "referral", icon: GiftIcon as any, label: "Refer a Friend", onPress: () => Alert.alert("Refer", "Coming soon!") },
-    { id: "help", icon: HelpCircleIcon as any, label: "Help Centre", onPress: () => Alert.alert("Help", "Support coming soon.") },
+    { id: "referral", icon: GiftIcon as any, label: "Refer a Friend", onPress: () => iosAlert("Refer", "Coming soon!") },
+    { id: "help", icon: HelpCircleIcon as any, label: "Help Centre", onPress: () => iosAlert("Help", "Support coming soon.") },
     // Dev-only: live reference for the iOS component kit (src/ui/). Stripped
     // from release bundles along with the __DEV__ branch.
     ...(__DEV__

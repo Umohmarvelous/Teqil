@@ -17,7 +17,6 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  Alert,
   Platform,
   ActivityIndicator,
   Modal,
@@ -57,6 +56,7 @@ import { getDeviceFingerprint } from "@/src/utils/device";
 import { useCreditsStore } from "@/src/store/useCreditsStore";
 import { supabase } from "@/src/services/supabase";
 import type { UserRole } from "@/src/models/types";
+import { iosAlert } from "@/components/ios";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -619,7 +619,7 @@ export default function RegisterScreen() {
   const onSubmit = useCallback(
     async (data: RegisterFormData) => {
       if (!role) {
-        Alert.alert("Select a Role", "Please choose whether you are a driver, passenger, or park owner.");
+        iosAlert("Select a Role", "Please choose whether you are a driver, passenger, or park owner.");
         return;
       }
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -632,7 +632,7 @@ export default function RegisterScreen() {
         if (exists) {
           setLoading(false);
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          Alert.alert(
+          iosAlert(
             "Username taken",
             `"${finalUsername}" is already in use. Please choose a different username.`
           );
@@ -682,7 +682,7 @@ export default function RegisterScreen() {
         }
       } catch (err) {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert(t("common.error"), err instanceof Error ? err.message : "Registration failed");
+        iosAlert(t("common.error"), err instanceof Error ? err.message : "Registration failed");
       } finally {
         setLoading(false);
       }
@@ -695,7 +695,7 @@ export default function RegisterScreen() {
   const handleOAuth = useCallback(
     async (provider: "google" | "apple") => {
       if (!role) {
-        Alert.alert("Select a Role", "Choose your role before continuing with OAuth.");
+        iosAlert("Select a Role", "Choose your role before continuing with OAuth.");
         return;
       }
       setOauthLoading(provider);
@@ -746,7 +746,7 @@ export default function RegisterScreen() {
           }
         }
       } catch (err) {
-        Alert.alert("OAuth Error", err instanceof Error ? err.message : "Could not sign in");
+        iosAlert("OAuth Error", err instanceof Error ? err.message : "Could not sign in");
       } finally {
         setOauthLoading(null);
       }

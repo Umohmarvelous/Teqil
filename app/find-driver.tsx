@@ -26,6 +26,7 @@ import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { Colors } from '@/constants/colors';
 import Avatar from '@/components/Avatar';
 import { HugeiconsIcon } from '@hugeicons/react-native';
+import { iosAlert } from "@/components/ios";
 import {
   ArrowLeft01Icon,
   Search01Icon,
@@ -85,7 +86,7 @@ export default function FindDriverScreen() {
     const q = query.trim();
     if (!q) return;
     if (!user?.id) {
-      Alert.alert('Not logged in', 'Please sign in first.');
+      iosAlert('Not logged in', 'Please sign in first.');
       return;
     }
 

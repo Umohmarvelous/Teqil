@@ -1,5 +1,5 @@
 // import React, { useEffect, useState, useRef } from "react";
-// import { View, Text, StyleSheet, Dimensions, Pressable, Alert } from "react-native";
+// import { View, Text, StyleSheet, Dimensions, Pressable } from "react-native";
 // import MapView, { Polyline, PROVIDER_GOOGLE, Marker } from "react-native-maps";
 // import { useSafeAreaInsets } from "react-native-safe-area-context";
 // import { router } from "expo-router";
@@ -56,7 +56,7 @@
 //             promptMessage: 'Confirm to start trip',
 //           });
 //           if (!result.success) {
-//             Alert.alert("Authentication Failed", "You must authenticate to start the trip.");
+//             iosAlert("Authentication Failed", "You must authenticate to start the trip.");
 //             router.back();
 //             return;
 //           }
@@ -100,7 +100,7 @@
 //       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 //     } catch (e) {
 //       console.warn(e);
-//       Alert.alert("Tracking Error", "Could not start live tracking.");
+//       iosAlert("Tracking Error", "Could not start live tracking.");
 //     }
 //   };
 
@@ -127,12 +127,12 @@
 //         base_fare: fare,
 //       });
 
-//       Alert.alert("Route Saved", "This route has been saved for future quick trips.", [
+//       iosAlert("Route Saved", "This route has been saved for future quick trips.", [
 //         { text: "OK", onPress: handleExit }
 //       ]);
 //       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 //     } catch (err) {
-//       Alert.alert("Error", "Could not save the route.");
+//       iosAlert("Error", "Could not save the route.");
 //     } finally {
 //       setSavingRoute(false);
 //     }
@@ -464,6 +464,7 @@ import {
 } from "@/src/services/locationTracking";
 import { Colors } from "@/constants/colors";
 import { formatCoins } from "@/src/utils/helpers";
+import { iosAlert } from "@/components/ios";
 
 // ─── Map style ────────────────────────────────────────────────────────────────
 
@@ -891,7 +892,7 @@ export default function LiveTripScreen() {
           disableDeviceFallback: false,
         });
         if (!result.success) {
-          Alert.alert("Authentication required", "Biometric confirm is needed to start tracking.");
+          iosAlert("Authentication required", "Biometric confirm is needed to start tracking.");
           router.back();
           return;
         }
@@ -908,7 +909,7 @@ export default function LiveTripScreen() {
         });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (e) {
-        Alert.alert(
+        iosAlert(
           "Tracking Error",
           e instanceof Error ? e.message : "Could not start location tracking.",
         );
@@ -963,7 +964,7 @@ export default function LiveTripScreen() {
       setRouteSaved(true);
       setSaveSheetVisible(false);
     } else {
-      Alert.alert("Couldn't save", "Please try again.");
+      iosAlert("Couldn't save", "Please try again.");
     }
   }, [currentLocation, routeCoordinates, activeTrip, tripDistanceKm, fare, saveRoute]);
 

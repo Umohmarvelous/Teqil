@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import {
   View, Text, StyleSheet, Pressable, Image, ActivityIndicator,
-  KeyboardAvoidingView, Platform, Alert
+  KeyboardAvoidingView, Platform
 } from "react-native";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { Heart, Send } from "@hugeicons/core-free-icons";
@@ -11,6 +11,7 @@ import BottomSheet, {
 } from "@gorhom/bottom-sheet";
 import { FeedItem, Comment } from "@/app/(main)/discover"; // adjust path
 import { Colors } from "@/constants/colors";
+import { iosAlert } from "@/components/ios";
 
 interface Props {
   bottomSheetRef: React.RefObject<BottomSheet | null>;
@@ -46,7 +47,7 @@ export function CommentSheet({ bottomSheetRef, post, isDark, onClose, onAddComme
         }));
       setComments(commentData);
     } catch (err) {
-      Alert.alert("Error", "Could not load comments");
+      iosAlert("Error", "Could not load comments");
       console.log(err)
     } finally {
       setLoadingComments(false);

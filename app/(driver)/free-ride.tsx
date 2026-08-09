@@ -20,7 +20,6 @@ import {
   Pressable,
   ScrollView,
   TextInput,
-  Alert,
   ActivityIndicator,
   Platform,
 } from "react-native";
@@ -40,6 +39,7 @@ import {
 } from "@/src/store/useFreeRidesStore";
 import { useFuelPoolStore } from "@/src/store/useFuelPoolStore";
 import { formatNaira } from "@/src/utils/helpers";
+import { iosAlert } from "@/components/ios";
 
 export default function OfferFreeRideScreen() {
   const insets = useSafeAreaInsets();
@@ -82,7 +82,7 @@ export default function OfferFreeRideScreen() {
       );
 
     if (!live) {
-      Alert.alert(
+      iosAlert(
         "No ride to track yet",
         "Tracking starts once a passenger has claimed this offer and is ready to travel."
       );
@@ -120,15 +120,15 @@ export default function OfferFreeRideScreen() {
     const dur = parseInt(duration, 10);
     const max = parseInt(maxPassengers, 10);
     if (!dur || dur < 1) {
-      Alert.alert("Set a duration", "How long will this offer stay open (in minutes)?");
+      iosAlert("Set a duration", "How long will this offer stay open (in minutes)?");
       return;
     }
     if (!max || max < 1) {
-      Alert.alert("Set a limit", "How many passengers can take this offer?");
+      iosAlert("Set a limit", "How many passengers can take this offer?");
       return;
     }
     if (mode === "barter" && !barterTerms.trim()) {
-      Alert.alert("What do you want?", "Describe what you want in exchange (money, goods or services).");
+      iosAlert("What do you want?", "Describe what you want in exchange (money, goods or services).");
       return;
     }
     setPublishing(true);
@@ -143,7 +143,7 @@ export default function OfferFreeRideScreen() {
     setPublishing(false);
     if (offer) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
+      iosAlert(
         "Offer published 🎉",
         mode === "reward"
           ? "Passengers can now accept your free ride. Complete GPS-tracked rides to earn free fuel."
@@ -152,7 +152,7 @@ export default function OfferFreeRideScreen() {
       setRequirements("");
       setBarterTerms("");
     } else {
-      Alert.alert("Couldn't publish", "Please check your connection and try again.");
+      iosAlert("Couldn't publish", "Please check your connection and try again.");
     }
   };
 
@@ -352,7 +352,7 @@ export default function OfferFreeRideScreen() {
                   )}
                   <Pressable
                     onPress={() =>
-                      Alert.alert("Close offer?", "Passengers will no longer see this offer.", [
+                      iosAlert("Close offer?", "Passengers will no longer see this offer.", [
                         { text: "Cancel", style: "cancel" },
                         { text: "Close", style: "destructive", onPress: () => closeOffer(o.id) },
                       ])

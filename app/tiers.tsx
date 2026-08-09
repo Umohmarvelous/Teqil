@@ -20,7 +20,6 @@ import {
   Pressable,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -34,6 +33,7 @@ import { PaystackService, computePremiumSplit } from "@/src/services/paystack";
 import { useTransactionsStore } from "@/src/store/useTransactionsStore";
 import { formatNaira } from "@/src/utils/helpers";
 import type { PremiumTier } from "@/src/models/types";
+import { iosAlert } from "@/components/ios";
 
 const txnId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 const MOCK_STATION_SUBACCOUNT = "ACCT_mock_station";
@@ -105,13 +105,13 @@ export default function TiersScreen() {
           });
         }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
+        iosAlert(
           `You're on ${PLAN_NAME[tier]} 🎉`,
           `Payment of ${formatNaira(amount)} succeeded. Your plan is now active — the receipt is in your history.`
         );
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert("Payment failed", "We couldn't complete the payment. Please try again.");
+        iosAlert("Payment failed", "We couldn't complete the payment. Please try again.");
       }
     } finally {
       setProcessing(false);
@@ -122,7 +122,7 @@ export default function TiersScreen() {
     if (isSelectedCurrent || processing) return;
 
     if (selected === "free") {
-      Alert.alert("Switch to Free?", "You'll lose your premium perks at the end of the cycle.", [
+      iosAlert("Switch to Free?", "You'll lose your premium perks at the end of the cycle.", [
         { text: "Cancel", style: "cancel" },
         {
           text: "Switch to Free",

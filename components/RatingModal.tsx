@@ -20,7 +20,6 @@ import {
   TextInput,
   ScrollView,
   Platform,
-  Alert,
   Animated,
   Easing,
 } from "react-native";
@@ -32,6 +31,7 @@ import { RatingsStorage } from "@/src/services/storage";
 import { syncAll } from "@/src/services/sync";
 import { generateId } from "@/src/utils/helpers";
 import { Colors } from "@/constants/colors";
+import { iosAlert } from "@/components/ios";
 
 // ─── Tag config ────────────────────────────────────────────────────────────────
 
@@ -271,7 +271,7 @@ export default function RatingModal({
 
   const handleSubmit = useCallback(async () => {
     if (stars === 0) {
-      Alert.alert(
+      iosAlert(
         t("ratings.rateYourTrip"),
         t("ratings.howWasIt")
       );
@@ -324,7 +324,7 @@ export default function RatingModal({
       resetState();
       onSubmit();
     } catch {
-      Alert.alert(t("common.error"), t("common.retry"));
+      iosAlert(t("common.error"), t("common.retry"));
       setIsSubmitting(false);
     }
   }, [

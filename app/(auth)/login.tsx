@@ -19,7 +19,6 @@ import {
   StyleSheet,
   Pressable,
   TextInput,
-  Alert,
   Platform,
   ActivityIndicator,
   Modal,
@@ -53,6 +52,7 @@ import { supabase } from "@/src/services/supabase";
 import { getDeviceFingerprint } from "@/src/utils/device";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import type { User } from "@/src/models/types";
+import { iosAlert } from "@/components/ios";
 
 // ─── Role → route helper ──────────────────────────────────────────────────────
 
@@ -134,7 +134,7 @@ export default function LoginScreen() {
       setUser(user);
       setIsAuthenticated(true);
       // if (offlineMode) {
-      //   Alert.alert("Offline Mode", "Signed in from cache. Some features need internet.");
+      //   iosAlert("Offline Mode", "Signed in from cache. Some features need internet.");
       // }
       router.replace(routeByRole(user.role, user.profile_complete) as any);
     },
@@ -146,12 +146,12 @@ export default function LoginScreen() {
     if (knownEmail) return knownEmail;
     const name = username.trim().toLowerCase();
     if (!name) {
-      Alert.alert("Username required", "Enter your username to sign in on this device.");
+      iosAlert("Username required", "Enter your username to sign in on this device.");
       return null;
     }
     const meta = await checkUsernameExists(name);
     if (!meta) {
-      Alert.alert("No user found", "We couldn't find an account with that username.");
+      iosAlert("No user found", "We couldn't find an account with that username.");
       return null;
     }
     return meta.email;
@@ -160,7 +160,7 @@ export default function LoginScreen() {
   // ── Password sign-in ───────────────────────────────────────────────────────
   const handleSignIn = useCallback(async () => {
     if (!password) {
-      Alert.alert("Password required", "Please enter your password.");
+      iosAlert("Password required", "Please enter your password.");
       return;
     }
     Keyboard.dismiss();
@@ -176,7 +176,7 @@ export default function LoginScreen() {
       await finishLogin(user, offlineMode);
     } catch (err) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
+      iosAlert(
         "Sign In Failed",
         err instanceof Error ? err.message : "Wrong password. Please try again."
       );
@@ -193,7 +193,7 @@ export default function LoginScreen() {
       const r = await signInWithBiometrics();
 
       if (!r.supported) {
-        Alert.alert("Not Supported", "Biometric authentication isn't available on this device.");
+        iosAlert("Not Supported", "Biometric authentication isn't available on this device.");
         return;
       }
       if (r.success && r.user) {
@@ -201,14 +201,14 @@ export default function LoginScreen() {
         return;
       }
       if (r.error === "no_credentials") {
-        Alert.alert(
+        iosAlert(
           "No Saved Login",
           "Sign in with your password once. After that, Face ID / passcode login will be available."
         );
       }
       // Any other error (user cancelled, failed) → stay on screen silently.
     } catch {
-      Alert.alert("Error", "Authentication failed. Please try again.");
+      iosAlert("Error", "Authentication failed. Please try again.");
     } finally {
       setBioLoading(false);
     }
@@ -223,14 +223,14 @@ export default function LoginScreen() {
   const handleForgotSubmit = useCallback(async () => {
     const name = forgotUsername.trim().toLowerCase();
     if (!name) {
-      Alert.alert("Username required", "Enter your username to reset your password.");
+      iosAlert("Username required", "Enter your username to reset your password.");
       return;
     }
     setForgotLoading(true);
     try {
       const meta = await checkUsernameExists(name);
       if (!meta) {
-        Alert.alert("No user found", "We couldn't find an account with that username.");
+        iosAlert("No user found", "We couldn't find an account with that username.");
         return;
       }
       const { error } = await supabase.auth.resetPasswordForEmail(meta.email, {
@@ -239,12 +239,12 @@ export default function LoginScreen() {
       });
       if (error) throw error;
       setForgotVisible(false);
-      Alert.alert(
+      iosAlert(
         "Reset Link Sent",
         "Check the email on file for a link to reset your password."
       );
     } catch (err) {
-      Alert.alert(
+      iosAlert(
         "Couldn't Send Reset",
         err instanceof Error ? err.message : "Please try again."
       );

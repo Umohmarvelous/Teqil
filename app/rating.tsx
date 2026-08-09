@@ -18,7 +18,6 @@ import {
   TextInput,
   ScrollView,
   Platform,
-  Alert,
   Animated,
   Easing,
 } from "react-native";
@@ -33,6 +32,7 @@ import { RatingsStorage } from "@/src/services/storage";
 import { syncAll } from "@/src/services/sync";
 import { generateId, formatDate, formatTime } from "@/src/utils/helpers";
 import { Colors } from "@/constants/colors";
+import { iosAlert } from "@/components/ios";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -325,7 +325,7 @@ export default function RatingScreen() {
 
   const handleSubmit = useCallback(async () => {
     if (stars === 0) {
-      Alert.alert("Rate your trip", "Please select at least 1 star.");
+      iosAlert("Rate your trip", "Please select at least 1 star.");
       return;
     }
     if (!user?.id || !tripId || !ratedUserId) {
@@ -361,7 +361,7 @@ export default function RatingScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       navigateHome();
     } catch {
-      Alert.alert("Error", "Could not submit rating. Please try again.");
+      iosAlert("Error", "Could not submit rating. Please try again.");
       setIsSubmitting(false);
     }
   }, [

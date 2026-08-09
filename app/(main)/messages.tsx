@@ -27,8 +27,7 @@
 // //   TextInput,
 // //   KeyboardAvoidingView,
 // //   Platform,
-// //   Alert,
-// //   Modal,
+// //   // //   Modal,
 // //   Linking,
 // //   RefreshControl,
 // //   ActivityIndicator,
@@ -101,7 +100,7 @@
 // //   const call = () => {
 // //     const phone = conversation.participant_phone;
 // //     if (!phone) {
-// //       Alert.alert("No phone number", "This driver has no phone number on record.");
+// //       iosAlert("No phone number", "This driver has no phone number on record.");
 // //       return;
 // //     }
 // //     Linking.openURL(`tel:${phone.replace(/\s/g, "")}`);
@@ -341,7 +340,7 @@
 // //     try {
 // //       const { status } = await Audio.requestPermissionsAsync();
 // //       if (status !== "granted") {
-// //         Alert.alert(
+// //         iosAlert(
 // //           "Permission required",
 // //           "Microphone access is needed for voice messages."
 // //         );
@@ -358,7 +357,7 @@
 // //       setIsRecording(true);
 // //       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 // //     } catch {
-// //       Alert.alert("Error", "Could not start recording.");
+// //       iosAlert("Error", "Could not start recording.");
 // //     }
 // //   };
 
@@ -385,7 +384,7 @@
 // //         await addMessage(msg);
 // //       }
 // //     } catch {
-// //       Alert.alert("Error", "Could not save voice message.");
+// //       iosAlert("Error", "Could not save voice message.");
 // //     }
 // //   };
 
@@ -399,7 +398,7 @@
 // //   const handleCall = () => {
 // //     const phone = conversation.participant_phone;
 // //     if (!phone) {
-// //       Alert.alert("No phone", "This driver has no phone number on record.");
+// //       iosAlert("No phone", "This driver has no phone number on record.");
 // //       return;
 // //     }
 // //     Linking.openURL(`tel:${phone.replace(/\s/g, "")}`);
@@ -1038,7 +1037,7 @@
 // //   };
 
 // //   const confirmDelete = (id: string) => {
-// //     Alert.alert("Delete conversation", "This cannot be undone.", [
+// //     iosAlert("Delete conversation", "This cannot be undone.", [
 // //       { text: "Cancel", style: "cancel" },
 // //       {
 // //         text: "Delete",
@@ -1449,7 +1448,7 @@
 //   const call = () => {
 //     const phone = conversation.participant_phone;
 //     if (!phone) {
-//       Alert.alert("No phone number", "This driver has no phone number on record.");
+//       iosAlert("No phone number", "This driver has no phone number on record.");
 //       return;
 //     }
 //     Linking.openURL(`tel:${phone.replace(/\s/g, "")}`);
@@ -1695,7 +1694,7 @@
 //     try {
 //       const { status } = await Audio.requestPermissionsAsync();
 //       if (status !== "granted") {
-//         Alert.alert(
+//         iosAlert(
 //           "Permission required",
 //           "Microphone access is needed for voice messages."
 //         );
@@ -1712,7 +1711,7 @@
 //       setIsRecording(true);
 //       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 //     } catch {
-//       Alert.alert("Error", "Could not start recording.");
+//       iosAlert("Error", "Could not start recording.");
 //     }
 //   };
 
@@ -1739,7 +1738,7 @@
 //         await addMessage(msg);
 //       }
 //     } catch {
-//       Alert.alert("Error", "Could not save voice message.");
+//       iosAlert("Error", "Could not save voice message.");
 //     }
 //   };
 
@@ -1753,7 +1752,7 @@
 //   const handleCall = () => {
 //     const phone = conversation.participant_phone;
 //     if (!phone) {
-//       Alert.alert("No phone", "This driver has no phone number on record.");
+//       iosAlert("No phone", "This driver has no phone number on record.");
 //       return;
 //     }
 //     Linking.openURL(`tel:${phone.replace(/\s/g, "")}`);
@@ -2428,7 +2427,7 @@
 //   };
 
 //   const confirmDelete = (id: string) => {
-//     Alert.alert("Delete conversation", "This cannot be undone.", [
+//     iosAlert("Delete conversation", "This cannot be undone.", [
 //       { text: "Cancel", style: "cancel" },
 //       {
 //         text: "Delete",
@@ -2762,6 +2761,7 @@ import { StatusBar }  from 'expo-status-bar';
 import Swipeable      from 'react-native-gesture-handler/Swipeable';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase }   from '@/src/services/supabase';
+import { iosAlert } from "@/components/ios";
 // expo-av was removed in Expo SDK 57 — stub so the voice-recording code compiles.
 // Recording is disabled (permission returns "denied") until migrated to expo-audio.
 const Audio: any = {
@@ -2792,7 +2792,7 @@ function ContactInfoModal({
 
   const call = () => {
     const phone = conversation.participant_phone;
-    if (!phone) { Alert.alert('No phone number', 'This driver has no phone number on record.'); return; }
+    if (!phone) { iosAlert('No phone number', 'This driver has no phone number on record.'); return; }
     Linking.openURL(`tel:${phone.replace(/\s/g, '')}`);
   };
 
@@ -2973,7 +2973,7 @@ export function ChatScreen({
     try {
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission required', 'Microphone access is needed for voice messages.');
+        iosAlert('Permission required', 'Microphone access is needed for voice messages.');
         return;
       }
       await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
@@ -2981,7 +2981,7 @@ export function ChatScreen({
       recordingRef.current = recording;
       setIsRecording(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch { Alert.alert('Error', 'Could not start recording.'); }
+    } catch { iosAlert('Error', 'Could not start recording.'); }
   };
 
   const stopRecording = async () => {
@@ -3005,7 +3005,7 @@ export function ChatScreen({
           status:          'sent',
         });
       }
-    } catch { Alert.alert('Error', 'Could not save voice message.'); }
+    } catch { iosAlert('Error', 'Could not save voice message.'); }
   };
 
   const cancelRecording = async () => {
@@ -3017,7 +3017,7 @@ export function ChatScreen({
 
   const handleCall = () => {
     const phone = conversation.participant_phone;
-    if (!phone) { Alert.alert('No phone', 'This driver has no phone number on record.'); return; }
+    if (!phone) { iosAlert('No phone', 'This driver has no phone number on record.'); return; }
     Linking.openURL(`tel:${phone.replace(/\s/g, '')}`);
   };
 
@@ -3584,7 +3584,7 @@ export default function MessagesTab() {
   };
 
   const confirmDelete = (id: string) => {
-    Alert.alert('Delete conversation', 'This cannot be undone.', [
+    iosAlert('Delete conversation', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => deleteConversation(id) },
     ]);

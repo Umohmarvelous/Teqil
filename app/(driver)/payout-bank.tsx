@@ -18,7 +18,6 @@ import {
   Platform,
   KeyboardAvoidingView,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -29,6 +28,7 @@ import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { resolveBankAccount } from "@/src/services/paystack";
 import { syncUserToPublicTable } from "@/src/services/auth";
+import { iosAlert } from "@/components/ios";
 
 const BANKS = [
   { name: "Access Bank", code: "044" },
@@ -92,11 +92,11 @@ export default function PayoutBankScreen() {
       updateUser(updates);
       await syncUserToPublicTable({ ...user, ...updates });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Payout account saved", "Fare payments will now go to this account.", [
+      iosAlert("Payout account saved", "Fare payments will now go to this account.", [
         { text: "Done", onPress: () => router.back() },
       ]);
     } catch {
-      Alert.alert("Couldn't save", "Please try again.");
+      iosAlert("Couldn't save", "Please try again.");
     } finally {
       setSaving(false);
     }

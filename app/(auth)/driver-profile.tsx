@@ -7,7 +7,6 @@ import {
   TextInput,
   ScrollView,
   Platform,
-  Alert,
   Image,
   Animated,
   KeyboardAvoidingView,
@@ -23,6 +22,7 @@ import { Colors } from "@/constants/colors";
 import { supabase } from "@/src/services/supabase";
 import { useTranslation } from "react-i18next";
 import { generateDriverId } from "@/src/utils/helpers";
+import { iosAlert } from "@/components/ios";
 
 // const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -357,7 +357,7 @@ export default function DriverProfileScreen() {
       router.replace("/(main)");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Could not save profile";
-      Alert.alert("Error", msg);
+      iosAlert("Error", msg);
     } finally {
       setIsLoading(false);
     }
