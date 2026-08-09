@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, View, Text, StyleSheet, Pressable, AppState } from 'react-native';
+import { View, Text, StyleSheet, AppState } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
+import { IOSSheet, IOSButton } from '@/components/ios';
 
 export default function LocationPromptModal() {
   const [visible, setVisible] = useState(false);
@@ -11,7 +12,7 @@ export default function LocationPromptModal() {
   const checkLocation = async () => {
     let enabled = await Location.hasServicesEnabledAsync();
     let { status } = await Location.getForegroundPermissionsAsync();
-    
+
     if (!enabled || status !== 'granted') {
       setVisible(true);
     } else {
@@ -21,7 +22,7 @@ export default function LocationPromptModal() {
 
   useEffect(() => {
     checkLocation();
-    
+
     const subscription = AppState.addEventListener('change', nextAppState => {
       if (appState.match(/inactive|background/) && nextAppState === 'active') {
         checkLocation();
@@ -43,29 +44,47 @@ export default function LocationPromptModal() {
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={false}>
+    // Presented as an iOS sheet, but NOT dismissible: this is a hard gate, so
+    // swipe-down and tap-outside stay off until permission is actually granted.
+    <IOSSheet
+      visible={visible}
+      onClose={() => {}}
+      dismissible={false}
+      showGrabber={false}
+      detent="medium"
+      contentStyle={styles.sheet}
+    >
       <View style={styles.container}>
-        <Ionicons name="location" size={80} color={Colors.primary} />
+        <Ionicons name="location" size={72} color={Colors.primary} />
         <Text style={styles.title}>Location Required</Text>
         <Text style={styles.description}>
-          Teqil needs your location to track trips, ensure safety, and calculate accurate fares. 
+          Teqil needs your location to track trips, ensure safety, and calculate accurate fares.
           Please enable location services in your device settings to continue.
         </Text>
-        <Pressable style={styles.button} onPress={requestPermission}>
-          <Text style={styles.buttonText}>Enable Location</Text>
-        </Pressable>
+        <IOSButton
+          title="Enable Location"
+          variant="filled"
+          size="large"
+          fullWidth
+          symbol="location.fill"
+          onPress={requestPermission}
+          textStyle={styles.buttonText}
+        />
       </View>
-    </Modal>
+    </IOSSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  sheet: {
     backgroundColor: Colors.background,
+  },
+  container: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 30,
+    paddingHorizontal: 30,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   title: {
     fontFamily: 'Poppins_700Bold',
@@ -80,20 +99,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 32,
     lineHeight: 22,
-  },
-  button: {
-    backgroundColor: Colors.primary,
-    paddingVertical: 16,
-    paddingHorizontal: 40,
-    borderRadius: 30,
-    width: '100%',
-    alignItems: 'center',
   },
   buttonText: {
     fontFamily: 'Poppins_600SemiBold',
     fontSize: 16,
-    color: Colors.textWhite,
   },
 });
