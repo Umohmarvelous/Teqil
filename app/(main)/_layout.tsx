@@ -23,8 +23,19 @@ import SettingsTab from "./settings";
 import DiscoverTab from "./discover";
 import type { FeedItem } from "./discover";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { Menu02Icon, Search02Icon } from "@hugeicons/core-free-icons";
-import { IOSTabBar, TAB_BAR_HEIGHT, type IOSTab } from "@/components/ios";
+import {
+  Menu02Icon,
+  Search02Icon,
+  HomeIcon,
+  Home01Icon,
+  MessageIcon,
+  Message01Icon,
+  SettingsIcon,
+  Settings01Icon,
+} from "@hugeicons/core-free-icons";
+import { IOSTabBar, TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_GAP, type IOSTab } from "@/components/ios";
+import Avatar from "@/components/Avatar";
+import { useAuthStore } from "@/src/store/useStore";
 import BottomSheet from "@gorhom/bottom-sheet";
 import { CommentSheet } from "@/components/CommentSheet";
 import MainTab from "./index";
@@ -37,15 +48,15 @@ type Tab = "home" | "profile" | "messages" | "settings";
 type TopTab = "home" | "discover";
 
 /**
- * Bottom tabs, as SF Symbols. iOS pairs an outline symbol with its `.fill`
- * variant for the selected state — that's what makes a tab bar read as native,
- * so we follow it rather than swapping icon sets.
+ * Bottom tabs — Emilgo's own Hugeicons set, paired outline/filled for the
+ * unselected/selected states. The "You" tab renders the user's avatar instead
+ * of a glyph, as it did before.
  */
 const TABS: IOSTab[] = [
-  { key: "home",     label: "Home",     symbol: "house",              symbolActive: "house.fill" },
-  { key: "profile",  label: "You",      symbol: "person.crop.circle", symbolActive: "person.crop.circle.fill" },
-  { key: "messages", label: "Messages", symbol: "message",            symbolActive: "message.fill" },
-  { key: "settings", label: "Settings", symbol: "gearshape",          symbolActive: "gearshape.fill" },
+  { key: "home",     label: "Home",     icon: Home01Icon,     iconActive: HomeIcon },
+  { key: "profile",  label: "You" },
+  { key: "messages", label: "Messages", icon: Message01Icon,  iconActive: MessageIcon },
+  { key: "settings", label: "Settings", icon: Settings01Icon, iconActive: SettingsIcon },
 ];
 
 const SIDEBAR_WIDTH = 330;
@@ -74,6 +85,7 @@ export default function MainLayout() {
   const insets = useSafeAreaInsets();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const { conversations } = useMessagesStore();
+  const user = useAuthStore((s) => s.user);
 
   const { shouldShow, isLoaded, complete } = useOnboarding();
 
@@ -339,7 +351,8 @@ export default function MainLayout() {
   const HEADER_HEIGHT = topPadding + 85;
   // const HEADER_HEIGHT = topPadding + 110;
   // Content padding so the last row clears the translucent bar it scrolls under.
-  const BOTTOM_HEIGHT = TAB_BAR_HEIGHT + insets.bottom;
+  // The bar now floats clear of the screen edge, so content must clear the gap too.
+  const BOTTOM_HEIGHT = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + insets.bottom;
 
   const renderMainContent = () => {
     if (activeTab !== "home") {
@@ -593,9 +606,24 @@ export default function MainLayout() {
             }}
           >
             <IOSTabBar
-              tabs={TABS.map((t) =>
-                t.key === "messages" ? { ...t, badge: totalUnread } : t,
-              )}
+              tabs={TABS.map((t) => {
+                if (t.key === "messages") return { ...t, badge: totalUnread };
+                if (t.key === "profile") {
+                  return {
+                    ...t,
+                    render: ({ active }) => (
+                      <View style={active ? styles.avatarActive : styles.avatarInactive}>
+                        <Avatar
+                          name={user?.full_name || "U"}
+                          photoUri={user?.profile_photo}
+                          size={26}
+                        />
+                      </View>
+                    ),
+                  };
+                }
+                return t;
+              })}
               active={activeTab}
               onChange={(key) => handleTabPress(key as Tab)}
             />
@@ -749,15 +777,19 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   tabLabel: { fontSize: 10, letterSpacing: 0.2 },
+  // Sized for the 26pt avatar in the capsule tab bar. The selected state already
+  // reads from the highlight behind the item, so the ring stays subtle.
   avatarActive: {
-    borderRadius: 16,
-    borderWidth: 2.5,
+    borderRadius: 15,
+    borderWidth: 1.5,
     borderColor: Colors.primary,
+    padding: 1,
   },
   avatarInactive: {
-    borderRadius: 16,
-    borderWidth: 2,
+    borderRadius: 15,
+    borderWidth: 1.5,
     borderColor: "transparent",
+    padding: 1,
   },
   unreadBadge: {
     position: "absolute",

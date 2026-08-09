@@ -22,6 +22,7 @@ export {
   IOSTabBar,
   useTabBarInset,
   TAB_BAR_HEIGHT,
+  TAB_BAR_BOTTOM_GAP,
   type IOSTab,
   type IOSTabBarProps,
 } from "./IOSTabBar";

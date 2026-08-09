@@ -29,12 +29,20 @@ import {
   IOSFont,
   type IOSTab,
 } from "@/components/ios";
+import {
+  HomeIcon,
+  Home01Icon,
+  Car01Icon,
+  MessageIcon,
+  Message01Icon,
+  UserIcon,
+} from "@hugeicons/core-free-icons";
 
 const TABS: IOSTab[] = [
-  { key: "home",     label: "Home",     symbol: "house",              symbolActive: "house.fill" },
-  { key: "rides",    label: "Rides",    symbol: "car",                symbolActive: "car.fill" },
-  { key: "messages", label: "Messages", symbol: "bubble.left",        symbolActive: "bubble.left.fill", badge: 3 },
-  { key: "profile",  label: "Profile",  symbol: "person.crop.circle", symbolActive: "person.crop.circle.fill" },
+  { key: "home",     label: "Home",     icon: Home01Icon,    iconActive: HomeIcon },
+  { key: "rides",    label: "Rides",    icon: Car01Icon,     iconActive: Car01Icon },
+  { key: "messages", label: "Messages", icon: Message01Icon, iconActive: MessageIcon, badge: 3 },
+  { key: "profile",  label: "Profile",  icon: UserIcon,      iconActive: UserIcon },
 ];
 
 /** Filler rows so there's enough content to scroll the header into collapse. */
