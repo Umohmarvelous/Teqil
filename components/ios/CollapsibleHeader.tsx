@@ -84,6 +84,12 @@ export function useCollapsibleScroll(): CollapsibleScroll {
 export interface CollapsibleHeaderProps {
   title: string;
   scrollY: SharedValue<number>;
+  /**
+   * When false the header renders in its resting large-title state and never
+   * animates. Use it on screens with nothing scrollable — a collapsing header
+   * that can't collapse reads as broken.
+   */
+  collapsible?: boolean;
   /** Left slot — typically a back button. */
   left?: React.ReactNode;
   /** Right slot — typically an action button. */
@@ -98,6 +104,7 @@ export interface CollapsibleHeaderProps {
 export function CollapsibleHeader({
   title,
   scrollY,
+  collapsible = true,
   left,
   right,
   subtitle,
@@ -111,11 +118,15 @@ export function CollapsibleHeader({
 
   // Frosted background + hairline fade in together as the title collapses.
   const backgroundStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [0, COLLAPSE_DISTANCE], [0, 1], Extrapolation.CLAMP),
+    opacity: collapsible
+      ? interpolate(scrollY.value, [0, COLLAPSE_DISTANCE], [0, 1], Extrapolation.CLAMP)
+      : 0,
   }));
 
   // Large title: fades out over the first 60% of the travel and drifts upward.
-  const largeTitleStyle = useAnimatedStyle(() => ({
+  const largeTitleStyle = useAnimatedStyle(() => {
+    if (!collapsible) return { opacity: 1, transform: [{ translateY: 0 }, { scale: 1 }] };
+    return {
     opacity: interpolate(
       scrollY.value,
       [0, COLLAPSE_DISTANCE * 0.6],
@@ -136,10 +147,13 @@ export function CollapsibleHeader({
         scale: interpolate(scrollY.value, [0, COLLAPSE_DISTANCE], [1, 0.92], Extrapolation.CLAMP),
       },
     ],
-  }));
+    };
+  });
 
   // Compact centred title: only appears once the large one is mostly gone.
-  const compactTitleStyle = useAnimatedStyle(() => ({
+  const compactTitleStyle = useAnimatedStyle(() => {
+    if (!collapsible) return { opacity: 0, transform: [{ translateY: 8 }] };
+    return {
     opacity: interpolate(
       scrollY.value,
       [COLLAPSE_DISTANCE * 0.55, COLLAPSE_DISTANCE],
@@ -156,16 +170,19 @@ export function CollapsibleHeader({
         ),
       },
     ],
-  }));
+    };
+  });
 
   // The whole header shrinks to just the compact bar as you scroll.
   const containerStyle = useAnimatedStyle(() => ({
-    height: interpolate(
-      scrollY.value,
-      [0, COLLAPSE_DISTANCE],
-      [totalHeight, insets.top + NAV_BAR_HEIGHT],
-      Extrapolation.CLAMP,
-    ),
+    height: collapsible
+      ? interpolate(
+          scrollY.value,
+          [0, COLLAPSE_DISTANCE],
+          [totalHeight, insets.top + NAV_BAR_HEIGHT],
+          Extrapolation.CLAMP,
+        )
+      : totalHeight,
   }));
 
   return (

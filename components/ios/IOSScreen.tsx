@@ -34,7 +34,11 @@ import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "expo-symbols";
 
 import { useIOSTheme, IOSFont } from "./theme";
-import { CollapsibleHeader, useCollapsibleScroll } from "./CollapsibleHeader";
+import {
+  CollapsibleHeader,
+  useCollapsibleScroll,
+  type CollapsibleScroll,
+} from "./CollapsibleHeader";
 import { useTabBarInset } from "./IOSTabBar";
 
 export interface IOSScreenProps {
@@ -61,6 +65,15 @@ export interface IOSScreenProps {
   grouped?: boolean;
   /** Leave room for the translucent tab bar. On for screens inside the shell. */
   tabBarInset?: boolean;
+
+  /**
+   * For `scrollable={false}` screens that own a FlatList/SectionList: pass the
+   * scroll object from `useCollapsibleScroll()` and wire its `onScroll` to your
+   * list. Without it the header renders STATIC rather than collapsible, because
+   * a collapsing header nothing ever scrolls is just a large title that lies
+   * about being interactive.
+   */
+  scroll?: CollapsibleScroll;
 
   contentContainerStyle?: StyleProp<ViewStyle>;
   refreshControl?: React.ReactElement<RefreshControlProps>;
@@ -93,10 +106,16 @@ export function IOSScreen({
   tabBarInset = false,
   contentContainerStyle,
   refreshControl,
+  scroll: externalScroll,
 }: IOSScreenProps) {
   const theme = useIOSTheme();
-  const scroll = useCollapsibleScroll();
+  const internalScroll = useCollapsibleScroll();
   const bottomInset = useTabBarInset();
+
+  const scroll = externalScroll ?? internalScroll;
+  // Collapse only when something genuinely drives the offset: our own
+  // ScrollView, or a list the caller wired up.
+  const collapsible = scrollable || !!externalScroll;
 
   const background = grouped ? theme.systemGroupedBackground : theme.systemBackground;
 
@@ -108,6 +127,7 @@ export function IOSScreen({
       <CollapsibleHeader
         title={title}
         subtitle={subtitle}
+        collapsible={collapsible}
         scrollY={scroll.value}
         left={back ? <BackChevron onPress={onBack ?? (() => router.back())} /> : undefined}
         right={right}
