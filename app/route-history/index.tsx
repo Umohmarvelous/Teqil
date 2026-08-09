@@ -2,6 +2,8 @@
 //
 // Saved route history — every GPS-tracked ride the user has taken or driven.
 // Tap a row for the full map; swipe left to delete.
+//
+// iOS kit: large-title header, inset-grouped rows, system swipe-to-delete.
 
 import React, { useCallback, useMemo } from "react";
 import {
@@ -10,21 +12,27 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  Alert,
   Platform,
   RefreshControl,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { StatusBar } from "expo-status-bar";
 import Swipeable from "react-native-gesture-handler/Swipeable";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import * as Haptics from "expo-haptics";
+import { SymbolView } from "expo-symbols";
 
 import { RouteThumbnail } from "@/components/RouteThumbnail";
+import {
+  IOSAlert,
+  IOSButton,
+  useIOSTheme,
+  IOSFont,
+  IOSMetrics,
+  type IOSPalette,
+} from "@/components/ios";
 import { useRouteHistory, type RouteHistoryEntry } from "@/src/hooks/useRouteHistory";
-import { useSettingsStore } from "@/src/store/useSettingsStore";
-import { Colors } from "@/constants/colors";
+import { haptics } from "@/src/utils/haptics";
 import { formatDistance, formatDuration, formatNaira } from "@/src/utils/helpers";
 
 // ─── Row ─────────────────────────────────────────────────────────────────────
@@ -32,30 +40,25 @@ import { formatDistance, formatDuration, formatNaira } from "@/src/utils/helpers
 function HistoryCard({
   entry,
   onDelete,
-  isDark,
+  ios,
 }: {
   entry:    RouteHistoryEntry;
-  onDelete: (id: string) => void;
-  isDark:   boolean;
+  onDelete: (entry: RouteHistoryEntry) => void;
+  ios:      IOSPalette;
 }) {
-  const cardBg    = isDark ? Colors.surface        : "#FFFFFF";
-  const textColor = isDark ? Colors.textWhite      : Colors.text;
-  const subColor  = isDark ? Colors.textSecondary  : Colors.textTertiary;
-
   const isFreeRide = entry.context === "free_ride";
   const when = new Date(entry.started_at);
-  const dateLabel = when.toLocaleDateString(undefined, {
-    day:   "numeric",
-    month: "short",
-  });
-  const timeLabel = when.toLocaleTimeString(undefined, {
-    hour:   "2-digit",
-    minute: "2-digit",
-  });
+
+  const dateLabel = when.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  const timeLabel = when.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
   const renderRightActions = () => (
-    <Pressable style={cardStyles.deleteBtn} onPress={() => onDelete(entry.id)}>
-      <Ionicons name="trash-outline" size={22} color="#fff" />
+    <Pressable
+      style={[cardStyles.deleteBtn, { backgroundColor: ios.systemRed }]}
+      onPress={() => onDelete(entry)}
+      accessibilityLabel={`Delete ${entry.dest_label || "tracked ride"}`}
+    >
+      <SymbolView name="trash.fill" size={20} tintColor="#FFFFFF" fallback={null} />
     </Pressable>
   );
 
@@ -64,63 +67,69 @@ function HistoryCard({
       <Pressable
         style={({ pressed }) => [
           cardStyles.card,
-          { backgroundColor: cardBg },
-          pressed && { opacity: 0.85 },
+          { backgroundColor: ios.secondarySystemGroupedBackground },
+          pressed && { backgroundColor: ios.tertiarySystemFill },
         ]}
         onPress={() => router.push(`/route-history/${entry.id}`)}
+        accessibilityRole="button"
       >
-        <RouteThumbnail path={entry.path} isDark={isDark} />
+        <RouteThumbnail path={entry.path} isDark={ios.scheme === "dark"} width={64} height={64} />
 
         <View style={cardStyles.body}>
           <View style={cardStyles.titleRow}>
-            <Text style={[cardStyles.title, { color: textColor }]} numberOfLines={1}>
+            <Text numberOfLines={1} style={[IOSFont.headline, { color: ios.label, flexShrink: 1 }]}>
               {entry.dest_label || entry.origin_label || "Tracked ride"}
             </Text>
             {isFreeRide && (
-              <View style={cardStyles.freeTag}>
-                <Text style={cardStyles.freeTagText}>FREE</Text>
+              <View style={[cardStyles.tag, { backgroundColor: ios.tertiarySystemFill }]}>
+                <Text style={[IOSFont.caption2, { color: ios.tint, fontWeight: "600" }]}>FREE</Text>
               </View>
             )}
           </View>
 
-          <Text style={[cardStyles.meta, { color: subColor }]}>
+          <Text style={[IOSFont.footnote, { color: ios.secondaryLabel }]}>
             {dateLabel} · {timeLabel} · {entry.role === "driver" ? "Driving" : "Riding"}
           </Text>
 
           <View style={cardStyles.statsRow}>
-            <View style={cardStyles.stat}>
-              <Ionicons name="navigate-outline" size={13} color={Colors.primary} />
-              <Text style={[cardStyles.statText, { color: subColor }]}>
-                {formatDistance(entry.distance_km)}
-              </Text>
-            </View>
-            <View style={cardStyles.stat}>
-              <Ionicons name="time-outline" size={13} color={Colors.primary} />
-              <Text style={[cardStyles.statText, { color: subColor }]}>
-                {formatDuration(entry.duration_seconds)}
-              </Text>
-            </View>
+            <Stat ios={ios} symbol="location.fill" text={formatDistance(entry.distance_km)} />
+            <Stat ios={ios} symbol="clock.fill" text={formatDuration(entry.duration_seconds)} />
             {entry.fare > 0 && (
-              <View style={cardStyles.stat}>
-                <Ionicons name="cash-outline" size={13} color={Colors.gold} />
-                <Text style={[cardStyles.statText, { color: subColor }]}>
-                  {formatNaira(entry.fare)}
-                </Text>
-              </View>
+              <Stat ios={ios} symbol="naironsign.circle.fill" text={formatNaira(entry.fare)} tint={ios.systemOrange} />
             )}
           </View>
         </View>
 
         <View style={cardStyles.trailing}>
-          {entry.gps_validated ? (
-            <Ionicons name="shield-checkmark" size={16} color={Colors.primary} />
-          ) : (
-            <Ionicons name="shield-outline" size={16} color={Colors.textTertiary} />
-          )}
-          <Ionicons name="chevron-forward" size={16} color={subColor} />
+          <SymbolView
+            name={entry.gps_validated ? "checkmark.shield.fill" : "shield"}
+            size={15}
+            tintColor={entry.gps_validated ? ios.tint : ios.tertiaryLabel}
+            fallback={null}
+          />
+          <SymbolView name="chevron.right" size={13} tintColor={ios.tertiaryLabel} fallback={null} />
         </View>
       </Pressable>
     </Swipeable>
+  );
+}
+
+function Stat({
+  ios,
+  symbol,
+  text,
+  tint,
+}: {
+  ios:    IOSPalette;
+  symbol: string;
+  text:   string;
+  tint?:  string;
+}) {
+  return (
+    <View style={cardStyles.stat}>
+      <SymbolView name={symbol as never} size={11} tintColor={tint ?? ios.tint} fallback={null} />
+      <Text style={[IOSFont.caption1, { color: ios.secondaryLabel }]}>{text}</Text>
+    </View>
   );
 }
 
@@ -130,94 +139,61 @@ const cardStyles = StyleSheet.create({
     alignItems:       "center",
     gap:              12,
     padding:          12,
-    borderRadius:     18,
-    marginHorizontal: 16,
+    borderRadius:     IOSMetrics.groupedRadius,
+    marginHorizontal: IOSMetrics.groupedInset,
     marginBottom:     10,
-    shadowColor:      "#000",
-    shadowOffset:     { width: 0, height: 2 },
-    shadowOpacity:    0.06,
-    shadowRadius:     8,
-    elevation:        2,
   },
-  body:      { flex: 1, gap: 4 },
-  titleRow:  { flexDirection: "row", alignItems: "center", gap: 8 },
-  title:     { fontFamily: "Poppins_600SemiBold", fontSize: 15, flexShrink: 1 },
-  freeTag: {
-    backgroundColor:   "rgba(0,154,67,0.12)",
+  body:     { flex: 1, gap: 3 },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  tag: {
     paddingHorizontal: 6,
     paddingVertical:   2,
-    borderRadius:      6,
+    borderRadius:      5,
   },
-  freeTagText: {
-    fontFamily:    "Poppins_700Bold",
-    fontSize:      9,
-    color:         Colors.primary,
-    letterSpacing: 0.5,
-  },
-  meta:      { fontFamily: "Poppins_400Regular", fontSize: 12 },
-  statsRow:  { flexDirection: "row", gap: 14, marginTop: 2 },
-  stat:      { flexDirection: "row", alignItems: "center", gap: 4 },
-  statText:  { fontFamily: "Poppins_500Medium", fontSize: 12 },
-  trailing:  { alignItems: "center", gap: 6 },
+  statsRow: { flexDirection: "row", gap: 14, marginTop: 2 },
+  stat:     { flexDirection: "row", alignItems: "center", gap: 4 },
+  trailing: { alignItems: "center", gap: 6 },
   deleteBtn: {
-    backgroundColor: Colors.error,
-    justifyContent:  "center",
-    alignItems:      "center",
-    width:           72,
-    marginBottom:    10,
-    marginRight:     16,
-    borderRadius:    18,
+    justifyContent: "center",
+    alignItems:     "center",
+    width:          74,
+    marginBottom:   10,
+    marginRight:    IOSMetrics.groupedInset,
+    borderRadius:   IOSMetrics.groupedRadius,
   },
 });
 
 // ─── Empty state ─────────────────────────────────────────────────────────────
 
-function EmptyState({ isDark }: { isDark: boolean }) {
-  const txt = isDark ? Colors.textWhite     : Colors.text;
-  const sub = isDark ? Colors.textSecondary : Colors.textTertiary;
+function EmptyState({ ios }: { ios: IOSPalette }) {
   return (
     <View style={emptyStyles.wrap}>
-      <View style={emptyStyles.iconWrap}>
-        <Ionicons name="map-outline" size={40} color={Colors.primary} />
-      </View>
-      <Text style={[emptyStyles.title, { color: txt }]}>No tracked rides yet</Text>
-      <Text style={[emptyStyles.sub, { color: sub }]}>
-        Trips and free rides you take with GPS on are recorded here, with the
-        route, distance and time.
+      <SymbolView name="map" size={52} tintColor={ios.tertiaryLabel} fallback={null} />
+      <Text style={[IOSFont.title3, { color: ios.label, textAlign: "center" }]}>
+        No tracked rides yet
+      </Text>
+      <Text style={[IOSFont.subheadline, { color: ios.secondaryLabel, textAlign: "center" }]}>
+        Trips and free rides you take with GPS on are recorded here, with the route,
+        distance and time.
       </Text>
     </View>
   );
 }
 
 const emptyStyles = StyleSheet.create({
-  wrap:     { alignItems: "center", paddingTop: 100, paddingHorizontal: 40, gap: 12 },
-  iconWrap: {
-    width:           72,
-    height:          72,
-    borderRadius:    22,
-    backgroundColor: Colors.primaryLight,
-    alignItems:      "center",
-    justifyContent:  "center",
-    marginBottom:    4,
-  },
-  title: { fontFamily: "Poppins_600SemiBold", fontSize: 18, textAlign: "center" },
-  sub:   { fontFamily: "Poppins_400Regular",  fontSize: 13, textAlign: "center", lineHeight: 20 },
+  wrap: { alignItems: "center", paddingTop: 90, paddingHorizontal: 44, gap: 10 },
 });
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function RouteHistoryScreen() {
   const insets = useSafeAreaInsets();
-  const isDark = useSettingsStore((s) => s.theme) === "dark";
-
-  const bg        = isDark ? Colors.background : Colors.border;
-  const cardBg    = isDark ? Colors.surface    : "#FFFFFF";
-  const textColor = isDark ? Colors.textWhite  : Colors.text;
-  const subColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const ios = useIOSTheme();
 
   const { entries, loading, error, refresh, remove } = useRouteHistory();
+  const [pendingDelete, setPendingDelete] = React.useState<RouteHistoryEntry | null>(null);
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
+  const topPadding = Platform.OS === "web" ? 20 : insets.top;
 
   const totals = useMemo(
     () =>
@@ -231,61 +207,77 @@ export default function RouteHistoryScreen() {
     [entries],
   );
 
-  const confirmDelete = useCallback(
-    (id: string) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      Alert.alert("Delete this track?", "The recorded route will be removed. This can't be undone.", [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => remove(id) },
-      ]);
-    },
-    [remove],
-  );
+  const confirmDelete = useCallback((entry: RouteHistoryEntry) => {
+    haptics.warning();
+    setPendingDelete(entry);
+  }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={[styles.root, { backgroundColor: bg }]}>
-        {/* Header */}
-        <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: cardBg }]}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="chevron-back" size={22} color={textColor} />
+      <View style={[styles.root, { backgroundColor: ios.systemGroupedBackground }]}>
+        <StatusBar style={ios.scheme === "dark" ? "light" : "dark"} />
+
+        {/* Nav bar + large title */}
+        <View style={{ paddingTop: topPadding + 6, paddingHorizontal: IOSMetrics.groupedInset }}>
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={10}
+            style={styles.backRow}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
+            <SymbolView name="chevron.left" size={17} tintColor={ios.tint} fallback={null} />
+            <Text style={[IOSFont.body, { color: ios.tint }]}>Back</Text>
           </Pressable>
-          <View style={styles.headerCenter}>
-            <Text style={[styles.headerTitle, { color: textColor }]}>Route History</Text>
-            <Text style={[styles.headerSub, { color: subColor }]}>
-              {entries.length > 0
-                ? `${formatDistance(totals.km)} · ${formatDuration(totals.seconds)} tracked`
-                : "Your tracked rides"}
-            </Text>
-          </View>
-          <View style={{ width: 36 }} />
+
+          <Text style={[IOSFont.largeTitle, { color: ios.label, marginTop: 4 }]}>
+            Route History
+          </Text>
+          <Text style={[IOSFont.footnote, { color: ios.secondaryLabel, marginBottom: 10 }]}>
+            {entries.length > 0
+              ? `${formatDistance(totals.km)} · ${formatDuration(totals.seconds)} tracked`
+              : "Your tracked rides"}
+          </Text>
         </View>
 
         {error && (
-          <View style={styles.errorBar}>
-            <Ionicons name="cloud-offline-outline" size={15} color={Colors.error} />
-            <Text style={styles.errorText}>{error}</Text>
+          <View style={[styles.errorBar, { backgroundColor: ios.tertiarySystemFill }]}>
+            <SymbolView name="wifi.slash" size={14} tintColor={ios.systemRed} fallback={null} />
+            <Text style={[IOSFont.footnote, { color: ios.systemRed, flex: 1 }]}>{error}</Text>
+            <IOSButton title="Retry" variant="borderless" size="small" onPress={refresh} />
           </View>
         )}
 
         <FlatList
           data={entries}
           keyExtractor={(e) => e.id}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={{ paddingTop: 6, paddingBottom: insets.bottom + 40 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl
-              refreshing={loading}
-              onRefresh={refresh}
-              tintColor={Colors.primary}
-              colors={[Colors.primary]}
-            />
+            <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={ios.secondaryLabel} />
           }
           renderItem={({ item }) => (
-            <HistoryCard entry={item} onDelete={confirmDelete} isDark={isDark} />
+            <HistoryCard entry={item} onDelete={confirmDelete} ios={ios} />
           )}
-          ListEmptyComponent={!loading ? <EmptyState isDark={isDark} /> : null}
-          ListFooterComponent={<View style={{ height: 60 + insets.bottom }} />}
+          ListEmptyComponent={!loading ? <EmptyState ios={ios} /> : null}
+        />
+
+        <IOSAlert
+          visible={!!pendingDelete}
+          title="Delete this track?"
+          message="The recorded route will be removed. This can't be undone."
+          onClose={() => setPendingDelete(null)}
+          actions={[
+            { label: "Cancel", style: "cancel", onPress: () => setPendingDelete(null) },
+            {
+              label: "Delete",
+              style: "destructive",
+              onPress: () => {
+                if (pendingDelete) remove(pendingDelete.id);
+                setPendingDelete(null);
+              },
+            },
+          ]}
         />
       </View>
     </GestureHandlerRootView>
@@ -293,32 +285,16 @@ export default function RouteHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  header: {
-    flexDirection:        "row",
-    alignItems:           "center",
-    paddingHorizontal:    16,
-    paddingBottom:        16,
-    borderBottomLeftRadius:  24,
-    borderBottomRightRadius: 24,
-  },
-  backBtn:     { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
-  headerCenter:{ flex: 1, alignItems: "center" },
-  headerTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 17 },
-  headerSub:   { fontFamily: "Poppins_400Regular",  fontSize: 12, marginTop: 1 },
-
+  root:    { flex: 1 },
+  backRow: { flexDirection: "row", alignItems: "center", gap: 2, marginLeft: -4 },
   errorBar: {
     flexDirection:     "row",
     alignItems:        "center",
     gap:               8,
-    marginHorizontal:  16,
-    marginTop:         12,
+    marginHorizontal:  IOSMetrics.groupedInset,
+    marginBottom:      8,
     paddingHorizontal: 12,
-    paddingVertical:   10,
-    borderRadius:      12,
-    backgroundColor:   "rgba(178,34,34,0.10)",
+    paddingVertical:   8,
+    borderRadius:      IOSMetrics.groupedRadius,
   },
-  errorText: { fontFamily: "Poppins_400Regular", fontSize: 12, color: Colors.error, flex: 1 },
-
-  list: { paddingTop: 16 },
 });

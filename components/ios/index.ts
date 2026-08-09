@@ -25,6 +25,7 @@ export {
   type IOSTab,
   type IOSTabBarProps,
 } from "./IOSTabBar";
+export { IOSScreen, type IOSScreenProps } from "./IOSScreen";
 export {
   CollapsibleHeader,
   useCollapsibleScroll,
