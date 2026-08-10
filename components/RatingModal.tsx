@@ -31,7 +31,7 @@ import { RatingsStorage } from "@/src/services/storage";
 import { syncAll } from "@/src/services/sync";
 import { generateId } from "@/src/utils/helpers";
 import { Colors } from "@/constants/colors";
-import { iosAlert } from "@/components/ios";
+import { iosAlert, IOSSheet } from "@/components/ios";
 
 // ─── Tag config ────────────────────────────────────────────────────────────────
 
@@ -340,35 +340,8 @@ export default function RatingModal({
   ]);
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="none"
-      onRequestClose={handleClose}
-      statusBarTranslucent
-    >
-      {/* Backdrop */}
-      <Animated.View
-        style={[
-          rStyles.backdrop,
-          { opacity: backdropAnim },
-        ]}
-        pointerEvents="auto"
-      >
-        <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
-      </Animated.View>
-
-      {/* Sheet */}
-      <Animated.View
-        style={[
-          rStyles.sheet,
-          Platform.OS === "android" && rStyles.sheetAndroid,
-          { transform: [{ translateY: slideAnim }] },
-        ]}
-      >
-        {/* Handle */}
-        <View style={rStyles.handle} />
-
+    <IOSSheet visible={visible} onClose={handleClose} detents={[0.78, "large"]}>
+      <View style={rStyles.body}>
         <ScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -460,8 +433,8 @@ export default function RatingModal({
             <Text style={rStyles.skipBtnText}>{t("ratings.skip")}</Text>
           </Pressable>
         </ScrollView>
-      </Animated.View>
-    </Modal>
+      </View>
+    </IOSSheet>
   );
 }
 
@@ -473,17 +446,9 @@ const rStyles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.68)",
     zIndex: 1,
   },
-  sheet: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 2,
-    backgroundColor: "#1A1A1A",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingTop: 12,
-    paddingHorizontal: 24,
+  body: {
+    flex: 1,
+    paddingTop: 4,
     paddingBottom: Platform.OS === "ios" ? 44 : 28,
     maxHeight: "90%",
     shadowColor: "#000",

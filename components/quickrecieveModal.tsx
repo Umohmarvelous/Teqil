@@ -12,6 +12,7 @@ import {
 import { FB } from "@/constants/fbPalette";
 import { Colors } from "@/constants/colors";
 import QRReceiveScreen from "@/app/(driver)/qr-receive";
+import { IOSSheet } from "@/components/ios";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 
 
@@ -51,16 +52,9 @@ export default function QuickReceiveModal({ visible, onClose, driverId }: QuickR
   if (!visible) return null;
 
   return (
-    <Modal transparent visible animationType="none" onRequestClose={onClose}>
-      <Animated.View style={[qr.backdrop, { opacity: backdropOp }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-      </Animated.View>
-      <Animated.View style={[qr.sheet, { transform: [{ translateY: slideY }] }, {backgroundColor: bg}]}>
-        <View style={qr.handle} />
-
-        <QRReceiveScreen/>
-      </Animated.View>
-    </Modal>
+    <IOSSheet visible onClose={onClose} detents={[0.72, "large"]}>
+      <QRReceiveScreen />
+    </IOSSheet>
   );
 }
 

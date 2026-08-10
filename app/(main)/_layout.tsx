@@ -545,6 +545,7 @@ export default function MainLayout() {
                     },
                   ]}
                 >
+                  
                   <HugeiconsIcon
                     icon={Search02Icon}
                     size={20}
