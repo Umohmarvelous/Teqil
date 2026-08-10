@@ -34,7 +34,7 @@ import {
   SettingsIcon,
   Settings01Icon,
 } from "@hugeicons/core-free-icons";
-import { IOSTabBar, TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_GAP, type IOSTab } from "@/components/ios";
+import { IOSTabBar, TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_GAP, type IOSTab, IOSButton } from "@/components/ios";
 import Avatar from "@/components/Avatar";
 import { useAuthStore } from "@/src/store/useStore";
 import BottomSheet from "@gorhom/bottom-sheet";

@@ -8,7 +8,8 @@
 // ReceiptData (see src/utils/activity.ts → transactionToReceipt()).
 
 import React from "react";
-import { View, Text, StyleSheet, Modal, Pressable, Share, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Pressable, Share, ScrollView } from "react-native";
+import { IOSModalCard } from "@/components/ios";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/colors";
 
@@ -58,8 +59,8 @@ export default function Receipt({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+    <IOSModalCard visible={visible} onClose={onClose}>
+      <View style={styles.wrap}>
         <View style={styles.card}>
           <Pressable style={styles.close} onPress={onClose} hitSlop={12}>
             <Ionicons name="close" size={22} color="#111" />
@@ -122,20 +123,14 @@ export default function Receipt({
           ))}
         </View>
       </View>
-    </Modal>
+    </IOSModalCard>
   );
 }
 
 const CARD_W = 340;
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-  },
+  wrap: { alignItems: "center", padding: 20 },
   card: {
     width: CARD_W,
     maxWidth: "100%",

@@ -9,6 +9,7 @@
 
 export { IOSButton, type IOSButtonProps, type IOSButtonVariant, type IOSButtonRole } from "./IOSButton";
 export { IOSSheet, type IOSSheetProps, type IOSSheetDetent } from "./IOSSheet";
+export { IOSModalCard, type IOSModalCardProps } from "./IOSModalCard";
 export { IOSAlert, type IOSAlertProps, type IOSAlertAction } from "./IOSAlert";
 export { useIOSAlert, type UseIOSAlert } from "./useIOSAlert";
 export { AlertHost, iosAlert, iosActionSheet, type IOSAlertButton } from "./AlertHost";

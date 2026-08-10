@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { FB } from "@/constants/fbPalette";
-import { iosAlert } from "@/components/ios";
+import { iosAlert, IOSSheet } from "@/components/ios";
 
 interface QuickTransferModalProps {
   visible: boolean;
@@ -76,17 +76,12 @@ export default function QuickTransferModal({ visible, onClose }: QuickTransferMo
   if (!visible) return null;
 
   return (
-    <Modal transparent visible animationType="none" onRequestClose={onClose}>
-    <KeyboardAvoidingView
-    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    style={{ flex: 1, justifyContent: 'flex-end' }}
+    <IOSSheet visible onClose={onClose} detents={[0.58, "large"]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
       >
-    
-        <Animated.View style={[styles.backdrop, { opacity: backdropOp }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        </Animated.View>
-        <Animated.View style={[styles.sheet, { transform: [{ translateY: slideY }] }]}>
-          <View style={styles.handle} />
+        <View style={styles.body}>
           <Text style={styles.title}>Quick Transfer</Text>
           <Text style={styles.sub}>Send fare to a driver instantly</Text>
 
@@ -142,7 +137,7 @@ export default function QuickTransferModal({ visible, onClose }: QuickTransferMo
               style={styles.scanBtn}
               onPress={() => {
                 onClose();
-                router.push("/(auth)/pay-fare");
+                router.push("/(passenger)/pay-fare");
               }}
             >
               <Ionicons name="qr-code-outline" size={18} color={FB.navy} />
@@ -155,34 +150,16 @@ export default function QuickTransferModal({ visible, onClose }: QuickTransferMo
               </LinearGradient>
             </Pressable>
           </View>
-        </Animated.View>
-    </KeyboardAvoidingView>
-    </Modal>
+        </View>
+      </KeyboardAvoidingView>
+    </IOSSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    zIndex: 1,
-  },
-  sheet: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 2,
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 24,
-    paddingBottom: 40,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 24,
+  body: {
+    flex: 1,
+    paddingTop: 4,
   },
   handle: {
     width: 40,
