@@ -1,13 +1,18 @@
 // app/(main)/settings.tsx
 //
-// Settings root. Sections push to their own screens (WhatsApp-style) rather than
-// living on one long scroll — with 30+ settings, a single page stops being
-// scannable and search becomes the only realistic way to find anything.
+// Settings root, on EMILGO's original design rather than a system-style list:
+// a Poppins header bar, 30pt-cornered cards, 16pt page padding and the version
+// footer the screen has always ended with.
 //
-// Which is why the search bar is here and not optional: it queries a flat index
-// (src/data/settingsIndex.ts) covering EVERY setting across every section, and
-// each result deep-links to the section that owns it. Modelled on Telegram's
-// search — inline results, a Cancel button, and section attribution on each row.
+// What's kept from the newer build is the STRUCTURE, not the styling. Sections
+// push to their own screens rather than living on one long scroll — with 30+
+// settings, a single page stops being scannable and search becomes the only
+// realistic way to find anything. Which is why the search bar isn't optional:
+// it queries a flat index (src/data/settingsIndex.ts) covering EVERY setting in
+// every section, and each result deep-links to the section that owns it.
+//
+// The chrome is Liquid Glass throughout — header, search field, cards, icon
+// tiles and toggles. There are no solid-colour blocks on this screen.
 
 import React, { useCallback, useMemo, useState } from "react";
 import {
@@ -26,13 +31,13 @@ import { useTranslation } from "react-i18next";
 import { SymbolView } from "expo-symbols";
 
 import {
+  Glass,
   IOSSearchBar,
   IOSListSection,
   IOSListRow,
   useTabBarInset,
   useIOSTheme,
-  IOSFont,
-  IOSMetrics,
+  IOSAppFont,
   type IOSPalette,
 } from "@/components/ios";
 import {
@@ -42,6 +47,11 @@ import {
 } from "@/src/data/settingsIndex";
 import { useAuthStore } from "@/src/store/useStore";
 import { haptics } from "@/src/utils/haptics";
+
+/** The app's card radius. Deliberately much rounder than a system list. */
+const CARD_RADIUS = 30;
+/** Page gutter, matching the original screen. */
+const PAGE_INSET = 16;
 
 // ─── Search results ──────────────────────────────────────────────────────────
 
@@ -63,15 +73,23 @@ function ResultRow({
       ]}
       accessibilityRole="button"
     >
-      <View style={[styles.resultIcon, { backgroundColor: ios.tertiarySystemFill }]}>
-        <SymbolView name={result.symbol as never} size={16} tintColor={ios.tint} fallback={null} />
+      <View style={styles.resultIcon}>
+        <Glass
+          variant="regular"
+          radius={10}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+          fallbackIntensity={30}
+          fallbackTint={ios.tertiarySystemFill}
+        />
+        <SymbolView name={result.symbol as never} size={17} tintColor={ios.label} fallback={null} />
       </View>
 
       <View style={{ flex: 1 }}>
-        <Text numberOfLines={1} style={[IOSFont.body, { color: ios.label }]}>
+        <Text numberOfLines={1} style={[IOSAppFont.label, { color: ios.label }]}>
           {result.label}
         </Text>
-        <Text numberOfLines={1} style={[IOSFont.footnote, { color: ios.secondaryLabel }]}>
+        <Text numberOfLines={1} style={[IOSAppFont.description, { color: ios.secondaryLabel }]}>
           {result.detail ? `${result.section_title} · ${result.detail}` : result.section_title}
         </Text>
       </View>
@@ -96,7 +114,7 @@ export default function SettingsScreen() {
   const results = useMemo(() => searchSettings(query), [query]);
   const showResults = searching || query.length > 0;
 
-  const topPadding = Platform.OS === "web" ? 20 : insets.top;
+  const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   const openSection = useCallback((route: string) => {
     haptics.tap();
@@ -114,16 +132,24 @@ export default function SettingsScreen() {
     <View style={[styles.root, { backgroundColor: ios.systemGroupedBackground }]}>
       <StatusBar style={ios.scheme === "dark" ? "light" : "dark"} />
 
-      {/* Large title — hidden while searching, as iOS does. */}
-      {!showResults && (
-        <View style={styles.titleWrap}>
-          <Text style={[IOSFont.largeTitle, { color: ios.label }]}>
+      {/* Header bar — the original geometry, now on glass rather than a solid
+          card. The title hides while searching, as iOS does, so the field gets
+          the full width. */}
+      <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
+        <Glass
+          variant="regular"
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+          fallbackIntensity={90}
+          fallbackTint={ios.secondarySystemGroupedBackground}
+        />
+
+        {!showResults && (
+          <Text style={[IOSAppFont.screenTitle, styles.headerTitle, { color: ios.label }]}>
             {t("nav.settings", "Settings")}
           </Text>
-        </View>
-      )}
+        )}
 
-      <View style={[styles.searchWrap, { paddingTop: showResults ? topPadding + 10 : 4 }]}>
         <IOSSearchBar
           value={query}
           onChangeText={setQuery}
@@ -135,51 +161,61 @@ export default function SettingsScreen() {
           }}
           active={showResults}
         />
+
+        <View style={[styles.hairline, { backgroundColor: ios.separator }]} />
       </View>
 
       {showResults ? (
         <ScrollView
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
-          contentContainerStyle={{ paddingTop: 10, paddingBottom: tabInset + 40 }}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: tabInset + 40 }]}
           showsVerticalScrollIndicator={false}
         >
           {query.length === 0 ? (
-            <Text style={[IOSFont.subheadline, styles.hint, { color: ios.secondaryLabel }]}>
+            <Text style={[IOSAppFont.description, styles.hint, { color: ios.secondaryLabel }]}>
               Search any setting by name — you don&apos;t need to know which section it&apos;s in.
             </Text>
           ) : results.length === 0 ? (
             <View style={styles.emptyWrap}>
-              <SymbolView name="magnifyingglass" size={44} tintColor={ios.tertiaryLabel} fallback={null} />
-              <Text style={[IOSFont.headline, { color: ios.label }]}>No results</Text>
-              <Text style={[IOSFont.subheadline, styles.center, { color: ios.secondaryLabel }]}>
+              <SymbolView
+                name="magnifyingglass"
+                size={44}
+                tintColor={ios.tertiaryLabel}
+                fallback={null}
+              />
+              <Text style={[IOSAppFont.screenTitle, { fontSize: 18, color: ios.label }]}>
+                No results
+              </Text>
+              <Text style={[IOSAppFont.description, styles.center, { color: ios.secondaryLabel }]}>
                 Nothing matches “{query}”.
               </Text>
             </View>
           ) : (
-            <View
-              style={[
-                styles.resultsCard,
-                { backgroundColor: ios.secondarySystemGroupedBackground },
-              ]}
+            <Glass
+              variant="regular"
+              radius={CARD_RADIUS}
+              style={styles.resultsCard}
+              fallbackIntensity={40}
+              fallbackTint={ios.secondarySystemGroupedBackground}
             >
               {results.map((r, i) => (
                 <View key={r.id}>
                   {i > 0 && (
-                    <View style={[styles.separator, { backgroundColor: ios.separator }]} />
+                    <View style={[styles.resultSeparator, { backgroundColor: ios.separator }]} />
                   )}
                   <ResultRow result={r} ios={ios} onPress={() => openResult(r)} />
                 </View>
               ))}
-            </View>
+            </Glass>
           )}
         </ScrollView>
       ) : (
         <ScrollView
-          contentContainerStyle={{ paddingTop: 14, paddingBottom: tabInset + 40 }}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: tabInset + 40 }]}
           showsVerticalScrollIndicator={false}
         >
-          {/* Account summary, as every system Settings app opens with. */}
+          {/* Account summary, as every settings screen opens with. */}
           <IOSListSection>
             <IOSListRow
               symbol="person.crop.circle.fill"
@@ -195,7 +231,6 @@ export default function SettingsScreen() {
               <IOSListRow
                 key={s.id}
                 symbol={s.symbol as never}
-                symbolColor={ios[s.tint]}
                 label={s.title}
                 detail={s.summary}
                 accessory={{ type: "disclosure" }}
@@ -203,6 +238,10 @@ export default function SettingsScreen() {
               />
             ))}
           </IOSListSection>
+
+          <Text style={[IOSAppFont.description, styles.version, { color: ios.secondaryLabel }]}>
+            Emilgo v1.0.0 · Made in Nigeria 🇳🇬
+          </Text>
         </ScrollView>
       )}
     </View>
@@ -211,33 +250,40 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  titleWrap: { paddingTop: 8, paddingHorizontal: IOSMetrics.groupedInset, paddingBottom: 6 },
-  searchWrap: { paddingBottom: 6 },
 
-  resultsCard: {
-    marginHorizontal: IOSMetrics.groupedInset,
-    borderRadius: IOSMetrics.groupedRadius,
-    overflow: "hidden",
+  header: { paddingBottom: 10, overflow: "hidden" },
+  headerTitle: { paddingHorizontal: 20, paddingBottom: 12 },
+  hairline: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: StyleSheet.hairlineWidth,
   },
+
+  scrollContent: { padding: PAGE_INSET, paddingTop: 14 },
+
+  resultsCard: { borderRadius: CARD_RADIUS, overflow: "hidden" },
   resultRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    minHeight: IOSMetrics.minTouchTarget,
+    gap: 15,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    minHeight: 44,
   },
   resultIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 7,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
-  // Inset to align with the label, not the icon — the iOS convention.
-  separator: { height: IOSMetrics.hairline, marginLeft: 56 },
+  resultSeparator: { height: StyleSheet.hairlineWidth, marginHorizontal: 20 },
 
-  hint: { paddingHorizontal: IOSMetrics.groupedInset + 4, lineHeight: 20 },
+  hint: { paddingHorizontal: 4, lineHeight: 20 },
   emptyWrap: { alignItems: "center", paddingTop: 70, paddingHorizontal: 44, gap: 8 },
   center: { textAlign: "center" },
+  version: { textAlign: "center", marginTop: 8, paddingBottom: 8 },
 });

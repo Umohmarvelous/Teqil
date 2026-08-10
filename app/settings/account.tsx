@@ -109,7 +109,6 @@ export default function AccountSettings() {
         />
         <IOSListRow
           symbol="key.fill"
-          symbolColor="#8E8E93"
           label="Change Password"
           accessory={{ type: "disclosure" }}
           onPress={changePassword}
@@ -139,7 +138,6 @@ export default function AccountSettings() {
         {isDriver && (
           <IOSListRow
             symbol="banknote.fill"
-            symbolColor="#34C759"
             label="Payout Account"
             detail="Where your earnings are sent"
             accessory={{ type: "disclosure" }}

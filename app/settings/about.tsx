@@ -58,7 +58,6 @@ export default function AboutSettings() {
       <IOSListSection header="Support">
         <IOSListRow
           symbol="star.fill"
-          symbolColor="#FF9500"
           label="Rate Emilgo"
           detail="Leave a review on the App Store"
           accessory={{ type: "disclosure" }}
@@ -84,7 +83,6 @@ export default function AboutSettings() {
       <IOSListSection header="About">
         <IOSListRow
           symbol="info.circle.fill"
-          symbolColor="#8E8E93"
           label="Version"
           accessory={{ type: "detail", text: build ? `${version} (${build})` : version }}
           {...flash("version")}

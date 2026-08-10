@@ -99,7 +99,6 @@ export default function DataSettings() {
       >
         <IOSListRow
           symbol="wifi"
-          symbolColor="#007AFF"
           label="Sync on Wi-Fi Only"
           accessory={{
             type: "switch",
@@ -116,7 +115,6 @@ export default function DataSettings() {
       >
         <IOSListRow
           symbol="antenna.radiowaves.left.and.right"
-          symbolColor="#FF9500"
           label="Data Saver"
           accessory={{
             type: "switch",
@@ -137,7 +135,6 @@ export default function DataSettings() {
         />
         <IOSListRow
           symbol="trash.fill"
-          symbolColor="#8E8E93"
           label="Clear Cache"
           detail="Free space; keeps your login and credits"
           accessory={{ type: "disclosure" }}

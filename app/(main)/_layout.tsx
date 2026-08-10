@@ -33,7 +33,7 @@ import {
   SettingsIcon,
   Settings01Icon,
 } from "@hugeicons/core-free-icons";
-import { IOSTabBar, TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_GAP, type IOSTab } from "@/components/ios";
+import { Glass, IOSTabBar, TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_GAP, type IOSTab } from "@/components/ios";
 import Avatar from "@/components/Avatar";
 import { useAuthStore } from "@/src/store/useStore";
 import BottomSheet from "@gorhom/bottom-sheet";
@@ -479,12 +479,20 @@ export default function MainLayout() {
                 left: 0,
                 right: 0,
                 zIndex: 100,
-                backgroundColor: tabBarBg,
-                // backgroundColor: bg,
                 borderTopLeftRadius: 45,
+                overflow: "hidden",
                 transform: [{ translateY: actualHeaderTranslateY }],
               }, {}]}
             >
+              {/* The bar floats over scrolling content, so it takes the same
+                  glass as the tab bar rather than an opaque fill. */}
+              <Glass
+                variant="regular"
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+                fallbackIntensity={90}
+                fallbackTint={tabBarBg}
+              />
               <View
                 style={[
                   styles.header,
@@ -514,16 +522,20 @@ export default function MainLayout() {
                 </Pressable>
                 <Pressable
                   onPress={toggleSearch}
-                  style={[
-                    styles.menuList,
-                    {
-                      backgroundColor: isDark
-                        ? Colors.overlayLight
-                        : Colors.border,
-                      borderColor,
-                    },
-                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Find a driver"
+                  style={styles.menuList}
                 >
+                  {/* Glass, not a coloured pill. */}
+                  <Glass
+                    variant="regular"
+                    interactive
+                    radius={30}
+                    style={StyleSheet.absoluteFill}
+                    pointerEvents="none"
+                    fallbackIntensity={40}
+                    fallbackTint={isDark ? Colors.overlayLight : Colors.border}
+                  />
                   <HugeiconsIcon
                     icon={Search02Icon}
                     size={20}
@@ -718,7 +730,7 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     alignItems: "center",
     gap: 10,
-    // borderWidth: 1,
+    overflow: "hidden",
   },
   menuBtn: {
     width: 38,

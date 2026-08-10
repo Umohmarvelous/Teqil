@@ -16,7 +16,6 @@ import {
   View,
   Text,
   Pressable,
-  Switch,
   StyleSheet,
   useWindowDimensions,
   type LayoutRectangle,
@@ -32,6 +31,7 @@ import * as Haptics from "expo-haptics";
 
 import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
 import { Glass, GlassScrim } from "./Glass";
+import { IOSToggle } from "./IOSToggle";
 
 export interface IOSMenuItem {
   label: string;
@@ -196,10 +196,10 @@ export function IOSMenu({ anchor, items, width = MENU_WIDTH }: IOSMenuProps) {
                   </Text>
 
                   {item.toggle ? (
-                    <Switch
+                    <IOSToggle
                       value={item.toggle.value}
                       onValueChange={item.toggle.onValueChange}
-                      trackColor={{ true: theme.tint }}
+                      accessibilityLabel={item.label}
                       style={styles.switch}
                     />
                   ) : item.symbol ? (
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   checkSlot: { width: 18, alignItems: "flex-start" },
-  switch: { transform: [{ scale: 0.8 }] },
+  switch: { transform: [{ scale: 0.78 }] },
 });
 
 export default IOSMenu;

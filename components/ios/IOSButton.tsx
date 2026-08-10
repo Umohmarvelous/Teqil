@@ -3,15 +3,20 @@
 // The UIButton.Configuration styles from iOS, plus the standard tap feedback
 // (brief opacity dip + light haptic) that system buttons use.
 //
-//   filled         — solid tint, white label. The one primary action on a screen.
-//   tinted         — translucent tint fill, tint label. Secondary emphasis.
-//   bordered       — hairline tint border, tint label.
-//   borderless     — label only, no chrome. The default for toolbar/nav actions.
-//   glass          — iOS 26 `.glass()`: Liquid Glass surface, tint label.
-//   prominentGlass — iOS 26 `.prominentGlass()`: accent-tinted glass, white label.
+//   filled         — highest emphasis: accent-tinted glass, white label.
+//   tinted         — secondary emphasis: plain glass, accent label.
+//   bordered       — hairline accent border over glass, accent label.
+//   borderless     — label only, no surface. Toolbar and nav actions.
+//   glass          — iOS 26 `.glass()`, named explicitly.
+//   prominentGlass — iOS 26 `.prominentGlass()`, named explicitly.
 //
-// The two glass variants fall back to the tinted treatment wherever real
-// UIGlassEffect isn't available, so they stay legible on Android and older iOS.
+// Every variant that HAS a surface now draws it with Liquid Glass. There are no
+// solid-colour buttons left in the kit: on iOS 26 they are real glass, and
+// everywhere else they fall back to the exact fill they used to have, so
+// Android and older iOS look unchanged.
+//
+// `borderless` is the one variant with no surface, because it has no shape to
+// give glass — it is a bare label by definition.
 //
 // `role="destructive"` swaps the accent to systemRed everywhere, matching how
 // iOS marks destructive actions.
@@ -30,7 +35,7 @@ import {
 import * as Haptics from "expo-haptics";
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
 
-import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
+import { useIOSTheme, IOSFont, IOSMetrics, IOSAppFont } from "./theme";
 import { Glass, useGlassCapability } from "./Glass";
 
 /**
@@ -96,12 +101,13 @@ export function IOSButton({
   const accent = role === "destructive" ? theme.systemRed : theme.tint;
   const isDisabled = disabled || loading;
 
-  const isGlass = variant === "glass" || variant === "prominentGlass";
+  // Everything but a bare label sits on glass now.
+  const isGlass = variant !== "borderless";
+  // The two high-emphasis variants tint the surface with the accent, so their
+  // label goes white; the rest tint the label instead.
+  const prominent = variant === "filled" || variant === "prominentGlass";
 
-  // Filled and prominent-glass buttons carry the accent behind the label, so the
-  // label goes white; everything else tints the label itself.
-  const labelColor =
-    variant === "filled" || variant === "prominentGlass" ? "#FFFFFF" : accent;
+  const labelColor = prominent ? "#FFFFFF" : accent;
 
   const container: ViewStyle = {
     height: metrics.height,
@@ -109,16 +115,10 @@ export function IOSButton({
     borderRadius: metrics.radius,
     minWidth: IOSMetrics.minTouchTarget,
     alignSelf: fullWidth ? "stretch" : "flex-start",
-    ...(variant === "filled"   && { backgroundColor: accent }),
-    ...(variant === "tinted"   && { backgroundColor: accent + "1F" }),
-    ...(variant === "bordered" && {
-      borderWidth: 1,
-      borderColor: accent + "80",
-      backgroundColor: "transparent",
-    }),
-    // Glass supplies its own surface — a background colour here would sit on top
-    // of it and defeat the effect.
-    ...(isGlass && { backgroundColor: "transparent" }),
+    // Glass supplies the surface — a background colour here would sit on top of
+    // it and defeat the effect. Only the border is drawn on the container.
+    backgroundColor: "transparent",
+    ...(variant === "bordered" && { borderWidth: 1, borderColor: accent + "80" }),
   };
 
   const handlePress = useCallback<NonNullable<PressableProps["onPress"]>>(
@@ -151,16 +151,21 @@ export function IOSButton({
       {isGlass && (
         <Glass
           variant="regular"
-          tint={variant === "prominentGlass" ? accent : undefined}
+          tint={prominent ? accent : undefined}
           interactive
           radius={metrics.radius}
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
           fallbackIntensity={50}
-          // Without real glass the button still needs a legible surface, so it
-          // falls back to the tinted-fill treatment: accent-washed for
-          // prominent, neutral for plain.
-          fallbackTint={variant === "prominentGlass" ? accent : accent + "1F"}
+          // Off the glass path each variant falls back to the exact fill it had
+          // before, so nothing about these buttons changes on Android or iOS 25.
+          fallbackTint={
+            prominent
+              ? accent
+              : variant === "bordered"
+                ? "transparent"
+                : accent + "1F"
+          }
         />
       )}
       {loading ? (
@@ -181,7 +186,8 @@ export function IOSButton({
             numberOfLines={1}
             style={[
               metrics.font,
-              { color: labelColor, fontWeight: variant === "filled" ? "600" : "400" },
+              // Buttons are app UI, not system chrome, so they take Poppins.
+              { fontFamily: IOSAppFont.button.fontFamily, color: labelColor },
               textStyle,
             ]}
           >

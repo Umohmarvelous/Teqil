@@ -48,7 +48,6 @@ export default function NotificationSettings() {
       <IOSListSection footer="Turning this off stops every Emilgo notification on this device.">
         <IOSListRow
           symbol="bell.badge.fill"
-          symbolColor="#FF3B30"
           label="Allow Notifications"
           accessory={{
             type: "switch",
@@ -109,7 +108,6 @@ export default function NotificationSettings() {
       >
         <IOSListRow
           symbol="megaphone.fill"
-          symbolColor="#FF9500"
           label="Promotions"
           detail="Premium offers and campaigns"
           disabled={off}

@@ -20,6 +20,7 @@ export {
   type GlassCapability,
 } from "./Glass";
 export { IOSButton, type IOSButtonProps, type IOSButtonVariant, type IOSButtonRole } from "./IOSButton";
+export { IOSToggle, type IOSToggleProps } from "./IOSToggle";
 export { IOSSheet, type IOSSheetProps, type IOSSheetDetent } from "./IOSSheet";
 export { IOSModalCard, type IOSModalCardProps } from "./IOSModalCard";
 export { IOSAlert, type IOSAlertProps, type IOSAlertAction } from "./IOSAlert";
@@ -59,8 +60,10 @@ export {
   getIOSTheme,
   useIOSTextStyle,
   IOSFont,
+  IOSAppFont,
   IOSMetrics,
   type IOSPalette,
   type IOSColorScheme,
   type IOSFontStyle,
+  type IOSAppFontStyle,
 } from "./theme";

@@ -74,7 +74,9 @@ const LIGHT: IOSPalette = {
   secondarySystemBackground: "#F2F2F7",
   tertiarySystemBackground: "#FFFFFF",
 
-  systemGroupedBackground: "#F2F2F7",
+  // Emilgo's own surfaces, not Apple's #F2F2F7 / #FFFFFF — so a migrated screen
+  // sits on exactly the background the original design put it on.
+  systemGroupedBackground: Colors.border,
   secondarySystemGroupedBackground: "#FFFFFF",
 
   separator: "rgba(60,60,67,0.29)",
@@ -108,8 +110,8 @@ const DARK: IOSPalette = {
   secondarySystemBackground: "#1C1C1E",
   tertiarySystemBackground: "#2C2C2E",
 
-  systemGroupedBackground: "#000000",
-  secondarySystemGroupedBackground: "#1C1C1E",
+  systemGroupedBackground: Colors.background,
+  secondarySystemGroupedBackground: Colors.primaryDarker,
 
   separator: "rgba(84,84,88,0.60)",
   opaqueSeparator: "#38383A",
@@ -166,6 +168,42 @@ export const IOSFont = {
 };
 
 export type IOSFontStyle = keyof typeof IOSFont;
+
+// ─── The app's own type ramp ─────────────────────────────────────────────────
+//
+// IOSFont above is the SYSTEM ramp (San Francisco), used for system chrome —
+// alerts, menus, nav bars — where matching iOS exactly is the point.
+//
+// This is EMILGO's ramp: Poppins, at the sizes the app's original screens use.
+// Components that are part of the app's own design rather than borrowed system
+// chrome — settings rows, cards, section headings — take these instead, so a
+// migrated screen keeps reading as Emilgo and not as a system app.
+
+export const IOSAppFont = {
+  /** Uppercase caption above a settings group. */
+  sectionTitle: {
+    fontFamily: "Poppins_500Medium",
+    fontSize: 12,
+    letterSpacing: 1,
+  },
+  /** Primary row text. */
+  label: { fontFamily: "Poppins_500Medium", fontSize: 14 },
+  /** Secondary row text under a label. */
+  description: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    marginTop: 2,
+    lineHeight: 17,
+  },
+  /** Trailing value on a row, e.g. "English". */
+  value: { fontFamily: "Poppins_400Regular", fontSize: 14 },
+  /** Screen title in a header bar. */
+  screenTitle: { fontFamily: "Poppins_700Bold", fontSize: 24 },
+  /** Button labels. */
+  button: { fontFamily: "Poppins_500Medium", fontSize: 15 },
+};
+
+export type IOSAppFontStyle = keyof typeof IOSAppFont;
 
 /** Standard iOS metrics. */
 export const IOSMetrics = {

@@ -145,6 +145,8 @@ export function IOSScreen({
             {
               paddingTop: scroll.contentInset,
               paddingBottom: (tabBarInset ? bottomInset : 0) + 32,
+              // The page owns its gutter; sections own their vertical rhythm.
+              paddingHorizontal: PAGE_INSET,
             },
             contentContainerStyle,
           ]}
@@ -157,6 +159,9 @@ export function IOSScreen({
     </View>
   );
 }
+
+/** Page gutter, matching the app's original screens. */
+const PAGE_INSET = 16;
 
 const styles = StyleSheet.create({
   root: { flex: 1 },

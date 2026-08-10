@@ -129,7 +129,6 @@ export default function PrivacySettings() {
       <IOSListSection header="Device security">
         <IOSListRow
           symbol="faceid"
-          symbolColor="#34C759"
           label="Biometric App Lock"
           detail="Face ID, Touch ID or passcode to open Emilgo"
           accessory={{ type: "switch", value: biometricLock, onValueChange: toggleLock }}
@@ -137,7 +136,6 @@ export default function PrivacySettings() {
         />
         <IOSListRow
           symbol="lock.shield.fill"
-          symbolColor="#34C759"
           label="Confirm Payout Changes"
           detail="Require Face ID before changing your payout account"
           accessory={{
@@ -155,7 +153,6 @@ export default function PrivacySettings() {
       >
         <IOSListRow
           symbol="phone.arrow.up.right.fill"
-          symbolColor="#FF3B30"
           label="Emergency Contact"
           detail={emergencyContact ? `${emergencyContact.name} · ${emergencyContact.phone}` : undefined}
           accessory={{ type: "disclosure" }}

@@ -38,7 +38,7 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 
-import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
+import { useIOSTheme, IOSFont, IOSMetrics, IOSAppFont } from "./theme";
 import { Glass } from "./Glass";
 
 /** Height of the compact bar, excluding the status bar. */
@@ -220,7 +220,11 @@ export function CollapsibleHeader({
         >
           <Animated.Text
             numberOfLines={1}
-            style={[IOSFont.headline, { color: theme.label }, compactTitleStyle]}
+            style={[
+              IOSFont.headline,
+              { fontFamily: IOSAppFont.label.fontFamily, color: theme.label },
+              compactTitleStyle,
+            ]}
           >
             {title}
           </Animated.Text>
@@ -236,14 +240,20 @@ export function CollapsibleHeader({
           // Large titles are the one place iOS caps Dynamic Type growth, to
           // stop a long title truncating at accessibility sizes.
           maxFontSizeMultiplier={1.4}
-          style={[IOSFont.largeTitle, { color: theme.label }]}
+          style={[
+            IOSFont.largeTitle,
+            { fontFamily: IOSAppFont.screenTitle.fontFamily, fontSize: 28, color: theme.label },
+          ]}
         >
           {title}
         </Animated.Text>
         {subtitle ? (
           <Animated.Text
             numberOfLines={1}
-            style={[IOSFont.footnote, { color: theme.secondaryLabel, marginTop: 1 }]}
+            style={[
+              IOSAppFont.description,
+              { color: theme.secondaryLabel, marginTop: 1 },
+            ]}
           >
             {subtitle}
           </Animated.Text>

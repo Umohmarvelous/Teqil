@@ -1,7 +1,6 @@
 // components/ios/IOSList.tsx
 //
-// The inset-grouped table view — the single most recognisable iOS layout, used
-// by Settings and most system apps.
+// The app's grouped settings list.
 //
 //   <IOSListSection header="Privacy" footer="Free rides always track.">
 //     <IOSListRow symbol="location.fill" label="Share Location"
@@ -10,24 +9,28 @@
 //                 onPress={…} />
 //   </IOSListSection>
 //
-// Separators are inset to align with the label (not the icon), corners are
-// rounded only on the first and last row, and rows meet the 44pt touch target —
-// all the details that make a list read as native rather than approximated.
+// ── Design ───────────────────────────────────────────────────────────────────
+// This follows EMILGO's own settings design, not Apple's inset-grouped table:
+//
+//   • 30pt card corners, not 10pt.
+//   • Poppins throughout — 14pt medium labels, 12pt regular descriptions.
+//   • 20pt horizontal / 16pt vertical row padding with a 15pt gap, so rows
+//     breathe more than a system list.
+//   • Full-width hairline separators between rows, not label-inset ones.
+//
+// The one thing that is NOT from the original: the icon tile. It used to be a
+// bare 34pt box, and the iOS-kit version that replaced it was a solid coloured
+// square with a white glyph. Both are gone — the tile is now a Liquid Glass
+// surface with the glyph tinted on top, so it reads as translucent chrome
+// rather than a block of colour.
 
 import React, { Children, isValidElement, cloneElement } from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  Switch,
-  StyleSheet,
-  type ViewStyle,
-} from "react-native";
+import { View, Text, Pressable, StyleSheet, type ViewStyle } from "react-native";
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
-import * as Haptics from "expo-haptics";
 
-import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
+import { useIOSTheme, IOSMetrics, IOSAppFont } from "./theme";
 import { Glass } from "./Glass";
+import { IOSToggle } from "./IOSToggle";
 
 // ─── Row ─────────────────────────────────────────────────────────────────────
 
@@ -43,8 +46,13 @@ export interface IOSListRowProps {
   /** Secondary line under the label. */
   detail?: string;
   symbol?: SymbolViewProps["name"];
-  /** Tint of the rounded icon tile. Defaults to the app tint. */
+  /**
+   * Glyph tint. Defaults to the label colour, matching the original design
+   * where icons were monochrome rather than colour-coded.
+   */
   symbolColor?: string;
+  /** Render something other than an SF Symbol in the tile — e.g. a Hugeicon. */
+  icon?: React.ReactNode;
   accessory?: IOSListAccessory;
   onPress?: () => void;
   destructive?: boolean;
@@ -60,6 +68,7 @@ export function IOSListRow({
   detail,
   symbol,
   symbolColor,
+  icon,
   accessory = { type: "none" },
   onPress,
   destructive,
@@ -69,44 +78,55 @@ export function IOSListRow({
 }: IOSListRowProps) {
   const theme = useIOSTheme();
   const labelColor = destructive ? theme.systemRed : theme.label;
+  const glyphColor = destructive ? theme.systemRed : (symbolColor ?? theme.label);
 
   const interactive = !!onPress && accessory.type !== "switch";
+  const hasTile = !!symbol || !!icon;
 
   const body = (
     <View style={styles.rowInner}>
-      {symbol && (
-        <View style={[styles.iconTile, { backgroundColor: symbolColor ?? theme.tint }]}>
-          <SymbolView name={symbol} size={16} tintColor="#FFFFFF" fallback={null} />
+      {hasTile && (
+        <View style={styles.iconTile}>
+          {/* Glass tile, not a coloured block. */}
+          <Glass
+            variant="clear"
+            radius={10}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+            fallbackIntensity={30}
+            fallbackTint={theme.tertiarySystemFill}
+          />
+          {icon ??
+            (symbol ? (
+              <SymbolView name={symbol} size={19} tintColor={glyphColor} fallback={null} />
+            ) : null)}
         </View>
       )}
 
       <View style={styles.rowText}>
         <Text
           numberOfLines={1}
-          style={[IOSFont.body, { color: labelColor, opacity: disabled ? 0.4 : 1 }]}
+          style={[IOSAppFont.label, { color: labelColor, opacity: disabled ? 0.4 : 1 }]}
         >
           {label}
         </Text>
         {detail ? (
-          <Text numberOfLines={2} style={[IOSFont.footnote, { color: theme.secondaryLabel, marginTop: 1 }]}>
+          <Text numberOfLines={3} style={[IOSAppFont.description, { color: theme.secondaryLabel }]}>
             {detail}
           </Text>
         ) : null}
       </View>
 
       {accessory.type === "switch" && (
-        <Switch
+        <IOSToggle
           value={accessory.value}
-          onValueChange={(v) => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            accessory.onValueChange(v);
-          }}
+          onValueChange={accessory.onValueChange}
           disabled={disabled}
-          trackColor={{ true: theme.tint }}
+          accessibilityLabel={label}
         />
       )}
       {accessory.type === "detail" && (
-        <Text style={[IOSFont.body, { color: theme.secondaryLabel }]}>{accessory.text}</Text>
+        <Text style={[IOSAppFont.value, { color: theme.secondaryLabel }]}>{accessory.text}</Text>
       )}
       {accessory.type === "checkmark" && accessory.checked && (
         <SymbolView name="checkmark" size={16} tintColor={theme.tint} fallback={null} />
@@ -141,15 +161,8 @@ export function IOSListRow({
         </View>
       )}
 
-      {/* Separator inset to the label, iOS-style — not full bleed. */}
-      {!__isLast && (
-        <View
-          style={[
-            styles.separator,
-            { backgroundColor: theme.separator, marginLeft: symbol ? 56 : 16 },
-          ]}
-        />
-      )}
+      {/* Full-bleed hairline between rows, as the original design had it. */}
+      {!__isLast && <View style={[styles.separator, { backgroundColor: theme.separator }]} />}
     </View>
   );
 }
@@ -158,22 +171,19 @@ export function IOSListRow({
 
 export interface IOSListSectionProps {
   children: React.ReactNode;
-  /** Uppercase grey caption above the group. */
+  /** Uppercase caption above the group. */
   header?: string;
   /** Explanatory text below the group. */
   footer?: string;
   /**
-   * Render the group on a Liquid Glass surface instead of the opaque grouped
-   * background.
+   * Render the group on an opaque card instead of Liquid Glass.
    *
-   * OFF by default, and that default is deliberate. A list is CONTENT, and
-   * Apple's guidance is that Liquid Glass belongs to the navigation and control
-   * layer — a glass list scrolling under a glass nav bar is glass on glass,
-   * which is exactly what breaks the single-floating-layer illusion. Turn it on
-   * for a short group floating over a map or photo, where the surface really is
-   * chrome; leave it off for Settings-style lists.
+   * Glass is the default here because these groups sit on the settings screens,
+   * where the whole point of the redesign is that surfaces are translucent.
+   * Turn it off for a group layered over another glass surface — glass on glass
+   * is the one combination Apple singles out as breaking the effect.
    */
-  glass?: boolean;
+  opaque?: boolean;
   style?: ViewStyle;
 }
 
@@ -181,7 +191,7 @@ export function IOSListSection({
   children,
   header,
   footer,
-  glass = false,
+  opaque = false,
   style,
 }: IOSListSectionProps) {
   const theme = useIOSTheme();
@@ -199,31 +209,29 @@ export function IOSListSection({
   return (
     <View style={[styles.section, style]}>
       {header ? (
-        <Text style={[IOSFont.footnote, styles.header, { color: theme.secondaryLabel }]}>
+        <Text style={[IOSAppFont.sectionTitle, styles.header, { color: theme.label }]}>
           {header.toUpperCase()}
         </Text>
       ) : null}
 
-      {glass ? (
+      {opaque ? (
+        <View style={[styles.group, { backgroundColor: theme.secondarySystemGroupedBackground }]}>
+          {body}
+        </View>
+      ) : (
         <Glass
           variant="regular"
-          radius={IOSMetrics.groupedRadius}
+          radius={CARD_RADIUS}
           style={styles.group}
-          fallbackIntensity={60}
+          fallbackIntensity={40}
           fallbackTint={theme.secondarySystemGroupedBackground}
         >
           {body}
         </Glass>
-      ) : (
-        <View
-          style={[styles.group, { backgroundColor: theme.secondarySystemGroupedBackground }]}
-        >
-          {body}
-        </View>
       )}
 
       {footer ? (
-        <Text style={[IOSFont.footnote, styles.footer, { color: theme.secondaryLabel }]}>
+        <Text style={[IOSAppFont.description, styles.footer, { color: theme.secondaryLabel }]}>
           {footer}
         </Text>
       ) : null}
@@ -231,32 +239,33 @@ export function IOSListSection({
   );
 }
 
+/** The app's card radius — deliberately much rounder than a system list. */
+const CARD_RADIUS = 30;
+
 const styles = StyleSheet.create({
-  section: { marginBottom: 28 },
-  header: { marginHorizontal: IOSMetrics.groupedInset + 4, marginBottom: 7, letterSpacing: 0.3 },
-  footer: { marginHorizontal: IOSMetrics.groupedInset + 4, marginTop: 7, lineHeight: 16 },
-  group: {
-    marginHorizontal: IOSMetrics.groupedInset,
-    borderRadius: IOSMetrics.groupedRadius,
-    overflow: "hidden",
-  },
+  section: { marginBottom: 23 },
+  header: { paddingHorizontal: 4, marginVertical: 12 },
+  footer: { marginHorizontal: 4, marginTop: 10 },
+  group: { borderRadius: CARD_RADIUS, overflow: "hidden" },
   row: { minHeight: IOSMetrics.minTouchTarget, justifyContent: "center" },
   rowInner: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 11,
-    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    gap: 15,
   },
   iconTile: {
-    width: 29,
-    height: 29,
-    borderRadius: 6.5,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+    flexShrink: 0,
   },
   rowText: { flex: 1 },
-  separator: { height: IOSMetrics.hairline },
+  separator: { height: StyleSheet.hairlineWidth, marginHorizontal: 20 },
 });
 
 export default IOSListSection;
