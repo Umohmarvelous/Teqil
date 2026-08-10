@@ -69,6 +69,7 @@ export default function HomeTab() {
 
   const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+  const tabBarBg = isDark ? Colors.background : Colors.textWhite;
 
   const [quickTransferVisible, setQuickTransferVisible] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
@@ -171,7 +172,7 @@ export default function HomeTab() {
   }, [loadTrips]);
 
   return (
-    <View style={[styles.root, { backgroundColor: bg } ]}>
+    <View style={[styles.root, { backgroundColor: tabBarBg } ]}>
       <StatusBar style={isDark ? 'light' : 'dark'}  />
 
 

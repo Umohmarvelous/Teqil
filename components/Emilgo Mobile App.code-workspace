@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../buddy"
+		},
+		{
+			"path": "../../ArriveLink"
+		}
+	],
+	"settings": {}
+}
