@@ -29,6 +29,7 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 
 import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
+import { Glass } from "./Glass";
 
 export type IOSAlertActionStyle = "default" | "cancel" | "destructive";
 
@@ -158,7 +159,7 @@ export function IOSAlert({
             style={[styles.alertCard, { width: Math.min(width - 96, 270) }, containerStyle]}
             accessibilityViewIsModal
           >
-            <BlurView intensity={70} tint={theme.blurTint} style={StyleSheet.absoluteFill} />
+            <Glass variant="regular" style={StyleSheet.absoluteFill as never} pointerEvents="none" fallbackIntensity={70} />
             <View style={[StyleSheet.absoluteFill, { backgroundColor: materialBg }]} />
 
             <View style={styles.alertHead}>
@@ -188,7 +189,7 @@ export function IOSAlert({
             accessibilityViewIsModal
           >
             <View style={styles.sheetGroup}>
-              <BlurView intensity={70} tint={theme.blurTint} style={StyleSheet.absoluteFill} />
+              <Glass variant="regular" style={StyleSheet.absoluteFill as never} pointerEvents="none" fallbackIntensity={70} />
               <View style={[StyleSheet.absoluteFill, { backgroundColor: materialBg }]} />
 
               {(title || message) && (
@@ -220,7 +221,7 @@ export function IOSAlert({
             {/* Cancel is a visually separate group in an action sheet. */}
             {cancelActions.length > 0 && (
               <View style={[styles.sheetGroup, { marginTop: 8 }]}>
-                <BlurView intensity={70} tint={theme.blurTint} style={StyleSheet.absoluteFill} />
+                <Glass variant="regular" style={StyleSheet.absoluteFill as never} pointerEvents="none" fallbackIntensity={70} />
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: materialBg }]} />
                 {cancelActions.map((a, i) => renderButton(a, i, cancelActions))}
               </View>

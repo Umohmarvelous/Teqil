@@ -125,6 +125,9 @@ export function IOSModalCard({
       onRequestClose={dismissible ? animateClosed : undefined}
     >
       <GestureHandlerRootView style={StyleSheet.absoluteFill}>
+        {/* Backdrop stays a plain blurred scrim on purpose: Liquid Glass is the
+            INTERACTIVE layer, and a dimming scrim is neither interactive nor a
+            control. Glassing it would put glass behind glass. */}
         <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]}>
           <Pressable
             style={StyleSheet.absoluteFill}

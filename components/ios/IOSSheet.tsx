@@ -39,6 +39,7 @@ import Animated, {
 
 import { haptics } from "@/src/utils/haptics";
 import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
+import { Glass } from "./Glass";
 
 export type IOSSheetDetent = "medium" | "large" | number;
 
@@ -280,16 +281,14 @@ export function IOSSheet({
             style={[styles.sheet, { height: maxH, backgroundColor: "transparent" }, sheetStyle]}
             accessibilityViewIsModal
           >
-            <BlurView intensity={80} tint={theme.blurTint} style={StyleSheet.absoluteFill} />
-            {/* Material tint over the blur so contrast holds on busy backdrops. */}
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                {
-                  backgroundColor:
-                    theme.scheme === "dark" ? "rgba(28,28,30,0.72)" : "rgba(255,255,255,0.72)",
-                },
-              ]}
+            {/* Liquid Glass surface. Apple's guidance is that sheets adopt the
+                glass appearance and drop custom backgrounds — so there's no tint
+                layered on top of it here. */}
+            <Glass
+              variant="regular"
+              style={StyleSheet.absoluteFill as never}
+              pointerEvents="none"
+              fallbackIntensity={80}
             />
 
             {showGrabber && (

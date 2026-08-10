@@ -36,6 +36,7 @@ import Animated, {
 
 import { haptics } from "@/src/utils/haptics";
 import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
+import { Glass } from "./Glass";
 
 const CANCEL_WIDTH = 66;
 const FIELD_HEIGHT = 36;
@@ -135,12 +136,12 @@ export function IOSSearchBar({
     <View style={styles.row}>
       <Animated.View style={[styles.fieldWrap, fieldStyle]}>
         <View style={styles.field}>
-          <BlurView intensity={40} tint={theme.blurTint} style={StyleSheet.absoluteFill} />
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: theme.tertiarySystemFill },
-            ]}
+          {/* Search fields sit on the control layer, so they take glass. */}
+          <Glass
+            variant="regular"
+            style={StyleSheet.absoluteFill as never}
+            pointerEvents="none"
+            fallbackIntensity={40}
           />
 
           <Animated.View style={[styles.fieldInner, contentStyle]}>

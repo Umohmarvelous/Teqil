@@ -32,6 +32,7 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 
 import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
+import { Glass } from "./Glass";
 
 export interface IOSMenuItem {
   label: string;
@@ -137,7 +138,7 @@ export function IOSMenu({ anchor, items, width = MENU_WIDTH }: IOSMenuProps) {
           style={[styles.menu, { top, left, width }, menuStyle]}
           accessibilityViewIsModal
         >
-          <BlurView intensity={80} tint={theme.blurTint} style={StyleSheet.absoluteFill} />
+          <Glass variant="regular" style={StyleSheet.absoluteFill as never} pointerEvents="none" fallbackIntensity={80} />
           <View style={[StyleSheet.absoluteFill, { backgroundColor: materialBg }]} />
 
           {items.map((item, i) => {

@@ -26,8 +26,20 @@ import * as Haptics from "expo-haptics";
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
 
 import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
+import { Glass } from "./Glass";
 
-export type IOSButtonVariant = "filled" | "tinted" | "bordered" | "borderless";
+/**
+ * The four classic styles, plus the two iOS 26 glass configurations:
+ *   glass          → UIKit's `.glass()`         — plain Liquid Glass
+ *   prominentGlass → UIKit's `.prominentGlass()` — glass tinted with the app accent
+ */
+export type IOSButtonVariant =
+  | "filled"
+  | "tinted"
+  | "bordered"
+  | "borderless"
+  | "glass"
+  | "prominentGlass";
 export type IOSButtonRole = "normal" | "destructive";
 export type IOSButtonSize = "small" | "medium" | "large";
 
@@ -76,8 +88,12 @@ export function IOSButton({
   const accent = role === "destructive" ? theme.systemRed : theme.tint;
   const isDisabled = disabled || loading;
 
-  // Filled buttons put the accent in the background, so the label goes white.
-  const labelColor = variant === "filled" ? "#FFFFFF" : accent;
+  const isGlass = variant === "glass" || variant === "prominentGlass";
+
+  // Filled and prominent-glass buttons carry the accent behind the label, so the
+  // label goes white; everything else tints the label itself.
+  const labelColor =
+    variant === "filled" || variant === "prominentGlass" ? "#FFFFFF" : accent;
 
   const container: ViewStyle = {
     height: metrics.height,
@@ -92,6 +108,9 @@ export function IOSButton({
       borderColor: accent + "80",
       backgroundColor: "transparent",
     }),
+    // Glass supplies its own surface — a background colour here would sit on top
+    // of it and defeat the effect.
+    ...(isGlass && { backgroundColor: "transparent" }),
   };
 
   const handlePress = useCallback<NonNullable<PressableProps["onPress"]>>(
@@ -112,13 +131,24 @@ export function IOSButton({
       style={({ pressed }) => [
         styles.base,
         container,
-        // iOS dims rather than scales on tap for standard buttons.
-        pressed && { opacity: 0.4 },
+        // iOS dims rather than scales on tap for standard buttons. Glass handles
+        // its own press feedback natively (scale + bounce), so don't dim it too.
+        pressed && !isGlass && { opacity: 0.4 },
         isDisabled && { opacity: 0.35 },
         style,
       ]}
       {...rest}
     >
+      {isGlass && (
+        <Glass
+          variant="regular"
+          tint={variant === "prominentGlass" ? accent : undefined}
+          interactive
+          radius={metrics.radius}
+          style={StyleSheet.absoluteFill as never}
+          pointerEvents="none"
+        />
+      )}
       {loading ? (
         <ActivityIndicator size="small" color={labelColor} />
       ) : (

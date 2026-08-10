@@ -29,7 +29,6 @@ import {
   Platform,
   type ViewStyle,
 } from "react-native";
-import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   useSharedValue,
@@ -41,6 +40,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
+import { Glass, LIQUID_GLASS } from "./Glass";
 
 /** Height of the compact bar, excluding the status bar. */
 export const NAV_BAR_HEIGHT = 44;
@@ -49,7 +49,6 @@ export const LARGE_TITLE_HEIGHT = 52;
 /** Scroll distance over which the collapse completes. */
 const COLLAPSE_DISTANCE = LARGE_TITLE_HEIGHT;
 
-const AnimatedBlur = Animated.createAnimatedComponent(BlurView);
 
 export interface CollapsibleScroll {
   /** Pass to `<CollapsibleHeader scrollY={…} />`. */
@@ -189,13 +188,17 @@ export function CollapsibleHeader({
     <Animated.View style={[styles.container, containerStyle, style]} pointerEvents="box-none">
       {/* Frosted background, revealed on scroll */}
       <Animated.View style={[StyleSheet.absoluteFill, backgroundStyle]} pointerEvents="none">
-        <AnimatedBlur
-          intensity={Platform.OS === "ios" ? 100 : 60}
-          tint={theme.blurTint}
-          style={StyleSheet.absoluteFill}
+        {/* Liquid Glass nav bar. The opacity animation lives on the wrapper
+            above, so the glass itself simply fades in as content passes under
+            it — which is exactly the iOS 26 behaviour. */}
+        <Glass
+          variant="regular"
+          style={StyleSheet.absoluteFill as never}
+          pointerEvents="none"
+          fallbackIntensity={Platform.OS === "ios" ? 100 : 60}
         />
-        {/* Android's blur is weaker, so back it with a translucent fill. */}
-        {Platform.OS !== "ios" && (
+        {/* Android's fallback blur is weaker, so back it with a translucent fill. */}
+        {Platform.OS !== "ios" && !LIQUID_GLASS && (
           <View
             style={[
               StyleSheet.absoluteFill,
