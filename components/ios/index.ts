@@ -7,7 +7,18 @@
 // Every component reads its colours from `theme.ts`, so light/dark and the app
 // tint are handled centrally — no per-screen `isDark ? … : …` branches.
 
-export { Glass, GlassGroup, LIQUID_GLASS, type GlassProps, type GlassGroupProps } from "./Glass";
+export {
+  Glass,
+  GlassGroup,
+  GlassScrim,
+  LIQUID_GLASS,
+  useGlassCapability,
+  useReduceTransparency,
+  type GlassProps,
+  type GlassGroupProps,
+  type GlassScrimProps,
+  type GlassCapability,
+} from "./Glass";
 export { IOSButton, type IOSButtonProps, type IOSButtonVariant, type IOSButtonRole } from "./IOSButton";
 export { IOSSheet, type IOSSheetProps, type IOSSheetDetent } from "./IOSSheet";
 export { IOSModalCard, type IOSModalCardProps } from "./IOSModalCard";

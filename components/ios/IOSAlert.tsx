@@ -18,7 +18,6 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from "react-native";
-import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   useSharedValue,
@@ -29,7 +28,7 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 
 import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
-import { Glass } from "./Glass";
+import { Glass, GlassScrim } from "./Glass";
 
 export type IOSAlertActionStyle = "default" | "cancel" | "destructive";
 
@@ -105,6 +104,9 @@ export function IOSAlert({
   // A two-button alert is the only case iOS lays out horizontally.
   const horizontal = variant === "alert" && actions.length === 2;
 
+  // The pre-glass material. On iOS 26 the real UIGlassEffect supplies the
+  // surface and this is never drawn; everywhere else it IS the surface, so the
+  // alert looks the same as it always did.
   const materialBg =
     theme.scheme === "dark" ? "rgba(44,44,46,0.82)" : "rgba(250,250,250,0.82)";
 
@@ -150,8 +152,7 @@ export function IOSAlert({
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.root}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Dismiss">
-          <BlurView intensity={12} tint={theme.scheme === "dark" ? "dark" : "light"} style={StyleSheet.absoluteFill} />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.scrim }]} />
+          <GlassScrim intensity={12} />
         </Pressable>
 
         {variant === "alert" ? (
@@ -159,8 +160,14 @@ export function IOSAlert({
             style={[styles.alertCard, { width: Math.min(width - 96, 270) }, containerStyle]}
             accessibilityViewIsModal
           >
-            <Glass variant="regular" style={StyleSheet.absoluteFill as never} pointerEvents="none" fallbackIntensity={70} />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: materialBg }]} />
+            <Glass
+              variant="regular"
+              radius={IOSMetrics.alertRadius}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+              fallbackIntensity={70}
+              fallbackTint={materialBg}
+            />
 
             <View style={styles.alertHead}>
               {title ? (
@@ -189,8 +196,14 @@ export function IOSAlert({
             accessibilityViewIsModal
           >
             <View style={styles.sheetGroup}>
-              <Glass variant="regular" style={StyleSheet.absoluteFill as never} pointerEvents="none" fallbackIntensity={70} />
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: materialBg }]} />
+              <Glass
+                variant="regular"
+                radius={IOSMetrics.alertRadius}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+                fallbackIntensity={70}
+                fallbackTint={materialBg}
+              />
 
               {(title || message) && (
                 <>
@@ -221,8 +234,14 @@ export function IOSAlert({
             {/* Cancel is a visually separate group in an action sheet. */}
             {cancelActions.length > 0 && (
               <View style={[styles.sheetGroup, { marginTop: 8 }]}>
-                <Glass variant="regular" style={StyleSheet.absoluteFill as never} pointerEvents="none" fallbackIntensity={70} />
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: materialBg }]} />
+                <Glass
+                  variant="regular"
+                  radius={IOSMetrics.alertRadius}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
+                  fallbackIntensity={70}
+                  fallbackTint={materialBg}
+                />
                 {cancelActions.map((a, i) => renderButton(a, i, cancelActions))}
               </View>
             )}

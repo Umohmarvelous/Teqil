@@ -21,7 +21,6 @@ import {
   useWindowDimensions,
   type LayoutRectangle,
 } from "react-native";
-import { BlurView } from "expo-blur";
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import Animated, {
   useSharedValue,
@@ -32,7 +31,7 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 
 import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
-import { Glass } from "./Glass";
+import { Glass, GlassScrim } from "./Glass";
 
 export interface IOSMenuItem {
   label: string;
@@ -60,6 +59,8 @@ export interface IOSMenuProps {
 const MENU_WIDTH = 250;
 const ROW_HEIGHT = 44;
 const EDGE_MARGIN = 8;
+/** iOS menu popovers use a 13pt radius. */
+const MENU_RADIUS = 13;
 
 export function IOSMenu({ anchor, items, width = MENU_WIDTH }: IOSMenuProps) {
   const theme = useIOSTheme();
@@ -120,6 +121,8 @@ export function IOSMenu({ anchor, items, width = MENU_WIDTH }: IOSMenuProps) {
     setTimeout(() => item.onPress?.(), 60);
   };
 
+  // Pre-glass material. Real UIGlassEffect supplies the surface on iOS 26 and
+  // this is never drawn; on every other path it IS the surface.
   const materialBg =
     theme.scheme === "dark" ? "rgba(44,44,46,0.80)" : "rgba(249,249,249,0.80)";
 
@@ -131,15 +134,22 @@ export function IOSMenu({ anchor, items, width = MENU_WIDTH }: IOSMenuProps) {
 
       <Modal visible={open} transparent animationType="none" statusBarTranslucent onRequestClose={hide}>
         <Pressable style={StyleSheet.absoluteFill} onPress={hide} accessibilityLabel="Dismiss menu">
-          <BlurView intensity={8} tint={theme.scheme === "dark" ? "dark" : "light"} style={StyleSheet.absoluteFill} />
+          {/* Popovers blur without dimming — the content behind stays readable. */}
+          <GlassScrim intensity={8} dim={false} />
         </Pressable>
 
         <Animated.View
           style={[styles.menu, { top, left, width }, menuStyle]}
           accessibilityViewIsModal
         >
-          <Glass variant="regular" style={StyleSheet.absoluteFill as never} pointerEvents="none" fallbackIntensity={80} />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: materialBg }]} />
+          <Glass
+            variant="regular"
+            radius={MENU_RADIUS}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+            fallbackIntensity={80}
+            fallbackTint={materialBg}
+          />
 
           {items.map((item, i) => {
             const color = item.destructive ? theme.systemRed : theme.label;
@@ -213,7 +223,7 @@ export function IOSMenu({ anchor, items, width = MENU_WIDTH }: IOSMenuProps) {
 const styles = StyleSheet.create({
   menu: {
     position: "absolute",
-    borderRadius: 13,
+    borderRadius: MENU_RADIUS,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },

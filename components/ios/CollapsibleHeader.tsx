@@ -26,7 +26,6 @@ import {
   View,
   Pressable,
   StyleSheet,
-  Platform,
   type ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -40,7 +39,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
-import { Glass, LIQUID_GLASS } from "./Glass";
+import { Glass } from "./Glass";
 
 /** Height of the compact bar, excluding the status bar. */
 export const NAV_BAR_HEIGHT = 44;
@@ -193,22 +192,17 @@ export function CollapsibleHeader({
             it — which is exactly the iOS 26 behaviour. */}
         <Glass
           variant="regular"
-          style={StyleSheet.absoluteFill as never}
+          style={StyleSheet.absoluteFill}
           pointerEvents="none"
-          fallbackIntensity={Platform.OS === "ios" ? 100 : 60}
+          fallbackIntensity={100}
+          fallbackTint={
+            theme.scheme === "dark" ? "rgba(0,0,0,0.62)" : "rgba(255,255,255,0.72)"
+          }
+          // Android's blur is much weaker, so its veil carries more of the load.
+          androidTint={
+            theme.scheme === "dark" ? "rgba(0,0,0,0.80)" : "rgba(255,255,255,0.85)"
+          }
         />
-        {/* Android's fallback blur is weaker, so back it with a translucent fill. */}
-        {Platform.OS !== "ios" && !LIQUID_GLASS && (
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                backgroundColor:
-                  theme.scheme === "dark" ? "rgba(0,0,0,0.80)" : "rgba(255,255,255,0.85)",
-              },
-            ]}
-          />
-        )}
         <View
           style={[styles.hairline, { backgroundColor: theme.separator, top: undefined, bottom: 0 }]}
         />

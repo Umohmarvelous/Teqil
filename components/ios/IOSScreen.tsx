@@ -33,7 +33,7 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "expo-symbols";
 
-import { useIOSTheme, IOSFont } from "./theme";
+import { useIOSTheme } from "./theme";
 import {
   CollapsibleHeader,
   useCollapsibleScroll,

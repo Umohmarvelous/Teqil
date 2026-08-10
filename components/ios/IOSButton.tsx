@@ -1,12 +1,17 @@
 // components/ios/IOSButton.tsx
 //
-// The four UIButton.Configuration styles from iOS, plus the standard tap
-// feedback (brief opacity dip + light haptic) that system buttons use.
+// The UIButton.Configuration styles from iOS, plus the standard tap feedback
+// (brief opacity dip + light haptic) that system buttons use.
 //
-//   filled     — solid tint, white label. The one primary action on a screen.
-//   tinted     — translucent tint fill, tint label. Secondary emphasis.
-//   bordered   — hairline tint border, tint label.
-//   borderless — label only, no chrome. The default for toolbar/nav actions.
+//   filled         — solid tint, white label. The one primary action on a screen.
+//   tinted         — translucent tint fill, tint label. Secondary emphasis.
+//   bordered       — hairline tint border, tint label.
+//   borderless     — label only, no chrome. The default for toolbar/nav actions.
+//   glass          — iOS 26 `.glass()`: Liquid Glass surface, tint label.
+//   prominentGlass — iOS 26 `.prominentGlass()`: accent-tinted glass, white label.
+//
+// The two glass variants fall back to the tinted treatment wherever real
+// UIGlassEffect isn't available, so they stay legible on Android and older iOS.
 //
 // `role="destructive"` swaps the accent to systemRed everywhere, matching how
 // iOS marks destructive actions.
@@ -26,7 +31,7 @@ import * as Haptics from "expo-haptics";
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
 
 import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
-import { Glass } from "./Glass";
+import { Glass, useGlassCapability } from "./Glass";
 
 /**
  * The four classic styles, plus the two iOS 26 glass configurations:
@@ -84,6 +89,9 @@ export function IOSButton({
 }: IOSButtonProps) {
   const theme = useIOSTheme();
   const metrics = SIZES[size];
+  // Real Liquid Glass supplies its own press feedback (scale + bounce); the
+  // fallback surface doesn't, so it has to dim like every other button.
+  const { glass: liveGlass } = useGlassCapability();
 
   const accent = role === "destructive" ? theme.systemRed : theme.tint;
   const isDisabled = disabled || loading;
@@ -131,9 +139,10 @@ export function IOSButton({
       style={({ pressed }) => [
         styles.base,
         container,
-        // iOS dims rather than scales on tap for standard buttons. Glass handles
-        // its own press feedback natively (scale + bounce), so don't dim it too.
-        pressed && !isGlass && { opacity: 0.4 },
+        // iOS dims rather than scales on tap for standard buttons. Real glass
+        // handles its own press feedback natively, so don't dim it as well —
+        // but the fallback surface has none, so there it still dims.
+        pressed && !(isGlass && liveGlass) && { opacity: 0.4 },
         isDisabled && { opacity: 0.35 },
         style,
       ]}
@@ -145,8 +154,13 @@ export function IOSButton({
           tint={variant === "prominentGlass" ? accent : undefined}
           interactive
           radius={metrics.radius}
-          style={StyleSheet.absoluteFill as never}
+          style={StyleSheet.absoluteFill}
           pointerEvents="none"
+          fallbackIntensity={50}
+          // Without real glass the button still needs a legible surface, so it
+          // falls back to the tinted-fill treatment: accent-washed for
+          // prominent, neutral for plain.
+          fallbackTint={variant === "prominentGlass" ? accent : accent + "1F"}
         />
       )}
       {loading ? (

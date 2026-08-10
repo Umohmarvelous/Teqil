@@ -314,7 +314,7 @@ export default function DriverHistoryScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 10 }, {backgroundColor: tabBarBg, borderColor}]}>
         <Pressable style={styles.sideElement} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={24} color={Colors.textColor} />
+          <Ionicons name="chevron-back" size={24} color={textColor} />
         </Pressable>
         <View style={{alignItems: 'center'}}>
           <Text style={[styles.headerTitle, {color: textColor}]}>{t("history.title")}</Text>

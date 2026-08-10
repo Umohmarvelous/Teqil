@@ -34,7 +34,8 @@ import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { iosAlert } from "@/components/ios";
 // ─── Animated Input ───────────────────────────────────────────────────────────
 interface AnimatedInputProps {
-  label: string;
+  /** Omit where a surrounding card heading already names the field. */
+  label?: string;
   icon: keyof typeof Ionicons.glyphMap;
   value: string;
   onChangeText: (v: string) => void;
@@ -90,7 +91,9 @@ function AnimatedInput({
       //   {backgroundColor: inputBgColor}, 
       // {borderRadius: 25, paddingHorizontal: 10, paddingVertical: 25, }
       ]}>
-        <Text style={[styles.inputLabel,{color: textColor}]}>{label}</Text>
+        {label ? (
+          <Text style={[styles.inputLabel, { color: textColor }]}>{label}</Text>
+        ) : null}
         <View style={{flexDirection: 'row'}}>
           <View style={[styles.inputRow, { borderColor }, error ? styles.inputRowError : null, !editable &&  styles.inputRowDisabled, {paddingHorizontal: 10}, {backgroundColor: cardBg}]}>
 

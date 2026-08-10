@@ -33,7 +33,6 @@ import {
   ActivityIndicator,
   useWindowDimensions,
 } from "react-native";
-import { BlurView } from "expo-blur";
 import { SymbolView } from "expo-symbols";
 import * as StoreReview from "expo-store-review";
 import Animated, {
@@ -45,6 +44,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { haptics } from "@/src/utils/haptics";
+import { Glass, GlassScrim } from "./Glass";
 import { FeedbackModal } from "./FeedbackModal";
 import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
 
@@ -226,12 +226,7 @@ export function RatingModal({
               accessibilityRole="button"
               accessibilityLabel="Dismiss"
             >
-              <BlurView
-                intensity={12}
-                tint={theme.scheme === "dark" ? "dark" : "light"}
-                style={StyleSheet.absoluteFill}
-              />
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.scrim }]} />
+              <GlassScrim intensity={12} />
             </Pressable>
           </Animated.View>
 
@@ -240,15 +235,17 @@ export function RatingModal({
             style={[styles.card, { width: Math.min(width - 96, 270) }, cardStyle]}
             accessibilityViewIsModal
           >
-            <BlurView intensity={70} tint={theme.blurTint} style={StyleSheet.absoluteFill} />
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                {
-                  backgroundColor:
-                    theme.scheme === "dark" ? "rgba(44,44,46,0.78)" : "rgba(250,250,250,0.78)",
-                },
-              ]}
+            {/* Same material as a system alert: real Liquid Glass on iOS 26,
+                the original blur-and-tint everywhere else. */}
+            <Glass
+              variant="regular"
+              radius={IOSMetrics.alertRadius}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+              fallbackIntensity={70}
+              fallbackTint={
+                theme.scheme === "dark" ? "rgba(44,44,46,0.78)" : "rgba(250,250,250,0.78)"
+              }
             />
 
             {/* Content */}

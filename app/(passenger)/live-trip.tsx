@@ -451,12 +451,10 @@ import { MAP_PROVIDER } from "@/src/utils/maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import * as LocalAuthentication from "expo-local-authentication";
 
 import { useTripStore, useAuthStore } from "@/src/store/useStore";
-import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { useSavedRoutes } from "@/src/hooks/useSavedRoutes";
 import {
   startLocationTracking,
@@ -464,7 +462,7 @@ import {
 } from "@/src/services/locationTracking";
 import { Colors } from "@/constants/colors";
 import { formatCoins } from "@/src/utils/helpers";
-import { iosAlert } from "@/components/ios";
+import { Glass, iosAlert } from "@/components/ios";
 
 // ─── Map style ────────────────────────────────────────────────────────────────
 
@@ -843,7 +841,6 @@ const markerStyles = StyleSheet.create({
 export default function LiveTripScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
-  const { theme } = useSettingsStore();
 
   const {
     activeTrip,
@@ -1040,13 +1037,18 @@ export default function LiveTripScreen() {
           { transform: [{ translateY: panelSlideY }] },
         ]}
       >
-        {Platform.OS === "ios" && (
-          <BlurView
-            intensity={80}
-            tint={theme === "dark" ? "dark" : "light"}
-            style={StyleSheet.absoluteFill}
-          />
-        )}
+        {/* The panel floats over the map, so it belongs on the glass layer.
+            Its brand colour rides along as the glass tint, which keeps the
+            slab looking identical on every rendering path. */}
+        <Glass
+          variant="regular"
+          tint={PANEL_TINT}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+          fallbackIntensity={80}
+          fallbackTint={PANEL_TINT}
+          androidTint={PANEL_TINT_OPAQUE}
+        />
 
         {/* Fare counter — centrepiece */}
         <AnimatedCoinCounter coins={fare} />
@@ -1121,6 +1123,10 @@ export default function LiveTripScreen() {
 }
 
 const PANEL_RADIUS = 30;
+/** The panel's brand material, carried through as the Liquid Glass tint. */
+const PANEL_TINT = "rgba(15,27,20,0.82)";
+/** Android's blur is much weaker, so its veil does more of the work. */
+const PANEL_TINT_OPAQUE = "rgba(15,27,20,0.96)";
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#0a1210" },
@@ -1174,7 +1180,7 @@ const styles = StyleSheet.create({
     right:               0,
     borderTopLeftRadius:  PANEL_RADIUS,
     borderTopRightRadius: PANEL_RADIUS,
-    backgroundColor:     Platform.OS === "ios" ? "rgba(15,27,20,0.82)" : "rgba(15,27,20,0.96)",
+    backgroundColor:     "transparent",
     paddingTop:          28,
     paddingHorizontal:   28,
     gap:                 20,

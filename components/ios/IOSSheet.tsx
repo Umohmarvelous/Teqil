@@ -24,7 +24,6 @@ import {
   useWindowDimensions,
   type ViewStyle,
 } from "react-native";
-import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GestureHandlerRootView, Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -39,7 +38,7 @@ import Animated, {
 
 import { haptics } from "@/src/utils/haptics";
 import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
-import { Glass } from "./Glass";
+import { Glass, GlassScrim } from "./Glass";
 
 export type IOSSheetDetent = "medium" | "large" | number;
 
@@ -266,12 +265,7 @@ export function IOSSheet({
             accessibilityRole="button"
             accessibilityLabel="Close"
           >
-            <BlurView
-              intensity={18}
-              tint={theme.scheme === "dark" ? "dark" : "light"}
-              style={StyleSheet.absoluteFill}
-            />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.scrim }]} />
+            <GlassScrim intensity={18} />
           </Pressable>
         </Animated.View>
 
@@ -286,9 +280,12 @@ export function IOSSheet({
                 layered on top of it here. */}
             <Glass
               variant="regular"
-              style={StyleSheet.absoluteFill as never}
+              style={StyleSheet.absoluteFill}
               pointerEvents="none"
               fallbackIntensity={80}
+              fallbackTint={
+                theme.scheme === "dark" ? "rgba(28,28,30,0.86)" : "rgba(252,252,254,0.86)"
+              }
             />
 
             {showGrabber && (

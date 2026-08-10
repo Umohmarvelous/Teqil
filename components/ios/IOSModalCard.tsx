@@ -13,7 +13,6 @@
 
 import React, { useCallback, useEffect } from "react";
 import { Modal, View, Pressable, StyleSheet, useWindowDimensions } from "react-native";
-import { BlurView } from "expo-blur";
 import { GestureHandlerRootView, Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useSharedValue,
@@ -26,7 +25,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { haptics } from "@/src/utils/haptics";
-import { useIOSTheme } from "./theme";
+import { GlassScrim } from "./Glass";
 
 /** Drag distance past which the card dismisses rather than springing back. */
 const CLOSE_DISTANCE = 130;
@@ -50,7 +49,6 @@ export function IOSModalCard({
   dismissible = true,
   intensity = 22,
 }: IOSModalCardProps) {
-  const theme = useIOSTheme();
   const { height } = useWindowDimensions();
 
   const translateY = useSharedValue(0);
@@ -135,12 +133,7 @@ export function IOSModalCard({
             accessibilityRole="button"
             accessibilityLabel="Close"
           >
-            <BlurView
-              intensity={intensity}
-              tint={theme.scheme === "dark" ? "dark" : "light"}
-              style={StyleSheet.absoluteFill}
-            />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.scrim }]} />
+            <GlassScrim intensity={intensity} />
           </Pressable>
         </Animated.View>
 

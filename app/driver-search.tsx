@@ -28,7 +28,6 @@ import {
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { BlurView } from "expo-blur";
 import { SymbolView } from "expo-symbols";
 import Animated, {
   useSharedValue,
@@ -41,6 +40,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import {
+  Glass,
   IOSButton,
   iosActionSheet,
   useIOSTheme,
@@ -270,8 +270,15 @@ export default function DriverSearchScreen() {
 
       {/* Expanding search field */}
       <Animated.View style={[styles.field, fieldStyle]}>
-        <BlurView intensity={40} tint={ios.blurTint} style={StyleSheet.absoluteFill} />
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: ios.tertiarySystemFill }]} />
+        {/* Same material as IOSSearchBar. The parent's animated borderRadius
+            clips it, so the surface morphs with the expand. */}
+        <Glass
+          variant="regular"
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+          fallbackIntensity={40}
+          fallbackTint={ios.tertiarySystemFill}
+        />
 
         <View style={styles.fieldInner}>
           <SymbolView

@@ -32,10 +32,8 @@ import {
   Text,
   Pressable,
   StyleSheet,
-  Platform,
   type LayoutChangeEvent,
 } from "react-native";
-import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import Animated, {
@@ -46,6 +44,7 @@ import Animated, {
 
 import { haptics } from "@/src/utils/haptics";
 import { useIOSTheme, IOSFont } from "./theme";
+import { Glass, useGlassCapability } from "./Glass";
 
 /** Height of the capsule at rest. */
 export const TAB_BAR_HEIGHT = 74;
@@ -195,6 +194,9 @@ export function IOSTabBar({
   const theme = useIOSTheme();
   const insets = useSafeAreaInsets();
   const isDark = theme.scheme === "dark";
+  // On iOS 26 the bar is a real UIGlassEffect capsule. Everywhere else it keeps
+  // the blur-and-veil build below, so the shape, spring and rim are unchanged.
+  const { glass } = useGlassCapability();
 
   // Measured so the selection capsule can be positioned exactly, whatever the
   // screen width or tab count.
@@ -246,40 +248,38 @@ export function IOSTabBar({
           { shadowColor: isDark ? "#000" : "#0B1F16" },
         ]}
       >
-        <BlurView
-          intensity={Platform.OS === "ios" ? 70 : 32}
-          tint={theme.blurTint}
+        {/* The capsule's material. On iOS 26 this is real Liquid Glass — which
+            is genuinely see-through and lights its own edge. On every other
+            path it's the blur-plus-veil build the bar has always used: a light
+            veil to keep glyphs legible, not an opaque fill. Android's blur is
+            much weaker, so it gets more backing. */}
+        <Glass
+          variant="regular"
+          radius={TAB_BAR_HEIGHT / 2}
           style={StyleSheet.absoluteFill}
-        />
-
-        {/* Liquid Glass is genuinely see-through: this is a light veil to keep
-            glyphs legible, not an opaque fill. Android's blur is much weaker, so
-            it gets more backing. */}
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              backgroundColor: isDark
-                ? Platform.OS === "ios" ? "rgba(30,30,32,0.55)" : "rgba(28,28,30,0.86)"
-                : Platform.OS === "ios" ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.90)",
-            },
-          ]}
+          pointerEvents="none"
+          fallbackIntensity={70}
+          fallbackTint={isDark ? "rgba(30,30,32,0.55)" : "rgba(255,255,255,0.55)"}
+          androidTint={isDark ? "rgba(28,28,30,0.86)" : "rgba(255,255,255,0.90)"}
         />
 
         {/* Specular rim — glass catches light along its top edge and shades along
-            the bottom. This is what stops it reading as flat plastic. */}
-        <View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            styles.rim,
-            {
-              borderColor: isDark ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.75)",
-              borderTopColor: isDark ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.95)",
-              borderBottomColor: isDark ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.06)",
-            },
-          ]}
-        />
+            the bottom. This is what stops the fallback reading as flat plastic.
+            Real Liquid Glass draws its own edge, so adding ours would double it. */}
+        {!glass && (
+          <View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              styles.rim,
+              {
+                borderColor: isDark ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.75)",
+                borderTopColor: isDark ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.95)",
+                borderBottomColor: isDark ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.06)",
+              },
+            ]}
+          />
+        )}
 
         <View style={styles.row} onLayout={onRowLayout}>
           {/* Selection capsule, sliding under the tabs. */}

@@ -411,7 +411,7 @@ export default function FindDriverScreen() {
         >
           {loading
             ? <ActivityIndicator size="small" color="#fff" />
-            : <Ionicons name="send" size="18" color={Colors.textWhite} />
+            : <Ionicons name="send" size={18} color={Colors.textWhite} />
             // <Text style={styles.searchBtnText}>Search</Text>
           }
         </Pressable>

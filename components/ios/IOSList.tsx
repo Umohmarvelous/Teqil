@@ -27,6 +27,7 @@ import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import * as Haptics from "expo-haptics";
 
 import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
+import { Glass } from "./Glass";
 
 // ─── Row ─────────────────────────────────────────────────────────────────────
 
@@ -161,14 +162,39 @@ export interface IOSListSectionProps {
   header?: string;
   /** Explanatory text below the group. */
   footer?: string;
+  /**
+   * Render the group on a Liquid Glass surface instead of the opaque grouped
+   * background.
+   *
+   * OFF by default, and that default is deliberate. A list is CONTENT, and
+   * Apple's guidance is that Liquid Glass belongs to the navigation and control
+   * layer — a glass list scrolling under a glass nav bar is glass on glass,
+   * which is exactly what breaks the single-floating-layer illusion. Turn it on
+   * for a short group floating over a map or photo, where the surface really is
+   * chrome; leave it off for Settings-style lists.
+   */
+  glass?: boolean;
   style?: ViewStyle;
 }
 
-export function IOSListSection({ children, header, footer, style }: IOSListSectionProps) {
+export function IOSListSection({
+  children,
+  header,
+  footer,
+  glass = false,
+  style,
+}: IOSListSectionProps) {
   const theme = useIOSTheme();
 
   const rows = Children.toArray(children).filter(isValidElement);
   const lastIndex = rows.length - 1;
+
+  const body = rows.map((child, i) =>
+    cloneElement(child as React.ReactElement<IOSListRowProps>, {
+      key: i,
+      __isLast: i === lastIndex,
+    }),
+  );
 
   return (
     <View style={[styles.section, style]}>
@@ -178,19 +204,23 @@ export function IOSListSection({ children, header, footer, style }: IOSListSecti
         </Text>
       ) : null}
 
-      <View
-        style={[
-          styles.group,
-          { backgroundColor: theme.secondarySystemGroupedBackground },
-        ]}
-      >
-        {rows.map((child, i) =>
-          cloneElement(child as React.ReactElement<IOSListRowProps>, {
-            key: i,
-            __isLast: i === lastIndex,
-          }),
-        )}
-      </View>
+      {glass ? (
+        <Glass
+          variant="regular"
+          radius={IOSMetrics.groupedRadius}
+          style={styles.group}
+          fallbackIntensity={60}
+          fallbackTint={theme.secondarySystemGroupedBackground}
+        >
+          {body}
+        </Glass>
+      ) : (
+        <View
+          style={[styles.group, { backgroundColor: theme.secondarySystemGroupedBackground }]}
+        >
+          {body}
+        </View>
+      )}
 
       {footer ? (
         <Text style={[IOSFont.footnote, styles.footer, { color: theme.secondaryLabel }]}>

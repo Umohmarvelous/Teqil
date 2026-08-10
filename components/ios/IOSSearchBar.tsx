@@ -23,7 +23,6 @@ import {
   Keyboard,
   type TextInputProps,
 } from "react-native";
-import { BlurView } from "expo-blur";
 import { SymbolView } from "expo-symbols";
 import Animated, {
   useSharedValue,
@@ -40,6 +39,8 @@ import { Glass } from "./Glass";
 
 const CANCEL_WIDTH = 66;
 const FIELD_HEIGHT = 36;
+/** UISearchBar's field radius. */
+const FIELD_RADIUS = 10;
 /** iOS uses a quick, flat ease for this — not a spring. */
 const TIMING = { duration: 250, easing: Easing.bezier(0.25, 0.1, 0.25, 1) };
 
@@ -117,19 +118,13 @@ export function IOSSearchBar({
     ],
   }));
 
-  // Unfocused, the glass + placeholder sit centred; focused, they snap to the left.
+  // Unfocused and empty, the glass + placeholder sit centred as a pair; once
+  // focused or filled they snap to the leading edge. That shift is the detail
+  // people recognise as a real iOS search bar.
   const contentStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateX: interpolate(
-          progress.value,
-          [0, 1],
-          [value ? 0 : 0, 0],
-          Extrapolation.CLAMP,
-        ),
-      },
-    ],
-    justifyContent: (progress.value > 0.5 || value ? "flex-start" : "center") as "flex-start" | "center",
+    justifyContent: (progress.value > 0.5 || value
+      ? "flex-start"
+      : "center") as "flex-start" | "center",
   }));
 
   return (
@@ -139,9 +134,11 @@ export function IOSSearchBar({
           {/* Search fields sit on the control layer, so they take glass. */}
           <Glass
             variant="regular"
-            style={StyleSheet.absoluteFill as never}
+            radius={FIELD_RADIUS}
+            style={StyleSheet.absoluteFill}
             pointerEvents="none"
             fallbackIntensity={40}
+            fallbackTint={theme.tertiarySystemFill}
           />
 
           <Animated.View style={[styles.fieldInner, contentStyle]}>
@@ -212,7 +209,7 @@ const styles = StyleSheet.create({
   fieldWrap: { flex: 1 },
   field: {
     height: FIELD_HEIGHT,
-    borderRadius: 10,
+    borderRadius: FIELD_RADIUS,
     overflow: "hidden",
     justifyContent: "center",
   },

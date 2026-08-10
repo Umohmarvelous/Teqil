@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { BlurView } from "expo-blur";
+import { Glass } from "@/components/ios";
 import { Platform, StyleSheet, View } from "react-native";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -31,7 +31,12 @@ function ClassicParkOwnerTabs() {
         },
         tabBarBackground: () =>
           isIOS ? (
-            <BlurView intensity={100} tint="light" style={StyleSheet.absoluteFill} />
+            <Glass
+              variant="regular"
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+              fallbackIntensity={100}
+            />
           ) : isWeb ? (
             <View style={[StyleSheet.absoluteFill, { backgroundColor: Colors.surface }]} />
           ) : null,
