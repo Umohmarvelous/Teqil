@@ -1,9 +1,3 @@
-// app/(passenger)/history.tsx
-//
-// The passenger's trip history, plus non-trip activity (payments, rewards).
-//
-// iOS kit: large-title header, semantic palette, SF Symbols, iOS text ramp.
-
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -14,44 +8,60 @@ import {
   RefreshControl,
   Pressable,
 } from "react-native";
-import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
-import { useTranslation } from "react-i18next";
-import { SymbolView } from "expo-symbols";
-
-import {
-  useIOSTheme,
-  IOSFont,
-  IOSMetrics,
-  type IOSPalette,
-} from "@/components/ios";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/src/store/useStore";
 import { PassengersStorage, TripsStorage } from "@/src/services/storage";
 import { triggerSyncNow } from "@/src/services/sync";
 import { formatDate } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
+import { useTranslation } from "react-i18next";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import { Time02Icon } from "@hugeicons/core-free-icons";
+import { router } from "expo-router";
+import { Colors } from "@/constants/colors";
+import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { useActivityFeed } from "@/src/hooks/useActivityFeed";
 import ActivityFeed from "@/components/ActivityFeed";
 
-// ─── Trip card ───────────────────────────────────────────────────────────────
+interface TripCardProps {
+  trip: Trip;
+}
 
-function TripCard({ trip, ios }: { trip: Trip; ios: IOSPalette }) {
+function TripCard({ trip }: TripCardProps) {
   const isCompleted = trip.status === "completed";
-  const statusColor = isCompleted ? ios.systemGray : ios.tint;
 
   return (
-    <View style={[styles.card, { backgroundColor: ios.secondarySystemGroupedBackground }]}>
-      {/* Code + status */}
-      <View style={styles.cardHeader}>
-        <View style={[styles.codeBadge, { backgroundColor: ios.tertiarySystemFill }]}>
-          <SymbolView name="barcode" size={12} tintColor={ios.secondaryLabel} fallback={null} />
-          <Text style={[IOSFont.caption1, { color: ios.secondaryLabel }]}>{trip.trip_code}</Text>
+    <View style={styles.tripCard}>
+      {/* Header row: code badge + status badge */}
+      <View style={styles.tripCardHeader}>
+        <View style={styles.codeBadge}>
+          <Ionicons
+            name="barcode-outline"
+            size={13}
+            color={Colors.textSecondary}
+            style={{ marginRight: 4 }}
+          />
+          <Text style={styles.codeText}>{trip.trip_code}</Text>
         </View>
-
-        <View style={styles.statusRow}>
-          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-          <Text style={[IOSFont.caption1, { color: statusColor }]}>
+        <View
+          style={[
+            styles.statusBadge,
+            isCompleted ? styles.statusDone : styles.statusActive,
+          ]}
+        >
+          <View
+            style={[
+              styles.statusDot,
+              isCompleted ? styles.statusDotDone : styles.statusDotActive,
+            ]}
+          />
+          <Text
+            style={[
+              styles.statusText,
+              isCompleted ? styles.statusTextDone : styles.statusTextActive,
+            ]}
+          >
             {isCompleted ? "Completed" : "Active"}
           </Text>
         </View>
@@ -60,53 +70,76 @@ function TripCard({ trip, ios }: { trip: Trip; ios: IOSPalette }) {
       {/* Route */}
       <View style={styles.routeBlock}>
         <View style={styles.routeItem}>
-          <View style={[styles.dot, { backgroundColor: ios.tint }]} />
-          <Text numberOfLines={1} style={[IOSFont.callout, { color: ios.label, flex: 1 }]}>
+          <View style={styles.dotGreen} />
+          <Text style={styles.routeText} numberOfLines={1}>
             {trip.origin}
           </Text>
         </View>
-        <View style={[styles.routeSep, { backgroundColor: ios.separator }]} />
+        <View style={styles.routeSep} />
         <View style={styles.routeItem}>
-          <View style={[styles.dot, styles.dotEnd, { borderColor: ios.systemRed }]} />
-          <Text numberOfLines={1} style={[IOSFont.callout, { color: ios.label, flex: 1 }]}>
+          <View style={styles.dotRed} />
+          <Text style={styles.routeText} numberOfLines={1}>
             {trip.destination}
           </Text>
         </View>
       </View>
 
-      {/* Footer */}
-      <View style={[styles.footer, { borderTopColor: ios.separator }]}>
+      {/* Footer: date + driver name */}
+      <View style={styles.footer}>
         <View style={styles.footerItem}>
-          <SymbolView name="calendar" size={12} tintColor={ios.tertiaryLabel} fallback={null} />
-          <Text style={[IOSFont.caption1, { color: ios.secondaryLabel }]}>
-            {formatDate(trip.created_at)}
-          </Text>
+          <Ionicons
+            name="calendar-outline"
+            size={13}
+            color={Colors.textSecondary}
+          />
+          <Text style={styles.footerText}>{formatDate(trip.created_at)}</Text>
         </View>
 
-        {(trip.driver?.full_name || trip.driver_id) && (
+        {trip.driver?.full_name ? (
           <View style={styles.footerItem}>
-            <SymbolView name="person" size={12} tintColor={ios.tertiaryLabel} fallback={null} />
-            <Text numberOfLines={1} style={[IOSFont.caption1, { color: ios.secondaryLabel }]}>
-              {trip.driver?.full_name ?? "Driver on record"}
+            <Ionicons
+              name="person-outline"
+              size={13}
+              color={Colors.textSecondary}
+            />
+            <Text style={styles.footerText} numberOfLines={1}>
+              {trip.driver.full_name}
             </Text>
           </View>
-        )}
+        ) : trip.driver_id ? (
+          <View style={styles.footerItem}>
+            <Ionicons
+              name="person-outline"
+              size={13}
+              color={Colors.textSecondary}
+            />
+            <Text style={[styles.footerText, { color: Colors.textTertiary }]}>
+              Driver on record
+            </Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );
 }
 
-// ─── Screen ──────────────────────────────────────────────────────────────────
-
 export default function PassengerHistoryScreen() {
   const insets = useSafeAreaInsets();
-  const ios = useIOSTheme();
   const { user } = useAuthStore();
   const { t } = useTranslation();
-
   const [trips, setTrips] = useState<Trip[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const nonTripActivity = useActivityFeed().filter((a) => a.kind !== "trip");
+
+
+  const { theme } = useSettingsStore();
+  const isDark = theme === "dark";
+  const tabBarBg = isDark ? Colors.background : Colors.textWhite;
+  const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
+
+
 
   const load = async () => {
     if (!user?.id) return;
@@ -132,51 +165,39 @@ export default function PassengerHistoryScreen() {
     setRefreshing(false);
   };
 
-  const topPadding = Platform.OS === "web" ? 20 : insets.top;
+  const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   return (
-    <View style={[styles.root, { backgroundColor: ios.systemGroupedBackground }]}>
-      <StatusBar style={ios.scheme === "dark" ? "light" : "dark"} />
+    <View style={[styles.container, {backgroundColor: tabBarBg}]}>
 
-      <View style={{ paddingTop: topPadding + 6, paddingHorizontal: IOSMetrics.groupedInset }}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={10}
-          style={styles.backRow}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-        >
-          <SymbolView name="chevron.left" size={17} tintColor={ios.tint} fallback={null} />
-          <Text style={[IOSFont.body, { color: ios.tint }]}>Back</Text>
+      <View style={[styles.header, { paddingTop: topPadding + 10 }, {backgroundColor: tabBarBg, borderColor}]}>
+        <Pressable style={styles.sideElement} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={24} color={textColor} />
         </Pressable>
-
-        <Text style={[IOSFont.largeTitle, { color: ios.label, marginTop: 4 }]}>
-          {t("history.title")}
-        </Text>
-        <Text style={[IOSFont.footnote, { color: ios.secondaryLabel, marginBottom: 8 }]}>
-          {trips.length} {trips.length === 1 ? "trip" : "trips"}
-        </Text>
+        <View style={{alignItems: 'center'}}>
+          <Text style={[styles.headerTitle, {color:textColor}]}>{t("history.title")}</Text>
+          <Text style={[styles.headerSubtitle,{color:Colors.primary}]}>{trips.length} {trips.length === 1 ? "trips" : "trip"}</Text>
+        </View>
+        <View style={styles.sideElement} />
       </View>
 
       <FlatList
         data={trips}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <TripCard trip={item} ios={ios} />}
-        contentContainerStyle={{ paddingTop: 6, paddingBottom: insets.bottom + 90 }}
+        renderItem={({ item }) => <TripCard trip={item} />}
+        contentContainerStyle={[styles.listContent]}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!!trips.length || nonTripActivity.length > 0}
         ListHeaderComponent={
           nonTripActivity.length > 0 ? (
-            <View style={styles.activityHeader}>
-              <Text style={[IOSFont.footnote, styles.sectionHeader, { color: ios.secondaryLabel }]}>
-                PAYMENTS & REWARDS
-              </Text>
+            <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6, gap: 8 }}>
+              <Text style={[styles.headerTitle, { color: textColor, fontSize: 15 }]}>Payments & rewards</Text>
               <ActivityFeed
                 activities={nonTripActivity}
-                textColor={ios.label}
-                subColor={ios.secondaryLabel}
-                cardBg={ios.secondarySystemGroupedBackground}
-                borderColor={ios.separator}
+                textColor={textColor}
+                subColor={isDark ? Colors.textSecondary : Colors.textTertiary}
+                cardBg={cardBg}
+                borderColor={borderColor}
                 limit={6}
               />
             </View>
@@ -186,19 +207,29 @@ export default function PassengerHistoryScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={ios.secondaryLabel}
+            tintColor={Colors.primary}
           />
         }
         ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <SymbolView name="clock.arrow.circlepath" size={52} tintColor={ios.tertiaryLabel} fallback={null} />
-            <Text style={[IOSFont.title3, { color: ios.label, textAlign: "center" }]}>
-              {t("history.noHistory")}
-            </Text>
-            <Text style={[IOSFont.subheadline, { color: ios.secondaryLabel, textAlign: "center" }]}>
-              Trips you join will appear here.
+          <View style={[styles.emptyState]}>
+            <View style={styles.emptyIconWrap}>
+              <HugeiconsIcon
+                icon={Time02Icon}
+                size={80}
+                color={Colors.primary}
+                // fill={Colors.textSecondary}
+              />
+            </View>
+            <Text style={[styles.emptyTitle,{color:Colors.primary}]}>{t("history.noHistory")}</Text>
+            <Text style={styles.emptySubtitle}>
+              Trips you join will appear here
             </Text>
           </View>
+        }
+        ListFooterComponent={
+          <View
+            style={{ height: 100 + (Platform.OS === "web" ? 34 : 0) }}
+          />
         }
       />
     </View>
@@ -206,45 +237,200 @@ export default function PassengerHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  root:    { flex: 1 },
-  backRow: { flexDirection: "row", alignItems: "center", gap: 2, marginLeft: -4 },
-
-  card: {
-    borderRadius:     IOSMetrics.groupedRadius,
-    marginHorizontal: IOSMetrics.groupedInset,
-    marginBottom:     10,
-    padding:          14,
-    gap:              12,
+  container: {
+    flex: 1,
+    backgroundColor: Colors.border,
   },
-  cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+
+  // ── Header ──────────────────────────────────────────────
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+  },
+  headerTitle: {
+    fontFamily: "Inter-Black",
+    fontSize: 19,
+  },
+  headerSubtitle: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+  },
+  sideElement: {
+    width: 40, // Fixed width ensures the left and right take up equal space
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+
+
+  headerCount: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+
+  // ── List ────────────────────────────────────────────────
+  listContent: {
+    padding: 20,
+    gap: 12,
+  },
+
+  // ── Trip Card ───────────────────────────────────────────
+  tripCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 18,
+    padding: 18,
+    gap: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  tripCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  // Code badge
   codeBadge: {
-    flexDirection:     "row",
-    alignItems:        "center",
-    gap:               5,
-    paddingHorizontal: 8,
-    paddingVertical:   4,
-    borderRadius:      6,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  statusRow: { flexDirection: "row", alignItems: "center", gap: 5 },
-  statusDot: { width: 7, height: 7, borderRadius: 4 },
+  codeText: {
+    fontFamily: "Poppins_700Bold",
+    fontSize: 13,
+    color: Colors.text,
+    letterSpacing: 1.5,
+  },
 
-  routeBlock: { gap: 0 },
-  routeItem:  { flexDirection: "row", alignItems: "center", gap: 10 },
-  dot:        { width: 9, height: 9, borderRadius: 5 },
-  dotEnd:     { backgroundColor: "transparent", borderWidth: 2 },
-  routeSep:   { width: 1.5, height: 16, marginLeft: 4, marginVertical: 2 },
+  // Status badge
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  statusActive: {
+    backgroundColor: Colors.primaryLight,
+  },
+  statusDone: {
+    backgroundColor: "#F0FDF4",
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusDotActive: {
+    backgroundColor: Colors.primary,
+  },
+  statusDotDone: {
+    backgroundColor: "#16A34A",
+  },
+  statusText: {
+    fontFamily: "Poppins_500Medium",
+    fontSize: 12,
+  },
+  statusTextActive: {
+    color: Colors.primary,
+  },
+  statusTextDone: {
+    color: "#16A34A",
+  },
 
+  // Route
+  routeBlock: {
+    gap: 6,
+  },
+  routeItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  routeSep: {
+    width: 2,
+    height: 12,
+    backgroundColor: Colors.border,
+    marginLeft: 5,
+  },
+  dotGreen: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: Colors.primary,
+  },
+  dotRed: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: Colors.error,
+  },
+  routeText: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 14,
+    color: Colors.text,
+    flex: 1,
+  },
+
+  // Footer
   footer: {
     flexDirection: "row",
-    alignItems:    "center",
-    gap:           16,
-    paddingTop:    10,
-    borderTopWidth: IOSMetrics.hairline,
+    alignItems: "center",
+    gap: 16,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+    flexWrap: "wrap",
   },
-  footerItem: { flexDirection: "row", alignItems: "center", gap: 5, flexShrink: 1 },
+  footerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    flexShrink: 1,
+  },
+  footerText: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
 
-  activityHeader: { paddingTop: 4, paddingBottom: 10, gap: 6 },
-  sectionHeader:  { paddingHorizontal: IOSMetrics.groupedInset + 4, letterSpacing: 0.5 },
-
-  emptyWrap: { alignItems: "center", paddingTop: 90, paddingHorizontal: 44, gap: 10 },
+  // ── Empty State ─────────────────────────────────────────
+  emptyState: {
+    alignItems: "center",
+    paddingTop: 160,
+    gap: 12,
+    paddingHorizontal: 40,
+  },
+  emptyIconWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  emptyTitle: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 18,
+    color: Colors.text,
+    textAlign: "center",
+  },
+  emptySubtitle: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 22,
+  },
 });
