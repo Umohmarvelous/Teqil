@@ -44,7 +44,7 @@ import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { EARN_RULES, MIN_CREDITS_TO_APPLY } from "@/constants/credits";
 import { DEV_OTP_CODE } from "@/src/services/kyc";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { Tick02Icon } from "@hugeicons/core-free-icons";
+import { Tick04Icon } from "@hugeicons/core-free-icons";
 
 // A small set of Nigerian banks for the payout picker (code = Paystack bank code).
 const BANKS = [
@@ -104,6 +104,7 @@ export default function ProgramScreen() {
   const progress = Math.min(1, credits / MIN_CREDITS_TO_APPLY);
 
   const textColor = isDark ? Colors.textWhite : Colors.text;
+  const subTextColor = isDark ? Colors.textTertiary : Colors.textSecondary;
   const cardBg = isDark ? Colors.overlayLight : Colors.textWhite;
   const bg = isDark ? Colors.background : Colors.border;
 
@@ -264,18 +265,18 @@ export default function ProgramScreen() {
             <>
         
 
-              <View style={{marginVertical: 5}}>
+              <View style={{marginVertical: 20}}>
                 <View style={[styles.card, { borderWidth: .5, flexDirection: 'column' }, { backgroundColor: cardBg, borderColor }]}>
 
                   <View style={styles.progressHeader}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7}}>
-                      <Text style={[styles.sectionTitle, { color: textColor }]}>Your eligibility -</Text>
+                      <Text style={[styles.sectionTitle, { color: textColor }]}>Your eligibility  •</Text>
                       <Text style={[styles.earnAmount, { color: meetsCredits ? Colors.primary : Colors.gold }]}>
                         {meetsCredits ?
                           (
-                            <View style={[{ flexDirection: 'row', borderRadius: 10, padding: 5, borderWidth: .4, borderColor: borderColor }, {backgroundColor: cardBg, borderColor}]}>
+                            <View style={[{ flexDirection: 'row', borderRadius: 10, padding: 5, borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,0.08)"  : Colors.text, gap: 4 }, {backgroundColor: isDark ? Colors.primaryDark : Colors.overlayLight, borderColor}]}>
                               <Text style={{color: meetsCredits ? Colors.primary : Colors.gold}}>Eligible</Text>
-                              < HugeiconsIcon icon={Tick02Icon} size={14} color="#fff" />
+                              < HugeiconsIcon icon={Tick04Icon} color={Colors.primary} fill={Colors.primary} size={14} />
                             </View>
                           ) : "Not Eligible"}
                       </Text>
@@ -286,9 +287,11 @@ export default function ProgramScreen() {
                     </Text>
                   </View>
 
-                  <View style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-                  </View>
+                  {!meetsCredits && (
+                    <View style={styles.progressTrack}>
+                      <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+                    </View>
+                  )}
                 </View>
                   {!meetsCredits && (
                     <Text style={styles.lockNote}>
@@ -299,8 +302,8 @@ export default function ProgramScreen() {
 
 
 
-              <View style={{marginTop: 70}}>
-                <Text style={[styles.sectionTitle, { color: textColor }]}>How you earn credits</Text>
+              <View style={{marginTop: 30}}>
+                <Text style={[styles.sectionTitle, { color: subTextColor }, {fontSize: 19}]}>How you earn credits</Text>
                 <Text style={styles.stepLede}>
                   Earn credits by engaging in the app, then complete a quick verification
                   to unlock free-fuel & free-ride rewards.
@@ -322,7 +325,6 @@ export default function ProgramScreen() {
                   </View>
                 ))}
               </View>
-
             </>
           )}
 
@@ -334,8 +336,8 @@ export default function ProgramScreen() {
                 Enter a valid government ID. We store only a secure hash — never the
                 raw number, and it&apos;s never shown to anyone.
               </Text>
-              <View style={[styles.card, { backgroundColor: cardBg }]}>
-                <View style={styles.toggleRow}>
+              <View style={[styles.card, {padding: 0, borderWidth: 1, borderColor: borderColor}, { backgroundColor: cardBg }]}>
+                <View style={[styles.toggleRow, { borderBottomColor: Colors.overlayLight }, { backgroundColor: idType  ? Colors.primary : "rgba(128,128,128,0.12)"}]}>
                   {(["nin", "bvn"] as const).map((t) => (
                     <Pressable
                       key={t}
@@ -346,30 +348,33 @@ export default function ProgramScreen() {
                     >
                       <Glass
                         variant={idType === t ? "regular" : "clear"}
-                        tint={idType === t ? Colors.primary : undefined}
+                        // tint={idType === t ? Colors.primary : 'undefined'}
                         interactive
                         radius={10}
                         style={StyleSheet.absoluteFill}
                         pointerEvents="none"
                         fallbackIntensity={30}
-                        fallbackTint={idType === t ? Colors.primary : "rgba(128,128,128,0.12)"}
+                        // fallbackTint={idType === t ? Colors.primary : "rgba(128,128,128,0.12)"}
                       />
-                      <Text style={[styles.toggleText, idType === t && styles.toggleTextActive]}>
+                      <Text style={[styles.toggleText, idType === t && styles.toggleTextActive, {color: idType === t ? Colors.primary : "rgba(128,128,128,0.12)"}]}>
                         {t.toUpperCase()}
                       </Text>
                     </Pressable>
                   ))}
                 </View>
-                <FieldInput
-                  label={`${idType.toUpperCase()} number`}
-                  value={idNumber}
-                  onChangeText={setIdNumber}
-                  placeholder="11-digit number"
-                  keyboardType="number-pad"
-                  maxLength={11}
-                  textColor={textColor}
-                  isDark={isDark}
-                />
+                <View style={{margin: 19}}>
+
+                  <FieldInput
+                    label={`${idType.toUpperCase()} number`}
+                    value={idNumber}
+                    onChangeText={setIdNumber}
+                    placeholder="11-digit number"
+                    keyboardType="number-pad"
+                    maxLength={11}
+                    textColor={textColor}
+                    isDark={isDark}
+                  />
+                </View>
               </View>
             </>
           )}
@@ -626,13 +631,13 @@ const styles = StyleSheet.create({
   stepHeading: { fontFamily: "Poppins_600SemiBold", fontSize: 20, marginTop: 4 },
   stepLede: { fontFamily: "Poppins_400Regular", fontSize: 13, color: Colors.textSecondary, lineHeight: 19, marginBottom: 4 },
 
-  card: { borderRadius: 20, padding: 16, gap: 4,  },
+  card: { borderRadius: 30, padding: 16, gap: 4,  },
   sectionTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, marginVertical: 4 },
   earnRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 20,
+    paddingVertical: 20, paddingHorizontal: 15
   },
   earnRowBorder: { borderBottomWidth: 1, borderBottomColor: "rgba(128,128,128,0.15)" },
   earnLabel: { fontFamily: "Poppins_500Medium", fontSize: 14 },
@@ -648,8 +653,8 @@ const styles = StyleSheet.create({
   lockNote: {
     fontFamily: "Poppins_400Regular",
     fontSize: 12,
-    color: Colors.error,
-    marginTop: 12,
+    color: Colors.textSecondary,
+    marginTop: 12, marginLeft: 5
   },
 
   // Selfie
@@ -666,20 +671,23 @@ const styles = StyleSheet.create({
   },
   selfieImg: { width: "100%", height: "100%" },
 
-  toggleRow: { flexDirection: "row", gap: 10, marginBottom: 14 },
+  toggleRow: { flexDirection: "row",  marginBottom: 14, borderBottomWidth: 1, 
+ },
   toggleBtn: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 10,
     overflow: "hidden",
     alignItems: "center",
+    borderRadius: 0
+
+
   },
   toggleText: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: Colors.textSecondary },
   toggleTextActive: { color: "#fff" },
   fieldLabel: { fontFamily: "Poppins_500Medium", fontSize: 12, marginLeft: 4 },
   input: {
     height: 50,
-    borderRadius: 12,
+    borderRadius: 30,
     paddingHorizontal: 14,
     fontFamily: "Poppins_400Regular",
     fontSize: 14,

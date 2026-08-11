@@ -74,7 +74,7 @@ export interface IOSButtonProps extends Omit<PressableProps, "style" | "children
 const SIZES: Record<IOSButtonSize, { height: number; padH: number; font: TextStyle; radius: number; icon: number }> = {
   small:  { height: 34, padH: 14, font: IOSFont.subheadline, radius: 8,  icon: 15 },
   medium: { height: 44, padH: 18, font: IOSFont.body,        radius: 10, icon: 17 },
-  large:  { height: 50, padH: 22, font: IOSFont.headline,    radius: 12, icon: 19 },
+  large:  { height: 50, padH: 22, font: IOSFont.headline,    radius: 30, icon: 19 },
 };
 
 export function IOSButton({
@@ -98,7 +98,7 @@ export function IOSButton({
   // fallback surface doesn't, so it has to dim like every other button.
   const { glass: liveGlass } = useGlassCapability();
 
-  const accent = role === "destructive" ? theme.systemRed : theme.tint;
+  const accent = role === "destructive" ? theme.systemRed : theme.systemGray;
   const isDisabled = disabled || loading;
 
   // Everything but a bare label sits on glass now.
@@ -107,7 +107,7 @@ export function IOSButton({
   // label goes white; the rest tint the label instead.
   const prominent = variant === "filled" || variant === "prominentGlass";
 
-  const labelColor = prominent ? "#FFFFFF" : accent;
+  const labelColor = prominent ? "#009A43" : accent;
 
   const container: ViewStyle = {
     height: metrics.height,
@@ -156,12 +156,12 @@ export function IOSButton({
           radius={metrics.radius}
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
-          fallbackIntensity={50}
+          fallbackIntensity={0}
           // Off the glass path each variant falls back to the exact fill it had
           // before, so nothing about these buttons changes on Android or iOS 25.
           fallbackTint={
             prominent
-              ? accent
+              ? accent + "1F"
               : variant === "bordered"
                 ? "transparent"
                 : accent + "1F"

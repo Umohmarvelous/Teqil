@@ -127,7 +127,7 @@ const DARK: IOSPalette = {
   systemGray2: "#636366",
   systemGray3: "#48484A",
 
-  tint: "#30D158",
+  tint: "#009A43",
   scrim: "rgba(0,0,0,0.45)",
   blurTint: "systemChromeMaterialDark",
 };
