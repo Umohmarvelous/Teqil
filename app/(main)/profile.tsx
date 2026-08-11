@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
-  ScrollView,
   Platform,
   TextInput,
   Modal,
   KeyboardAvoidingView,
+  RefreshControl,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -46,14 +46,12 @@ import {
   Wallet,
   Star,
   ChevronDown,
-  Search02Icon,
   ChevronRight,
   Copy01Icon,
   Car01Icon,
   PencilLine,
   Tick02FreeIcons,
   Hospital,
-  Settings01Icon,
 } from "@hugeicons/core-free-icons";
 import type { EmergencyContact, Trip } from "@/src/models/types";
 import { StatusBar } from "expo-status-bar";
@@ -78,7 +76,17 @@ import { useTransactionsStore } from "@/src/store/useTransactionsStore";
 import { useAchievementsStore } from "@/src/store/useAchievementsStore";
 import { useActivityFeed } from "@/src/hooks/useActivityFeed";
 import ActivityFeed from "@/components/ActivityFeed";
-import { Glass, iosAlert } from "@/components/ios";
+import {
+  Glass,
+  iosAlert,
+  IOSSearchBar,
+  IOSListSection,
+  IOSListRow,
+  SwipeableTabs,
+  type IOSSegment,
+} from "@/components/ios";
+import { SETTINGS_SECTIONS } from "@/src/data/settingsIndex";
+import { triggerSyncNow } from "@/src/services/sync";
 
 // Slide-in "Copied" toast, shared via context so every copy action triggers it.
 const CopyToastContext = React.createContext<() => void>(() => {});
@@ -222,6 +230,15 @@ const infoStyles = StyleSheet.create({
   },
 });
 
+type ProfilePane = "profile" | "settings" | "activity";
+
+/** The three panes. Order is the swipe order. */
+const PROFILE_TABS: IOSSegment<ProfilePane>[] = [
+  { key: "profile", label: "Profile" },
+  { key: "settings", label: "Account Settings" },
+  { key: "activity", label: "Activity" },
+];
+
 export default function ProfileTab() {
   const insets = useSafeAreaInsets();
   const { user, updateUser } = useAuthStore();
@@ -251,6 +268,10 @@ export default function ProfileTab() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const [receiveVisible, setReceiveVisible] = useState(false);
   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
+
+  const [tab, setTab] = useState<ProfilePane>("profile");
+  const [profileQuery, setProfileQuery] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   const [knownEmail, setKnownEmail] = useState<string | null>(null);
 
@@ -328,6 +349,19 @@ export default function ProfileTab() {
     );
   }, [user?.id]);
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      if (user?.id) {
+        const trips = await TripsStorage.getByDriverId(user.id);
+        setRecentTrips(trips.slice(-5).reverse());
+      }
+      await triggerSyncNow();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [user?.id]);
+
   const pickPhoto = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -395,10 +429,6 @@ export default function ProfileTab() {
     updateUser({ emergency_contacts: updated } as any);
   };
 
-  const toggleSearch = () => {
-    setFinderVisible(true);
-  };
-
   return (
     <CopyToastContext.Provider value={showCopied}>
     <KeyboardAvoidingView
@@ -407,457 +437,487 @@ export default function ProfileTab() {
       keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
     >
       <CopyToast nonce={copyNonce} />
-      <ScrollView 
-        style={styles.root} 
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <StatusBar style={isDark ? 'light' : 'dark'}  />
-        <View style={ styles.mainContainer}>
+      <SwipeableTabs
+        segments={PROFILE_TABS}
+        active={tab}
+        onChange={setTab}
+        contentContainerStyle={{ paddingBottom: 140 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+        }
+        header={
+          <View style={styles.mainContainer}>
+            <StatusBar style={isDark ? 'light' : 'dark'} />
+            {/* Hero Section */}
+            <View style={ [styles.profileHeader, { marginTop: topPadding + 25 },  ]}>
+              <View style={[styles.hero]}>
+                <Pressable onPress={pickPhoto} >
+                  <View style={styles.avatarWrap}>
+                    <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={58} />
+                  </View>
+                  <View style={styles.cameraBtn}>
+                    <HugeiconsIcon icon={Camera01Icon} size={14} color="#fff" />
+                  </View>
+                </Pressable>
+                <View style={{alignItems: 'flex-start', justifyContent: 'flex-start', gap: 3 }}>
+                  <Text style={[styles.heroName, {color: textColor} ]}>{user?.full_name || "No user"}</Text>
+                  <View style={styles.roleBadge}>
 
-          {/* Hero Section */}
-          <View style={ [styles.profileHeader, { marginTop: topPadding + 25 },  ]}>
-            <View style={[styles.hero]}>
-              <Pressable onPress={pickPhoto} >
-                <View style={styles.avatarWrap}>
-                  <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={58} />
-                </View>
-                <View style={styles.cameraBtn}>
-                  <HugeiconsIcon icon={Camera01Icon} size={14} color="#fff" />
-                </View>
-              </Pressable>
-              <View style={{alignItems: 'flex-start', justifyContent: 'flex-start', gap: 3 }}>
-                <Text style={[styles.heroName, {color: textColor} ]}>{user?.full_name || "No user"}</Text>
-                <View style={styles.roleBadge}>
-
-                  <Text style={styles.roleText}>
-                      {user?.role === "driver" && (
+                    <Text style={styles.roleText}>
+                        {user?.role === "driver" && (
+                          <View style={styles.roleContainer}>
+                            {/* {user?.username && user?.driver_id && ( */}
+                            <Text style={[{ color: Colors.warning }]}>@{user?.username}</Text>
+                            {/* )} */}
+                            {/* {!!user?.driver_id && (
+                            <View style={styles.driverIdChip}>
+                              <Text style={styles.driverIdText}>@ {user.username}</Text>
+                            </View>
+                          )} */}
+                            {/* {!!user?.driver_id && (
+                            <View style={styles.driverIdChip}>
+                              <Text style={styles.driverIdText}>@ {user.driver_id}</Text>
+                            </View>
+                          )} */}
+                          </View>
+                        )}
+                        {user?.role === "passenger" && (
                         <View style={styles.roleContainer}>
-                          {/* {user?.username && user?.driver_id && ( */}
-                          <Text style={[{ color: Colors.warning }]}>@{user?.username}</Text>
-                          {/* )} */}
-                          {/* {!!user?.driver_id && (
-                          <View style={styles.driverIdChip}>
-                            <Text style={styles.driverIdText}>@ {user.username}</Text>
-                          </View>
-                        )} */}
-                          {/* {!!user?.driver_id && (
-                          <View style={styles.driverIdChip}>
-                            <Text style={styles.driverIdText}>@ {user.driver_id}</Text>
-                          </View>
-                        )} */}
-                        </View>
-                      )}
-                      {user?.role === "passenger" && (
-                      <View style={styles.roleContainer}>
-                          <Text style={[{ color: Colors.warning }]}>@{user?.username}</Text>
+                            <Text style={[{ color: Colors.warning }]}>@{user?.username}</Text>
                           
-                          {/* {user?.username
-                            ? `@${user.username}`
-                            : user?.role === "park_owner"
-                              ? "Park Owner"
-                              :   (
-                                    <Text style={[{ color: Colors.warning }]}>@{user?.username}</Text>
-                                  )} */}
-                      </View>
-                      //   ) :
-                      // (<Text style={[{ color: Colors.warning }]}>@username</Text>)
-                    )}
-                  </Text>
-                  <Pressable style={styles.copyIcon} onPress={handleCopy} hitSlop={912}>
-                      <HugeiconsIcon icon={Copy01Icon as any} size={14} color={Colors.warning} />
-                  </Pressable>
-                </View>
-              </View>
-            </View>
-
-            {/*  */}
-            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 15,  padding: 10, paddingTop:0, alignSelf:'flex-end'}}>
-              {/* Sign Out Button */}
-              <View style={[styles.menuList, { borderColor }]}>
-                <Glass
-                  variant="regular"
-                  radius={30}
-                  style={StyleSheet.absoluteFill}
-                  pointerEvents="none"
-                  fallbackIntensity={40}
-                  fallbackTint={isDark ? Colors.overlayLight : Colors.textWhite}
-                />
-                <Pressable onPress={toggleSearch} accessibilityRole="button" accessibilityLabel="Search">
-                  <HugeiconsIcon icon={Search02Icon} size={21} color={textColor} />
-                </Pressable>
-
-                {/* Settings live here now — the Settings tab's slot went to
-                    Notifications, so Profile owns the way in. */}
-                <Pressable
-                  onPress={() => {
-                    haptics.tap();
-                    router.push("/account-settings");
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Account settings"
-                >
-                  <HugeiconsIcon icon={Settings01Icon} size={21} color={textColor} />
-                </Pressable>
-
-                <Pressable
-                  style={[styles.signOutBtn, { borderColor: "transparent" }]}
-                  onPress={() => {
-                    iosAlert("Sign Out", "Are you sure?", [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Sign Out",
-                        style: "destructive",
-                        onPress: async () => {
-                          const { signOut } = await import("@/src/services/supabase");
-                          const { logout } = useAuthStore.getState();
-                          await signOut();
-                          logout();
-                          router.replace("/(auth)/login");
-                        },
-                      },
-                    ]);
-                  }}>
-                  <HugeiconsIcon icon={LogoutIcon} size={21} color={textColor} />
-                </Pressable>
-              </View>
-
-              {user?.role === "driver" && (
-                <Pressable onPress={() => setReceiveVisible(true)}>
-                  <HugeiconsIcon icon={QrCode01Icon} size={23} color={textColor} />
-                </Pressable>
-              )}
-            </View>
-          </View>
-
-
-          <View style={styles.scrollContent}>
-
-            {/* ── Step 7: credit meter · partner CTA · achievements ── */}
-            <CreditMeter textColor={textColor} subColor={subTextColor} cardBg={cardBg} />
-
-            {programStatus === "none" && (
-              <Pressable
-                style={[styles.partnerBtn, { backgroundColor: Colors.primary }]}
-                onPress={() => router.push("/program")}
-              >
-                <HugeiconsIcon icon={CheckmarkBadge01Icon as any} size={20} color="#fff" />
-                <Text style={styles.partnerBtnText}>Become a partner</Text>
-                <HugeiconsIcon icon={ChevronRight as any} size={18} color="#fff" />
-              </Pressable>
-            )}
-
-            <AchievementsCard
-              textColor={textColor}
-              subColor={subTextColor}
-              cardBg={cardBg}
-              borderColor={borderColor}
-            />
-
-            {/* Recent activity (unified history: trips · payments · rewards · ads) */}
-            <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <Text style={[styles.cardTitle, { color: textColor }]}>Recent activity</Text>
-                <Pressable
-                  onPress={() =>
-                    router.push(
-                      (user?.role === "driver"
-                        ? "/(driver)/history"
-                        : "/(passenger)/history") as any
-                    )
-                  }
-                  hitSlop={8}
-                >
-                  <Text style={{ fontFamily: "Poppins_500Medium", fontSize: 12, color: Colors.primary }}>
-                    See all
-                  </Text>
-                </Pressable>
-              </View>
-              <ActivityFeed
-                activities={activities}
-                textColor={textColor}
-                subColor={subTextColor}
-                cardBg={isDark ? "rgba(255,255,255,0.04)" : "#F7F9FB"}
-                borderColor={borderColor}
-                limit={5}
-                emptyText="No activity yet. Your trips, payments and rewards will show here."
-              />
-            </View>
-
-
-
-            { user?.role === "driver" ?
-              (
-                <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
-                    <DriverDashboard />
-                </View>
-              )
-              : user?.role === "passenger" ? (
-                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
-                    <PassengerDashboard />
-                  </View>
-              ) : (
-                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
-                    <BalanceCard
-                      coins={totalEarnedCoins}
-                      onQuickTransferPress={() => { }}
-                    />
-                  </View>
-            )}
-
-            {/* ── Earnings summary strip ── */}
-            {user?.role === "driver" && (
-              <View style={styles.statsStrip}>
-                <View style={[ styles.statInner ]}>
-                  <StatPill
-                    iconName={CheckmarkBadge01Icon}
-                    label="Trips"
-                    value={recentTrips.length.toString()}
-                    color={textColor}
-                  />
-                  <StatPill
-                    iconName={Trophy}
-                    label="Completed"
-                    value={completedTrips.toString()}
-                    color={textColor}
-                  />
-                </View>
-
-                <View style={[ styles.statInner ]}>
-                  <StatPill
-                    iconName={ Wallet}
-                    label="Earned"
-                    value={formatNaira(coinsToNaira(totalEarnedCoins))}
-                    color={textColor}
-                  />
-                  <StatPill
-                    iconName={Star}
-                    label="Rating"
-                    value={user?.avg_rating ? user.avg_rating.toFixed(1) : "—"}
-                    color={textColor}
-                  />
-                </View>
-              </View>
-            )}
-          
-            {/* Personal Information */}
-            <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
-              <Pressable style={{
-                flexDirection: 'row', 
-                alignItems:'flex-start', 
-                flex: 1, 
-                justifyContent: 'space-between'
-              }} 
-                onPress={() =>  setShowPersonalInfo(v => !v)} hitSlop={8}
-              >
-                <View style={{flexDirection: 'row', gap: 10, marginHorizontal: 7}}>
-                  <HugeiconsIcon icon={UserIcon} size={20} color={textColor} />
-                  <Text style={[styles.cardTitle, { color: textColor }]}>Personal Information</Text>
-                </View>
-                <HugeiconsIcon icon={showPersonalInfo ? ChevronRight : ChevronDown} size={22} color={textColor}/>
-              </Pressable>
-
-              {showPersonalInfo && (
-                <View>
-                  {/* <InfoRow
-                    icon={UserIcon}
-                    label="Full Name"
-                    value={user?.full_name || ""}
-                    editable
-                    onEdit={() => startEdit("full_name", user?.full_name || "")}
-                    textColor={textColor}
-                    subTextColor={subTextColor}
-                    borderColor={borderColor}
-                  /> */}
-                  <InfoRow
-                    icon={Mail01Icon}
-                    label="Email"
-                    value={user?.email || ""}
-                    textColor={textColor}
-                    subTextColor={subTextColor}
-                    borderColor={borderColor}
-                  />
-                  <InfoRow
-                    icon={CallIcon}
-                    label="Phone"
-                    value={user?.phone || ""}
-                    editable
-                    onEdit={() => startEdit("phone", user?.phone || "")}
-                    textColor={textColor}
-                    subTextColor={subTextColor}
-                    borderColor="transparent"
-                  />
-                  {/* <InfoRow
-                    icon={CalendarIcon}
-                    label="Age"
-                    value={user?.age?.toString() || ""}
-                    textColor={textColor}
-                    subTextColor={subTextColor}
-                    borderColor="transparent"
-                  /> */}
-                </View>
-              )}
-            </View>
-
-            {/* Driver Details */}
-            {user?.role === "driver" && (
-              <View>
-                <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
-                  <Pressable style={{
-                    flexDirection: 'row', 
-                    alignItems:'flex-start', 
-                    flex: 1, 
-                    justifyContent: 'space-between'
-                  }} 
-                    onPress={() => setShowDriverDetails(v => !v)} hitSlop={8}
-                  >
-                    <View style={{flexDirection: 'row', gap: 10, marginHorizontal: 7}}>
-                      <HugeiconsIcon icon={Car01Icon} size={20} color={textColor} />
-                      <Text style={[styles.cardTitle, { color: textColor }]}>Driver Details</Text>
-                    </View>
-                    <HugeiconsIcon icon={showDriverDetails ? ChevronRight : ChevronDown} size={22} color={textColor}/>
-                  </Pressable>
-
-                  {showDriverDetails && (
-                    <View>
-                      {/* <InfoRow
-                        icon={IdentityCardIcon}
-                        label="Driver ID"
-                        value={user?.driver_id || ""}
-                        textColor={textColor}
-                        subTextColor={subTextColor}
-                        borderColor={borderColor}
-                      /> */}
-                      <InfoRow
-                        icon={CarIcon}
-                        label="Vehicle"
-                        value={user?.vehicle_details || ""}
-                        editable
-                        onEdit={() => startEdit("vehicle_details", user?.vehicle_details || "")}
-                        textColor={textColor}
-                        subTextColor={subTextColor}
-                        borderColor={borderColor}
-                      />
-                      <InfoRow
-                        icon={BuildingIcon}
-                        label="Park Name"
-                        value={user?.park_name || ""}
-                        editable
-                        onEdit={() => startEdit("park_name", user?.park_name || "")}
-                        textColor={textColor}
-                        subTextColor={subTextColor}
-                        borderColor={borderColor}
-                      />
-                      <InfoRow
-                        icon={LocationIcon}
-                        label="Park Location"
-                        value={user?.park_location || ""}
-                        editable
-                        onEdit={() => startEdit("park_location", user?.park_location || "")}
-                        textColor={textColor}
-                        subTextColor={subTextColor}
-                        borderColor="transparent"
-                      />
-                    </View>
-                    )}
-                </View>
-              </View>
-            )}
-
-            {/* Park Owner Details */}
-            {user?.role === "park_owner" && (
-              <View>
-                <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
-                  <Pressable style={{
-                    flexDirection: 'row', 
-                    alignItems:'flex-start', 
-                    flex: 1, 
-                    justifyContent: 'space-between'
-                  }} 
-                    onPress={() => setParkExpanded((v) => !v)} hitSlop={8}
-                  > 
-                    <Text style={[styles.cardTitle, { color: textColor }]}>Park Details</Text>
-                    <HugeiconsIcon icon={parkExpanded ? ChevronRight : ChevronDown} size={22} color={textColor}/>
-                  </Pressable>
-
-                  {parkExpanded ? (
-                    <View>
-                      <InfoRow
-                        icon={BuildingIcon}
-                        label="Park Name"
-                        value={user?.park_name || ""}
-                        editable
-                        onEdit={() => startEdit("park_name", user?.park_name || "")}
-                        textColor={textColor}
-                        subTextColor={subTextColor}
-                        borderColor={borderColor}
-                      />
-                      <InfoRow
-                        icon={LocationIcon}
-                        label="Park Location"
-                        value={user?.park_location || ""}
-                        editable
-                        onEdit={() => startEdit("park_location", user?.park_location || "")}
-                        textColor={textColor}
-                        subTextColor={subTextColor}
-                        borderColor="transparent"
-                      />
-                    </View>
-                      ) : (
-                    <></>
-                  )}
-                </View>
-              </View>
-            )}
-
-            {/* Emergency Contacts (Passenger) */}
-            {!user?.role && (
-              <View>
-                <View style={[styles.card, { backgroundColor: cardBg }]}>
-                  <View style={{flexDirection: 'row', gap: 10, marginHorizontal: 7}}>
-                    <HugeiconsIcon icon={Hospital} size={20} color={ textColor } />
-                    <Text style={[styles.cardTitle, { color: textColor }]}>Emergency Contacts</Text>
-                  </View>
-                  {((user as any)?.emergency_contacts as EmergencyContact[] || []).map((c, idx) => (
-                    <View key={idx} style={[styles.contactRow, { borderBottomColor: borderColor }]}>
-                      <View style={[styles.contactAvatar, { backgroundColor: Colors.primaryLight }]}>
-                        <Text style={[styles.contactInitial, { color: Colors.primary }]}>{c.name.charAt(0).toUpperCase()}</Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.contactName, { color: textColor }]}>{c.name}</Text>
-                        <Text style={[styles.contactPhone, { color: subTextColor }]}>{c.phone}</Text>
-                      </View>
-                      <Pressable onPress={() => removeContact(idx)} hitSlop={8}>
-                        <HugeiconsIcon icon={Close} size={20} color={Colors.error} />
-                      </Pressable>
-                    </View>
-                  ))}
-                  <View style={styles.addContactRow}>
-                    <TextInput
-                      style={[styles.addInput, { backgroundColor: cardBg, color: textColor }]}
-                      placeholder="Name"
-                      placeholderTextColor={subTextColor}
-                      value={newContactName}
-                      onChangeText={setNewContactName}
-                    />
-                    <TextInput
-                      style={[styles.addInput, { flex: 1.5, backgroundColor: cardBg, color: textColor }]}
-                      placeholder="Phone"
-                      placeholderTextColor={subTextColor}
-                      keyboardType="phone-pad"
-                      value={newContactPhone}
-                      onChangeText={setNewContactPhone}
-                    />
-                    <Pressable style={[styles.addBtn, { backgroundColor: Colors.primary }]} onPress={addEmergencyContact}>
-                      <HugeiconsIcon icon={AddCircleIcon as any} size={30} color="#fff" />
+                            {/* {user?.username
+                              ? `@${user.username}`
+                              : user?.role === "park_owner"
+                                ? "Park Owner"
+                                :   (
+                                      <Text style={[{ color: Colors.warning }]}>@{user?.username}</Text>
+                                    )} */}
+                        </View>
+                        //   ) :
+                        // (<Text style={[{ color: Colors.warning }]}>@username</Text>)
+                      )}
+                    </Text>
+                    <Pressable style={styles.copyIcon} onPress={handleCopy} hitSlop={912}>
+                        <HugeiconsIcon icon={Copy01Icon as any} size={14} color={Colors.warning} />
                     </Pressable>
                   </View>
                 </View>
               </View>
-            )}
+
+              {/*  */}
+              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 15,  padding: 10, paddingTop:0, alignSelf:'flex-end'}}>
+                {/* Sign Out Button */}
+                <View style={[styles.menuList, { borderColor }]}>
+                  <Glass
+                    variant="regular"
+                    radius={30}
+                    style={StyleSheet.absoluteFill}
+                    pointerEvents="none"
+                    fallbackIntensity={40}
+                    fallbackTint={isDark ? Colors.overlayLight : Colors.textWhite}
+                  />
+
+
+                  <Pressable
+                    style={[styles.signOutBtn, { borderColor: "transparent" }]}
+                    onPress={() => {
+                      iosAlert("Sign Out", "Are you sure?", [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Sign Out",
+                          style: "destructive",
+                          onPress: async () => {
+                            const { signOut } = await import("@/src/services/supabase");
+                            const { logout } = useAuthStore.getState();
+                            await signOut();
+                            logout();
+                            router.replace("/(auth)/login");
+                          },
+                        },
+                      ]);
+                    }}>
+                    <HugeiconsIcon icon={LogoutIcon} size={21} color={textColor} />
+                  </Pressable>
+                </View>
+
+                {user?.role === "driver" && (
+                  <Pressable onPress={() => setReceiveVisible(true)}>
+                    <HugeiconsIcon icon={QrCode01Icon} size={23} color={textColor} />
+                  </Pressable>
+                )}
+              </View>
+            </View>
+
+
+
+            {/* Full-width search across the header. */}
+            <View style={styles.headerSearch}>
+              <IOSSearchBar
+                value={profileQuery}
+                onChangeText={setProfileQuery}
+                placeholder="Search settings and activity"
+              />
+            </View>
           </View>
+        }
+      >
+        <View style={styles.scrollContent}>
+          {/* ── Profile: balance, stats, credit ── */}
+          {tab === "profile" && (
+            <>
+              { user?.role === "driver" ?
+                (
+                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
+                      <DriverDashboard />
+                  </View>
+                )
+                : user?.role === "passenger" ? (
+                    <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
+                      <PassengerDashboard />
+                    </View>
+                ) : (
+                    <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
+                      <BalanceCard
+                        coins={totalEarnedCoins}
+                        onQuickTransferPress={() => { }}
+                      />
+                    </View>
+              )}
+
+              {/* ── Earnings summary strip ── */}
+              {user?.role === "driver" && (
+                <View style={styles.statsStrip}>
+                  <View style={[ styles.statInner ]}>
+                    <StatPill
+                      iconName={CheckmarkBadge01Icon}
+                      label="Trips"
+                      value={recentTrips.length.toString()}
+                      color={textColor}
+                    />
+                    <StatPill
+                      iconName={Trophy}
+                      label="Completed"
+                      value={completedTrips.toString()}
+                      color={textColor}
+                    />
+                  </View>
+
+                  <View style={[ styles.statInner ]}>
+                    <StatPill
+                      iconName={ Wallet}
+                      label="Earned"
+                      value={formatNaira(coinsToNaira(totalEarnedCoins))}
+                      color={textColor}
+                    />
+                    <StatPill
+                      iconName={Star}
+                      label="Rating"
+                      value={user?.avg_rating ? user.avg_rating.toFixed(1) : "—"}
+                      color={textColor}
+                    />
+                  </View>
+                </View>
+              )}
+          
+              {/* ── Step 7: credit meter · partner CTA · achievements ── */}
+              <CreditMeter textColor={textColor} subColor={subTextColor} cardBg={cardBg} />
+
+              {programStatus === "none" && (
+                <Pressable
+                  style={[styles.partnerBtn, { backgroundColor: Colors.primary }]}
+                  onPress={() => router.push("/program")}
+                >
+                  <HugeiconsIcon icon={CheckmarkBadge01Icon as any} size={20} color="#fff" />
+                  <Text style={styles.partnerBtnText}>Become a partner</Text>
+                  <HugeiconsIcon icon={ChevronRight as any} size={18} color="#fff" />
+                </Pressable>
+              )}
+
+            </>
+          )}
+
+          {/* ── Account Settings: every settings section, plus identity ── */}
+          {tab === "settings" && (
+            <>
+              <IOSListSection>
+                {SETTINGS_SECTIONS.map((s) => (
+                  <IOSListRow
+                    key={s.id}
+                    symbol={s.symbol as never}
+                    label={s.title}
+                    detail={s.summary}
+                    accessory={{ type: "disclosure" }}
+                    onPress={() => {
+                      haptics.tap();
+                      router.push(s.route as never);
+                    }}
+                  />
+                ))}
+              </IOSListSection>
+              {/* Personal Information */}
+              <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
+                <Pressable style={{
+                  flexDirection: 'row', 
+                  alignItems:'flex-start', 
+                  flex: 1, 
+                  justifyContent: 'space-between'
+                }} 
+                  onPress={() =>  setShowPersonalInfo(v => !v)} hitSlop={8}
+                >
+                  <View style={{flexDirection: 'row', gap: 10, marginHorizontal: 7}}>
+                    <HugeiconsIcon icon={UserIcon} size={20} color={textColor} />
+                    <Text style={[styles.cardTitle, { color: textColor }]}>Personal Information</Text>
+                  </View>
+                  <HugeiconsIcon icon={showPersonalInfo ? ChevronRight : ChevronDown} size={22} color={textColor}/>
+                </Pressable>
+
+                {showPersonalInfo && (
+                  <View>
+                    {/* <InfoRow
+                      icon={UserIcon}
+                      label="Full Name"
+                      value={user?.full_name || ""}
+                      editable
+                      onEdit={() => startEdit("full_name", user?.full_name || "")}
+                      textColor={textColor}
+                      subTextColor={subTextColor}
+                      borderColor={borderColor}
+                    /> */}
+                    <InfoRow
+                      icon={Mail01Icon}
+                      label="Email"
+                      value={user?.email || ""}
+                      textColor={textColor}
+                      subTextColor={subTextColor}
+                      borderColor={borderColor}
+                    />
+                    <InfoRow
+                      icon={CallIcon}
+                      label="Phone"
+                      value={user?.phone || ""}
+                      editable
+                      onEdit={() => startEdit("phone", user?.phone || "")}
+                      textColor={textColor}
+                      subTextColor={subTextColor}
+                      borderColor="transparent"
+                    />
+                    {/* <InfoRow
+                      icon={CalendarIcon}
+                      label="Age"
+                      value={user?.age?.toString() || ""}
+                      textColor={textColor}
+                      subTextColor={subTextColor}
+                      borderColor="transparent"
+                    /> */}
+                  </View>
+                )}
+              </View>
+
+              {/* Driver Details */}
+              {user?.role === "driver" && (
+                <View>
+                  <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
+                    <Pressable style={{
+                      flexDirection: 'row', 
+                      alignItems:'flex-start', 
+                      flex: 1, 
+                      justifyContent: 'space-between'
+                    }} 
+                      onPress={() => setShowDriverDetails(v => !v)} hitSlop={8}
+                    >
+                      <View style={{flexDirection: 'row', gap: 10, marginHorizontal: 7}}>
+                        <HugeiconsIcon icon={Car01Icon} size={20} color={textColor} />
+                        <Text style={[styles.cardTitle, { color: textColor }]}>Driver Details</Text>
+                      </View>
+                      <HugeiconsIcon icon={showDriverDetails ? ChevronRight : ChevronDown} size={22} color={textColor}/>
+                    </Pressable>
+
+                    {showDriverDetails && (
+                      <View>
+                        {/* <InfoRow
+                          icon={IdentityCardIcon}
+                          label="Driver ID"
+                          value={user?.driver_id || ""}
+                          textColor={textColor}
+                          subTextColor={subTextColor}
+                          borderColor={borderColor}
+                        /> */}
+                        <InfoRow
+                          icon={CarIcon}
+                          label="Vehicle"
+                          value={user?.vehicle_details || ""}
+                          editable
+                          onEdit={() => startEdit("vehicle_details", user?.vehicle_details || "")}
+                          textColor={textColor}
+                          subTextColor={subTextColor}
+                          borderColor={borderColor}
+                        />
+                        <InfoRow
+                          icon={BuildingIcon}
+                          label="Park Name"
+                          value={user?.park_name || ""}
+                          editable
+                          onEdit={() => startEdit("park_name", user?.park_name || "")}
+                          textColor={textColor}
+                          subTextColor={subTextColor}
+                          borderColor={borderColor}
+                        />
+                        <InfoRow
+                          icon={LocationIcon}
+                          label="Park Location"
+                          value={user?.park_location || ""}
+                          editable
+                          onEdit={() => startEdit("park_location", user?.park_location || "")}
+                          textColor={textColor}
+                          subTextColor={subTextColor}
+                          borderColor="transparent"
+                        />
+                      </View>
+                      )}
+                  </View>
+                </View>
+              )}
+
+              {/* Park Owner Details */}
+              {user?.role === "park_owner" && (
+                <View>
+                  <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
+                    <Pressable style={{
+                      flexDirection: 'row', 
+                      alignItems:'flex-start', 
+                      flex: 1, 
+                      justifyContent: 'space-between'
+                    }} 
+                      onPress={() => setParkExpanded((v) => !v)} hitSlop={8}
+                    > 
+                      <Text style={[styles.cardTitle, { color: textColor }]}>Park Details</Text>
+                      <HugeiconsIcon icon={parkExpanded ? ChevronRight : ChevronDown} size={22} color={textColor}/>
+                    </Pressable>
+
+                    {parkExpanded ? (
+                      <View>
+                        <InfoRow
+                          icon={BuildingIcon}
+                          label="Park Name"
+                          value={user?.park_name || ""}
+                          editable
+                          onEdit={() => startEdit("park_name", user?.park_name || "")}
+                          textColor={textColor}
+                          subTextColor={subTextColor}
+                          borderColor={borderColor}
+                        />
+                        <InfoRow
+                          icon={LocationIcon}
+                          label="Park Location"
+                          value={user?.park_location || ""}
+                          editable
+                          onEdit={() => startEdit("park_location", user?.park_location || "")}
+                          textColor={textColor}
+                          subTextColor={subTextColor}
+                          borderColor="transparent"
+                        />
+                      </View>
+                        ) : (
+                      <></>
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {/* Emergency Contacts (Passenger) */}
+              {!user?.role && (
+                <View>
+                  <View style={[styles.card, { backgroundColor: cardBg }]}>
+                    <View style={{flexDirection: 'row', gap: 10, marginHorizontal: 7}}>
+                      <HugeiconsIcon icon={Hospital} size={20} color={ textColor } />
+                      <Text style={[styles.cardTitle, { color: textColor }]}>Emergency Contacts</Text>
+                    </View>
+                    {((user as any)?.emergency_contacts as EmergencyContact[] || []).map((c, idx) => (
+                      <View key={idx} style={[styles.contactRow, { borderBottomColor: borderColor }]}>
+                        <View style={[styles.contactAvatar, { backgroundColor: Colors.primaryLight }]}>
+                          <Text style={[styles.contactInitial, { color: Colors.primary }]}>{c.name.charAt(0).toUpperCase()}</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.contactName, { color: textColor }]}>{c.name}</Text>
+                          <Text style={[styles.contactPhone, { color: subTextColor }]}>{c.phone}</Text>
+                        </View>
+                        <Pressable onPress={() => removeContact(idx)} hitSlop={8}>
+                          <HugeiconsIcon icon={Close} size={20} color={Colors.error} />
+                        </Pressable>
+                      </View>
+                    ))}
+                    <View style={styles.addContactRow}>
+                      <TextInput
+                        style={[styles.addInput, { backgroundColor: cardBg, color: textColor }]}
+                        placeholder="Name"
+                        placeholderTextColor={subTextColor}
+                        value={newContactName}
+                        onChangeText={setNewContactName}
+                      />
+                      <TextInput
+                        style={[styles.addInput, { flex: 1.5, backgroundColor: cardBg, color: textColor }]}
+                        placeholder="Phone"
+                        placeholderTextColor={subTextColor}
+                        keyboardType="phone-pad"
+                        value={newContactPhone}
+                        onChangeText={setNewContactPhone}
+                      />
+                      <Pressable style={[styles.addBtn, { backgroundColor: Colors.primary }]} onPress={addEmergencyContact}>
+                        <HugeiconsIcon icon={AddCircleIcon as any} size={30} color="#fff" />
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
+              )}
+            </>
+          )}
+
+          {/* ── Activity: achievements and recent history ── */}
+          {tab === "activity" && (
+            <>
+              <AchievementsCard
+                textColor={textColor}
+                subColor={subTextColor}
+                cardBg={cardBg}
+                borderColor={borderColor}
+              />
+
+              {/* Recent activity (unified history: trips · payments · rewards · ads) */}
+              <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <Text style={[styles.cardTitle, { color: textColor }]}>Recent activity</Text>
+                  <Pressable
+                    onPress={() =>
+                      router.push(
+                        (user?.role === "driver"
+                          ? "/(driver)/history"
+                          : "/(passenger)/history") as any
+                      )
+                    }
+                    hitSlop={8}
+                  >
+                    <Text style={{ fontFamily: "Poppins_500Medium", fontSize: 12, color: Colors.primary }}>
+                      See all
+                    </Text>
+                  </Pressable>
+                </View>
+                <ActivityFeed
+                  activities={activities}
+                  textColor={textColor}
+                  subColor={subTextColor}
+                  cardBg={isDark ? "rgba(255,255,255,0.04)" : "#F7F9FB"}
+                  borderColor={borderColor}
+                  limit={5}
+                  emptyText="No activity yet. Your trips, payments and rewards will show here."
+                />
+              </View>
+
+
+
+            </>
+          )}
         </View>
-      </ScrollView>
+      </SwipeableTabs>
 
       {/* Edit Modal Sheet with Smooth Slide Animation */}
       <Modal visible={!!editField} transparent animationType="slide" onRequestClose={() => setEditField(null)}>
@@ -923,6 +983,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     // marginTop: 50,
   },
+  headerSearch: { marginTop: 14, marginBottom: 4 },
   mainContainer: {
     paddingHorizontal: 8,
     justifyContent: 'space-between'

@@ -260,7 +260,7 @@ export function IOSTabBar({
           pointerEvents="none"
           fallbackIntensity={70}
           fallbackTint={isDark ? "rgba(30,30,32,0.55)" : "rgba(255,255,255,0.55)"}
-          androidTint={isDark ? "rgba(28,28,30,0.86)" : "rgba(255,255,255,0.90)"}
+          androidTint={isDark ? "rgba(28,28,30,0.86)" : "rgba(255 255 255 / 0.9)"}
         />
 
         {/* Specular rim — glass catches light along its top edge and shades along

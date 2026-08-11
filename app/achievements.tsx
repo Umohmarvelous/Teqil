@@ -5,16 +5,13 @@
 // requirement. Reached from the profile Achievements card.
 
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
-import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
+import { View, Text, StyleSheet } from "react-native";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/colors";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { useAchievementsStore } from "@/src/store/useAchievementsStore";
 import { ACHIEVEMENTS, TOTAL_ACHIEVEMENTS } from "@/src/data/achievements";
+import { IOSScreen, useCollapsibleScroll, IOSAppFont } from "@/components/ios";
 
 function formatDate(iso?: string): string {
   if (!iso) return "";
@@ -30,35 +27,29 @@ function formatDate(iso?: string): string {
 }
 
 export default function AchievementsScreen() {
-  const insets = useSafeAreaInsets();
+  const scroll = useCollapsibleScroll();
   const isDark = useSettingsStore((s) => s.theme) === "dark";
   const unlocked = useAchievementsStore((s) => s.unlocked);
   const earned = Object.keys(unlocked).length;
 
-  const bg = isDark ? Colors.background : Colors.border;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subColor = isDark ? Colors.textSecondary : Colors.textTertiary;
   const cardBg = isDark ? "rgba(255,255,255,0.06)" : "#FFFFFF";
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
   return (
-    <View style={[styles.root, { backgroundColor: bg }]}>
-      <StatusBar style={isDark ? "light" : "dark"} />
-
-      <View style={[styles.header, { paddingTop: insets.top + 12, backgroundColor: cardBg, borderBottomColor: borderColor }]}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={textColor} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: textColor }]}>Achievements</Text>
-        <Text style={[styles.headerCount, { color: Colors.primary }]}>
+    <IOSScreen
+      title="Achievements"
+      subtitle={`${earned} of ${TOTAL_ACHIEVEMENTS} unlocked`}
+      back
+      scroll={scroll}
+      contentContainerStyle={styles.grid}
+      right={
+        <Text style={[IOSAppFont.label, { color: Colors.primary }]}>
           {earned}/{TOTAL_ACHIEVEMENTS}
         </Text>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={[styles.grid, { paddingBottom: insets.bottom + 32 }]}
-        showsVerticalScrollIndicator={false}
-      >
+      }
+    >
         {ACHIEVEMENTS.map((a) => {
           const at = unlocked[a.id];
           const on = !!at;
@@ -94,24 +85,11 @@ export default function AchievementsScreen() {
             </View>
           );
         })}
-      </ScrollView>
-    </View>
+    </IOSScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-  },
-  backBtn: { width: 40, height: 40, alignItems: "flex-start", justifyContent: "center" },
-  headerTitle: { fontFamily: "Poppins_700Bold", fontSize: 18 },
-  headerCount: { fontFamily: "Poppins_600SemiBold", fontSize: 15, width: 40, textAlign: "right" },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",

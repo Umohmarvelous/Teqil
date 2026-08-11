@@ -64,7 +64,7 @@ const TABS: IOSTab[] = [
   { key: "home",     label: "Home",     icon: Home01Icon,     iconActive: HomeIcon },
   { key: "profile",  label: "You" },
   { key: "messages", label: "Messages", icon: Message01Icon,  iconActive: MessageIcon },
-  { key: "notifications", label: "Alerts", icon: Notification03Icon, iconActive: Notification02Icon },
+  { key: "notifications", label: "Notifications", icon: Bell, iconActive: Notification02Icon },
 ];
 
 const SIDEBAR_WIDTH = 330;
