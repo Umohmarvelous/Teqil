@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Share, Pressable, Image } from 'react-native';
+import { Glass, IOSButton } from '@/components/ios';
 import QRCode from 'react-native-qrcode-svg';
 import { useAuthStore } from '@/src/store/useStore';
 import { Colors } from '@/constants/colors';
@@ -52,12 +53,12 @@ export default function QRReceiveScreen() {
         <Text style={[styles.subtext, { color: subTextColor, textAlign: "center" }]}>
           You need a verified bank account to receive fare payments before you can show your QR code.
         </Text>
-        <Pressable
-          style={{ backgroundColor: Colors.primary, borderRadius: 30, paddingVertical: 14, paddingHorizontal: 30, marginTop: 6 }}
+        <IOSButton
+          title="Add payout account"
+          size="large"
+          style={{ marginTop: 6 }}
           onPress={() => router.push("/(driver)/payout-bank" as any)}
-        >
-          <Text style={{ color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 }}>Add payout account</Text>
-        </Pressable>
+        />
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Text style={{ color: subTextColor, fontFamily: "Poppins_400Regular", fontSize: 13 }}>Not now</Text>
         </Pressable>
@@ -70,7 +71,21 @@ export default function QRReceiveScreen() {
       <StatusBar style={isDark ? 'light' : 'dark'}  />
 
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', alignSelf: 'center'}}>
-        <Pressable style={[styles.backBtn, {backgroundColor: cardBg}]} onPress={() => router.back()}>
+        <Pressable
+          style={styles.backBtn}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <Glass
+            variant="regular"
+            interactive
+            radius={50}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+            fallbackIntensity={40}
+            fallbackTint={cardBg}
+          />
           <Ionicons name="chevron-back" size={24} color={textColor} />
         </Pressable>
 
@@ -80,7 +95,21 @@ export default function QRReceiveScreen() {
         </View>
 
         {/* <View  style={styles.backBtn} /> */}
-        <Pressable style={[styles.shareButton, {backgroundColor: cardBg}]} onPress={handleShare}>
+        <Pressable
+          style={styles.shareButton}
+          onPress={handleShare}
+          accessibilityRole="button"
+          accessibilityLabel="Share QR code"
+        >
+          <Glass
+            variant="regular"
+            interactive
+            radius={50}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+            fallbackIntensity={40}
+            fallbackTint={cardBg}
+          />
           <Ionicons name="share-outline" size={25} color={textColor} />
         </Pressable>
       </View>
@@ -123,16 +152,33 @@ export default function QRReceiveScreen() {
         <Text style={[styles.shareText, {color: subTextColor}]}>Your QR code is private. Do not share it with anyone, they can scan it with their phone camera to see your details.</Text>
 
         
-        <View style={[{ borderRadius: 50, padding: 9, borderWidth: .5,  },{backgroundColor: cardBg,  borderColor}]}>
+        <Glass
+          variant="regular"
+          radius={50}
+          style={{ padding: 9, borderWidth: 0.5, borderColor }}
+          fallbackIntensity={40}
+          fallbackTint={cardBg}
+        >
           {user?.payout_account_number ? (
               <View style={{flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'space-between'}}>
               <Text style={[styles.payoutBtnText, { color: Colors.primary }]}>Bank details saved ✓ 
                   <HugeiconsIcon icon={Tick01Icon} size={14} color="#fff"/>
                 </Text>
                 <Pressable
-                    style={[{ borderRadius: 50, padding: 11, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'space-between' }, { backgroundColor: bg }]}
+                    style={{ borderRadius: 50, padding: 11, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'space-between', overflow: 'hidden' }}
                     onPress={() => router.push("/(driver)/payout-bank")}
+                    accessibilityRole="button"
+                    accessibilityLabel="Update payout account"
                 >
+                  <Glass
+                    variant="clear"
+                    interactive
+                    radius={50}
+                    style={StyleSheet.absoluteFill}
+                    pointerEvents="none"
+                    fallbackIntensity={25}
+                    fallbackTint={bg}
+                  />
                   <Text style={[styles.payoutBtnText, {color: textColor}]}>update</Text>
                   <Ionicons name="pencil" size={18} color={textColor} />
                 </Pressable>
@@ -146,7 +192,7 @@ export default function QRReceiveScreen() {
                 {/* </Pressable> */}
               </View>
           )}
-        </View>
+        </Glass>
       </View>
 
     </View>
@@ -180,6 +226,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
+      overflow: 'hidden',
   },
   heading: { 
     fontSize: 15, 
@@ -238,6 +285,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
+      overflow: 'hidden',
   },
   shareText: { 
     fontFamily: 'Poppins_500Medium',

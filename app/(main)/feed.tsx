@@ -10,6 +10,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Glass } from '@/components/ios';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { triggerSyncNow } from '@/src/services/sync';
 import { Colors } from '@/constants/colors';
@@ -91,34 +92,50 @@ export default function FeedScreen() {
     setLoadingMore(false);
   }, [hasMore, loadingMore, page, fetchArticles]);
 
-  const renderItem = ({ item }: { item: Article }) => (
-    <Pressable
-      style={[styles.card, { backgroundColor: cardBg }]}
-      android_ripple={{ color: 'rgba(0,0,0,0.06)' }}
-    >
-      <Image
-        source={{ uri: item.imageUrl }}
-        style={styles.image}
-        resizeMode="cover"
-      />
-      <View style={styles.cardBody}>
-        <View style={styles.meta}>
-          <View style={[styles.tag, { backgroundColor: (CATEGORY_COLORS[item.category] || Colors.primary) + '18' }]}>
-            <Text style={[styles.tagText, { color: CATEGORY_COLORS[item.category] || Colors.primary }]}>
-              {item.category}
-            </Text>
+  const renderItem = ({ item }: { item: Article }) => {
+    const accent = CATEGORY_COLORS[item.category] || Colors.primary;
+    return (
+      // The shadow lives on the wrapper: Glass clips its children, and a
+      // clipped view can't cast one.
+      <Pressable style={styles.cardShadow} android_ripple={{ color: 'rgba(0,0,0,0.06)' }}>
+        <Glass
+          variant="regular"
+          radius={20}
+          style={styles.card}
+          fallbackIntensity={40}
+          fallbackTint={cardBg}
+        >
+          <Image
+            source={{ uri: item.imageUrl }}
+            style={styles.image}
+            resizeMode="cover"
+          />
+          <View style={styles.cardBody}>
+            <View style={styles.meta}>
+              <View style={styles.tag}>
+                <Glass
+                  variant="clear"
+                  radius={20}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
+                  fallbackIntensity={20}
+                  fallbackTint={accent + '18'}
+                />
+                <Text style={[styles.tagText, { color: accent }]}>{item.category}</Text>
+              </View>
+              <Text style={[styles.time, { color: subColor }]}>{formatTime(item.publishedAt)}</Text>
+            </View>
+            <Text style={[styles.title, { color: textColor }]} numberOfLines={2}>{item.title}</Text>
+            <Text style={[styles.summary, { color: subColor }]} numberOfLines={2}>{item.summary}</Text>
+            <View style={styles.footer}>
+              <Text style={[styles.source, { color: Colors.primary }]}>{item.source}</Text>
+              <Text style={[styles.readTime, { color: subColor }]}>{item.readTime} min read</Text>
+            </View>
           </View>
-          <Text style={[styles.time, { color: subColor }]}>{formatTime(item.publishedAt)}</Text>
-        </View>
-        <Text style={[styles.title, { color: textColor }]} numberOfLines={2}>{item.title}</Text>
-        <Text style={[styles.summary, { color: subColor }]} numberOfLines={2}>{item.summary}</Text>
-        <View style={styles.footer}>
-          <Text style={[styles.source, { color: Colors.primary }]}>{item.source}</Text>
-          <Text style={[styles.readTime, { color: subColor }]}>{item.readTime} min read</Text>
-        </View>
-      </View>
-    </Pressable>
-  );
+        </Glass>
+      </Pressable>
+    );
+  };
 
   if (loading) {
     return (
@@ -173,16 +190,19 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_400Regular',
     fontSize: 15,
   },
-  card: {
+  cardShadow: {
     marginHorizontal: 16,
     marginBottom: 14,
     borderRadius: 20,
-    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 3,
+  },
+  card: {
+    borderRadius: 20,
+    overflow: 'hidden',
   },
   image: {
     width: '100%',
@@ -202,6 +222,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 20,
+    overflow: 'hidden',
   },
   tagText: {
     fontFamily: 'Poppins_600SemiBold',

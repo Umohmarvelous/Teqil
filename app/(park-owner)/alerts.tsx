@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/colors";
+import { Glass } from "@/components/ios";
 import { useTranslation } from "react-i18next";
 import { formatDateTime } from "@/src/utils/helpers";
 
@@ -132,15 +133,32 @@ function AlertCard({
   return (
     <Animated.View
       style={[
-        styles.alertCard,
-        isSos && styles.alertCardSos,
-        alert.verified && styles.alertCardVerified,
+        styles.cardShadow,
         isSos && !alert.verified && { transform: [{ scale: pulseAnim }] },
       ]}
     >
+    <Glass
+      variant="regular"
+      radius={18}
+      style={[styles.alertCard, isSos && styles.alertCardSos]}
+      fallbackIntensity={40}
+      fallbackTint={isSos ? "#FFF5F5" : Colors.surface}
+    >
+      {/* A verified alert reads as settled by dimming its CONTENT. The card
+          itself can't take the opacity — it's glass, and opacity on a
+          GlassView's ancestor renders the effect wrong (expo/expo#41024). */}
+      <View style={[styles.cardBody, alert.verified && styles.alertCardVerified]}>
       {/* Header row: icon + driver name + badge */}
       <View style={styles.alertHeader}>
-        <View style={[styles.alertIconBg, isSos ? styles.alertIconBgSos : styles.alertIconBgInfo]}>
+        <View style={styles.alertIconBg}>
+          <Glass
+            variant="clear"
+            radius={13}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+            fallbackIntensity={25}
+            fallbackTint={isSos ? "#FEE2E2" : "#EFF6FF"}
+          />
           <Ionicons
             name={isSos ? "warning" : "information-circle"}
             size={22}
@@ -157,13 +175,29 @@ function AlertCard({
 
         {alert.verified ? (
           <View style={styles.verifiedBadge}>
+            <Glass
+              variant="clear"
+              radius={8}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+              fallbackIntensity={20}
+              fallbackTint="#F0FDF4"
+            />
             <Ionicons name="checkmark-circle" size={14} color="#16A34A" />
             <Text style={styles.verifiedBadgeText}>
               {t("parkOwner.verified")}
             </Text>
           </View>
         ) : (
-          <View style={[styles.statusBadge, isSos ? styles.sosBadge : styles.infoBadge]}>
+          <View style={styles.statusBadge}>
+            <Glass
+              variant="clear"
+              radius={8}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+              fallbackIntensity={20}
+              fallbackTint={isSos ? "#FEE2E2" : "#EFF6FF"}
+            />
             <Text style={[styles.statusBadgeText, isSos ? styles.sosBadgeText : styles.infoBadgeText]}>
               {isSos ? t("parkOwner.sos") : t("parkOwner.info")}
             </Text>
@@ -190,17 +224,27 @@ function AlertCard({
 
         {!alert.verified && (
           <Pressable
-            style={({ pressed }) => [
-              styles.verifyBtn,
-              pressed && styles.verifyBtnPressed,
-            ]}
+            style={styles.verifyBtn}
             onPress={() => onVerify(alert.id)}
+            accessibilityRole="button"
+            accessibilityLabel={t("parkOwner.verifyDriver")}
           >
+            <Glass
+              variant="regular"
+              interactive
+              radius={10}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+              fallbackIntensity={30}
+              fallbackTint={Colors.primaryLight}
+            />
             <Ionicons name="shield-checkmark-outline" size={14} color={Colors.primary} />
             <Text style={styles.verifyBtnText}>{t("parkOwner.verifyDriver")}</Text>
           </Pressable>
         )}
       </View>
+      </View>
+    </Glass>
     </Animated.View>
   );
 }
@@ -240,6 +284,13 @@ export default function AlertsScreen() {
     <View style={styles.container}>
       {/* ── Header ── */}
       <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
+        <Glass
+          variant="regular"
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+          fallbackIntensity={90}
+          fallbackTint={Colors.surface}
+        />
         <View>
           <Text style={styles.headerTitle}>{t("parkOwner.emergencyAlerts")}</Text>
           <Text style={styles.headerSubtitle}>
@@ -251,6 +302,14 @@ export default function AlertsScreen() {
 
         {/* Realtime placeholder chip */}
         <View style={styles.realtimeChip}>
+          <Glass
+            variant="clear"
+            radius={20}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+            fallbackIntensity={20}
+            fallbackTint="#F0FDF4"
+          />
           <View style={styles.realtimeDot} />
           <Text style={styles.realtimeText}>Live</Text>
         </View>
@@ -284,6 +343,14 @@ export default function AlertsScreen() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <View style={styles.emptyIcon}>
+              <Glass
+                variant="clear"
+                radius={24}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+                fallbackIntensity={25}
+                fallbackTint={Colors.primaryLight}
+              />
               <Ionicons name="shield-checkmark" size={40} color={Colors.primary} />
             </View>
             <Text style={styles.emptyTitle}>{t("parkOwner.noAlerts")}</Text>
@@ -314,7 +381,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 24,
     paddingBottom: 14,
-    backgroundColor: Colors.surface,
+    overflow: "hidden",
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
     flexDirection: "row",
@@ -336,8 +403,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "#F0FDF4",
     borderRadius: 20,
+    overflow: "hidden",
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderWidth: 1,
@@ -379,23 +446,22 @@ const styles = StyleSheet.create({
   listContent: { padding: 20, paddingTop: 14, gap: 14 },
 
   // Alert card
-  alertCard: {
-    backgroundColor: Colors.surface,
+  // Glass clips, so the shadow sits on a wrapper outside it.
+  cardShadow: {
     borderRadius: 18,
-    padding: 18,
-    gap: 12,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
   },
-  alertCardSos: {
-    backgroundColor: "#FFF5F5",
-    borderColor: "#FECACA",
+  alertCard: {
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
   },
+  cardBody: { padding: 18, gap: 12 },
+  alertCardSos: { borderColor: "#FECACA" },
   alertCardVerified: {
     opacity: 0.75,
   },
@@ -412,9 +478,8 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
-  alertIconBgSos: { backgroundColor: "#FEE2E2" },
-  alertIconBgInfo: { backgroundColor: "#EFF6FF" },
 
   alertMeta: { flex: 1 },
   alertDriverName: {
@@ -432,11 +497,10 @@ const styles = StyleSheet.create({
 
   statusBadge: {
     borderRadius: 8,
+    overflow: "hidden",
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  sosBadge: { backgroundColor: "#FEE2E2" },
-  infoBadge: { backgroundColor: "#EFF6FF" },
   statusBadgeText: {
     fontFamily: "Poppins_700Bold",
     fontSize: 11,
@@ -449,8 +513,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "#F0FDF4",
     borderRadius: 8,
+    overflow: "hidden",
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
@@ -509,12 +573,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: Colors.primaryLight,
     borderRadius: 10,
+    overflow: "hidden",
     paddingHorizontal: 12,
     paddingVertical: 7,
   },
-  verifyBtnPressed: { opacity: 0.75 },
   verifyBtnText: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 12,
@@ -539,7 +602,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 24,
-    backgroundColor: Colors.primaryLight,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
   },

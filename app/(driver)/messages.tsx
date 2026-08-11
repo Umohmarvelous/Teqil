@@ -21,12 +21,28 @@ import { Chat } from "@hugeicons/core-free-icons";
 import { router } from "expo-router";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { StatusBar } from "expo-status-bar";
+import { Glass } from "@/components/ios";
 
 
-function MessageCard({ broadcast }: { broadcast: Broadcast }) {
+function MessageCard({ broadcast, cardBg }: { broadcast: Broadcast; cardBg: string }) {
   return (
-    <View style={styles.messageCard}>
+    <View style={styles.cardShadow}>
+      <Glass
+        variant="regular"
+        radius={16}
+        style={styles.messageCard}
+        fallbackIntensity={40}
+        fallbackTint={cardBg}
+      >
       <View style={styles.messageIconBg}>
+        <Glass
+          variant="clear"
+          radius={12}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+          fallbackIntensity={25}
+          fallbackTint={Colors.primaryLight}
+        />
         <Ionicons name="megaphone" size={20} color={Colors.primary} />
       </View>
       <View style={styles.messageContent}>
@@ -34,6 +50,7 @@ function MessageCard({ broadcast }: { broadcast: Broadcast }) {
         <Text style={styles.messageText}>{broadcast.message}</Text>
         <Text style={styles.messageTime}>{formatDateTime(broadcast.created_at)}</Text>
       </View>
+      </Glass>
     </View>
   );
 }
@@ -80,8 +97,20 @@ export default function MessagesScreen() {
     <View style={styles.container}>
       <StatusBar style={isDark ? 'light' : 'dark'}  />
 
-      <View style={[styles.header, { paddingTop: topPadding + 16 }, {backgroundColor: tabBarBg, borderColor}]}>
-        <Pressable style={styles.sideElement} onPress={() => router.back()}>
+      <View style={[styles.header, { paddingTop: topPadding + 16 }, { borderColor }]}>
+        <Glass
+          variant="regular"
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+          fallbackIntensity={90}
+          fallbackTint={tabBarBg}
+        />
+        <Pressable
+          style={styles.sideElement}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Ionicons name="chevron-back" size={24} color={textColor} />
         </Pressable>
         <View style={{alignItems: 'center'}}>
@@ -93,7 +122,7 @@ export default function MessagesScreen() {
       <FlatList
         data={messages}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <MessageCard broadcast={item} />}
+        renderItem={({ item }) => <MessageCard broadcast={item} cardBg={cardBg} />}
         contentContainerStyle={[styles.listContent,{backgroundColor: tabBarBg}]}
         showsVerticalScrollIndicator={false}
         scrollEnabled={messages.length > 0}
@@ -137,6 +166,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingBottom: 23,
     borderBottomWidth: 1,
+    overflow: 'hidden',
   },
   headerTitle: {
     fontFamily: "Inter-Black",
@@ -162,26 +192,30 @@ const styles = StyleSheet.create({
   listContent: { flex:1, padding: 20, gap: 12 },
 
   // Message card
-  messageCard: {
-    flexDirection: "row",
+  // Glass clips, so the shadow has to sit on a wrapper outside it.
+  cardShadow: {
     borderRadius: 16,
-    padding: 16,
-    gap: 14,
-    alignItems: "flex-start",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
   },
+  messageCard: {
+    flexDirection: "row",
+    borderRadius: 16,
+    padding: 16,
+    gap: 14,
+    alignItems: "flex-start",
+  },
   messageIconBg: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: Colors.primaryLight,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
+    overflow: "hidden",
   },
   messageContent: { flex: 1, gap: 4 },
   messageTitle: {

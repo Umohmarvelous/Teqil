@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/src/store/useStore";
 import { Colors } from "@/constants/colors";
+import { Glass } from "@/components/ios";
 import { TripsStorage, PassengersStorage } from "@/src/services/storage";
 import { triggerSyncNow } from "@/src/services/sync";
 import { formatDate, formatDuration, formatCoins, formatNaira, coinsToNaira, } from "@/src/utils/helpers";
@@ -55,20 +56,38 @@ function StatSummary({
 
   return (
     <View style={styles.summaryRow}>
-      <View style={[styles.summaryCard, {backgroundColor: cardBg, borderColor}]}>
+      <Glass
+        variant="regular"
+        radius={14}
+        style={[styles.summaryCard, { borderColor }]}
+        fallbackIntensity={35}
+        fallbackTint={cardBg}
+      >
         <Text style={styles.summaryValue}>{totalTrips}</Text>
         <Text style={styles.summaryLabel}>Total Trips</Text>
-      </View>
-      <View style={[styles.summaryCard, styles.summaryCardMiddle]}>
+      </Glass>
+      <Glass
+        variant="regular"
+        radius={14}
+        style={[styles.summaryCard, styles.summaryCardMiddle]}
+        fallbackIntensity={35}
+        fallbackTint={Colors.borderLight}
+      >
         <Text style={styles.summaryValue}>{completedTrips}</Text>
         <Text style={styles.summaryLabel}>Completed</Text>
-      </View>
-      <View style={styles.summaryCard}>
+      </Glass>
+      <Glass
+        variant="regular"
+        radius={14}
+        style={styles.summaryCard}
+        fallbackIntensity={35}
+        fallbackTint={Colors.borderLight}
+      >
         <Text style={[styles.summaryValue, { color: Colors.gold }]}>
           {formatNaira(Math.round(coinsToNaira(totalCoins)))}
         </Text>
         <Text style={styles.summaryLabel}>Est. Earned</Text>
-      </View>
+      </Glass>
     </View>
   );
 }
@@ -135,14 +154,35 @@ function TripCard({ trip }: { trip: TripWithPassengerCount }) {
     : null;
 
   return (
-    <View style={styles.tripCard}>
+    <Glass
+      variant="regular"
+      style={styles.tripCard}
+      fallbackIntensity={35}
+      fallbackTint={Colors.border}
+    >
       {/* Header row */}
       <View style={styles.tripCardHeader}>
         <View style={styles.tripCodeBadge}>
+          <Glass
+            variant="clear"
+            radius={8}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+            fallbackIntensity={20}
+            fallbackTint={Colors.surfaceSecondary}
+          />
           <HugeiconsIcon icon={BarcodeScanIcon} size={13} color={Colors.textSecondary} />
           <Text style={styles.tripCodeText}>{trip.trip_code}</Text>
         </View>
-        <View style={[styles.statusBadge, isActive ? styles.statusBadgeLive : styles.statusBadgeDone]}>
+        <View style={styles.statusBadge}>
+          <Glass
+            variant="clear"
+            radius={8}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+            fallbackIntensity={20}
+            fallbackTint={isActive ? Colors.primaryLight : "#F0FDF4"}
+          />
           {isActive && <View style={styles.liveDot} />}
           <Text style={[styles.statusText, isActive ? styles.statusTextLive : styles.statusTextDone]}>
             {isActive ? "Live" : "Completed"}
@@ -196,7 +236,7 @@ function TripCard({ trip }: { trip: TripWithPassengerCount }) {
           </View>
         )}
       </View>
-    </View>
+    </Glass>
   );
 }
 
@@ -312,8 +352,20 @@ export default function DriverHistoryScreen() {
       <StatusBar style={isDark ? 'light' : 'dark'}  />
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topPadding + 10 }, {backgroundColor: tabBarBg, borderColor}]}>
-        <Pressable style={styles.sideElement} onPress={() => router.back()}>
+      <View style={[styles.header, { paddingTop: topPadding + 10 }, { borderColor }]}>
+        <Glass
+          variant="regular"
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+          fallbackIntensity={90}
+          fallbackTint={tabBarBg}
+        />
+        <Pressable
+          style={styles.sideElement}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Ionicons name="chevron-back" size={24} color={textColor} />
         </Pressable>
         <View style={{alignItems: 'center'}}>
@@ -359,7 +411,14 @@ export default function DriverHistoryScreen() {
               />
             </View>
           )}
-          <View style={[styles.FilterTabHolder, {backgroundColor: tabBarBg, borderBottomColor: borderColor}]}>
+          <View style={[styles.FilterTabHolder, { borderBottomColor: borderColor }]}>
+            <Glass
+              variant="regular"
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+              fallbackIntensity={80}
+              fallbackTint={tabBarBg}
+            />
             {allTrips.length > 0 && (
               <StatSummary
               totalTrips={allTrips.length}
@@ -426,7 +485,6 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: Colors.borderLight,
     borderRadius: 14,
     padding: 10,
     alignItems: "center",
@@ -452,7 +510,7 @@ const styles = StyleSheet.create({
 
   // Filter tabs
   FilterTabHolder: {
-    backgroundColor: Colors.surface,
+    overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.10,
@@ -517,7 +575,6 @@ const styles = StyleSheet.create({
   },
   // Trip card
   tripCard: {
-    backgroundColor: Colors.border,
     padding: 30,
     paddingBottom: 0,
         borderBottomWidth: 1,
@@ -536,8 +593,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: Colors.surfaceSecondary,
     borderRadius: 8,
+    overflow: "hidden",
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
@@ -552,14 +609,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 5,
     borderRadius: 8,
+    overflow: "hidden",
     paddingHorizontal: 10,
     paddingVertical: 5,
-  },
-  statusBadgeLive: {
-    backgroundColor: Colors.primaryLight,
-  },
-  statusBadgeDone: {
-    backgroundColor: "#F0FDF4",
   },
   liveDot: {
     width: 6,
