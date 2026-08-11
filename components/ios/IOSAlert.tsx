@@ -70,18 +70,21 @@ export function IOSAlert({
       : withTiming(0, { duration: 150 });
   }, [visible, progress]);
 
+  // Motion only. The card holds a GlassView, and animating opacity anywhere in
+  // a GlassView's ancestry renders the effect incorrectly (expo/expo#41024), so
+  // the fade is carried by the content and by the glass materialising — never
+  // by this container.
   const containerStyle = useAnimatedStyle(() =>
     variant === "alert"
       ? {
-          opacity: progress.value,
           // Alerts scale down from slightly-large, like UIKit.
           transform: [{ scale: 1.08 - progress.value * 0.08 }],
         }
-      : {
-          opacity: progress.value,
-          transform: [{ translateY: (1 - progress.value) * 60 }],
-        },
+      : { transform: [{ translateY: (1 - progress.value) * 60 }] },
   );
+
+  // Everything drawn ON TOP of the glass may fade freely.
+  const contentStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
 
   const run = (action: IOSAlertAction) => {
     if (action.disabled) return;
@@ -167,28 +170,32 @@ export function IOSAlert({
               pointerEvents="none"
               fallbackIntensity={70}
               fallbackTint={materialBg}
+              present={visible}
+              animated
             />
 
-            <View style={styles.alertHead}>
-              {title ? (
-                <Text style={[IOSFont.headline, { color: theme.label, textAlign: "center" }]}>{title}</Text>
-              ) : null}
-              {message ? (
-                <Text
-                  style={[
-                    IOSFont.footnote,
-                    { color: theme.label, textAlign: "center", marginTop: title ? 4 : 0 },
-                  ]}
-                >
-                  {message}
-                </Text>
-              ) : null}
-            </View>
+            <Animated.View style={contentStyle}>
+              <View style={styles.alertHead}>
+                {title ? (
+                  <Text style={[IOSFont.headline, { color: theme.label, textAlign: "center" }]}>{title}</Text>
+                ) : null}
+                {message ? (
+                  <Text
+                    style={[
+                      IOSFont.footnote,
+                      { color: theme.label, textAlign: "center", marginTop: title ? 4 : 0 },
+                    ]}
+                  >
+                    {message}
+                  </Text>
+                ) : null}
+              </View>
 
-            <View style={[styles.divider, { backgroundColor: theme.separator }]} />
-            <View style={horizontal ? styles.rowButtons : undefined}>
-              {actions.map((a, i) => renderButton(a, i, actions))}
-            </View>
+              <View style={[styles.divider, { backgroundColor: theme.separator }]} />
+              <View style={horizontal ? styles.rowButtons : undefined}>
+                {actions.map((a, i) => renderButton(a, i, actions))}
+              </View>
+            </Animated.View>
           </Animated.View>
         ) : (
           <Animated.View
@@ -203,11 +210,13 @@ export function IOSAlert({
                 pointerEvents="none"
                 fallbackIntensity={70}
                 fallbackTint={materialBg}
+                present={visible}
+                animated
               />
 
               {(title || message) && (
                 <>
-                  <View style={styles.sheetHead}>
+                  <Animated.View style={[styles.sheetHead, contentStyle]}>
                     {title ? (
                       <Text style={[IOSFont.footnote, { color: theme.secondaryLabel, textAlign: "center" }]}>
                         {title}
@@ -223,12 +232,14 @@ export function IOSAlert({
                         {message}
                       </Text>
                     ) : null}
-                  </View>
+                  </Animated.View>
                   <View style={[styles.divider, { backgroundColor: theme.separator }]} />
                 </>
               )}
 
-              {otherActions.map((a, i) => renderButton(a, i, otherActions))}
+              <Animated.View style={contentStyle}>
+                  {otherActions.map((a, i) => renderButton(a, i, otherActions))}
+              </Animated.View>
             </View>
 
             {/* Cancel is a visually separate group in an action sheet. */}
@@ -242,7 +253,9 @@ export function IOSAlert({
                   fallbackIntensity={70}
                   fallbackTint={materialBg}
                 />
-                {cancelActions.map((a, i) => renderButton(a, i, cancelActions))}
+                <Animated.View style={contentStyle}>
+                    {cancelActions.map((a, i) => renderButton(a, i, cancelActions))}
+                </Animated.View>
               </View>
             )}
           </Animated.View>

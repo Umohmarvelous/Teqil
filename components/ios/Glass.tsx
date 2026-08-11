@@ -190,6 +190,19 @@ export interface GlassProps extends Omit<ViewProps, "style"> {
    * rather than the view's alpha.
    */
   animated?: boolean;
+  /**
+   * Whether the surface is materialised. Set false to dissolve it away.
+   *
+   * This exists because **animating opacity on a GlassView or any of its
+   * ancestors renders the effect incorrectly** — Expo documents it directly
+   * (expo/expo#41024), and Apple says the same about UIVisualEffectView's alpha.
+   * A presented surface must therefore fade its glass by animating the EFFECT,
+   * which is what this does; the parent's opacity has to stay at 1.
+   *
+   * Off the glass path there is no GlassView to damage, so this simply becomes
+   * the opacity animation you'd have written anyway.
+   */
+  present?: boolean;
   /** Blur strength used only on the expo-blur path. */
   fallbackIntensity?: number;
   /**
@@ -220,6 +233,7 @@ export function Glass({
   interactive = false,
   radius,
   animated = false,
+  present = true,
   fallbackIntensity = 60,
   fallbackTint,
   androidTint,
@@ -240,6 +254,7 @@ export function Glass({
           shape,
           styles.clip,
           { backgroundColor: tint ?? fallbackTint ?? theme.secondarySystemBackground },
+          !present && styles.hidden,
           style,
         ]}
         {...rest}
@@ -255,7 +270,13 @@ export function Glass({
   if (glass && variant !== "none") {
     return (
       <GlassView
-        glassEffectStyle={animated ? { style: variant, animate: true } : variant}
+        glassEffectStyle={
+          !present
+            ? { style: "none", animate: true }
+            : animated
+              ? { style: variant, animate: true }
+              : variant
+        }
         tintColor={tint}
         isInteractive={interactive}
         // The app has its own theme toggle, so the glass must follow that
@@ -283,7 +304,7 @@ export function Glass({
     (theme.scheme === "dark" ? "rgba(28,28,30,0.62)" : "rgba(255,255,255,0.62)");
 
   return (
-    <View style={[shape, styles.clip, style]} {...rest}>
+    <View style={[shape, styles.clip, !present && styles.hidden, style]} {...rest}>
       <BlurView
         intensity={Platform.OS === "ios" ? fallbackIntensity : Math.round(fallbackIntensity * 0.5)}
         tint={theme.blurTint}
@@ -386,6 +407,7 @@ export function GlassGroup({ spacing = 12, children, style, ...rest }: GlassGrou
 
 const styles = StyleSheet.create({
   clip: { overflow: "hidden" },
+  hidden: { opacity: 0 },
 });
 
 export default Glass;

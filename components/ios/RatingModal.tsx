@@ -159,10 +159,14 @@ export function RatingModal({
     }
   }, [visible]);
 
+  // Motion only. The card's surface is a GlassView, and opacity on a
+  // GlassView's ancestor renders the effect incorrectly (expo/expo#41024), so
+  // the glass materialises via `present` and the content fades on top of it.
   const cardStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
     transform: [{ scale: 1.16 - progress.value * 0.16 }],
   }));
+
+  const contentStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
 
   const backdropStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
 
@@ -246,76 +250,80 @@ export function RatingModal({
               fallbackTint={
                 theme.scheme === "dark" ? "rgba(44,44,46,0.78)" : "rgba(250,250,250,0.78)"
               }
+              present={open}
+              animated
             />
 
-            {/* Content */}
-            <View style={styles.content}>
-              <Text style={[IOSFont.headline, styles.centered, { color: theme.label }]}>
-                {title}
-              </Text>
-              <Text
-                style={[IOSFont.footnote, styles.centered, { color: theme.label, marginTop: 3 }]}
-              >
-                {subtitle}
-              </Text>
+            <Animated.View style={contentStyle}>
+              {/* Content */}
+              <View style={styles.content}>
+                <Text style={[IOSFont.headline, styles.centered, { color: theme.label }]}>
+                  {title}
+                </Text>
+                <Text
+                  style={[IOSFont.footnote, styles.centered, { color: theme.label, marginTop: 3 }]}
+                >
+                  {subtitle}
+                </Text>
 
-              <View style={styles.stars}>
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <Star key={n} index={n - 1} filled={n <= rating} onPress={() => pick(n)} />
-                ))}
+                <View style={styles.stars}>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Star key={n} index={n - 1} filled={n <= rating} onPress={() => pick(n)} />
+                  ))}
+                </View>
+
+                {/* Reserved height so the card doesn't resize when a label appears. */}
+                <View style={styles.labelSlot}>
+                  {rating > 0 && (
+                    <Text style={[IOSFont.footnote, { color: theme.secondaryLabel }]}>
+                      {LABELS[rating]}
+                    </Text>
+                  )}
+                </View>
               </View>
 
-              {/* Reserved height so the card doesn't resize when a label appears. */}
-              <View style={styles.labelSlot}>
-                {rating > 0 && (
-                  <Text style={[IOSFont.footnote, { color: theme.secondaryLabel }]}>
-                    {LABELS[rating]}
+              {/* Buttons — hairline-divided, 44pt, exactly like a system alert. */}
+              <View style={[styles.divider, { backgroundColor: theme.separator }]} />
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.button,
+                  pressed && { backgroundColor: theme.systemFill },
+                ]}
+                onPress={submit}
+                disabled={!rating || busy}
+                accessibilityRole="button"
+              >
+                {busy ? (
+                  <ActivityIndicator color={theme.systemBlue} />
+                ) : (
+                  <Text
+                    style={[
+                      IOSFont.body,
+                      {
+                        color: rating ? theme.systemBlue : theme.tertiaryLabel,
+                        fontWeight: "600",
+                      },
+                    ]}
+                  >
+                    {primaryLabel}
                   </Text>
                 )}
-              </View>
-            </View>
+              </Pressable>
 
-            {/* Buttons — hairline-divided, 44pt, exactly like a system alert. */}
-            <View style={[styles.divider, { backgroundColor: theme.separator }]} />
+              <View style={[styles.divider, { backgroundColor: theme.separator }]} />
 
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                pressed && { backgroundColor: theme.systemFill },
-              ]}
-              onPress={submit}
-              disabled={!rating || busy}
-              accessibilityRole="button"
-            >
-              {busy ? (
-                <ActivityIndicator color={theme.systemBlue} />
-              ) : (
-                <Text
-                  style={[
-                    IOSFont.body,
-                    {
-                      color: rating ? theme.systemBlue : theme.tertiaryLabel,
-                      fontWeight: "600",
-                    },
-                  ]}
-                >
-                  {primaryLabel}
-                </Text>
-              )}
-            </Pressable>
-
-            <View style={[styles.divider, { backgroundColor: theme.separator }]} />
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                pressed && { backgroundColor: theme.systemFill },
-              ]}
-              onPress={onClose}
-              accessibilityRole="button"
-            >
-              <Text style={[IOSFont.body, { color: theme.systemBlue }]}>Not now</Text>
-            </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.button,
+                  pressed && { backgroundColor: theme.systemFill },
+                ]}
+                onPress={onClose}
+                accessibilityRole="button"
+              >
+                <Text style={[IOSFont.body, { color: theme.systemBlue }]}>Not now</Text>
+              </Pressable>
+            </Animated.View>
           </Animated.View>
         </View>
       </Modal>

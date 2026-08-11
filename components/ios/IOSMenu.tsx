@@ -101,13 +101,17 @@ export function IOSMenu({ anchor, items, width = MENU_WIDTH }: IOSMenuProps) {
     ? Math.min(Math.max(rect.x + rect.width / 2 - width / 2, EDGE_MARGIN), screenW - width - EDGE_MARGIN)
     : 0;
 
+  // Motion only — the popover's surface is a GlassView, and opacity on its
+  // ancestors renders the effect incorrectly (expo/expo#41024). The glass
+  // materialises via `present` instead, and the items fade on top of it.
   const menuStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
     transform: [
       { scale: 0.86 + progress.value * 0.14 },
       { translateY: (1 - progress.value) * (opensUpward ? 8 : -8) },
     ],
   }));
+
+  const itemsStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
 
   const run = (item: IOSMenuItem) => {
     if (item.disabled) return;
@@ -149,71 +153,75 @@ export function IOSMenu({ anchor, items, width = MENU_WIDTH }: IOSMenuProps) {
             pointerEvents="none"
             fallbackIntensity={80}
             fallbackTint={materialBg}
+            present={open}
+            animated
           />
 
-          {items.map((item, i) => {
-            const color = item.destructive ? theme.systemRed : theme.label;
-            return (
-              <React.Fragment key={`${item.label}-${i}`}>
-                {(item.startsNewSection || i > 0) && (
-                  <View
-                    style={{
-                      height: item.startsNewSection ? 7 : IOSMetrics.hairline,
-                      backgroundColor: item.startsNewSection ? theme.systemFill : theme.separator,
-                    }}
-                  />
-                )}
-                <Pressable
-                  onPress={() => run(item)}
-                  disabled={item.disabled}
-                  accessibilityRole={item.toggle ? "switch" : "menuitem"}
-                  accessibilityLabel={item.label}
-                  accessibilityState={{
-                    disabled: !!item.disabled,
-                    checked: item.toggle ? item.toggle.value : item.selected,
-                  }}
-                  style={({ pressed }) => [
-                    styles.row,
-                    pressed && !item.disabled && { backgroundColor: theme.systemFill },
-                  ]}
-                >
-                  {item.selected !== undefined && (
-                    <View style={styles.checkSlot}>
-                      {item.selected && (
-                        <SymbolView name="checkmark" size={15} tintColor={theme.tint} fallback={null} />
-                      )}
-                    </View>
+          <Animated.View style={itemsStyle}>
+            {items.map((item, i) => {
+              const color = item.destructive ? theme.systemRed : theme.label;
+              return (
+                <React.Fragment key={`${item.label}-${i}`}>
+                  {(item.startsNewSection || i > 0) && (
+                    <View
+                      style={{
+                        height: item.startsNewSection ? 7 : IOSMetrics.hairline,
+                        backgroundColor: item.startsNewSection ? theme.systemFill : theme.separator,
+                      }}
+                    />
                   )}
-
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      IOSFont.body,
-                      { color, flex: 1, opacity: item.disabled ? 0.35 : 1 },
+                  <Pressable
+                    onPress={() => run(item)}
+                    disabled={item.disabled}
+                    accessibilityRole={item.toggle ? "switch" : "menuitem"}
+                    accessibilityLabel={item.label}
+                    accessibilityState={{
+                      disabled: !!item.disabled,
+                      checked: item.toggle ? item.toggle.value : item.selected,
+                    }}
+                    style={({ pressed }) => [
+                      styles.row,
+                      pressed && !item.disabled && { backgroundColor: theme.systemFill },
                     ]}
                   >
-                    {item.label}
-                  </Text>
+                    {item.selected !== undefined && (
+                      <View style={styles.checkSlot}>
+                        {item.selected && (
+                          <SymbolView name="checkmark" size={15} tintColor={theme.tint} fallback={null} />
+                        )}
+                      </View>
+                    )}
 
-                  {item.toggle ? (
-                    <IOSToggle
-                      value={item.toggle.value}
-                      onValueChange={item.toggle.onValueChange}
-                      accessibilityLabel={item.label}
-                      style={styles.switch}
-                    />
-                  ) : item.symbol ? (
-                    <SymbolView
-                      name={item.symbol}
-                      size={17}
-                      tintColor={item.destructive ? theme.systemRed : theme.label}
-                      fallback={null}
-                    />
-                  ) : null}
-                </Pressable>
-              </React.Fragment>
-            );
-          })}
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        IOSFont.body,
+                        { color, flex: 1, opacity: item.disabled ? 0.35 : 1 },
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+
+                    {item.toggle ? (
+                      <IOSToggle
+                        value={item.toggle.value}
+                        onValueChange={item.toggle.onValueChange}
+                        accessibilityLabel={item.label}
+                        style={styles.switch}
+                      />
+                    ) : item.symbol ? (
+                      <SymbolView
+                        name={item.symbol}
+                        size={17}
+                        tintColor={item.destructive ? theme.systemRed : theme.label}
+                        fallback={null}
+                      />
+                    ) : null}
+                  </Pressable>
+                </React.Fragment>
+              );
+            })}
+          </Animated.View>
         </Animated.View>
       </Modal>
     </>

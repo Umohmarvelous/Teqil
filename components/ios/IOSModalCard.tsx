@@ -98,8 +98,11 @@ export function IOSModalCard({
       }
     });
 
+  // Motion only, no opacity. Callers pass their own card, and those cards are
+  // usually glass — animating opacity anywhere above a GlassView renders the
+  // effect incorrectly (expo/expo#41024). A scale-in over a fading backdrop
+  // reads the same and is safe whatever the caller hands us.
   const cardStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
     transform: [
       { translateY: translateY.value },
       { scale: 1.08 - progress.value * 0.08 },

@@ -33,6 +33,8 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   useAnimatedScrollHandler,
+  useAnimatedReaction,
+  runOnJS,
   interpolate,
   Extrapolation,
   type SharedValue,
@@ -114,12 +116,25 @@ export function CollapsibleHeader({
 
   const totalHeight = insets.top + NAV_BAR_HEIGHT + LARGE_TITLE_HEIGHT;
 
-  // Frosted background + hairline fade in together as the title collapses.
-  const backgroundStyle = useAnimatedStyle(() => ({
+  // The hairline fades in as the title collapses. The GLASS cannot: opacity on
+  // a GlassView's ancestor renders the effect incorrectly (expo/expo#41024), so
+  // the bar materialises on a threshold instead of fading on a curve. Apple
+  // presents glass this way too — by animating the effect, not the alpha.
+  const hairlineStyle = useAnimatedStyle(() => ({
     opacity: collapsible
       ? interpolate(scrollY.value, [0, COLLAPSE_DISTANCE], [0, 1], Extrapolation.CLAMP)
       : 0,
   }));
+
+  const [barMaterialised, setBarMaterialised] = React.useState(false);
+
+  useAnimatedReaction(
+    () => collapsible && scrollY.value > COLLAPSE_DISTANCE * 0.35,
+    (should, previous) => {
+      if (should !== previous) runOnJS(setBarMaterialised)(should);
+    },
+    [collapsible],
+  );
 
   // Large title: fades out over the first 60% of the travel and drifts upward.
   const largeTitleStyle = useAnimatedStyle(() => {
@@ -186,12 +201,13 @@ export function CollapsibleHeader({
   return (
     <Animated.View style={[styles.container, containerStyle, style]} pointerEvents="box-none">
       {/* Frosted background, revealed on scroll */}
-      <Animated.View style={[StyleSheet.absoluteFill, backgroundStyle]} pointerEvents="none">
-        {/* Liquid Glass nav bar. The opacity animation lives on the wrapper
-            above, so the glass itself simply fades in as content passes under
-            it — which is exactly the iOS 26 behaviour. */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        {/* Liquid Glass nav bar. It materialises via `present` rather than
+            being faded by a parent — see the note on hairlineStyle. */}
         <Glass
           variant="regular"
+          present={barMaterialised}
+          animated
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
           fallbackIntensity={100}
@@ -203,10 +219,14 @@ export function CollapsibleHeader({
             theme.scheme === "dark" ? "rgba(0,0,0,0.80)" : "rgba(255,255,255,0.85)"
           }
         />
-        <View
-          style={[styles.hairline, { backgroundColor: theme.separator, top: undefined, bottom: 0 }]}
+        <Animated.View
+          style={[
+            styles.hairline,
+            { backgroundColor: theme.separator, top: undefined, bottom: 0 },
+            hairlineStyle,
+          ]}
         />
-      </Animated.View>
+      </View>
 
       {/* Compact bar: back / centred title / action */}
       <View style={[styles.bar, { marginTop: insets.top }]} pointerEvents="box-none">

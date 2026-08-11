@@ -83,7 +83,7 @@ export function IOSToggle({
       accessibilityRole="switch"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ checked: value, disabled: !!disabled }}
-      style={[styles.track, disabled && styles.disabled, style]}
+      style={[styles.track, style]}
     >
       {/* Off state: neutral glass. */}
       <Glass
@@ -95,22 +95,26 @@ export function IOSToggle({
         fallbackTint={theme.systemFill}
       />
 
-      {/* On state: the same surface tinted with the accent, faded in over it.
-          Two stacked surfaces rather than one changing colour, so the
-          transition crossfades instead of stepping. */}
-      <Animated.View style={[StyleSheet.absoluteFill, onTrackStyle]} pointerEvents="none">
-        <Glass
-          variant="regular"
-          tint={accent}
-          radius={TRACK_H / 2}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-          fallbackIntensity={30}
-          fallbackTint={accent}
-        />
-      </Animated.View>
+      {/* On state: a plain accent wash faded in over the glass.
+          It is deliberately NOT a second Glass. Animating opacity on a
+          GlassView — or on anything containing one — renders the effect
+          incorrectly (expo/expo#41024), so the thing that fades has to be an
+          ordinary view sitting ON TOP of the glass, never the glass itself. */}
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          styles.onWash,
+          { backgroundColor: accent },
+          onTrackStyle,
+          disabled && styles.dimmed,
+        ]}
+        pointerEvents="none"
+      />
 
-      <Animated.View style={[styles.thumb, thumbStyle]} pointerEvents="none">
+      <Animated.View
+        style={[styles.thumb, disabled && styles.dimmed, thumbStyle]}
+        pointerEvents="none"
+      >
         <View style={styles.thumbFace} />
       </Animated.View>
     </Pressable>
@@ -126,7 +130,9 @@ const styles = StyleSheet.create({
     padding: INSET,
     overflow: "hidden",
   },
-  disabled: { opacity: 0.5 },
+  // Never applied to the track itself — see the note on the accent wash.
+  dimmed: { opacity: 0.5 },
+  onWash: { borderRadius: TRACK_H / 2 },
   thumb: { width: THUMB, height: THUMB },
   thumbFace: {
     flex: 1,
