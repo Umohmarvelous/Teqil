@@ -41,6 +41,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { useIOSTheme, IOSFont, IOSMetrics, IOSAppFont } from "./theme";
+import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_GAP } from "./IOSTabBar";
 import { Glass } from "./Glass";
 
 /** Height of the compact bar, excluding the status bar. */
@@ -58,13 +59,43 @@ export interface CollapsibleScroll {
   onScroll: ReturnType<typeof useAnimatedScrollHandler>;
   /** Top padding the scrollable needs so content starts below the header. */
   contentInset: number;
+  /** Bottom padding so the last row clears the floating tab bar. */
+  bottomInset: number;
+  /**
+   * Spread straight onto the scrollable. Carries the handler, both content
+   * insets and matching scroll-indicator insets in one go, so a screen can't
+   * accidentally apply the top inset and forget the bottom.
+   */
+  scrollProps: {
+    onScroll: ReturnType<typeof useAnimatedScrollHandler>;
+    scrollEventThrottle: number;
+    contentContainerStyle: { paddingTop: number; paddingBottom: number };
+    scrollIndicatorInsets: { top: number; bottom: number };
+  };
+}
+
+export interface UseCollapsibleScrollOptions {
+  /**
+   * Leave room for the floating tab bar. Screens inside the tab shell want
+   * this; pushed screens and modals don't.
+   */
+  tabBar?: boolean;
+  /** Extra bottom padding on top of whatever the tab bar needs. */
+  extraBottom?: number;
 }
 
 /**
- * Scroll plumbing for a collapsible screen. Returns the shared value, the
- * handler, and the content inset to apply.
+ * Scroll plumbing for a collapsible screen.
+ *
+ * Both insets are CONTENT insets, never frame padding. The scrollable fills
+ * the screen so content passes under the header and the tab bar — that
+ * overlap is the entire reason the chrome is translucent. Padding the frame
+ * instead leaves the glass with nothing behind it to sample.
  */
-export function useCollapsibleScroll(): CollapsibleScroll {
+export function useCollapsibleScroll(
+  options: UseCollapsibleScrollOptions = {},
+): CollapsibleScroll {
+  const { tabBar = false, extraBottom = 0 } = options;
   const insets = useSafeAreaInsets();
   const scrollY = useSharedValue(0);
 
@@ -74,10 +105,21 @@ export function useCollapsibleScroll(): CollapsibleScroll {
     },
   });
 
+  const contentInset = insets.top + NAV_BAR_HEIGHT + LARGE_TITLE_HEIGHT;
+  const bottomInset =
+    (tabBar ? TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + insets.bottom : insets.bottom) + extraBottom;
+
   return {
     value: scrollY,
     onScroll,
-    contentInset: insets.top + NAV_BAR_HEIGHT + LARGE_TITLE_HEIGHT,
+    contentInset,
+    bottomInset,
+    scrollProps: {
+      onScroll,
+      scrollEventThrottle: 16,
+      contentContainerStyle: { paddingTop: contentInset, paddingBottom: bottomInset },
+      scrollIndicatorInsets: { top: contentInset, bottom: bottomInset },
+    },
   };
 }
 

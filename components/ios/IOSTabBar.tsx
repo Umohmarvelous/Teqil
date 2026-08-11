@@ -47,11 +47,11 @@ import { useIOSTheme, IOSFont } from "./theme";
 import { Glass, useGlassCapability } from "./Glass";
 
 /** Height of the capsule at rest. */
-export const TAB_BAR_HEIGHT = 74;
+export const TAB_BAR_HEIGHT = 64;
 /** Height when minimised by scroll. */
 export const TAB_BAR_MIN_HEIGHT = 44;
 /** Gap between the capsule and the safe-area bottom. */
-export const TAB_BAR_BOTTOM_GAP = 1;
+export const TAB_BAR_BOTTOM_GAP = -15;
 /** Inset from the left/right screen edges. */
 const H_MARGIN = 16;
 /** Inner padding either side of the tab row. */

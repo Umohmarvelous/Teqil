@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Platform,
-  FlatList,
   RefreshControl,
   Pressable,
   Animated,
@@ -12,7 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/colors";
-import { Glass } from "@/components/ios";
+import { Glass, IOSScreen, useCollapsibleScroll } from "@/components/ios";
 import { useTranslation } from "react-i18next";
 import { formatDateTime } from "@/src/utils/helpers";
 
@@ -254,12 +253,11 @@ function AlertCard({
 // ---------------------------------------------------------------------------
 
 export default function AlertsScreen() {
-  const insets = useSafeAreaInsets();
+  const scroll = useCollapsibleScroll({ tabBar: true });
   const { t } = useTranslation();
   const [alerts, setAlerts] = useState<SosAlert[]>(MOCK_ALERTS);
   const [refreshing, setRefreshing] = useState(false);
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   // Simulate a refresh – replace with real Supabase fetch later
   const onRefresh = async () => {
@@ -281,26 +279,16 @@ export default function AlertsScreen() {
   ).length;
 
   return (
-    <View style={styles.container}>
-      {/* ── Header ── */}
-      <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
-        <Glass
-          variant="regular"
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-          fallbackIntensity={90}
-          fallbackTint={Colors.surface}
-        />
-        <View>
-          <Text style={styles.headerTitle}>{t("parkOwner.emergencyAlerts")}</Text>
-          <Text style={styles.headerSubtitle}>
-            {unverifiedSosCount > 0
-              ? `${unverifiedSosCount} unverified SOS alert${unverifiedSosCount > 1 ? "s" : ""}`
-              : t("parkOwner.noAlerts")}
-          </Text>
-        </View>
-
-        {/* Realtime placeholder chip */}
+    <IOSScreen
+      title={t("parkOwner.emergencyAlerts")}
+      subtitle={
+        unverifiedSosCount > 0
+          ? `${unverifiedSosCount} unverified SOS alert${unverifiedSosCount > 1 ? "s" : ""}`
+          : t("parkOwner.noAlerts")
+      }
+      scrollable={false}
+      scroll={scroll}
+      right={
         <View style={styles.realtimeChip}>
           <Glass
             variant="clear"
@@ -313,30 +301,32 @@ export default function AlertsScreen() {
           <View style={styles.realtimeDot} />
           <Text style={styles.realtimeText}>Live</Text>
         </View>
-      </View>
-
-      {/* ── Supabase Realtime placeholder banner ── */}
-      <View style={styles.realtimeBanner}>
-        <Ionicons name="information-circle-outline" size={15} color={Colors.info} />
-        <Text style={styles.realtimeBannerText}>
-          Real-time alerts via Supabase will be connected in the next step.
-        </Text>
-      </View>
-
+      }
+    >
       {/* ── List ── */}
-      <FlatList
+      <Animated.FlatList
         data={alerts}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <AlertCard alert={item} onVerify={handleVerify} />
         )}
-        contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!!alerts.length}
+        {...scroll.scrollProps}
+        contentContainerStyle={[styles.listContent, scroll.scrollProps.contentContainerStyle]}
+        ListHeaderComponent={
+          <View style={styles.realtimeBanner}>
+            <Ionicons name="information-circle-outline" size={15} color={Colors.info} />
+            <Text style={styles.realtimeBannerText}>
+              Real-time alerts via Supabase will be connected in the next step.
+            </Text>
+          </View>
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
+            progressViewOffset={scroll.contentInset}
             tintColor={Colors.primary}
           />
         }
@@ -359,14 +349,11 @@ export default function AlertsScreen() {
             </Text>
           </View>
         }
-        ListFooterComponent={
-          <View style={{ height: 120 + (Platform.OS === "web" ? 34 : 0) }} />
-        }
       />
 
       {/* ── Floating navbar ── */}
       <FloatingNavbar />
-    </View>
+    </IOSScreen>
   );
 }
 

@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Read [PRD.md](PRD.md) first.** It is the single source of truth for what
+> EMILGO is, the domain rules that are easy to get wrong (the QR half-fare model,
+> barter, free-ride tracking, fuel coins), what is built, what is outstanding, and
+> the 8-phase roadmap. This file covers only *how to work in the repo*; PRD.md
+> covers *what the product is*. Keep PRD.md updated as you ship.
+
 ## Project
 
 EMILGO (internally "Teqil") — a React Native / Expo app for Nigerian commercial transport, connecting drivers, passengers, and park owners for live-tracked trips, fare payment, and driver earnings ("fuel coins"). GitHub remote: `https://github.com/Umohmarvelous/Teqil.git`.
@@ -26,6 +32,20 @@ There is no test suite configured in this repo currently.
 Expo's `--tunnel` (ngrok) is unreliable on this machine. Use `npm run expo:remote` instead — it starts the Express API, opens Cloudflare quick tunnels for both Metro and the API, and launches Expo pointed at the tunnel domain. Remote testers should use Expo Go with the printed QR code, not a LAN-only dev URL. Requires `cloudflared` (`brew install cloudflared`).
 
 `EXPO_PUBLIC_DOMAIN` must point to a host reachable by the tester — LAN-only values only work on the local network.
+
+## Expo SDK: two branches
+
+`main` is on **SDK 57**. Branch **`sdk-54-temp`** is a deliberate temporary
+downgrade so the app runs in Expo Go on a real iPhone while the dev build is
+blocked on Apple provisioning. On SDK 54, `expo-status-bar` must not appear in
+`app.json` `plugins` (no config plugin before 57) and `babel-preset-expo` must be
+declared explicitly (it installs nested, not hoisted). Return with
+`git checkout main && npm install`.
+
+**`ETARGET / no matching version` on an Expo package is almost always a stale npm
+cache, not a real conflict.** Check with `npm view <pkg> versions` before touching
+package.json; fix with `npm cache clean --force && npm install`. `--prefer-online`
+is not sufficient.
 
 ## Architecture
 
@@ -75,6 +95,27 @@ Path alias `@/*` maps to the repo root (`tsconfig.json`), so both `@/components/
 ### Design system
 
 Colors live in `constants/colors.ts` (`Colors.primary` = Nigerian green `#009A43`, `Colors.gold` = `#F5A623` for earnings/coin UI). Font is Poppins (400/500/600/700, loaded in root layout). Currency is Naira (₦).
+
+**`components/ios/` is the iOS 26 Liquid Glass kit.** `/ui-kit` renders every
+component live, with a banner showing which rendering path the device is on.
+Four rules that will bite you — all documented at length in PRD.md §4:
+
+1. **Never animate opacity on a `GlassView` or any ancestor.** It renders the
+   effect wrong (expo/expo#41024). Containers animate motion only; glass
+   materialises via the `present` prop; content *on top of* glass may fade.
+2. **Glass clips**, so a glassed card can't cast a shadow — put the shadow on a
+   wrapper outside it.
+3. **Translucent chrome needs content behind it.** Use content insets
+   (`useCollapsibleScroll().scrollProps`), never frame padding — padding the
+   frame leaves the glass with nothing to sample and it renders flat.
+4. Every `Glass` call passes `fallbackTint` — the exact colour the design used
+   before glass — so Android and older iOS look unchanged.
+
+Two type ramps: `IOSFont` (San Francisco) for system chrome — alerts, menus, nav
+bars; `IOSAppFont` (Poppins) for app UI — settings rows, cards, buttons.
+
+When migrating a screen to the kit: **swap components, preserve layout.** The
+original design is deliberate.
 
 ## Notes from prior sessions
 

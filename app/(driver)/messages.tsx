@@ -3,25 +3,20 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
-  Platform,
   RefreshControl,
-  Pressable,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/colors";
 import { BroadcastsStorage } from "@/src/services/storage";
 import { triggerSyncNow } from "@/src/services/sync";
 import { formatDateTime } from "@/src/utils/helpers";
 import type { Broadcast } from "@/src/models/types";
+import Animated from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { Chat } from "@hugeicons/core-free-icons";
-import { router } from "expo-router";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
-import { StatusBar } from "expo-status-bar";
-import { Glass } from "@/components/ios";
+import { Glass, IOSScreen, useCollapsibleScroll } from "@/components/ios";
 
 
 function MessageCard({ broadcast, cardBg }: { broadcast: Broadcast; cardBg: string }) {
@@ -56,7 +51,6 @@ function MessageCard({ broadcast, cardBg }: { broadcast: Broadcast; cardBg: stri
 }
 
 export default function MessagesScreen() {
-  const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const [messages, setMessages] = useState<Broadcast[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -82,54 +76,28 @@ export default function MessagesScreen() {
     setRefreshing(false);
   };
 
+  const scroll = useCollapsibleScroll({ tabBar: true });
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
-  const tabBarBg = isDark ? Colors.background : Colors.textWhite;
-  const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
-  const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
   const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
 
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
-
   return (
-    <View style={styles.container}>
-      <StatusBar style={isDark ? 'light' : 'dark'}  />
-
-      <View style={[styles.header, { paddingTop: topPadding + 16 }, { borderColor }]}>
-        <Glass
-          variant="regular"
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-          fallbackIntensity={90}
-          fallbackTint={tabBarBg}
-        />
-        <Pressable
-          style={styles.sideElement}
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Ionicons name="chevron-back" size={24} color={textColor} />
-        </Pressable>
-        <View style={{alignItems: 'center'}}>
-          <Text style={[styles.headerTitle, {color: textColor}]}>{t("driver.messages")}</Text>
-        </View>
-        <View style={[styles.sideElement]} />
-      </View>
-
-      <FlatList
+    <IOSScreen title={t("driver.messages")} back scrollable={false} scroll={scroll}>
+      <Animated.FlatList
         data={messages}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <MessageCard broadcast={item} cardBg={cardBg} />}
-        contentContainerStyle={[styles.listContent,{backgroundColor: tabBarBg}]}
         showsVerticalScrollIndicator={false}
         scrollEnabled={messages.length > 0}
+        {...scroll.scrollProps}
+        contentContainerStyle={[styles.listContent, scroll.scrollProps.contentContainerStyle]}
         refreshControl={
           <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
+          progressViewOffset={scroll.contentInset}
           tintColor={Colors.primary}
           />
         }
@@ -142,46 +110,13 @@ export default function MessagesScreen() {
             <Text style={[styles.emptySubtitle, {color: subTextColor}]}>Recent messages from passenger will appear here</Text>
           </View>
         }
-        ListFooterComponent={
-          <View
-            style={{
-              height: 100 + (Platform.OS === "web" ? 34 : 0),
-            }}
-          />
-        }
       />
-    </View>
+    </IOSScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 , backgroundColor: Colors.border},
-
-
   // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingBottom: 23,
-    borderBottomWidth: 1,
-    overflow: 'hidden',
-  },
-  headerTitle: {
-    fontFamily: "Inter-Black",
-    fontSize: 19, alignSelf:'center',
-    textAlign: 'center',
-  },
-  headerSubtitle: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12, 
-  },
-  sideElement: {
-    width: 40, // Fixed width ensures the left and right take up equal space
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
 
 
 
@@ -189,7 +124,7 @@ const styles = StyleSheet.create({
 
 
   // List
-  listContent: { flex:1, padding: 20, gap: 12 },
+  listContent: { paddingHorizontal: 20, gap: 12 },
 
   // Message card
   // Glass clips, so the shadow has to sit on a wrapper outside it.
