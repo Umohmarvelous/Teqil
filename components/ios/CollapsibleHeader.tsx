@@ -43,6 +43,7 @@ import Animated, {
 import { useIOSTheme, IOSFont, IOSMetrics, IOSAppFont } from "./theme";
 import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_GAP } from "./IOSTabBar";
 import { Glass } from "./Glass";
+import { NetworkStatus, useConnectionQuality } from "./NetworkStatus";
 
 /** Height of the compact bar, excluding the status bar. */
 export const NAV_BAR_HEIGHT = 44;
@@ -170,6 +171,9 @@ export function CollapsibleHeader({
 
   const [barMaterialised, setBarMaterialised] = React.useState(false);
 
+  // Every screen reports connection trouble in the same place.
+  const degraded = useConnectionQuality() !== "healthy";
+
   useAnimatedReaction(
     () => collapsible && scrollY.value > COLLAPSE_DISTANCE * 0.35,
     (should, previous) => {
@@ -280,6 +284,12 @@ export function CollapsibleHeader({
           disabled={!onTitlePress}
           accessibilityRole="header"
         >
+          {degraded ? (
+            // While the connection is poor the centre slot reports that
+            // instead of the title. It's the same slot, so the bar never
+            // changes height, and the title returns the moment we recover.
+            <NetworkStatus />
+          ) : (
           <Animated.Text
             numberOfLines={1}
             style={[
@@ -290,6 +300,7 @@ export function CollapsibleHeader({
           >
             {title}
           </Animated.Text>
+          )}
         </Pressable>
 
         <View style={[styles.barSide, { alignItems: "flex-end" }]}>{right}</View>

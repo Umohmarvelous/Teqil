@@ -21,6 +21,12 @@ export {
 } from "./Glass";
 export { IOSButton, type IOSButtonProps, type IOSButtonVariant, type IOSButtonRole } from "./IOSButton";
 export { IOSToggle, type IOSToggleProps } from "./IOSToggle";
+export {
+  IOSSegmentedTabs,
+  type IOSSegmentedTabsProps,
+  type IOSSegment,
+} from "./IOSSegmentedTabs";
+export { SwipeableTabs, type SwipeableTabsProps } from "./SwipeableTabs";
 export { IOSSheet, type IOSSheetProps, type IOSSheetDetent } from "./IOSSheet";
 export { IOSModalCard, type IOSModalCardProps } from "./IOSModalCard";
 export { IOSAlert, type IOSAlertProps, type IOSAlertAction } from "./IOSAlert";

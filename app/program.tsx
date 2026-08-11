@@ -36,7 +36,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { Colors } from "@/constants/colors";
-import { Glass, IOSButton } from "@/components/ios";
+import { Glass, IOSButton, IOSSegmentedTabs } from "@/components/ios";
 import { useAuthStore } from "@/src/store/useStore";
 import { useCreditsStore } from "@/src/store/useCreditsStore";
 import { useProgramStore, ProgramForm } from "@/src/store/useProgramStore";
@@ -337,40 +337,19 @@ export default function ProgramScreen() {
               <View style={[styles.card, { padding: 0, borderWidth: 1, borderColor: borderColor },
                 { backgroundColor: cardBg }
               ]}>
-                <View style={[styles.toggleRow, { borderBottomColor: Colors.overlayLight }]}>
-
-                  {(["nin", "bvn"] as const).map((t) => (
-                    <Pressable
-                      key={t}
-                      onPress={() => setIdType(t)}
-                      style={[styles.toggleBtn,
-                        { paddingVertical: 20, borderBottomWidth: 2, borderBottomColor: idType === t ? Colors.primary : "rgba(128,128,128,0.12)" },
-                      ]}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: idType === t }}
-                    >
-                        <Glass
-                          variant={idType === t ? "regular" : "clear"}
-                          // tint={idType === t ? Colors.primary : 'undefined'}
-                          interactive
-                          radius={60}
-                          style={[StyleSheet.absoluteFill,
-                            {
-                              // borderTopLeftRadius: 30,
-                              // borderTopRightRadius: 30,
-                            }
-                          ]}
-                          pointerEvents="none"
-                          fallbackIntensity={30}
-                          // fallbackTint={idType === t ? Colors.primary : "rgba(128,128,128,0.12)"}
-                        />
-                        <Text style={[styles.toggleText, idType === t && styles.toggleTextActive, {color: idType === t ? Colors.primary : "rgba(128 128 128 / 0.52)"}]}>
-                          {t.toUpperCase()}
-                        </Text>
-                        {/* <View style={[{ height: 0, width: 80, borderRadius: 60, position: 'relative', top: 7, left: 50, zIndex: 90, borderWidth: 2, borderColor: idType === t ? Colors.primary : "transparent" }]} /> */}
-                    </Pressable>
-                  ))}
-                </View>
+                {/* One control, not two pills: the pair shares a single set of
+                    rounded top corners and its inner edge stays square. */}
+                <IOSSegmentedTabs
+                  segments={[
+                    { key: "nin", label: "NIN" },
+                    { key: "bvn", label: "BVN" },
+                  ]}
+                  active={idType}
+                  onChange={setIdType}
+                  radius={30}
+                  rounded="top"
+                  height={64}
+                />
     
                 <View style={{margin: 19}}>
                   <FieldInput
