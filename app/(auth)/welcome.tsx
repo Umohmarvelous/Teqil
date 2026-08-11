@@ -29,6 +29,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAuthStore } from "@/src/store/useStore";
 import { Colors } from "@/constants/colors";
+import { Glass } from "@/components/ios";
 import type { UserRole } from "@/src/models/types";
 
 const { width: W, height: H } = Dimensions.get("window");
@@ -199,7 +200,14 @@ function RoleCard({
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <View style={[roleStyles.iconWrap, { backgroundColor: selected ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.06)" }]}>
+          <View style={roleStyles.iconWrap}>
+            <Glass
+              variant="clear"
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+              fallbackIntensity={20}
+              fallbackTint={selected ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.06)"}
+            />
             <Ionicons name={icon} size={22} color={selected ? "#fff" : "rgba(255,255,255,0.55)"} />
           </View>
           <View style={roleStyles.textWrap}>
@@ -340,7 +348,17 @@ function RoleSlide({ scrollX }: { scrollX: Animated.Value }) {
             onPress={handleContinue}
             // disabled={!localRole}
           >
-            <View style={[roleSlideStyles.continueBtnGradient, { backgroundColor: Colors.primary}]}>
+            <View style={roleSlideStyles.continueBtnGradient}>
+              <Glass
+                variant="regular"
+                tint={Colors.primary}
+                interactive
+                radius={29}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+                fallbackIntensity={45}
+                fallbackTint={Colors.primary}
+              />
               <Text style={[roleSlideStyles.continueBtnText, !localRole && roleSlideStyles.continueBtnTextDisabled]}>
                 {localRole ? "Continue" : "Get Started"}
               </Text>
@@ -465,14 +483,16 @@ export default function WelcomeScreen() {
             style={({ pressed }) => [styles.nextBtn, pressed && { opacity: 0.85 }]}
             onPress={handleNext}
           >
-            <LinearGradient
-              colors={[Colors.text, Colors.text]}
+            <Glass
+              variant="regular"
+              tint={Colors.text}
+              interactive
               style={styles.nextBtnGradient}
-              start={{ x: 0, y: 1 }}
-              end={{ x: 1, y: 1 }}
+              fallbackIntensity={45}
+              fallbackTint={Colors.text}
             >
               <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
-            </LinearGradient>
+            </Glass>
           </Pressable>
         </View>
       )}
@@ -699,6 +719,8 @@ const roleSlideStyles = StyleSheet.create({
   },
   continueBtnGradient: {
     height: 58,
+    borderRadius: 29,
+    overflow: "hidden",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -755,6 +777,7 @@ const roleStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
+    overflow: "hidden",
   },
   textWrap: { flex: 1 },
   title: {

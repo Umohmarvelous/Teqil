@@ -28,7 +28,6 @@ import {
   ScrollView,
   Platform,
   KeyboardAvoidingView,
-  ActivityIndicator,
   Image,
 } from "react-native";
 import { router } from "expo-router";
@@ -37,6 +36,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { Colors } from "@/constants/colors";
+import { Glass, IOSButton } from "@/components/ios";
 import { useAuthStore } from "@/src/store/useStore";
 import { useCreditsStore } from "@/src/store/useCreditsStore";
 import { useProgramStore, ProgramForm } from "@/src/store/useProgramStore";
@@ -212,9 +212,13 @@ export default function ProgramScreen() {
             Verified — you can now earn free-fuel & free-ride rewards. Payouts go only
             to your verified bank account.
           </Text>
-          <Pressable style={styles.submitBtn} onPress={() => router.back()}>
-            <Text style={styles.submitBtnText}>Done</Text>
-          </Pressable>
+          <IOSButton
+            title="Done"
+            size="large"
+            fullWidth
+            style={{ marginTop: 20 }}
+            onPress={() => router.back()}
+          />
         </View>
       </View>
     );
@@ -317,8 +321,20 @@ export default function ProgramScreen() {
                     <Pressable
                       key={t}
                       onPress={() => setIdType(t)}
-                      style={[styles.toggleBtn, idType === t && styles.toggleBtnActive]}
+                      style={styles.toggleBtn}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: idType === t }}
                     >
+                      <Glass
+                        variant={idType === t ? "regular" : "clear"}
+                        tint={idType === t ? Colors.primary : undefined}
+                        interactive
+                        radius={10}
+                        style={StyleSheet.absoluteFill}
+                        pointerEvents="none"
+                        fallbackIntensity={30}
+                        fallbackTint={idType === t ? Colors.primary : "rgba(128,128,128,0.12)"}
+                      />
                       <Text style={[styles.toggleText, idType === t && styles.toggleTextActive]}>
                         {t.toUpperCase()}
                       </Text>
@@ -356,6 +372,15 @@ export default function ProgramScreen() {
                   )}
                 </View>
                 <Pressable style={styles.secondaryBtn} onPress={captureSelfie}>
+                  <Glass
+                    variant="clear"
+                    interactive
+                    radius={12}
+                    style={StyleSheet.absoluteFill}
+                    pointerEvents="none"
+                    fallbackIntensity={25}
+                    fallbackTint="transparent"
+                  />
                   <Ionicons name="camera-outline" size={18} color={Colors.primary} />
                   <Text style={styles.secondaryBtnText}>
                     {selfie ? "Retake photo" : "Take photo"}
@@ -423,8 +448,20 @@ export default function ProgramScreen() {
                     <Pressable
                       key={b.code}
                       onPress={() => setBankCode(b.code)}
-                      style={[styles.bankChip, bankCode === b.code && styles.bankChipActive]}
+                      style={styles.bankChip}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: bankCode === b.code }}
                     >
+                      <Glass
+                        variant={bankCode === b.code ? "regular" : "clear"}
+                        tint={bankCode === b.code ? Colors.primary : undefined}
+                        interactive
+                        radius={20}
+                        style={StyleSheet.absoluteFill}
+                        pointerEvents="none"
+                        fallbackIntensity={30}
+                        fallbackTint={bankCode === b.code ? Colors.primary : "rgba(128,128,128,0.12)"}
+                      />
                       <Text style={[styles.bankChipText, bankCode === b.code && styles.bankChipTextActive]}>
                         {b.name}
                       </Text>
@@ -453,19 +490,14 @@ export default function ProgramScreen() {
 
         {/* Sticky footer nav */}
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <Pressable
-            style={[styles.primaryBtn, !canAdvance && styles.submitBtnDisabled]}
-            onPress={goNext}
+          <IOSButton
+            title={step === LAST_STEP ? "Verify & Apply" : "Continue"}
+            size="large"
+            fullWidth
+            loading={submitting}
             disabled={!canAdvance}
-          >
-            {submitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.submitBtnText}>
-                {step === LAST_STEP ? "Verify & Apply" : "Continue"}
-              </Text>
-            )}
-          </Pressable>
+            onPress={goNext}
+          />
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -486,7 +518,21 @@ function Header({
 }) {
   return (
     <View style={[styles.header, { paddingTop: insetTop + 12 }]}>
-      <Pressable style={styles.backBtn} onPress={onBack}>
+      <Pressable
+        style={styles.backBtn}
+        onPress={onBack}
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+      >
+        <Glass
+          variant="clear"
+          interactive
+          radius={20}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+          fallbackIntensity={25}
+          fallbackTint="transparent"
+        />
         <Ionicons name="arrow-back" size={22} color={textColor} />
       </Pressable>
       <Text style={[styles.headerTitle, { color: textColor }]}>{title}</Text>
@@ -606,10 +652,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 10,
+    overflow: "hidden",
     alignItems: "center",
-    backgroundColor: "rgba(128,128,128,0.12)",
   },
-  toggleBtnActive: { backgroundColor: Colors.primary },
   toggleText: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: Colors.textSecondary },
   toggleTextActive: { color: "#fff" },
   fieldLabel: { fontFamily: "Poppins_500Medium", fontSize: 12, marginLeft: 4 },
@@ -630,6 +675,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: Colors.primary,
+    overflow: "hidden",
   },
   secondaryBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: Colors.primary },
   hint: { fontFamily: "Poppins_400Regular", fontSize: 11, color: Colors.textSecondary, marginLeft: 4 },
@@ -639,9 +685,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "rgba(128,128,128,0.12)",
+    overflow: "hidden",
   },
-  bankChipActive: { backgroundColor: Colors.primary },
   bankChipText: { fontFamily: "Poppins_500Medium", fontSize: 12, color: Colors.textSecondary },
   bankChipTextActive: { color: "#fff" },
   errorText: {
@@ -659,24 +704,6 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "rgba(128,128,128,0.2)",
   },
-  primaryBtn: {
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: Colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  submitBtn: {
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: Colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 20,
-    alignSelf: "stretch",
-  },
-  submitBtnDisabled: { opacity: 0.5 },
-  submitBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 15, color: "#fff" },
   privacyNote: {
     fontFamily: "Poppins_400Regular",
     fontSize: 11,

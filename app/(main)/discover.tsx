@@ -32,6 +32,7 @@
 // import { useAuthStore } from "@/src/store/useStore";
 // import { useSettingsStore } from "@/src/store/useSettingsStore";
 // import { Colors } from "@/constants/colors";
+import { Glass, GlassScrim } from "@/components/ios";
 // import { router } from "expo-router";
 // import { HugeiconsIcon } from "@hugeicons/react-native";
 // import {
@@ -1199,8 +1200,15 @@ function CommentThreadModal({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <Pressable style={threadStyles.dimOverlay} onPress={onClose} />
-        <View style={[threadStyles.sheet, { backgroundColor: bg }]}>
+        <Pressable style={threadStyles.dimOverlay} onPress={onClose}>
+          <GlassScrim intensity={14} />
+        </Pressable>
+        <Glass
+          variant="regular"
+          style={threadStyles.sheet}
+          fallbackIntensity={85}
+          fallbackTint={bg}
+        >
           {/* Header */}
           <View style={[threadStyles.header, { borderBottomColor: borderColor }]}>
             <View style={threadStyles.handleBar} />
@@ -1287,15 +1295,15 @@ function CommentThreadModal({
               </Pressable>
             </View>
           </View>
-        </View>
+        </Glass>
       </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const threadStyles = StyleSheet.create({
-  dimOverlay: { flex: 0.2, backgroundColor: "rgba(0,0,0,0.4)" },
-  sheet: { flex: 0.8, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  dimOverlay: { flex: 0.2 },
+  sheet: { flex: 0.8, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: "hidden" },
   header: { alignItems: "center", paddingVertical: 12, borderBottomWidth: 1 },
   handleBar: { width: 36, height: 4, borderRadius: 2, backgroundColor: "rgba(128,128,128,0.3)", marginBottom: 10 },
   headerTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
@@ -1352,8 +1360,15 @@ function CreatePostModal({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <Pressable style={{ flex: 0.3, backgroundColor: "rgba(0,0,0,0.4)" }} onPress={onClose} />
-        <View style={[createStyles.sheet, { backgroundColor: bg }]}>
+        <Pressable style={{ flex: 0.3 }} onPress={onClose}>
+          <GlassScrim intensity={14} />
+        </Pressable>
+        <Glass
+          variant="regular"
+          style={createStyles.sheet}
+          fallbackIntensity={85}
+          fallbackTint={bg}
+        >
           <View style={createStyles.header}>
             <Pressable onPress={onClose}>
               <Text style={[createStyles.cancelText, { color: subColor }]}>Cancel</Text>
@@ -1362,9 +1377,21 @@ function CreatePostModal({
             <Pressable
               onPress={handlePost}
               disabled={!text.trim()}
-              style={[createStyles.postBtn, !text.trim() && { opacity: 0.4 }]}
+              style={createStyles.postBtn}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !text.trim() }}
             >
-              <Text style={createStyles.postBtnText}>Post</Text>
+              <Glass
+                variant="regular"
+                tint={Colors.primary}
+                interactive
+                radius={16}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+                fallbackIntensity={40}
+                fallbackTint={Colors.primary}
+              />
+              <Text style={[createStyles.postBtnText, !text.trim() && { opacity: 0.4 }]}>Post</Text>
             </Pressable>
           </View>
           <View style={createStyles.body}>
@@ -1380,18 +1407,18 @@ function CreatePostModal({
               maxLength={1000}
             />
           </View>
-        </View>
+        </Glass>
       </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const createStyles = StyleSheet.create({
-  sheet: { flex: 0.7, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  sheet: { flex: 0.7, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: "hidden" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "rgba(128,128,128,0.15)" },
   cancelText: { fontFamily: "Poppins_500Medium", fontSize: 14 },
   title: { fontFamily: "Poppins_600SemiBold", fontSize: 16 },
-  postBtn: { backgroundColor: Colors.primary, borderRadius: 16, paddingHorizontal: 20, paddingVertical: 8 },
+  postBtn: { borderRadius: 16, overflow: "hidden", paddingHorizontal: 20, paddingVertical: 8 },
   postBtnText: { color: "#FFF", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
   body: { flexDirection: "row", padding: 18, gap: 12, flex: 1 },
   avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#E5E5E5" },
