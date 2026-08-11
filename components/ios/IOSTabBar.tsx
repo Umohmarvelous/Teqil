@@ -47,13 +47,13 @@ import { useIOSTheme, IOSFont } from "./theme";
 import { Glass, useGlassCapability } from "./Glass";
 
 /** Height of the capsule at rest. */
-export const TAB_BAR_HEIGHT = 64;
+export const TAB_BAR_HEIGHT = 65;
 /** Height when minimised by scroll. */
-export const TAB_BAR_MIN_HEIGHT = 44;
+export const TAB_BAR_MIN_HEIGHT = 0;
 /** Gap between the capsule and the safe-area bottom. */
 export const TAB_BAR_BOTTOM_GAP = -15;
 /** Inset from the left/right screen edges. */
-const H_MARGIN = 16;
+const H_MARGIN = 46;
 /** Inner padding either side of the tab row. */
 const ROW_PADDING = 5;
 
@@ -346,10 +346,12 @@ const styles = StyleSheet.create({
     top: 5,
     bottom: 5,
     left: 0,
+    width: "10%",
+
     // A capsule, matching the bar's own geometry.
     borderRadius: 999, 
   },
-  itemInner: { alignItems: "center", justifyContent: "center", gap: 3, },
+  itemInner: { alignItems: "center", justifyContent: "center", gap: 2 },
   label: { ...IOSFont.caption2, fontSize: 11, lineHeight: 13 },
   badge: {
     position: "absolute",

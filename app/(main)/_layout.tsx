@@ -362,7 +362,7 @@ export default function MainLayout() {
     setFinderVisible(true);
   };
 
-  const HEADER_HEIGHT = topPadding + 85;
+  const HEADER_HEIGHT = topPadding + 95;
   // const HEADER_HEIGHT = topPadding + 110;
   // Content padding so the last row clears the translucent bar it scrolls under.
   // The bar now floats clear of the screen edge, so content must clear the gap too.
@@ -502,10 +502,10 @@ export default function MainLayout() {
                   },
                 ]}
               >
-                <Pressable onPress={openSidebar} style={styles.menuBtn}>
+                <Pressable onPress={openSidebar} style={[styles.menuBtn, {backgroundColor: Colors.overlayLight, borderWidth: .5, borderColor: borderColor, padding: 20, borderRadius: 50, alignItems:'center', justifyContent:'center'}]}>
                   <HugeiconsIcon
                     icon={Menu02Icon}
-                    size={22}
+                    size={23}
                     color={textColor}
                   />
                 </Pressable>
@@ -528,7 +528,7 @@ export default function MainLayout() {
                   onPress={toggleSearch}
                   accessibilityRole="button"
                   accessibilityLabel="Find a driver"
-                  style={styles.menuList}
+                  style={[styles.menuList, {borderWidth: 1, borderColor: borderColor, alignItems:'center', justifyContent:'center'}]}
                 >
                   {/* Glass, not a coloured pill. */}
                   <Glass
@@ -540,16 +540,19 @@ export default function MainLayout() {
                     fallbackIntensity={40}
                     fallbackTint={isDark ? Colors.overlayLight : Colors.border}
                   />
+              
                   <HugeiconsIcon
                     icon={Search02Icon}
-                    size={25}
+                    size={24}
                     color={textColor}
                   />
-                  <HugeiconsIcon
-                    icon={Bell}
-                    size={25}
-                    color={textColor}
-                  />
+                  <View style={{backgroundColor: Colors.overlayLight, borderWidth: .5, borderColor: borderColor, padding: 8, borderRadius: 50, alignItems:'center', justifyContent:'center'}}>
+                    <HugeiconsIcon
+                      icon={Bell}
+                      size={24}
+                      color={textColor}
+                    />
+                  </View>
                 </Pressable>
               </View>
 
@@ -735,11 +738,14 @@ const styles = StyleSheet.create({
   },
   menuList: {
     borderRadius: 30,
-    padding: 9,
-    flexDirection: "column-reverse",
+    padding: 3,
+    flexDirection: "row",
     alignItems: "center",
-    gap: 17,
+    gap: 25,
     overflow: "hidden",
+    position: 'absolute',
+    right: 15, top: 71,
+    paddingLeft: 12
   },
   menuBtn: {
     width: 38,
@@ -751,10 +757,10 @@ const styles = StyleSheet.create({
   logoBtn: {
     width: 25,
     height: 25,
-    marginVertical: 10,
+    marginVertical: 15,
     justifyContent: "center",
     alignItems: "center",
-    flex: 1,
+    flex: 1, marginRight: 30
   },
   photoImg: { width: 50, height: 50, alignSelf: "center" },
   topTabBar: {
