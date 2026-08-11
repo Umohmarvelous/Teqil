@@ -238,29 +238,35 @@ Requested 2026-08-11. Strict phase order.
 |---|---|---|
 | **1** | Collapsible headers on every scrollable screen (title left/large → centred/small, glass on scroll). WhatsApp-style profile header: picture shrinks to top-left, username becomes the centred title, buttons stay sticky. | **In progress** — kit support done; `driver/messages` and `park-owner/alerts` converted as reference. ~35 screens remain. Profile header not started. |
 | **2** | Translucent tab bar with content scrolling behind it, correct safe-area insets, no clipping. | **In progress** — `useCollapsibleScroll({ tabBar: true })` supplies both insets; Home fixed. Remaining screens follow with Phase 1. |
-| **3** | Replace the full-width network banner with a centred header status: red "connection is weak" + disconnected icon; green "connecting…" + bars icon; logo returns when normal. Driven by NetInfo. | Not started |
-| **4** | Profile restructure: swipeable **Profile** / **Activity** tabs; Account Settings under Profile absorbing **all** settings, organised WhatsApp-style; pull-to-refresh on both; tab bar pins on scroll with blur, stays swipeable. | Not started |
-| **5** | New **Notification** tab replaces the Settings tab. Notifications screen shows app notifications, driver/passenger messages, sync alerts, grouped iOS-style. Trip and transaction notifications move to History. | Not started |
+| **3** | Replace the full-width network banner with a centred header status. | **Done.** `components/ios/NetworkStatus.tsx`, wired into the home header's centre slot. `useConnectionQuality` exported separately so the sync layer can share the signal. |
+| **4** | Profile restructure: swipeable **Profile** / **Activity** tabs; Account Settings under Profile; pull-to-refresh on both; tab bar pins on scroll with blur, stays swipeable. | **Partly done.** Account Settings built at `app/account-settings.tsx`, reached from a gear in Profile's action pill. **Swipeable Profile/Activity tabs not started.** |
+| **5** | New **Notification** tab replaces the Settings tab. | **Done.** `app/(main)/notifications.tsx`, iOS-grouped (Today/Yesterday/This Week/Earlier). Currently sourced only from unread conversations — sync and system notices need the push/sync layers to report into a store. |
 | **6** | Followers/following. Passengers follow drivers; driver profiles show follower and following counts; follow/unfollow toggle; follower list. Scalable social-graph schema. | Not started |
 | **7** | Proximity: **Fastest Finger** (driver offers an immediate discounted ride, nearby passengers accept instantly); **Find driver/passenger near you** wired into bargaining and ride requests; **Find nearest filling station**. | Not started |
 | **8** | Persistent watermark overlay so screenshots carry the logo; shareable profile deep link; rating/feedback modal. | Partly done — `RatingModal` (Twitter-style alert, 4–5★ → store, 1–3★ → feedback form) already ships. |
 
 ### Decisions taken on the roadmap (2026-08-11)
 
-- **Settings are being flattened into Profile → Account Settings.** The user chose
-  the literal reading: inline all 30+ settings as one grouped list under Profile,
-  and remove the standalone Settings tab. `app/settings/*` and the settings root
-  are to be retired. The settings **search bar moves to the Profile screen header**.
-  A new **Notification** tab takes the old Settings tab's slot.
-  *This supersedes the settings-root + 7-sub-screen structure built earlier the
-  same day.* `src/data/settingsIndex.ts` (flat searchable index of every setting)
-  should be reused as the data source for the flattened list.
-- **Filling stations use the Google Places API in-app**, rendered on
-  `react-native-maps`. Requires a Places key with billing, **kept server-side** —
-  which means a new endpoint on the Express server, not a client-side key.
+- **Settings MOVED into Profile — nothing deleted.** (Revised by the user after an
+  initial instruction to flatten.) The seven screens under `app/settings/` are
+  untouched and still own their content. Only the root moved: `app/account-settings.tsx`
+  replaces the old `app/(main)/settings.tsx`, reached from a gear in Profile's
+  action pill, with the same search over `src/data/settingsIndex.ts`. The
+  **Notification** tab took the Settings tab's slot.
+- **Two different problems, only one needs a key.**
+  *Finding nearby drivers/passengers needs no third-party API at all* — they are
+  rows in our own Supabase table, so it is a lat/lng radius query. This is how
+  Bolt works: they query their own fleet, not a maps provider.
+  *Filling stations* are external POI data and do need a source. The user will
+  supply a Google Places key (server-side, via a new Express endpoint).
+  **OpenStreetMap's Overpass API is a free, keyless, no-billing alternative**
+  with usable Nigerian fuel-station coverage, and is worth trying first.
 - **Screenshot watermarking:** iOS cannot modify the image the system saves to
   Photos, so the approach is a **persistent faint logo overlay** rendered in a
   corner of every screen; any screenshot naturally includes it.
+
+> Last verified state: 2026-08-11, branch `sdk-54-temp`, commit `a0af74a`.
+> Typecheck 0 errors, iOS bundle exports clean.
 
 ---
 

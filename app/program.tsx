@@ -268,12 +268,12 @@ export default function ProgramScreen() {
                 <View style={[styles.card, { borderWidth: .5, flexDirection: 'column' }, { backgroundColor: cardBg, borderColor }]}>
 
                   <View style={styles.progressHeader}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center'}}>
-                      <Text style={[styles.sectionTitle, { color: textColor }]}>Your eligibility</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7}}>
+                      <Text style={[styles.sectionTitle, { color: textColor }]}>Your eligibility -</Text>
                       <Text style={[styles.earnAmount, { color: meetsCredits ? Colors.primary : Colors.gold }]}>
-                        {meetsCredits ?                    
+                        {meetsCredits ?
                           (
-                            <View style={[{ flexDirection: 'row', borderRadius: 20, padding: 5, borderWidth: .4, borderColor: borderColor }, {backgroundColor: cardBg, borderColor}]}>
+                            <View style={[{ flexDirection: 'row', borderRadius: 10, padding: 5, borderWidth: .4, borderColor: borderColor }, {backgroundColor: cardBg, borderColor}]}>
                               <Text style={{color: meetsCredits ? Colors.primary : Colors.gold}}>Eligible</Text>
                               < HugeiconsIcon icon={Tick02Icon} size={14} color="#fff" />
                             </View>
@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
   earnRowBorder: { borderBottomWidth: 1, borderBottomColor: "rgba(128,128,128,0.15)" },
   earnLabel: { fontFamily: "Poppins_500Medium", fontSize: 14 },
   earnAmount: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: Colors.gold },
-  progressHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 10 },
+  progressHeader: {  alignItems: 'center', flexDirection: "row", justifyContent: "space-between", marginBottom: 10 },
   progressTrack: {
     height: 8,
     borderRadius: 4,
