@@ -260,7 +260,7 @@ export default function CheckoutScreen() {
           {/* Order summary */}
           <View style={[styles.summary, { backgroundColor: cardBg, borderColor }]}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.summaryLabel, { color: subColor }]}>You're paying for</Text>
+              <Text style={[styles.summaryLabel, { color: subColor }]}>{`You're paying for`}</Text>
               <Text style={[styles.summaryItem, { color: textColor }]} numberOfLines={2}>{item}</Text>
             </View>
             <Text style={[styles.summaryAmount, { color: Colors.primary }]}>{formatNaira(amount)}</Text>

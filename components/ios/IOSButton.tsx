@@ -156,7 +156,7 @@ export function IOSButton({
           radius={metrics.radius}
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
-          fallbackIntensity={0}
+          fallbackIntensity={50}
           // Off the glass path each variant falls back to the exact fill it had
           // before, so nothing about these buttons changes on Android or iOS 25.
           fallbackTint={

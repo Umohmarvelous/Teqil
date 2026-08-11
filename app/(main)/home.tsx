@@ -17,7 +17,7 @@ import { triggerSyncNow } from "@/src/services/sync";
 import { formatDate } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { CheckmarkCircle01Icon, ChevronRight, GiftIcon, History, Message01Icon, Message02Icon, Navigation01Icon,  Plus,  QrCodeIcon,  Share01Icon,  ShieldCheck, Trophy, Warning,
+import { CheckmarkCircle01Icon, ChevronRight, GiftIcon, History, Message01Icon, Message02Icon, Navigation01Icon,  Plus,  QrCodeIcon,  Share01Icon, Trophy, Warning,
  } from "@hugeicons/core-free-icons";
 import { StatusBar } from "expo-status-bar";
 import QuickTransferModal from "@/components/QuickTransferModal";
@@ -59,9 +59,6 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
   }, [user, hydrateFromUser]);
 
 
-  const handlePayAction = () => {
-      // router.push('/(passenger)/pay-fare');
-  };
 
   const { conversations } = useMessagesStore();
   const userUnreadCount = conversations
@@ -76,7 +73,7 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
     .reduce((sum, c) => sum + c.unread_count, 0);
 
   const isDark = theme === "dark";
-  const bg = isDark ? Colors.background : Colors.border;
+  // const bg = isDark ? Colors.background : Colors.border;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
 

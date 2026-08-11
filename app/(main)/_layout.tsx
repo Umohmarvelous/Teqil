@@ -32,6 +32,7 @@ import {
   Message01Icon,
   Notification02Icon,
   Notification03Icon,
+  Bell,
 } from "@hugeicons/core-free-icons";
 import {
   Glass,
@@ -522,6 +523,7 @@ export default function MainLayout() {
                     />
                   </NetworkStatus>
                 </View>
+
                 <Pressable
                   onPress={toggleSearch}
                   accessibilityRole="button"
@@ -540,7 +542,12 @@ export default function MainLayout() {
                   />
                   <HugeiconsIcon
                     icon={Search02Icon}
-                    size={20}
+                    size={25}
+                    color={textColor}
+                  />
+                  <HugeiconsIcon
+                    icon={Bell}
+                    size={25}
                     color={textColor}
                   />
                 </Pressable>
@@ -729,9 +736,9 @@ const styles = StyleSheet.create({
   menuList: {
     borderRadius: 30,
     padding: 9,
-    flexDirection: "column",
+    flexDirection: "column-reverse",
     alignItems: "center",
-    gap: 10,
+    gap: 17,
     overflow: "hidden",
   },
   menuBtn: {

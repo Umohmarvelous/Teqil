@@ -23,7 +23,7 @@
 // otherwise strobe the header, which is worse than showing nothing.
 
 import React from "react";
-import { View, Text, StyleSheet, type ViewStyle, type StyleProp } from "react-native";
+import { View, Text, StyleSheet, type ViewStyle, type StyleProp, ActivityIndicator } from "react-native";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 import { SymbolView } from "expo-symbols";
 import Animated, {
@@ -36,6 +36,8 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { useIOSTheme, IOSAppFont } from "./theme";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import { Wifi } from "@hugeicons/core-free-icons";
 
 export type ConnectionQuality = "healthy" | "weak" | "reconnecting";
 
@@ -136,18 +138,28 @@ export function NetworkStatus({ children, style }: NetworkStatusProps) {
     <Animated.View
       style={[styles.slot, styles.row, pulseStyle, style]}
       accessibilityRole="alert"
-      accessibilityLabel={weak ? "Connection is weak" : "Reconnecting"}
+      accessibilityLabel={weak ? "Offline" : "Reconnecting"}
       accessibilityLiveRegion="polite"
     >
-      <SymbolView
-        name={weak ? "wifi.slash" : "wifi"}
+      {/* <SymbolView
+        name={weak ? "w.circle" : "wifi"}
         size={13}
         tintColor={tint}
         fallback={<View style={[styles.dot, { backgroundColor: tint }]} />}
-      />
-      <Text numberOfLines={1} style={[IOSAppFont.description, styles.label, { color: tint }]}>
-        {weak ? "connection is weak" : "connecting…"}
-      </Text>
+      /> */}
+      <View style={[styles.row]}>
+        {weak ? (
+          <View style={{alignItems: 'center', justifyContent: 'center', gap: 15, flexDirection: 'row'}}>
+            <ActivityIndicator color={theme.systemRed} size={5} />
+            <Text numberOfLines={1} style={[IOSAppFont.label, styles.label, { color: tint, fontFamily: "Poppins_700Bold" }]}>{`You are offline...`}</Text>
+          </View>
+        ) : (
+          <View style={{alignItems: 'center', justifyContent: 'center', gap: 12, flexDirection: 'row'}}>
+            <HugeiconsIcon icon={Wifi} color={theme.label} size={15}/>
+            <Text numberOfLines={1} style={[IOSAppFont.label, styles.label, { color: theme.label, fontFamily: "Poppins_700Bold" }]}>Back online • Connecting...</Text>
+          </View>
+        )}
+      </View>
     </Animated.View>
   );
 }

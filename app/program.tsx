@@ -104,7 +104,7 @@ export default function ProgramScreen() {
   const progress = Math.min(1, credits / MIN_CREDITS_TO_APPLY);
 
   const textColor = isDark ? Colors.textWhite : Colors.text;
-  const subTextColor = isDark ? Colors.textTertiary : Colors.textSecondary;
+  // const subTextColor = isDark ? Colors.textTertiary : Colors.textSecondary;
   const cardBg = isDark ? Colors.overlayLight : Colors.textWhite;
   const bg = isDark ? Colors.background : Colors.border;
 
@@ -263,10 +263,8 @@ export default function ProgramScreen() {
           {/* ── Step 1: intro + how you earn + eligibility ── */}
           {stepMeta.key === "intro" && (
             <>
-        
-
               <View style={{marginVertical: 20}}>
-                <View style={[styles.card, { borderWidth: .5, flexDirection: 'column' }, { backgroundColor: cardBg, borderColor }]}>
+                <View style={[styles.card, { borderWidth: 1, flexDirection: 'column' }, { backgroundColor: cardBg, borderColor }]}>
 
                   <View style={styles.progressHeader}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7}}>
@@ -302,8 +300,8 @@ export default function ProgramScreen() {
 
 
 
-              <View style={{marginTop: 30}}>
-                <Text style={[styles.sectionTitle, { color: subTextColor }, {fontSize: 19}]}>How you earn credits</Text>
+              <View style={{marginTop: 0}}>
+                <Text style={[styles.stepHeading, { color: textColor }, {fontSize: 19}]}>How you earn credits</Text>
                 <Text style={styles.stepLede}>
                   Earn credits by engaging in the app, then complete a quick verification
                   to unlock free-fuel & free-ride rewards.
@@ -314,7 +312,7 @@ export default function ProgramScreen() {
 
 
               {/* <Text style={[styles.sectionTitle, { color: textColor }]}>How you earn credits</Text> */}
-              <View style={[styles.card, {borderWidth: .5}, { backgroundColor: cardBg, borderColor }]}>
+              <View style={[styles.card, {borderWidth: 1}, { backgroundColor: cardBg, borderColor }]}>
                 {EARN_RULES.map((rule, i) => (
                   <View
                     key={rule.key}
@@ -331,39 +329,50 @@ export default function ProgramScreen() {
           {/* ── Step 2: identity ── */}
           {stepMeta.key === "identity" && (
             <>
-              <Text style={[styles.stepHeading, { color: textColor }]}>Verify your identity</Text>
-              <Text style={styles.stepLede}>
-                Enter a valid government ID. We store only a secure hash — never the
-                raw number, and it&apos;s never shown to anyone.
+              <Text style={[styles.stepHeading, { color: textColor }, {fontSize: 19, marginTop: 50, marginBottom: 0, marginLeft: 5}]}>Verify your identity</Text>
+              <Text style={[styles.stepLede, {marginLeft: 5}]}>
+                Enter a valid government ID.
+                Do not show your <Text>{idType}</Text> number to anyone.
               </Text>
-              <View style={[styles.card, {padding: 0, borderWidth: 1, borderColor: borderColor}, { backgroundColor: cardBg }]}>
-                <View style={[styles.toggleRow, { borderBottomColor: Colors.overlayLight }, { backgroundColor: idType  ? Colors.primary : "rgba(128,128,128,0.12)"}]}>
+              <View style={[styles.card, { padding: 0, borderWidth: 1, borderColor: borderColor },
+                { backgroundColor: cardBg }
+              ]}>
+                <View style={[styles.toggleRow, { borderBottomColor: Colors.overlayLight }]}>
+
                   {(["nin", "bvn"] as const).map((t) => (
                     <Pressable
                       key={t}
                       onPress={() => setIdType(t)}
-                      style={styles.toggleBtn}
+                      style={[styles.toggleBtn,
+                        { paddingVertical: 20, borderBottomWidth: 2, borderBottomColor: idType === t ? Colors.primary : "rgba(128,128,128,0.12)" },
+                      ]}
                       accessibilityRole="button"
                       accessibilityState={{ selected: idType === t }}
                     >
-                      <Glass
-                        variant={idType === t ? "regular" : "clear"}
-                        // tint={idType === t ? Colors.primary : 'undefined'}
-                        interactive
-                        radius={10}
-                        style={StyleSheet.absoluteFill}
-                        pointerEvents="none"
-                        fallbackIntensity={30}
-                        // fallbackTint={idType === t ? Colors.primary : "rgba(128,128,128,0.12)"}
-                      />
-                      <Text style={[styles.toggleText, idType === t && styles.toggleTextActive, {color: idType === t ? Colors.primary : "rgba(128,128,128,0.12)"}]}>
-                        {t.toUpperCase()}
-                      </Text>
+                        <Glass
+                          variant={idType === t ? "regular" : "clear"}
+                          // tint={idType === t ? Colors.primary : 'undefined'}
+                          interactive
+                          radius={60}
+                          style={[StyleSheet.absoluteFill,
+                            {
+                              // borderTopLeftRadius: 30,
+                              // borderTopRightRadius: 30,
+                            }
+                          ]}
+                          pointerEvents="none"
+                          fallbackIntensity={30}
+                          // fallbackTint={idType === t ? Colors.primary : "rgba(128,128,128,0.12)"}
+                        />
+                        <Text style={[styles.toggleText, idType === t && styles.toggleTextActive, {color: idType === t ? Colors.primary : "rgba(128 128 128 / 0.52)"}]}>
+                          {t.toUpperCase()}
+                        </Text>
+                        {/* <View style={[{ height: 0, width: 80, borderRadius: 60, position: 'relative', top: 7, left: 50, zIndex: 90, borderWidth: 2, borderColor: idType === t ? Colors.primary : "transparent" }]} /> */}
                     </Pressable>
                   ))}
                 </View>
+    
                 <View style={{margin: 19}}>
-
                   <FieldInput
                     label={`${idType.toUpperCase()} number`}
                     value={idNumber}
@@ -376,26 +385,35 @@ export default function ProgramScreen() {
                   />
                 </View>
               </View>
+              {/* <Text style={[styles.stepLede, {marginLeft: 7}]}>We store only a secure hash — never the
+                raw number. Do not show your <Text>{idType}</Text> number to anyone.
+              </Text> */}
             </>
           )}
+
+
 
           {/* ── Step 3: face capture ── */}
           {stepMeta.key === "selfie" && (
             <>
               <Text style={[styles.stepHeading, { color: textColor }]}>Face capture</Text>
-              <Text style={styles.stepLede}>
-                Take a quick selfie so we can match your face to your ID — just like
-                your bank&apos;s KYC. Look straight at the camera in good light.
-              </Text>
-              <View style={[styles.card, { backgroundColor: cardBg, alignItems: "center", gap: 16 }]}>
-                <View style={styles.selfieRing}>
-                  {selfie ? (
-                    <Image source={{ uri: selfie }} style={styles.selfieImg} />
-                  ) : (
-                    <Ionicons name="person-outline" size={64} color={Colors.textSecondary} />
-                  )}
+              {/* <View style={{flexDirection: 'row'}}> */}
+                <Text style={styles.stepLede}>
+                Take a quick selfie so we can match your face to your ID.... <Text style={[styles.stepLede, {color: Colors.textWhite, fontWeight: "bold", fontFamily: "Poppins_600SemiBold"}]}>Tips: </Text> Look straight at the camera in good light.
+                </Text> 
+              {/* </View> */}
+              
+              <View style={[styles.card, { backgroundColor: cardBg, alignItems: "center", gap: 16 }, { borderWidth: 1, borderColor: borderColor, paddingVertical: 40 }]}>
+                <View style={{borderWidth: 2, borderColor: Colors.primary, padding: 4, borderRadius: 100, borderStyle: 'solid'}}>
+                  <View style={[styles.selfieRing]}>
+                    {selfie ? (
+                      <Image source={{ uri: selfie }} style={styles.selfieImg} />
+                    ) : (
+                      <Ionicons name="person-outline" size={64} color={Colors.textSecondary} />
+                    )}
+                  </View>
                 </View>
-                <Pressable style={styles.secondaryBtn} onPress={captureSelfie}>
+                <Pressable style={[styles.secondaryBtn, {borderColor: borderColor}]} onPress={captureSelfie}>
                   <Glass
                     variant="clear"
                     interactive
@@ -405,7 +423,7 @@ export default function ProgramScreen() {
                     fallbackIntensity={25}
                     fallbackTint="transparent"
                   />
-                  <Ionicons name="camera-outline" size={18} color={Colors.primary} />
+                  <Ionicons name="camera-outline" size={18} color={Colors.textWhite} />
                   <Text style={styles.secondaryBtnText}>
                     {selfie ? "Retake photo" : "Take photo"}
                   </Text>
@@ -422,19 +440,19 @@ export default function ProgramScreen() {
               <Text style={styles.stepLede}>
                 We&apos;ll send a code to confirm this number is yours.
               </Text>
-              <View style={[styles.card, { backgroundColor: cardBg }]}>
+              <View style={[styles.card, { backgroundColor: cardBg }, {borderWidth: 1, borderColor: borderColor, gap: 5 }]}>
                 <FieldInput
                   label="Phone number"
                   value={phone}
                   onChangeText={setPhone}
-                  placeholder="e.g. 0803..."
+                  placeholder="Enter phone No."
                   keyboardType="phone-pad"
                   textColor={textColor}
                   isDark={isDark}
                 />
                 {!otpSent ? (
                   <Pressable style={styles.secondaryBtn} onPress={handleSendOtp}>
-                    <Text style={styles.secondaryBtnText}>Send code</Text>
+                    <Text style={[styles.secondaryBtnText, {color: Colors.primary}]}>Send code</Text>
                   </Pressable>
                 ) : (
                   <>
@@ -449,7 +467,7 @@ export default function ProgramScreen() {
                       isDark={isDark}
                     />
                     <Text style={styles.hint}>Code sent to {phone}.</Text>
-                    <Pressable onPress={handleSendOtp} hitSlop={8}>
+                      <Pressable onPress={handleSendOtp} hitSlop={8} style={{marginVertical: 10, marginLeft: 5}}>
                       <Text style={styles.resendText}>Resend code</Text>
                     </Pressable>
                   </>
@@ -465,7 +483,7 @@ export default function ProgramScreen() {
               <Text style={styles.stepLede}>
                 Rewards are paid only to a bank account in your own verified name.
               </Text>
-              <View style={[styles.card, { backgroundColor: cardBg }]}>
+              <View style={[styles.card, { backgroundColor: cardBg }, {borderWidth: 1, borderColor: borderColor, paddingVertical: 20 }]}>
                 <Text style={[styles.fieldLabel, { color: textColor }]}>Bank</Text>
                 <View style={styles.bankRow}>
                   {BANKS.map((b) => (
@@ -539,7 +557,8 @@ function Header({
   textColor: string;
   onBack: () => void;
   insetTop: number;
-}) {
+  }) {
+
   return (
     <View style={[styles.header, { paddingTop: insetTop + 12 }]}>
       <Pressable
@@ -628,11 +647,11 @@ const styles = StyleSheet.create({
   stepCount: { fontFamily: "Poppins_500Medium", fontSize: 12, color: Colors.textSecondary },
 
   content: { paddingHorizontal: 18, gap: 14, paddingTop: 6 },
-  stepHeading: { fontFamily: "Poppins_600SemiBold", fontSize: 20, marginTop: 4 },
-  stepLede: { fontFamily: "Poppins_400Regular", fontSize: 13, color: Colors.textSecondary, lineHeight: 19, marginBottom: 4 },
+  stepHeading: { fontFamily: "Poppins_600SemiBold", fontSize: 20, marginTop: 50, marginBottom: 0, marginLeft: 5 },
+  stepLede: { fontFamily: "Poppins_400Regular", fontSize: 13, color: Colors.textSecondary, lineHeight: 19, marginBottom: 4, marginLeft: 7 },
 
   card: { borderRadius: 30, padding: 16, gap: 4,  },
-  sectionTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, marginVertical: 4 },
+  sectionTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, marginVertical: 4, marginLeft: 7 },
   earnRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -662,8 +681,8 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 80,
-    borderWidth: 2,
-    borderColor: Colors.primary,
+    // borderWidth: 2,
+    // borderColor: Colors.primary,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -671,16 +690,20 @@ const styles = StyleSheet.create({
   },
   selfieImg: { width: "100%", height: "100%" },
 
-  toggleRow: { flexDirection: "row",  marginBottom: 14, borderBottomWidth: 1, 
+  toggleRow: {
+    flexDirection: "row", borderBottomWidth: .5,
+    // borderWidth: 2, borderColor: 'red',
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
  },
   toggleBtn: {
     flex: 1,
     paddingVertical: 10,
     overflow: "hidden",
     alignItems: "center",
-    borderRadius: 0
-
-
+    // borderTopLeftRadius: 50,
+    // borderTopRightRadius: 50,
+    // borderWidth: 2, borderColor: 'blue'
   },
   toggleText: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: Colors.textSecondary },
   toggleTextActive: { color: "#fff" },
@@ -697,17 +720,16 @@ const styles = StyleSheet.create({
     gap: 8,
     height: 46,
     paddingHorizontal: 20,
-    borderRadius: 12,
+    // borderRadius: 60,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: Colors.primary,
+    // borderWidth: 1,
     overflow: "hidden",
   },
-  secondaryBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: Colors.primary },
+  secondaryBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: Colors.textWhite },
   hint: { fontFamily: "Poppins_400Regular", fontSize: 11, color: Colors.textSecondary, marginLeft: 4 },
-  resendText: { fontFamily: "Poppins_600SemiBold", fontSize: 12, color: Colors.primary, marginLeft: 4, marginTop: 4 },
-  bankRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 14, marginTop: 6 },
+  resendText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: Colors.primary, marginLeft: 0, marginTop: 15 },
+  bankRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 34, marginTop: 6 },
   bankChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -747,7 +769,7 @@ const styles = StyleSheet.create({
     borderRadius: 48,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0,154,67,0.12)",
+    // backgroundColor: "rgba(0,154,67,0.12)",
   },
   doneTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 20 },
   doneSub: {
