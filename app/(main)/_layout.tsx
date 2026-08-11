@@ -392,15 +392,8 @@ export default function MainLayout() {
         }}
         keyboardShouldPersistTaps="handled"
       >
-        <View
-          style={[{
-            width: SCREEN_WIDTH,
-            flex: 1,
-            paddingTop: HEADER_HEIGHT,
-            paddingBottom: BOTTOM_HEIGHT
-          }, {backgroundColor: tabBarBg}]}
-        >
-          <MainTab />
+        <View style={[{ width: SCREEN_WIDTH, flex: 1 }, { backgroundColor: tabBarBg }]}>
+          <MainTab insetTop={HEADER_HEIGHT} insetBottom={BOTTOM_HEIGHT} />
         </View>
         <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
           <DiscoverTab

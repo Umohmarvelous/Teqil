@@ -38,9 +38,9 @@ import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
 import { Glass } from "./Glass";
 
 const CANCEL_WIDTH = 66;
-const FIELD_HEIGHT = 36;
+const FIELD_HEIGHT = 45;
 /** UISearchBar's field radius. */
-const FIELD_RADIUS = 10;
+const FIELD_RADIUS = 50;
 /** iOS uses a quick, flat ease for this — not a spring. */
 const TIMING = { duration: 250, easing: Easing.bezier(0.25, 0.1, 0.25, 1) };
 
@@ -124,7 +124,7 @@ export function IOSSearchBar({
   const contentStyle = useAnimatedStyle(() => ({
     justifyContent: (progress.value > 0.5 || value
       ? "flex-start"
-      : "center") as "flex-start" | "center",
+      : "flex-start") as "flex-start" | "flex-start",
   }));
 
   return (
@@ -144,7 +144,7 @@ export function IOSSearchBar({
           <Animated.View style={[styles.fieldInner, contentStyle]}>
             <SymbolView
               name="magnifyingglass"
-              size={15}
+              size={20}
               tintColor={theme.secondaryLabel}
               fallback={null}
             />
@@ -181,7 +181,7 @@ export function IOSSearchBar({
               >
                 <SymbolView
                   name="xmark.circle.fill"
-                  size={16}
+                  size={24}
                   tintColor={theme.tertiaryLabel}
                   fallback={<Text style={{ color: theme.tertiaryLabel }}>✕</Text>}
                 />
@@ -212,6 +212,7 @@ const styles = StyleSheet.create({
     borderRadius: FIELD_RADIUS,
     overflow: "hidden",
     justifyContent: "center",
+    padding: 10
   },
   fieldInner: {
     flexDirection: "row",

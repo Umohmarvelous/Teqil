@@ -1,4 +1,4 @@
-import HomeTab from './home';
+import HomeTab, { type HomeTabProps } from './home';
 import {
   Dimensions,
   View,
@@ -10,7 +10,7 @@ import { useSettingsStore } from '@/src/store/useSettingsStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-export default function MainTab() {
+export default function MainTab({ insetTop, insetBottom }: HomeTabProps) {
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
   const topTabBg = isDark ? Colors.primaryDarker : Colors.textWhite;
@@ -18,7 +18,7 @@ export default function MainTab() {
   return (
     <>
         <View style={[{ flex: 1 }, { width: SCREEN_WIDTH }, { backgroundColor: topTabBg }]}>
-            <HomeTab />
+            <HomeTab insetTop={insetTop} insetBottom={insetBottom} />
         </View>
     </>
   )

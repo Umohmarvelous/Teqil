@@ -153,7 +153,7 @@ export default function SettingsScreen() {
         <IOSSearchBar
           value={query}
           onChangeText={setQuery}
-          placeholder="Search settings"
+          placeholder="Search"
           onFocusChange={setSearching}
           onCancel={() => {
             setQuery("");
@@ -162,7 +162,7 @@ export default function SettingsScreen() {
           active={showResults}
         />
 
-        <View style={[styles.hairline, { backgroundColor: ios.separator }]} />
+        <View style={[styles.hairline, { backgroundColor: 'ios.separator' }]} />
       </View>
 
       {showResults ? (

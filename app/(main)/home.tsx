@@ -33,7 +33,20 @@ import { parseDriverQR, toDriverPayload } from "@/src/utils/qr";
 import { iosAlert } from "@/components/ios";
 
 
-export default function HomeTab() {
+export interface HomeTabProps {
+  /**
+   * Height of the floating header and tab bar.
+   *
+   * These are CONTENT insets, not frame padding. The scroll view fills the
+   * screen so content travels under the translucent chrome — which is the whole
+   * point of the chrome being translucent. Padding the frame instead leaves the
+   * glass with nothing behind it to sample, and it renders as a flat panel.
+   */
+  insetTop?: number;
+  insetBottom?: number;
+}
+
+export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps) {
   const { theme } = useSettingsStore();
   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -178,12 +191,18 @@ export default function HomeTab() {
 
       {/* Header */}
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 12 }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: insetTop + 25, paddingBottom: insetBottom + 12 },
+        ]}
         showsVerticalScrollIndicator={false}
+        scrollIndicatorInsets={{ top: insetTop, bottom: insetBottom }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
+            // Keeps the spinner clear of the floating header.
+            progressViewOffset={insetTop}
             tintColor={Colors.primary}
             colors={[Colors.primary]}
           />
@@ -396,10 +415,9 @@ const styles = StyleSheet.create({
     zIndex: 100,
     flexDirection: 'row', 
   },
-  scrollContent: { 
+  scrollContent: {
     paddingHorizontal: 8,
-    paddingTop: 25, 
-    gap: 15, 
+    gap: 15,
   },
   card: {
     justifyContent: 'space-between', 
