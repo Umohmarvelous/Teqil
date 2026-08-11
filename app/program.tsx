@@ -44,7 +44,7 @@ import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { EARN_RULES, MIN_CREDITS_TO_APPLY } from "@/constants/credits";
 import { DEV_OTP_CODE } from "@/src/services/kyc";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { Tick01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { Tick02Icon } from "@hugeicons/core-free-icons";
 
 // A small set of Nigerian banks for the payout picker (code = Paystack bank code).
 const BANKS = [
@@ -107,6 +107,8 @@ export default function ProgramScreen() {
   const cardBg = isDark ? Colors.overlayLight : Colors.textWhite;
   const bg = isDark ? Colors.background : Colors.border;
 
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+  
   // Whether the current step is complete enough to advance.
   const canAdvance = useMemo(() => {
     if (DEV_BYPASS_STEP_GATES) return !submitting;
@@ -260,14 +262,56 @@ export default function ProgramScreen() {
           {/* ── Step 1: intro + how you earn + eligibility ── */}
           {stepMeta.key === "intro" && (
             <>
-              <Text style={[styles.stepHeading, { color: textColor }]}>Join the rewards program</Text>
-              <Text style={styles.stepLede}>
-                Earn credits by engaging in the app, then complete a quick verification
-                to unlock free-fuel & free-ride rewards.
-              </Text>
+        
 
-              <Text style={[styles.sectionTitle, { color: textColor }]}>How you earn credits</Text>
-              <View style={[styles.card, { backgroundColor: cardBg }]}>
+              <View style={{marginVertical: 5}}>
+                <View style={[styles.card, { borderWidth: .5, flexDirection: 'column' }, { backgroundColor: cardBg, borderColor }]}>
+
+                  <View style={styles.progressHeader}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center'}}>
+                      <Text style={[styles.sectionTitle, { color: textColor }]}>Your eligibility</Text>
+                      <Text style={[styles.earnAmount, { color: meetsCredits ? Colors.primary : Colors.gold }]}>
+                        {meetsCredits ?                    
+                          (
+                            <View style={[{ flexDirection: 'row', borderRadius: 20, padding: 5, borderWidth: .4, borderColor: borderColor }, {backgroundColor: cardBg, borderColor}]}>
+                              <Text style={{color: meetsCredits ? Colors.primary : Colors.gold}}>Eligible</Text>
+                              < HugeiconsIcon icon={Tick02Icon} size={14} color="#fff" />
+                            </View>
+                          ) : "Not Eligible"}
+                      </Text>
+                    </View>
+                    
+                    <Text style={[styles.earnLabel, { color: textColor }]}>
+                      {credits} / {MIN_CREDITS_TO_APPLY}
+                    </Text>
+                  </View>
+
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+                  </View>
+                </View>
+                  {!meetsCredits && (
+                    <Text style={styles.lockNote}>
+                      Reach {MIN_CREDITS_TO_APPLY} credits to start your application.
+                    </Text>
+                  )}
+              </View>
+
+
+
+              <View style={{marginTop: 70}}>
+                <Text style={[styles.sectionTitle, { color: textColor }]}>How you earn credits</Text>
+                <Text style={styles.stepLede}>
+                  Earn credits by engaging in the app, then complete a quick verification
+                  to unlock free-fuel & free-ride rewards.
+                </Text>
+              </View>
+
+
+
+
+              {/* <Text style={[styles.sectionTitle, { color: textColor }]}>How you earn credits</Text> */}
+              <View style={[styles.card, {borderWidth: .5}, { backgroundColor: cardBg, borderColor }]}>
                 {EARN_RULES.map((rule, i) => (
                   <View
                     key={rule.key}
@@ -279,31 +323,6 @@ export default function ProgramScreen() {
                 ))}
               </View>
 
-              <Text style={[styles.sectionTitle, { color: textColor }]}>Your eligibility</Text>
-              <View style={[styles.card, { backgroundColor: cardBg }]}>
-                <View style={styles.progressHeader}>
-                  <Text style={[styles.earnLabel, { color: textColor }]}>
-                    {credits} / {MIN_CREDITS_TO_APPLY} credits
-                  </Text>
-                  <Text style={[styles.earnAmount, { color: meetsCredits ? Colors.primary : Colors.gold }]}>
-                    {meetsCredits ?                    
-                      (
-                        <>
-                          <Text>Eligible</Text>
-                          < HugeiconsIcon icon={Tick02Icon} size={14} color="#fff" />
-                        </>
-                      ) : "Keep earning"}
-                  </Text>
-                </View>
-                <View style={styles.progressTrack}>
-                  <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-                </View>
-                {!meetsCredits && (
-                  <Text style={styles.lockNote}>
-                    Reach {MIN_CREDITS_TO_APPLY} credits to start your application.
-                  </Text>
-                )}
-              </View>
             </>
           )}
 
@@ -533,7 +552,7 @@ function Header({
           fallbackIntensity={25}
           fallbackTint="transparent"
         />
-        <Ionicons name="arrow-back" size={22} color={textColor} />
+        <Ionicons name="chevron-back" size={22} color={textColor} />
       </Pressable>
       <Text style={[styles.headerTitle, { color: textColor }]}>{title}</Text>
       <View style={{ width: 40 }} />
@@ -607,13 +626,13 @@ const styles = StyleSheet.create({
   stepHeading: { fontFamily: "Poppins_600SemiBold", fontSize: 20, marginTop: 4 },
   stepLede: { fontFamily: "Poppins_400Regular", fontSize: 13, color: Colors.textSecondary, lineHeight: 19, marginBottom: 4 },
 
-  card: { borderRadius: 20, padding: 16, gap: 4 },
-  sectionTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, marginTop: 6, marginLeft: 4 },
+  card: { borderRadius: 20, padding: 16, gap: 4,  },
+  sectionTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, marginVertical: 4 },
   earnRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 20,
   },
   earnRowBorder: { borderBottomWidth: 1, borderBottomColor: "rgba(128,128,128,0.15)" },
   earnLabel: { fontFamily: "Poppins_500Medium", fontSize: 14 },
@@ -629,7 +648,7 @@ const styles = StyleSheet.create({
   lockNote: {
     fontFamily: "Poppins_400Regular",
     fontSize: 12,
-    color: Colors.gold,
+    color: Colors.error,
     marginTop: 12,
   },
 

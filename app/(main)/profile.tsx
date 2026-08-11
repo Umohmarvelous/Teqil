@@ -13,6 +13,7 @@ import {
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import { haptics } from "@/src/utils/haptics";
 import * as ImagePicker from "expo-image-picker";
 import * as Clipboard from "expo-clipboard";
 import Animated, {
@@ -52,6 +53,7 @@ import {
   PencilLine,
   Tick02FreeIcons,
   Hospital,
+  Settings01Icon,
 } from "@hugeicons/core-free-icons";
 import type { EmergencyContact, Trip } from "@/src/models/types";
 import { StatusBar } from "expo-status-bar";
@@ -76,7 +78,7 @@ import { useTransactionsStore } from "@/src/store/useTransactionsStore";
 import { useAchievementsStore } from "@/src/store/useAchievementsStore";
 import { useActivityFeed } from "@/src/hooks/useActivityFeed";
 import ActivityFeed from "@/components/ActivityFeed";
-import { iosAlert } from "@/components/ios";
+import { Glass, iosAlert } from "@/components/ios";
 
 // Slide-in "Copied" toast, shared via context so every copy action triggers it.
 const CopyToastContext = React.createContext<() => void>(() => {});
@@ -472,19 +474,30 @@ export default function ProfileTab() {
             {/*  */}
             <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 15,  padding: 10, paddingTop:0, alignSelf:'flex-end'}}>
               {/* Sign Out Button */}
-              <Pressable
-                  style={[
-                    styles.menuList,
-                    {
-                      backgroundColor: isDark
-                        ? Colors.overlayLight
-                        : Colors.textWhite,
-                      borderColor,
-                    },
-                  ]}
-              >
-                <Pressable onPress={toggleSearch}>
+              <View style={[styles.menuList, { borderColor }]}>
+                <Glass
+                  variant="regular"
+                  radius={30}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
+                  fallbackIntensity={40}
+                  fallbackTint={isDark ? Colors.overlayLight : Colors.textWhite}
+                />
+                <Pressable onPress={toggleSearch} accessibilityRole="button" accessibilityLabel="Search">
                   <HugeiconsIcon icon={Search02Icon} size={21} color={textColor} />
+                </Pressable>
+
+                {/* Settings live here now — the Settings tab's slot went to
+                    Notifications, so Profile owns the way in. */}
+                <Pressable
+                  onPress={() => {
+                    haptics.tap();
+                    router.push("/account-settings");
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Account settings"
+                >
+                  <HugeiconsIcon icon={Settings01Icon} size={21} color={textColor} />
                 </Pressable>
 
                 <Pressable
@@ -507,7 +520,7 @@ export default function ProfileTab() {
                   }}>
                   <HugeiconsIcon icon={LogoutIcon} size={21} color={textColor} />
                 </Pressable>
-              </Pressable>
+              </View>
 
               {user?.role === "driver" && (
                 <Pressable onPress={() => setReceiveVisible(true)}>
@@ -1076,6 +1089,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 30,
     borderWidth: 1,
+      overflow: "hidden",
   },
   editOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0 0 0 / 0.77)", justifyContent: "flex-end", zIndex: 200, },
   editSheet: { borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 34, paddingBottom: 190, gap: 16, top: 100 },

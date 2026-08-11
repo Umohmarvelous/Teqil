@@ -29,6 +29,12 @@ export { AlertHost, iosAlert, iosActionSheet, type IOSAlertButton } from "./Aler
 export { IOSMenu, type IOSMenuProps, type IOSMenuItem } from "./IOSMenu";
 export { IOSSearchBar, type IOSSearchBarProps } from "./IOSSearchBar";
 export {
+  NetworkStatus,
+  useConnectionQuality,
+  type NetworkStatusProps,
+  type ConnectionQuality,
+} from "./NetworkStatus";
+export {
   IOSListSection,
   IOSListRow,
   type IOSListSectionProps,

@@ -19,7 +19,7 @@ import { useMessagesStore } from "@/src/store/useMessagesStore";
 import { Colors } from "@/constants/colors";
 import ProfileTab from "./profile";
 import MessagesTab from "./messages";
-import SettingsTab from "./settings";
+import NotificationsTab from "./notifications";
 import DiscoverTab from "./discover";
 import type { FeedItem } from "./discover";
 import { HugeiconsIcon } from "@hugeicons/react-native";
@@ -30,10 +30,17 @@ import {
   Home01Icon,
   MessageIcon,
   Message01Icon,
-  SettingsIcon,
-  Settings01Icon,
+  Notification02Icon,
+  Notification03Icon,
 } from "@hugeicons/core-free-icons";
-import { Glass, IOSTabBar, TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_GAP, type IOSTab } from "@/components/ios";
+import {
+  Glass,
+  IOSTabBar,
+  NetworkStatus,
+  TAB_BAR_HEIGHT,
+  TAB_BAR_BOTTOM_GAP,
+  type IOSTab,
+} from "@/components/ios";
 import Avatar from "@/components/Avatar";
 import { useAuthStore } from "@/src/store/useStore";
 import BottomSheet from "@gorhom/bottom-sheet";
@@ -44,7 +51,7 @@ import FindDriverModal from "@/components/FindDriverModal";
 import OnboardingOverlay from "@/components/OnboardingOverlay";
 import { useOnboarding } from "@/src/hooks/useOnboarding";
 
-type Tab = "home" | "profile" | "messages" | "settings";
+type Tab = "home" | "profile" | "messages" | "notifications";
 type TopTab = "home" | "discover";
 
 /**
@@ -56,7 +63,7 @@ const TABS: IOSTab[] = [
   { key: "home",     label: "Home",     icon: Home01Icon,     iconActive: HomeIcon },
   { key: "profile",  label: "You" },
   { key: "messages", label: "Messages", icon: Message01Icon,  iconActive: MessageIcon },
-  { key: "settings", label: "Settings", icon: Settings01Icon, iconActive: SettingsIcon },
+  { key: "notifications", label: "Alerts", icon: Notification03Icon, iconActive: Notification02Icon },
 ];
 
 const SIDEBAR_WIDTH = 330;
@@ -367,8 +374,8 @@ export default function MainLayout() {
           return <ProfileTab />;
         case "messages":
           return <MessagesTab />;
-        case "settings":
-          return <SettingsTab />;
+        case "notifications":
+          return <NotificationsTab />;
         default:
           return null;
       }
@@ -501,18 +508,20 @@ export default function MainLayout() {
                     color={textColor}
                   />
                 </Pressable>
-                <Pressable style={styles.logoBtn}>
-                  <Image
-                    source={
-                      isDark
-                        ? require("../../assets/images/emilgo_logo_white.png")
-                        : require("../../assets/images/emilgo_logo_black.png")
-                    }
-                    style={styles.photoImg}
-                    resizeMode="contain"
-                    width={25}
-                  />
-                </Pressable>
+                <View style={styles.logoBtn}>
+                  <NetworkStatus>
+                    <Image
+                      source={
+                        isDark
+                          ? require("../../assets/images/emilgo_logo_white.png")
+                          : require("../../assets/images/emilgo_logo_black.png")
+                      }
+                      style={styles.photoImg}
+                      resizeMode="contain"
+                      width={25}
+                    />
+                  </NetworkStatus>
+                </View>
                 <Pressable
                   onPress={toggleSearch}
                   accessibilityRole="button"
