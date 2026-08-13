@@ -3,12 +3,9 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   Platform,
   RefreshControl,
-  Pressable,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/src/store/useStore";
 import { PassengersStorage, TripsStorage } from "@/src/services/storage";
@@ -18,7 +15,6 @@ import type { Trip } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { Time02Icon } from "@hugeicons/core-free-icons";
-import { router } from "expo-router";
 import { Colors } from "@/constants/colors";
 import Animated from "react-native-reanimated";
 import { IOSScreen, useCollapsibleScroll } from "@/components/ios";
@@ -136,7 +132,6 @@ export default function PassengerHistoryScreen() {
 
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
-  const tabBarBg = isDark ? Colors.background : Colors.textWhite;
   const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
@@ -233,10 +228,6 @@ export default function PassengerHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.border,
-  },
 
   // ── Header ──────────────────────────────────────────────
 
@@ -252,15 +243,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: "Inter-Black",
     fontSize: 19,
-  },
-  headerSubtitle: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12,
-  },
-  sideElement: {
-    width: 40, // Fixed width ensures the left and right take up equal space
-    alignItems: 'flex-start',
-    justifyContent: 'center',
   },
 
 

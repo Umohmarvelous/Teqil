@@ -10,14 +10,11 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   Pressable,
-  Platform,
   RefreshControl,
 } from "react-native";
 import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
+import Animated from "react-native-reanimated";
 import Swipeable from "react-native-gesture-handler/Swipeable";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SymbolView } from "expo-symbols";
@@ -30,6 +27,8 @@ import {
   IOSFont,
   IOSMetrics,
   type IOSPalette,
+  IOSScreen,
+  useCollapsibleScroll,
 } from "@/components/ios";
 import { useRouteHistory, type RouteHistoryEntry } from "@/src/hooks/useRouteHistory";
 import { haptics } from "@/src/utils/haptics";
@@ -187,13 +186,12 @@ const emptyStyles = StyleSheet.create({
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function RouteHistoryScreen() {
-  const insets = useSafeAreaInsets();
+  const scroll = useCollapsibleScroll();
   const ios = useIOSTheme();
 
   const { entries, loading, error, refresh, remove } = useRouteHistory();
   const [pendingDelete, setPendingDelete] = React.useState<RouteHistoryEntry | null>(null);
 
-  const topPadding = Platform.OS === "web" ? 20 : insets.top;
 
   const totals = useMemo(
     () =>
@@ -214,32 +212,17 @@ export default function RouteHistoryScreen() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={[styles.root, { backgroundColor: ios.systemGroupedBackground }]}>
-        <StatusBar style={ios.scheme === "dark" ? "light" : "dark"} />
-
-        {/* Nav bar + large title */}
-        <View style={{ paddingTop: topPadding + 6, paddingHorizontal: IOSMetrics.groupedInset }}>
-          <Pressable
-            onPress={() => router.back()}
-            hitSlop={10}
-            style={styles.backRow}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-          >
-            <SymbolView name="chevron.left" size={17} tintColor={ios.tint} fallback={null} />
-            <Text style={[IOSFont.body, { color: ios.tint }]}>Back</Text>
-          </Pressable>
-
-          <Text style={[IOSFont.largeTitle, { color: ios.label, marginTop: 4 }]}>
-            Route History
-          </Text>
-          <Text style={[IOSFont.footnote, { color: ios.secondaryLabel, marginBottom: 10 }]}>
-            {entries.length > 0
-              ? `${formatDistance(totals.km)} · ${formatDuration(totals.seconds)} tracked`
-              : "Your tracked rides"}
-          </Text>
-        </View>
-
+      <IOSScreen
+        title="Route History"
+        subtitle={
+          entries.length > 0
+            ? `${formatDistance(totals.km)} · ${formatDuration(totals.seconds)} tracked`
+            : "Your tracked rides"
+        }
+        back
+        scrollable={false}
+        scroll={scroll}
+      >
         {error && (
           <View style={[styles.errorBar, { backgroundColor: ios.tertiarySystemFill }]}>
             <SymbolView name="wifi.slash" size={14} tintColor={ios.systemRed} fallback={null} />
@@ -248,11 +231,11 @@ export default function RouteHistoryScreen() {
           </View>
         )}
 
-        <FlatList
+        <Animated.FlatList
           data={entries}
           keyExtractor={(e) => e.id}
-          contentContainerStyle={{ paddingTop: 6, paddingBottom: insets.bottom + 40 }}
           showsVerticalScrollIndicator={false}
+          {...scroll.scrollProps}
           refreshControl={
             <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={ios.secondaryLabel} />
           }
@@ -279,14 +262,12 @@ export default function RouteHistoryScreen() {
             },
           ]}
         />
-      </View>
+      </IOSScreen>
     </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
-  root:    { flex: 1 },
-  backRow: { flexDirection: "row", alignItems: "center", gap: 2, marginLeft: -4 },
   errorBar: {
     flexDirection:     "row",
     alignItems:        "center",
