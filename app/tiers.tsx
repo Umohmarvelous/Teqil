@@ -26,6 +26,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/colors";
+import { IOSScreen, useCollapsibleScroll } from "@/components/ios";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { useTierStore } from "@/src/store/useTierStore";
@@ -55,6 +56,7 @@ const BENEFITS: { icon: keyof typeof Ionicons.glyphMap; label: string; free: boo
 
 export default function TiersScreen() {
   const insets = useSafeAreaInsets();
+  const scroll = useCollapsibleScroll();
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
 
@@ -157,18 +159,13 @@ export default function TiersScreen() {
       : `Start ${PLAN_NAME[selected]} now`;
 
   return (
-    <View style={[styles.root, { backgroundColor: bg }]}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <Pressable style={styles.close} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="close" size={24} color={textColor} />
-        </Pressable>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: 150 }]}
-        showsVerticalScrollIndicator={false}
-      >
+    <View style={styles.root}>
+    <IOSScreen
+      title="Plans"
+      back
+      scroll={scroll}
+      contentContainerStyle={[styles.content, { paddingBottom: 150 }]}
+    >
         <View style={styles.hero}>
           <View style={styles.diamond}>
             <Ionicons name="diamond" size={26} color={Colors.gold} />
@@ -263,9 +260,9 @@ export default function TiersScreen() {
           Premium is split 60% to the partner fuel station and 40% to Emilgo. Change or
           cancel anytime.
         </Text>
-      </ScrollView>
+    </IOSScreen>
 
-      {/* Sticky CTA */}
+      {/* Sticky CTA — absolute, so it floats over the scroll rather than in it. */}
       <View style={[styles.ctaBar, { backgroundColor: bg, paddingBottom: insets.bottom + 12, borderTopColor: borderColor }]}>
         <Pressable
           style={[styles.ctaBtn, (isSelectedCurrent || processing) && styles.ctaDisabled]}

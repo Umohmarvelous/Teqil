@@ -30,7 +30,7 @@ import ActiveTripBanner from "@/components/ActiveTripBanner";
 import TripListener from "@/components/TripListener";
 import { useProgramStore } from "@/src/store/useProgramStore";
 import { parseDriverQR, toDriverPayload } from "@/src/utils/qr";
-import { iosAlert } from "@/components/ios";
+import { Glass, iosAlert } from "@/components/ios";
 
 
 export interface HomeTabProps {
@@ -106,17 +106,17 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
 
   // Define actions
   const PASSENGERSACTIONSBUTTON = [
-    { id: "qr", icon: QrCodeIcon, label: "Scan code", color: Colors.textWhite },
-    { id: "share", icon: Share01Icon, label: "Share Trip", color: Colors.textWhite },
+    { id: "qr", icon: QrCodeIcon, label: "Scan code", color: Colors.text },
+    { id: "share", icon: Share01Icon, label: "Share Trip", color: Colors.text },
     
-    { id: "history", icon: History, label: "History", color: Colors.textWhite },
-    { id: "sos", icon: Warning, label: "Emergency Contact", color: Colors.textWhite },
+    { id: "history", icon: History, label: "History", color: Colors.text },
+    { id: "sos", icon: Warning, label: "Emergency Contact", color: Colors.text },
   ] ;
   const DRIVERSACTIONSBUTTON = [
-    { id: "add", icon: Plus, label: "New Trip", color: Colors.textWhite},
-    { id: "scan", icon: QrCodeIcon, label: "Get Code", color: Colors.textWhite},
-    { id: "megaphone", icon: Message01Icon, label: "Messages", color: Colors.textWhite},
-    { id: "time", icon: History, label: "History", color: Colors.textWhite},
+    { id: "add", icon: Plus, label: "New Trip", color: Colors.text},
+    { id: "scan", icon: QrCodeIcon, label: "Get Code", color: Colors.text},
+    { id: "megaphone", icon: Message01Icon, label: "Messages", color: Colors.text},
+    { id: "time", icon: History, label: "History", color: Colors.text},
   ] ;
 
 
@@ -247,25 +247,43 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
         </View>
 
 
-        {/* Loyalty Program entry */}
-        <Pressable
-          style={[styles.card, styles.promoGradient, { backgroundColor: cardBg, borderColor, borderWidth: 1 }]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
-            router.push("/program");
-          }}
-        >
-          <View style={styles.loyaltyIconChip}>
-            <HugeiconsIcon icon={enrolled ? Trophy : GiftIcon} size={40} color={Colors.textSecondary} />
+        <View style={{flex: 1, alignItems: 'center', justifyContent: 'space-between', flexDirection: 'row', gap: 8}}>
+
+          {/* Loyalty Program entry */}
+          <Pressable
+            style={[styles.card, styles.promoGradient, { backgroundColor: cardBg, }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+              router.push("/program");
+            }}
+          >
+              <Glass
+                variant="regular"
+                interactive
+                radius={50}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+                fallbackIntensity={90}
+                fallbackTint={isDark ? Colors.overlayLight : Colors.border}
+              />
+            <View style={styles.loyaltyIconChip}>
+              <HugeiconsIcon icon={enrolled ? Trophy : GiftIcon} size={40} color={textColor} />
+            </View>
+            <View style={styles.promoText}>
+              <Text style={[styles.promoTitle, { color: textColor }]}>Loyalty Program</Text>
+              <Text style={[styles.promoSub, { color: subTextColor }]}>
+                {enrolled ? "You're in the program ✓" : "Join the rewards program"}
+              </Text>
+            </View>
+            <HugeiconsIcon icon={ChevronRight} size={20} color={subTextColor} />
+          </Pressable>
+
+
+
+          <View style={{ backgroundColor: Colors.overlayLight, borderWidth: .5, borderColor: borderColor, padding: 8, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
+            <HugeiconsIcon icon={enrolled ? Trophy : GiftIcon} size={40} color={textColor} />
           </View>
-          <View style={styles.promoText}>
-            <Text style={[styles.promoTitle, { color: textColor }]}>Loyalty Program</Text>
-            <Text style={[styles.promoSub, { color: subTextColor }]}>
-              {enrolled ? "You're in the program ✓" : "Join the rewards program"}
-            </Text>
-          </View>
-          <HugeiconsIcon icon={ChevronRight} size={20} color={subTextColor} />
-        </Pressable>
+        </View>
 
 
         {userUnreadCount > 0 && (
@@ -418,7 +436,7 @@ const styles = StyleSheet.create({
   },
   card: {
     justifyContent: 'space-between', 
-    borderRadius: 25,
+    // borderRadius: 25,
     paddingVertical: 18,
     gap: 20,
   },
@@ -452,8 +470,9 @@ const styles = StyleSheet.create({
   },
   promoGradient: {
     flexDirection: "row",
-    alignItems: "center",    paddingHorizontal: 20, 
-
+    alignItems: "center",
+    paddingHorizontal: 20, 
+    borderRadius: 50
   },
   loyaltyIconChip: {
     width: 48,

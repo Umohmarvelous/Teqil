@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { StatusBar } from "expo-status-bar";
 import { Colors } from "@/constants/colors";
+import { IOSScreen, useCollapsibleScroll } from "@/components/ios";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { useIsPremium, useIsElite } from "@/src/store/useTierStore";
@@ -26,7 +27,7 @@ import { ensureGpsOn } from "@/src/services/locationTracking";
 import { iosAlert } from "@/components/ios";
 
 export default function FreeRidesScreen() {
-  const insets = useSafeAreaInsets();
+  const scroll = useCollapsibleScroll();
   const user = useAuthStore((s) => s.user);
   const isDark = useSettingsStore((s) => s.theme) === "dark";
   const { openOffers, fetchOpenOffers, acceptOffer } = useFreeRidesStore();
@@ -138,21 +139,20 @@ export default function FreeRidesScreen() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: bg }]}>
-      <StatusBar style={isDark ? "light" : "dark"} />
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <Pressable style={styles.back} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={textColor} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: textColor }]}>Free Rides</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <ScrollView
-        contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 40 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} tintColor={Colors.primary} />}
-        showsVerticalScrollIndicator={false}
-      >
+    <IOSScreen
+      title="Free Rides"
+      back
+      scroll={scroll}
+      contentContainerStyle={{ paddingVertical: 18 }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={load}
+          progressViewOffset={scroll.contentInset}
+          tintColor={Colors.primary}
+        />
+      }
+    >
         {isDriver && (
           <Pressable style={styles.offerCta} onPress={() => router.push("/(driver)/free-ride" as any)}>
             <View style={styles.offerCtaIcon}>
@@ -229,8 +229,7 @@ export default function FreeRidesScreen() {
             );
           })
         )}
-      </ScrollView>
-    </View>
+    </IOSScreen>
   );
 }
 

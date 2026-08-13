@@ -24,15 +24,14 @@ import DiscoverTab from "./discover";
 import type { FeedItem } from "./discover";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
-  Menu02Icon,
-  Search02Icon,
   HomeIcon,
   Home01Icon,
   MessageIcon,
   Message01Icon,
-  Notification02Icon,
-  Notification03Icon,
   Bell,
+  MoreHorizontalCircleIcon,
+  BellOff,
+  Menu03Icon,
 } from "@hugeicons/core-free-icons";
 import {
   Glass,
@@ -64,7 +63,7 @@ const TABS: IOSTab[] = [
   { key: "home",     label: "Home",     icon: Home01Icon,     iconActive: HomeIcon },
   { key: "profile",  label: "You" },
   { key: "messages", label: "Messages", icon: Message01Icon,  iconActive: MessageIcon },
-  { key: "notifications", label: "Notifications", icon: Bell, iconActive: Notification02Icon },
+  { key: "notifications", label: "Notifications", icon: Bell, iconActive: Bell},
 ];
 
 const SIDEBAR_WIDTH = 330;
@@ -498,15 +497,25 @@ export default function MainLayout() {
                 style={[
                   styles.header,
                   {
-                    paddingTop: topPadding + 5,
+                    paddingTop: topPadding + -10,
                   },
                 ]}
               >
-                <Pressable onPress={openSidebar} style={[styles.menuBtn, {backgroundColor: Colors.overlayLight, borderWidth: .5, borderColor: borderColor, padding: 20, borderRadius: 50, alignItems:'center', justifyContent:'center'}]}>
+                <Pressable onPress={openSidebar} style={[styles.menuBtn, {backgroundColor: Colors.overlayLight, borderWidth: 1, borderColor: borderColor, padding: 22, borderRadius: 50, alignItems:'center', justifyContent:'center'}]}>
+                  <Glass
+                    variant="regular"
+                    interactive
+                    radius={30}
+                    style={StyleSheet.absoluteFill}
+                    pointerEvents="none"
+                    fallbackIntensity={40}
+                    fallbackTint={isDark ? Colors.overlayLight : Colors.border}
+                  />
                   <HugeiconsIcon
-                    icon={Menu02Icon}
-                    size={23}
+                    icon={Menu03Icon}
+                    size={24}
                     color={textColor}
+                    fill={textColor}
                   />
                 </Pressable>
                 <View style={styles.logoBtn}>
@@ -524,12 +533,8 @@ export default function MainLayout() {
                   </NetworkStatus>
                 </View>
 
-                <Pressable
-                  onPress={toggleSearch}
-                  accessibilityRole="button"
-                  accessibilityLabel="Find a driver"
-                  style={[styles.menuList, {borderWidth: 1, borderColor: borderColor, alignItems:'center', justifyContent:'center'}]}
-                >
+                <View style={[styles.menuList, {borderWidth: 1, borderColor: borderColor, alignItems:'center', justifyContent:'center'}]}>
+
                   {/* Glass, not a coloured pill. */}
                   <Glass
                     variant="regular"
@@ -540,20 +545,44 @@ export default function MainLayout() {
                     fallbackIntensity={40}
                     fallbackTint={isDark ? Colors.overlayLight : Colors.border}
                   />
-              
-                  <HugeiconsIcon
-                    icon={Search02Icon}
-                    size={24}
-                    color={textColor}
-                  />
-                  <View style={{backgroundColor: Colors.overlayLight, borderWidth: .5, borderColor: borderColor, padding: 8, borderRadius: 50, alignItems:'center', justifyContent:'center'}}>
+
+                  {/* <Pressable
+                    onPress={toggleSearch}
+                    accessibilityRole="button"
+                    accessibilityLabel="Find a driver"
+                  >
                     <HugeiconsIcon
-                      icon={Bell}
+                      icon={Search02Icon}
                       size={24}
                       color={textColor}
                     />
+                  </Pressable> */}
+
+                  <HugeiconsIcon
+                    icon={BellOff}
+                    size={24}
+                    color={textColor}
+                    fill={textColor}
+                  />
+                  
+                  <View style={{ backgroundColor: Colors.overlayLight, borderWidth: .5, borderColor: borderColor, padding: 8, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
+                    <Glass
+                      variant="regular"
+                      interactive
+                      radius={30}
+                      style={StyleSheet.absoluteFill}
+                      pointerEvents="none"
+                      fallbackIntensity={40}
+                      fallbackTint={isDark ? Colors.overlayLight : Colors.border}
+                    />
+                    <HugeiconsIcon
+                      icon={MoreHorizontalCircleIcon}
+                      size={24}
+                      color={textColor}
+                      fill={textColor}
+                    />
                   </View>
-                </Pressable>
+                </View>
               </View>
 
               <View
@@ -741,10 +770,10 @@ const styles = StyleSheet.create({
     padding: 3,
     flexDirection: "row",
     alignItems: "center",
-    gap: 25,
+    gap: 15,
     overflow: "hidden",
     position: 'absolute',
-    right: 15, top: 71,
+    right: 20, top: 55,
     paddingLeft: 12
   },
   menuBtn: {

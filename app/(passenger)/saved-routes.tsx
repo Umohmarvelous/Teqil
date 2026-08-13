@@ -9,14 +9,10 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   Pressable,
-  Platform,
   RefreshControl,
 } from "react-native";
 import { iosAlert } from "@/components/ios";
-import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Swipeable from "react-native-gesture-handler/Swipeable";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -25,6 +21,8 @@ import * as Haptics from "expo-haptics";
 import { useSavedRoutes, type SavedRoute } from "@/src/hooks/useSavedRoutes";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { Colors } from "@/constants/colors";
+import Animated from "react-native-reanimated";
+import { IOSScreen, useCollapsibleScroll } from "@/components/ios";
 import { formatCoins } from "@/src/utils/helpers";
 
 // ─── Route card ──────────────────────────────────────────────────────────────
@@ -185,18 +183,13 @@ const emptyStyles = StyleSheet.create({
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function SavedRoutesScreen() {
-  const insets = useSafeAreaInsets();
+  const scroll = useCollapsibleScroll();
   const { theme } = useSettingsStore();
   const isDark    = theme === "dark";
 
-  const bg        = isDark ? Colors.background : Colors.border;
-  const cardBg    = isDark ? Colors.surface    : "#FFFFFF";
-  const textColor = isDark ? Colors.textWhite  : Colors.text;
-  const subColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
 
   const { routes, loading, deleteRoute, refresh } = useSavedRoutes();
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   const confirmDelete = useCallback((id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -216,26 +209,23 @@ export default function SavedRoutesScreen() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={[styles.root, { backgroundColor: bg }]}>
-        {/* Header */}
-        <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: cardBg }]}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="chevron-back" size={22} color={textColor} />
-          </Pressable>
-          <View style={styles.headerCenter}>
-            <Text style={[styles.headerTitle, { color: textColor }]}>Saved Routes</Text>
-            <Text style={[styles.headerSub, { color: subColor }]}>
-              {routes.length > 0 ? `${routes.length} route${routes.length > 1 ? "s" : ""}` : "Swipe left to delete"}
-            </Text>
-          </View>
-          <View style={{ width: 36 }} />
-        </View>
-
-        <FlatList
+      <IOSScreen
+        title="Saved Routes"
+        subtitle={
+          routes.length > 0
+            ? `${routes.length} route${routes.length > 1 ? "s" : ""}`
+            : "Swipe left to delete"
+        }
+        back
+        scrollable={false}
+        scroll={scroll}
+      >
+        <Animated.FlatList
           data={routes}
           keyExtractor={(r) => r.id}
-          contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          {...scroll.scrollProps}
+          contentContainerStyle={[styles.list, scroll.scrollProps.contentContainerStyle]}
           refreshControl={
             <RefreshControl
               refreshing={loading}
@@ -248,24 +238,13 @@ export default function SavedRoutesScreen() {
             <RouteCard route={item} onDelete={confirmDelete} isDark={isDark} />
           )}
           ListEmptyComponent={!loading ? <EmptyState isDark={isDark} /> : null}
-          ListFooterComponent={<View style={{ height: 60 + insets.bottom }} />}
         />
-      </View>
+      </IOSScreen>
     </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: {
-    flexDirection:    "row",
-    alignItems:       "center",
-    paddingHorizontal:20,
-    paddingBottom:    16,
-  },
-  backBtn:      { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  headerCenter: { flex: 1, alignItems: "center" },
-  headerTitle:  { fontFamily: "Poppins_700Bold",    fontSize: 18 },
-  headerSub:    { fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 1 },
   list:         { padding: 16, gap: 12 },
 });

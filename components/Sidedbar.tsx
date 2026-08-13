@@ -38,7 +38,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import FindDriverModal from "./FindDriverModal";
 import { withDangerousMod } from "expo/config-plugins";
-import { iosAlert } from "@/components/ios";
+import { Glass, iosAlert } from "@/components/ios";
 
 const SIDEBAR_WIDTH = 340;
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -228,7 +228,7 @@ export default function SidedBar() {
           </View>
           
           <View style={styles.drawerRightIcon}>
-            <Pressable onPress={toggleMenu} style={styles.menuList}>
+          <Pressable onPress={toggleMenu} style={styles.menuList}>
               <HugeiconsIcon icon={MoreHorizontalCircleIcon} fill={textColor} size={25} color={textColor} />
             </Pressable>
             
@@ -264,7 +264,16 @@ export default function SidedBar() {
                     ]
                   }
                 ]}
-              >
+            >
+                <Glass
+                    variant="regular"
+                    interactive
+                    radius={26}
+                    style={StyleSheet.absoluteFill}
+                    pointerEvents="none"
+                    fallbackIntensity={40}
+                    fallbackTint={isDark ? Colors.overlayLight : Colors.border}
+                  />
                 <Pressable 
                   style={({ pressed }) => [styles.dropdownItem, pressed && { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)" }]} 
                   onPress={() => { toggleMenu(); router.push("/(auth)/register"); }}

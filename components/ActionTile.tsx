@@ -84,6 +84,7 @@ import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { Colors } from "@/constants/colors";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
+import { Glass } from "./ios";
 
 // We'll pass the icon component directly instead of name string
 interface ActionTileProps {
@@ -97,9 +98,10 @@ export default function ActionTile({ icon: IconComponent, label, color, onPress 
   const { theme } = useSettingsStore();
 
   const isDark = theme === "dark";
-  const ActionTileIcon = isDark ? Colors.overlayLight : Colors.overlayColored;
+  const ActionTileIcon = isDark ? Colors.overlayLight : Colors.overlayLight;
   // const ActionTileIcon = isDark ? Colors.primaryDarker : Colors.overlayColored;
   const textColor = isDark ? Colors.textWhite : Colors.text;
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -130,7 +132,16 @@ export default function ActionTile({ icon: IconComponent, label, color, onPress 
         style={styles.actionTileInner}
       >
         <View style={[styles.actionIconWrap]}>
-          <View style={{ borderWidth: 0, borderColor: isDark ? Colors.textSecondary : Colors.overlay, backgroundColor: ActionTileIcon, padding: 14, borderRadius: 50, opacity: isDark ? .9 : .9 }} >
+          <View style={{ borderWidth: 1, borderColor: borderColor, backgroundColor: ActionTileIcon, padding: 14, borderRadius: 50, opacity: isDark ? .9 : .9 }} >
+            <Glass
+              variant="regular"
+              interactive
+              radius={50}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+              fallbackIntensity={90}
+              fallbackTint={isDark ? Colors.overlayLight : Colors.border}
+            />
             <HugeiconsIcon icon={IconComponent as any}  size={23} color={color}/>
           </View>
           <Text style={[styles.actionLabel, { color: textColor }]}>{label}</Text>
