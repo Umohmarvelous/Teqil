@@ -236,14 +236,28 @@ Requested 2026-08-11. Strict phase order.
 
 | Phase | Scope | Status |
 |---|---|---|
-| **1** | Collapsible headers on every scrollable screen (title left/large → centred/small, glass on scroll). WhatsApp-style profile header: picture shrinks to top-left, username becomes the centred title, buttons stay sticky. | **In progress** — kit support done; `driver/messages` and `park-owner/alerts` converted as reference. ~35 screens remain. Profile header not started. |
+| **1** | Collapsible headers on every scrollable screen (title left/large → centred/small, glass on scroll). WhatsApp-style profile header. | **In progress — 9 of ~24 candidates done.** Done: driver/messages, park-owner/alerts, achievements, free-rides, tiers, saved-routes, passenger/history, route-history/index, park-owner/drivers. Profile header not started. |
 | **2** | Translucent tab bar with content scrolling behind it, correct safe-area insets, no clipping. | **In progress** — `useCollapsibleScroll({ tabBar: true })` supplies both insets; Home fixed. Remaining screens follow with Phase 1. |
 | **3** | Replace the full-width network banner with a centred header status. | **Done.** `components/ios/NetworkStatus.tsx`, wired into the home header's centre slot. `useConnectionQuality` exported separately so the sync layer can share the signal. |
-| **4** | Profile restructure: swipeable **Profile** / **Activity** tabs; Account Settings under Profile; pull-to-refresh on both; tab bar pins on scroll with blur, stays swipeable. | **Partly done.** Account Settings built at `app/account-settings.tsx`, reached from a gear in Profile's action pill. **Swipeable Profile/Activity tabs not started.** |
+| **4** | Profile restructure: swipeable tabs; Account Settings under Profile; pull-to-refresh; tab bar pins on scroll with blur, stays swipeable. | **Done.** Three panes inside `app/(main)/profile.tsx` — Profile / Account Settings / Activity — via `SwipeableTabs`. Gear icon removed; full-width search in the header. Settings screens under `app/settings/` untouched. |
 | **5** | New **Notification** tab replaces the Settings tab. | **Done.** `app/(main)/notifications.tsx`, iOS-grouped (Today/Yesterday/This Week/Earlier). Currently sourced only from unread conversations — sync and system notices need the push/sync layers to report into a store. |
 | **6** | Followers/following. Passengers follow drivers; driver profiles show follower and following counts; follow/unfollow toggle; follower list. Scalable social-graph schema. | Not started |
 | **7** | Proximity: **Fastest Finger** (driver offers an immediate discounted ride, nearby passengers accept instantly); **Find driver/passenger near you** wired into bargaining and ride requests; **Find nearest filling station**. | Not started |
 | **8** | Persistent watermark overlay so screenshots carry the logo; shareable profile deep link; rating/feedback modal. | Partly done — `RatingModal` (Twitter-style alert, 4–5★ → store, 1–3★ → feedback form) already ships. |
+
+### Screens deliberately excluded from Phase 1
+
+A collapsing large title is for scrolling LISTS. These are not, and forcing one
+on them makes them worse:
+
+- **Keyboard forms with sticky footers** — `driver/payout-bank`, `checkout`,
+  `(auth)/register`, `(auth)/driver-profile`, `driver/create-trip`. The title
+  collapses as the keyboard shoves content around.
+- **`(main)` tab screens** — home, discover, feed, messages. The tab shell in
+  `app/(main)/_layout.tsx` already draws their header; adding IOSScreen would
+  double it.
+- **Chat, maps, carousels, modals** — `direct-chat`, `live-trip-code/[code]`,
+  `(auth)/welcome`, `rating`, `ui-kit`.
 
 ### Decisions taken on the roadmap (2026-08-11)
 
@@ -265,7 +279,7 @@ Requested 2026-08-11. Strict phase order.
   Photos, so the approach is a **persistent faint logo overlay** rendered in a
   corner of every screen; any screenshot naturally includes it.
 
-> Last verified state: 2026-08-11, branch `sdk-54-temp`, commit `a0af74a`.
+> Last verified state: 2026-08-13, branch `sdk-54-temp`, commit `880efc3`.
 > Typecheck 0 errors, iOS bundle exports clean.
 
 ---
