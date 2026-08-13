@@ -3,16 +3,15 @@ import {
   View,
   Text,
   StyleSheet,
-  Platform,
-  ScrollView,
   Pressable,
   RefreshControl,
   ActivityIndicator,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/src/store/useStore";
 import { Colors } from "@/constants/colors";
+import Animated from "react-native-reanimated";
+import { IOSScreen, useCollapsibleScroll } from "@/components/ios";
 import { supabase } from "@/src/services/supabase";
 import { useTranslation } from "react-i18next";
 import type { User } from "@/src/models/types";
@@ -146,7 +145,7 @@ function DriverCard({
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function DriversScreen() {
-  const insets = useSafeAreaInsets();
+  const scroll = useCollapsibleScroll();
   const { t } = useTranslation();
   const { user } = useAuthStore();
 
@@ -156,7 +155,6 @@ export default function DriversScreen() {
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   // ── Fetch drivers from Supabase ────────────────────────────────────────────
   const fetchDrivers = useCallback(async () => {
@@ -274,19 +272,16 @@ export default function DriversScreen() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
-        <Text style={styles.headerTitle}>
-          {t("parkOwner.drivers", { defaultValue: "Drivers" })}
-        </Text>
-        <Text style={styles.headerSubtitle}>
-          {user?.park_name
-            ? `${user.park_name}`
-            : t("parkOwner.noDrivers", { defaultValue: "Manage and verify drivers" })}
-        </Text>
-      </View>
-
+    <IOSScreen
+      title={t("parkOwner.drivers", { defaultValue: "Drivers" })}
+      subtitle={
+        user?.park_name
+          ? user.park_name
+          : t("parkOwner.noDrivers", { defaultValue: "Manage and verify drivers" })
+      }
+      scrollable={false}
+      scroll={scroll}
+    >
       {/* Stats Strip */}
       {drivers.length > 0 && (
         <View style={styles.statsStrip}>
@@ -318,13 +313,15 @@ export default function DriversScreen() {
           <Text style={styles.centeredStateText}>Loading drivers...</Text>
         </View>
       ) : (
-        <ScrollView
-          contentContainerStyle={styles.listContent}
+        <Animated.ScrollView
           showsVerticalScrollIndicator={false}
+          {...scroll.scrollProps}
+          contentContainerStyle={[styles.listContent, scroll.scrollProps.contentContainerStyle]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
+              progressViewOffset={scroll.contentInset}
               tintColor={Colors.primary}
             />
           }
@@ -385,44 +382,17 @@ export default function DriversScreen() {
             </Text>
           </View>
 
-          <View
-            style={{
-              height: 100 + (Platform.OS === "web" ? 34 : 0),
-            }}
-          />
-        </ScrollView>
+        </Animated.ScrollView>
       )}
-    </View>
+    </IOSScreen>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
 
   // Header
-  header: {
-    paddingHorizontal: 24,
-    paddingBottom: 16,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-  },
-  headerTitle: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 24,
-    color: Colors.text,
-  },
-  headerSubtitle: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
 
   // Stats strip
   statsStrip: {
