@@ -20,6 +20,8 @@ import { HugeiconsIcon } from "@hugeicons/react-native";
 import { Time02Icon } from "@hugeicons/core-free-icons";
 import { router } from "expo-router";
 import { Colors } from "@/constants/colors";
+import Animated from "react-native-reanimated";
+import { IOSScreen, useCollapsibleScroll } from "@/components/ios";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { useActivityFeed } from "@/src/hooks/useActivityFeed";
 import ActivityFeed from "@/components/ActivityFeed";
@@ -124,7 +126,7 @@ function TripCard({ trip }: TripCardProps) {
 }
 
 export default function PassengerHistoryScreen() {
-  const insets = useSafeAreaInsets();
+  const scroll = useCollapsibleScroll();
   const { user } = useAuthStore();
   const { t } = useTranslation();
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -165,28 +167,22 @@ export default function PassengerHistoryScreen() {
     setRefreshing(false);
   };
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   return (
-    <View style={[styles.container, {backgroundColor: tabBarBg}]}>
-
-      <View style={[styles.header, { paddingTop: topPadding + 10 }, {backgroundColor: tabBarBg, borderColor}]}>
-        <Pressable style={styles.sideElement} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={24} color={textColor} />
-        </Pressable>
-        <View style={{alignItems: 'center'}}>
-          <Text style={[styles.headerTitle, {color:textColor}]}>{t("history.title")}</Text>
-          <Text style={[styles.headerSubtitle,{color:Colors.primary}]}>{trips.length} {trips.length === 1 ? "trips" : "trip"}</Text>
-        </View>
-        <View style={styles.sideElement} />
-      </View>
-
-      <FlatList
+    <IOSScreen
+      title={t("history.title")}
+      subtitle={`${trips.length} ${trips.length === 1 ? "trip" : "trips"}`}
+      back
+      scrollable={false}
+      scroll={scroll}
+    >
+      <Animated.FlatList
         data={trips}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <TripCard trip={item} />}
-        contentContainerStyle={[styles.listContent]}
         showsVerticalScrollIndicator={false}
+        {...scroll.scrollProps}
+        contentContainerStyle={[styles.listContent, scroll.scrollProps.contentContainerStyle]}
         scrollEnabled={!!trips.length || nonTripActivity.length > 0}
         ListHeaderComponent={
           nonTripActivity.length > 0 ? (
@@ -232,7 +228,7 @@ export default function PassengerHistoryScreen() {
           />
         }
       />
-    </View>
+    </IOSScreen>
   );
 }
 

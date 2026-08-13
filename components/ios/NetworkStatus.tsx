@@ -25,7 +25,7 @@
 import React from "react";
 import { View, Text, StyleSheet, type ViewStyle, type StyleProp, ActivityIndicator } from "react-native";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
-import { SymbolView } from "expo-symbols";
+// import { SymbolView } from "expo-symbols";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -156,7 +156,7 @@ export function NetworkStatus({ children, style }: NetworkStatusProps) {
         ) : (
           <View style={{alignItems: 'center', justifyContent: 'center', gap: 12, flexDirection: 'row'}}>
             <HugeiconsIcon icon={Wifi} color={theme.label} size={15}/>
-            <Text numberOfLines={1} style={[IOSAppFont.label, styles.label, { color: theme.label, fontFamily: "Poppins_700Bold" }]}>Back online • Connecting...</Text>
+            <Text numberOfLines={1} style={[IOSAppFont.label, styles.label, { color: theme.systemGreen, fontFamily: "Poppins_700Bold" }]}>Back online...</Text>
           </View>
         )}
       </View>
