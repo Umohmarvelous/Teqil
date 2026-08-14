@@ -15,10 +15,9 @@ import {
   Easing,
   Alert,
   KeyboardAvoidingView,
-  ScrollView,
 } from 'react-native';
+import Reanimated from 'react-native-reanimated';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useAuthStore } from '@/src/store/useStore';
 import { useMessagesStore } from '@/src/store/useMessagesStore';
@@ -26,9 +25,8 @@ import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { Colors } from '@/constants/colors';
 import Avatar from '@/components/Avatar';
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import { iosAlert } from "@/components/ios";
+import { iosAlert, IOSScreen, useCollapsibleScroll } from "@/components/ios";
 import {
-  ArrowLeft01Icon,
   Search01Icon,
   IdentityCardIcon,
   Car01Icon,
@@ -60,7 +58,6 @@ interface DriverPreview {
 }
 
 export default function FindDriverScreen() {
-  const insets  = useSafeAreaInsets();
   const { user }                    = useAuthStore();
   const { fetchConversationByDriverId } = useMessagesStore();
   const { theme }                   = useSettingsStore();
@@ -71,12 +68,11 @@ export default function FindDriverScreen() {
   const [hasError, setHasError] = useState('');
 
   const isDark      = theme === 'dark';
-  const bg          = isDark ? Colors.background   : Colors.border;
   const cardBg      = isDark ? Colors.primaryDarker : '#FFFFFF';
   const textColor   = isDark ? Colors.textWhite     : Colors.text;
   const subColor    = isDark ? Colors.textSecondary : Colors.textTertiary;
   const borderColor = isDark ? 'rgba(255,255,255,0.10)' : '#E5E8EC';
-  const topPad      = Platform.OS === 'web' ? 67 : insets.top;
+  const scroll      = useCollapsibleScroll();
 
   const heroAnim   = useFadeSlide(60);
   const inputAnim  = useFadeSlide(140);
@@ -129,24 +125,23 @@ export default function FindDriverScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: bg }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    <IOSScreen
+      title="Find Driver"
+      subtitle="Search by badge ID"
+      back
+      scrollable={false}
+      scroll={scroll}
     >
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: topPad + 12, backgroundColor: cardBg, borderBottomColor: borderColor }]}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
-          <HugeiconsIcon icon={ArrowLeft01Icon} size={22} color={textColor} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: textColor }]}>Find Driver</Text>
-        <View style={{ width: 38 }} />
-      </View>
-
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 40 }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={styles.root}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        <Reanimated.ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          {...scroll.scrollProps}
+          contentContainerStyle={[styles.scroll, scroll.scrollProps.contentContainerStyle]}
+        >
         {/* Hero */}
         <Animated.View style={[styles.heroBlock, heroAnim]}>
           <View style={[styles.heroIconBg, { backgroundColor: Colors.primaryLight }]}>
@@ -263,29 +258,16 @@ export default function FindDriverScreen() {
             </Text>
           </View>
         )}
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </Reanimated.ScrollView>
+      </KeyboardAvoidingView>
+    </IOSScreen>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
 
-  header: {
-    flexDirection:    'row',
-    alignItems:       'center',
-    justifyContent:   'space-between',
-    paddingHorizontal: 16,
-    paddingBottom:    14,
-    borderBottomWidth: 1,
-  },
-  backBtn: {
-    width: 38, height: 38, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  headerTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 16 },
-
-  scroll: { padding: 20, gap: 20 },
+  scroll: { paddingHorizontal: 20, gap: 20 },
 
   heroBlock: { alignItems: 'center', paddingVertical: 8, gap: 10 },
   heroIconBg: {

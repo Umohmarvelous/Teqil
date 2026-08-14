@@ -154,7 +154,18 @@ export function IOSScreen({
           {children}
         </Animated.ScrollView>
       ) : (
-        <View style={[styles.body, { paddingTop: scroll.contentInset }]}>{children}</View>
+        // A screen that brought its own `scroll` also owns a scrollable, and
+        // that scrollable already carries the header inset as a CONTENT inset
+        // (via `scroll.scrollProps`). Padding the frame as well would inset
+        // twice — content starting a whole header-height too low — and, worse,
+        // would stop anything from passing under the bar, leaving the glass
+        // with nothing to sample and rendering it flat.
+        //
+        // Only a static screen, where nothing scrolls under the header at all,
+        // needs the frame padding.
+        <View style={[styles.body, externalScroll ? null : { paddingTop: scroll.contentInset }]}>
+          {children}
+        </View>
       )}
     </View>
   );

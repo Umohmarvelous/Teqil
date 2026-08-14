@@ -16,7 +16,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TextInput,
   Pressable,
   ActivityIndicator,
@@ -26,13 +25,15 @@ import {
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { StatusBar } from "expo-status-bar";
+import Animated from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
 import {
   IOSButton,
+  IOSScreen,
   IOSSheet,
   IOSAlert,
+  useCollapsibleScroll,
   useIOSTheme,
   IOSFont,
   type IOSAlertAction,
@@ -167,6 +168,8 @@ export default function BarterThreadScreen() {
 
   const t = useIOSTheme();
   const insets = useSafeAreaInsets();
+  // The compose button is pinned below the list, so the list has to clear it.
+  const scroll = useCollapsibleScroll({ extraBottom: 96 });
   const user = useAuthStore((s) => s.user);
 
   const { thread, agreement, loading, loadThread, propose, respond, reportViolation, markFulfilled, reset } =
@@ -264,30 +267,15 @@ export default function BarterThreadScreen() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: t.systemGroupedBackground }]}>
-      <StatusBar style={t.scheme === "dark" ? "light" : "dark"} />
-
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
-          {
-            paddingTop: insets.top + 10,
-            backgroundColor: t.systemBackground,
-            borderBottomColor: t.separator,
-          },
-        ]}
-      >
-        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.back}>
-          <Ionicons name="chevron-back" size={26} color={t.tint} />
-        </Pressable>
-        <Text style={[IOSFont.headline, { color: t.label }]}>Bargaining</Text>
-        <View style={{ width: 34 }} />
-      </View>
-
-      <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 120, gap: 14 }}
+    <IOSScreen title="Bargaining" back scrollable={false} scroll={scroll}>
+      <Animated.ScrollView
+        style={styles.flex}
         showsVerticalScrollIndicator={false}
+        {...scroll.scrollProps}
+        contentContainerStyle={[
+          { paddingHorizontal: 16, gap: 14 },
+          scroll.scrollProps.contentContainerStyle,
+        ]}
       >
         {/* Agreement banner — the record both sides consented to */}
         {agreement && (
@@ -398,7 +386,7 @@ export default function BarterThreadScreen() {
             />
           ))
         )}
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Compose — hidden once an agreement exists or it isn't your turn */}
       {!agreement && (
@@ -526,21 +514,12 @@ export default function BarterThreadScreen() {
         actions={alert?.actions ?? []}
         onClose={() => setAlert(null)}
       />
-    </View>
+    </IOSScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  back: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
+  flex: { flex: 1 },
 
   bubbleRow: { alignItems: "flex-start", gap: 8 },
   bubbleRowMine: { alignItems: "flex-end" },
