@@ -18,16 +18,12 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ScrollView,
   TextInput,
   ActivityIndicator,
-  Platform,
 } from "react-native";
 import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { StatusBar } from "expo-status-bar";
 import { Colors } from "@/constants/colors";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
@@ -39,10 +35,81 @@ import {
 } from "@/src/store/useFreeRidesStore";
 import { useFuelPoolStore } from "@/src/store/useFuelPoolStore";
 import { formatNaira } from "@/src/utils/helpers";
-import { iosAlert } from "@/components/ios";
+import { iosAlert, IOSScreen } from "@/components/ios";
+
+/**
+ * Both of these used to be declared INSIDE the screen component.
+ *
+ * That meant a new component type on every render, so React unmounted and
+ * remounted the subtree on each keystroke — the field lost focus and the
+ * keyboard dismissed itself after every character typed. Declared at module
+ * scope, the type is stable and the inputs keep focus.
+ */
+function ModeCard({
+  value,
+  title,
+  desc,
+  mode,
+  onSelect,
+  cardBg,
+  borderColor,
+  textColor,
+  subColor,
+}: {
+  value: FreeRideMode;
+  title: string;
+  desc: string;
+  mode: FreeRideMode;
+  onSelect: (m: FreeRideMode) => void;
+  cardBg: string;
+  borderColor: string;
+  textColor: string;
+  subColor: string;
+}) {
+  const active = mode === value;
+  return (
+    <Pressable
+      onPress={() => {
+        Haptics.selectionAsync();
+        onSelect(value);
+      }}
+      style={[
+        styles.modeCard,
+        { backgroundColor: cardBg, borderColor: active ? Colors.primary : borderColor },
+        active && { borderWidth: 2 },
+      ]}
+    >
+      <View style={styles.modeHead}>
+        <Text style={[styles.modeTitle, { color: textColor }]}>{title}</Text>
+        <Ionicons
+          name={active ? "radio-button-on" : "radio-button-off"}
+          size={20}
+          color={active ? Colors.primary : subColor}
+        />
+      </View>
+      <Text style={[styles.modeDesc, { color: subColor }]}>{desc}</Text>
+    </Pressable>
+  );
+}
+
+function Field({
+  label,
+  subColor,
+  children,
+}: {
+  label: string;
+  subColor: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={{ marginBottom: 14 }}>
+      <Text style={[styles.label, { color: subColor }]}>{label}</Text>
+      {children}
+    </View>
+  );
+}
 
 export default function OfferFreeRideScreen() {
-  const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const isDark = useSettingsStore((s) => s.theme) === "dark";
   const { createOffer, fetchOpenOffers, closeOffer, openOffers, fetchMyClaims, myClaims } =
@@ -104,7 +171,6 @@ export default function OfferFreeRideScreen() {
 
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const bg = isDark ? Colors.background : "#F6F7FB";
   const cardBg = isDark ? Colors.overlayLight : "#FFFFFF";
   const inputBg = isDark ? "rgba(255,255,255,0.06)" : "#F1F3F7";
   const borderColor = isDark ? "rgba(255,255,255,0.10)" : "#ECEEF3";
@@ -159,11 +225,7 @@ export default function OfferFreeRideScreen() {
   // ── Premium gate ──────────────────────────────────────────────────────────
   if (!isPremium) {
     return (
-      <View style={[styles.root, { backgroundColor: bg, paddingTop: insets.top + 12 }]}>
-        <StatusBar style={isDark ? "light" : "dark"} />
-        <Pressable style={styles.back} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={textColor} />
-        </Pressable>
+      <IOSScreen title="Free Rides" back scrollable={false}>
         <View style={styles.gate}>
           <Ionicons name="diamond" size={54} color={Colors.gold} />
           <Text style={[styles.gateTitle, { color: textColor }]}>Free rides are a Premium perk</Text>
@@ -175,61 +237,13 @@ export default function OfferFreeRideScreen() {
             <Text style={styles.gateBtnText}>See Premium plans</Text>
           </Pressable>
         </View>
-      </View>
+      </IOSScreen>
     );
   }
 
-  const ModeCard = ({ value, title, desc }: { value: FreeRideMode; title: string; desc: string }) => {
-    const active = mode === value;
-    return (
-      <Pressable
-        onPress={() => {
-          Haptics.selectionAsync();
-          setMode(value);
-        }}
-        style={[
-          styles.modeCard,
-          { backgroundColor: cardBg, borderColor: active ? Colors.primary : borderColor },
-          active && { borderWidth: 2 },
-        ]}
-      >
-        <View style={styles.modeHead}>
-          <Text style={[styles.modeTitle, { color: textColor }]}>{title}</Text>
-          <Ionicons
-            name={active ? "radio-button-on" : "radio-button-off"}
-            size={20}
-            color={active ? Colors.primary : subColor}
-          />
-        </View>
-        <Text style={[styles.modeDesc, { color: subColor }]}>{desc}</Text>
-      </Pressable>
-    );
-  };
-
-  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <View style={{ marginBottom: 14 }}>
-      <Text style={[styles.label, { color: subColor }]}>{label}</Text>
-      {children}
-    </View>
-  );
-
   return (
-    <View style={[styles.root, { backgroundColor: bg }]}>
-      <StatusBar style={isDark ? "light" : "dark"} />
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <Pressable style={styles.back} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={textColor} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: textColor }]}>Offer a Free Ride</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <ScrollView
-        contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 40 }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Fuel pool banner */}
+    <IOSScreen title="Offer a Free Ride" back subtitle="Reward ride or open barter">
+      {/* Fuel pool banner */}
         <View style={[styles.poolBanner, { backgroundColor: Colors.primary + "14", borderColor }]}>
           <Ionicons name="flame" size={20} color={Colors.primary} />
           <Text style={[styles.poolText, { color: textColor }]}>
@@ -242,11 +256,23 @@ export default function OfferFreeRideScreen() {
           value="reward"
           title="Reward ride — you set the terms"
           desc="Passengers can only ACCEPT (no bargaining). Complete GPS-tracked free rides to earn free fuel from the pool."
+          mode={mode}
+          onSelect={setMode}
+          cardBg={cardBg}
+          borderColor={borderColor}
+          textColor={textColor}
+          subColor={subColor}
         />
         <ModeCard
           value="barter"
           title="Open for barter — free-will exchange"
           desc="A ride in exchange for money, goods or services. Both of you can BARGAIN and agree. No free-fuel reward."
+          mode={mode}
+          onSelect={setMode}
+          cardBg={cardBg}
+          borderColor={borderColor}
+          textColor={textColor}
+          subColor={subColor}
         />
 
         <View style={{ height: 8 }} />
@@ -254,7 +280,7 @@ export default function OfferFreeRideScreen() {
 
         <View style={{ flexDirection: "row", gap: 12 }}>
           <View style={{ flex: 1 }}>
-            <Field label="Open for (minutes)">
+            <Field label="Open for (minutes)" subColor={subColor}>
               <View style={[styles.inputRow, { backgroundColor: inputBg }]}>
                 <TextInput
                   style={[styles.input, { color: textColor }]}
@@ -268,7 +294,7 @@ export default function OfferFreeRideScreen() {
             </Field>
           </View>
           <View style={{ flex: 1 }}>
-            <Field label="Max passengers">
+            <Field label="Max passengers" subColor={subColor}>
               <View style={[styles.inputRow, { backgroundColor: inputBg }]}>
                 <TextInput
                   style={[styles.input, { color: textColor }]}
@@ -284,7 +310,7 @@ export default function OfferFreeRideScreen() {
         </View>
 
         {mode === "barter" && (
-          <Field label="What do you want in exchange?">
+          <Field label="What do you want in exchange?" subColor={subColor}>
             <View style={[styles.inputRow, { backgroundColor: inputBg }]}>
               <TextInput
                 style={[styles.input, { color: textColor, minHeight: 44 }]}
@@ -298,7 +324,7 @@ export default function OfferFreeRideScreen() {
           </Field>
         )}
 
-        <Field label="Extra requirements (optional)">
+        <Field label="Extra requirements (optional)" subColor={subColor}>
           <View style={[styles.inputRow, { backgroundColor: inputBg }]}>
             <TextInput
               style={[styles.input, { color: textColor, minHeight: 44 }]}
@@ -365,18 +391,12 @@ export default function OfferFreeRideScreen() {
               </View>
             ))}
           </View>
-        )}
-      </ScrollView>
-    </View>
+      )}
+    </IOSScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingBottom: 8 },
-  back: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontFamily: "Poppins_700Bold", fontSize: 18 },
-
   gate: { flex: 1, alignItems: "center", justifyContent: "center", gap: 14, paddingHorizontal: 30 },
   gateTitle: { fontFamily: "Poppins_700Bold", fontSize: 20, textAlign: "center" },
   gateText: { fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center", lineHeight: 21 },

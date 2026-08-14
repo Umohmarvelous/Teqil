@@ -3,16 +3,14 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
-  Platform,
   Pressable,
   RefreshControl,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Animated from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/src/store/useStore";
 import { Colors } from "@/constants/colors";
-import { Glass } from "@/components/ios";
+import { Glass, IOSScreen, useCollapsibleScroll } from "@/components/ios";
 import { TripsStorage, PassengersStorage } from "@/src/services/storage";
 import { triggerSyncNow } from "@/src/services/sync";
 import { formatDate, formatDuration, formatCoins, formatNaira, coinsToNaira, } from "@/src/utils/helpers";
@@ -21,8 +19,6 @@ import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { BarcodeScanIcon, Calendar, Star, Time01Icon } from "@hugeicons/core-free-icons";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
-import { router } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { useActivityFeed } from "@/src/hooks/useActivityFeed";
 import ActivityFeed from "@/components/ActivityFeed";
 
@@ -47,12 +43,8 @@ function StatSummary({
 
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
-  const bg = isDark ? Colors.background : Colors.textWhite;
   const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
-    const tabBarBg = isDark ? Colors.background : Colors.textWhite;
   const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
-  const textColor = isDark ? Colors.textWhite : Colors.text;
-  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
 
   return (
     <View style={styles.summaryRow}>
@@ -271,9 +263,9 @@ function EmptyState({ filter }: { filter: FilterTab }) {
 }
 
 export default function DriverHistoryScreen() {
-  const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const { t } = useTranslation();
+  const scroll = useCollapsibleScroll();
 
   const [allTrips, setAllTrips] = useState<TripWithPassengerCount[]>([]);
   const [filter, setFilter] = useState<FilterTab>("all");
@@ -333,145 +325,90 @@ export default function DriverHistoryScreen() {
 
   const totalCoins = allTrips.reduce((sum, t) => sum + t.estimatedCoins, 0);
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
-
-
-
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
-  const bg = isDark ? Colors.background : Colors.textWhite;
   const tabBarBg = isDark ? Colors.background : Colors.textWhite;
   const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
   const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
 
-
   return (
-    <View style={[styles.container, {backgroundColor: tabBarBg}]}>
-      <StatusBar style={isDark ? 'light' : 'dark'}  />
-
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: topPadding + 10 }, { borderColor }]}>
-        <Glass
-          variant="regular"
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-          fallbackIntensity={90}
-          fallbackTint={tabBarBg}
-        />
-        <Pressable
-          style={styles.sideElement}
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Ionicons name="chevron-back" size={24} color={textColor} />
-        </Pressable>
-        <View style={{alignItems: 'center'}}>
-          <Text style={[styles.headerTitle, {color: textColor}]}>{t("history.title")}</Text>
-          <Text style={[styles.headerSubtitle, {color: Colors.primary}]}>{allTrips.length} {allTrips.length === 1 ? "trip" : "trips"} so far</Text>
-        </View>
-        <View style={styles.sideElement} />
-      </View>
-
-
-      <FlatList
+    <IOSScreen
+      title={t("history.title")}
+      subtitle={`${allTrips.length} ${allTrips.length === 1 ? "trip" : "trips"} so far`}
+      back
+      scrollable={false}
+      scroll={scroll}
+    >
+      <Animated.FlatList
         data={filtered}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={[styles.listContent, {backgroundColor: tabBarBg}]}
+        keyExtractor={(item: TripWithPassengerCount) => item.id}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) =>
-          <View style={[styles.scrollContent, {backgroundColor: tabBarBg}]}>
+        {...scroll.scrollProps}
+        contentContainerStyle={[styles.listContent, scroll.scrollProps.contentContainerStyle]}
+        renderItem={({ item }: { item: TripWithPassengerCount }) => (
+          <View style={styles.scrollContent}>
             <TripCard trip={item} />
           </View>
-        }
-        //     paddingHorizontal: 20,  borderWidth: 1.5, borderColor: Colors.error,
-
+        )}
         refreshControl={
           <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={Colors.primary}
-          colors={[Colors.primary]}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            progressViewOffset={scroll.contentInset}
+            tintColor={Colors.primary}
+            colors={[Colors.primary]}
           />
         }
         ListHeaderComponent={
           <>
-          {nonTripActivity.length > 0 && (
-            <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6, gap: 8, backgroundColor: tabBarBg }}>
-              <Text style={[styles.headerTitle, { color: textColor, fontSize: 15 }]}>Payments & rewards</Text>
-              <ActivityFeed
-                activities={nonTripActivity}
-                textColor={textColor}
-                subColor={subTextColor}
-                cardBg={cardBg}
-                borderColor={borderColor}
-                limit={6}
-              />
-            </View>
-          )}
-          <View style={[styles.FilterTabHolder, { borderBottomColor: borderColor }]}>
-            <Glass
-              variant="regular"
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-              fallbackIntensity={80}
-              fallbackTint={tabBarBg}
-            />
-            {allTrips.length > 0 && (
-              <StatSummary
-              totalTrips={allTrips.length}
-              completedTrips={counts.completed}
-              totalCoins={totalCoins}
-              />
+            {nonTripActivity.length > 0 && (
+              <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6, gap: 8 }}>
+                <Text style={[styles.headerTitle, { color: textColor, fontSize: 15 }]}>
+                  Payments &amp; rewards
+                </Text>
+                <ActivityFeed
+                  activities={nonTripActivity}
+                  textColor={textColor}
+                  subColor={subTextColor}
+                  cardBg={cardBg}
+                  borderColor={borderColor}
+                  limit={6}
+                />
+              </View>
             )}
-            <FilterTabs active={filter} onChange={setFilter} counts={counts} />
-          </View>
+            <View style={[styles.FilterTabHolder, { borderBottomColor: borderColor }]}>
+              <Glass
+                variant="regular"
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+                fallbackIntensity={80}
+                fallbackTint={tabBarBg}
+              />
+              {allTrips.length > 0 && (
+                <StatSummary
+                  totalTrips={allTrips.length}
+                  completedTrips={counts.completed}
+                  totalCoins={totalCoins}
+                />
+              )}
+              <FilterTabs active={filter} onChange={setFilter} counts={counts} />
+            </View>
           </>
         }
-        ListEmptyComponent={
-          <EmptyState filter={filter} />
-        }
-        ListFooterComponent={
-          <View style={{ height: 100 + (Platform.OS === "web" ? 34 : 0) }} />
-        }
+        ListEmptyComponent={<EmptyState filter={filter} />}
       />
-    </View>
+    </IOSScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-
-
-    // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingBottom: 16,
-    // borderBottomWidth: 1,
-  },
   headerTitle: {
     fontFamily: "Inter-Black",
     fontSize: 19,
-    color: Colors.text, 
+    color: Colors.text,
   },
-  headerSubtitle: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12,
-    color: Colors.textSecondary,
-  },
-  sideElement: {
-    width: 40, // Fixed width ensures the left and right take up equal space
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
-
-
-
 
   // Summary cards
   summaryRow: {
@@ -713,7 +650,9 @@ const styles = StyleSheet.create({
   // Empty state
   emptyState: {
     alignItems: "center",
-    paddingTop: 220,
+    // The header's content inset already pushes the list down; this only has
+    // to clear the filter strip above it.
+    paddingTop: 80,
     gap: 12,
     paddingHorizontal: 40,
     justifyContent: 'center',

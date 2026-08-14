@@ -9,7 +9,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
   Platform,
   TextInput,
@@ -27,7 +26,14 @@ import { syncAll } from "@/src/services/sync";
 import { generateId, formatNaira, coinsToNaira } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
-import { iosAlert } from "@/components/ios";
+import Reanimated, {
+  useAnimatedScrollHandler,
+  useAnimatedReaction,
+  useSharedValue,
+  runOnJS,
+} from "react-native-reanimated";
+import { StatusBar } from "expo-status-bar";
+import { iosAlert, Glass, useIOSTheme } from "@/components/ios";
 
 const FB = {
   navy: "#00205B",
@@ -78,6 +84,51 @@ function StatCard({
   );
 }
 
+// ─── Quick action tile ────────────────────────────────────────────────────────
+//
+// Its own component because it owns an Animated.Value. This used to be an
+// inline `.map()` that called `useRef` per item — a hook inside a loop, which
+// only happened to work because the array is a constant literal. One
+// conditional entry and the hook order would shift between renders.
+
+function QuickTile({
+  label,
+  icon,
+  color,
+  route,
+}: {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  route: string | null;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  return (
+    <Animated.View style={[styles.quickTile, { transform: [{ scale }] }]}>
+      <Pressable
+        onPressIn={() =>
+          Animated.spring(scale, { toValue: 0.9, useNativeDriver: true, speed: 50 }).start()
+        }
+        onPressOut={() =>
+          Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 30 }).start()
+        }
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          if (route) router.push(route as any);
+          else iosAlert("Coming Soon", `${label} feature coming soon.`);
+        }}
+        style={styles.quickTileInner}
+      >
+        <View style={[styles.quickIconBox, { backgroundColor: color + "18" }]}>
+          <Ionicons name={icon} size={22} color={color} />
+        </View>
+        <Text style={styles.quickLabel}>{label}</Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 // ─── Active trip item ─────────────────────────────────────────────────────────
 function ActiveTripItem({ trip }: { trip: Trip & { passengerCount: number } }) {
   return (
@@ -121,6 +172,24 @@ export default function ParkOwnerDashboard() {
   const [isSending, setIsSending] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [balanceHidden, setBalanceHidden] = useState(false);
+
+  const ios = useIOSTheme();
+  const scrollY = useSharedValue(0);
+  const [collapsed, setCollapsed] = useState(false);
+
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      scrollY.value = e.contentOffset.y;
+    },
+  });
+
+  // The hero is tall; the bar only takes over once its summary card has gone.
+  useAnimatedReaction(
+    () => scrollY.value > 130,
+    (next, previous) => {
+      if (next !== previous) runOnJS(setCollapsed)(next);
+    },
+  );
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const displayName = user?.full_name || "Park Owner";
@@ -210,21 +279,26 @@ export default function ParkOwnerDashboard() {
   };
 
   return (
-    <ScrollView
-      style={styles.root}
-      contentContainerStyle={[
-        styles.scrollContent,
-        { paddingBottom: Math.max(insets.bottom, 24) + 100 },
-      ]}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={FB.green}
-        />
-      }
-    >
+    <View style={styles.root}>
+      <StatusBar style="light" />
+
+      <Reanimated.ScrollView
+        style={styles.root}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(insets.bottom, 24) + 100 },
+        ]}
+        showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={FB.green}
+          />
+        }
+      >
       {/* ── Hero ── */}
       <LinearGradient
         colors={[FB.navy, FB.navyDark]}
@@ -304,28 +378,15 @@ export default function ParkOwnerDashboard() {
             { label: "Alerts",   icon: "warning-outline" as const,       color: FB.red,    route: "/(park-owner)/alerts" },
             { label: "Broadcast",icon: "megaphone-outline" as const,     color: "#7C3AED", route: null },
             { label: "Reports",  icon: "bar-chart-outline" as const,     color: "#0891B2", route: null },
-          ].map((item) => {
-            const scale = useRef(new Animated.Value(1)).current;
-            return (
-              <Animated.View key={item.label} style={[styles.quickTile, { transform: [{ scale }] }]}>
-                <Pressable
-                  onPressIn={() => Animated.spring(scale, { toValue: 0.9, useNativeDriver: true, speed: 50 }).start()}
-                  onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 30 }).start()}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    if (item.route) router.push(item.route as any);
-                    else iosAlert("Coming Soon", `${item.label} feature coming soon.`);
-                  }}
-                  style={styles.quickTileInner}
-                >
-                  <View style={[styles.quickIconBox, { backgroundColor: item.color + "18" }]}>
-                    <Ionicons name={item.icon} size={22} color={item.color} />
-                  </View>
-                  <Text style={styles.quickLabel}>{item.label}</Text>
-                </Pressable>
-              </Animated.View>
-            );
-          })}
+          ].map((item) => (
+            <QuickTile
+              key={item.label}
+              label={item.label}
+              icon={item.icon}
+              color={item.color}
+              route={item.route}
+            />
+          ))}
         </View>
       </View>
 
@@ -410,11 +471,66 @@ export default function ParkOwnerDashboard() {
           </Pressable>
         </View>
       </View>
-    </ScrollView>
+      </Reanimated.ScrollView>
+
+      {/*
+        Pinned bar.
+
+        The gradient hero is this screen's header, so there is no large title to
+        collapse — instead a compact glass bar takes over once the hero has
+        scrolled past, keeping the park name and the account button reachable.
+        It materialises through `present` rather than fading: opacity anywhere
+        above a GlassView renders the effect incorrectly (expo/expo#41024).
+      */}
+      <View style={[styles.pinnedBar, { paddingTop: topPadding }]} pointerEvents="box-none">
+        <Glass
+          variant="regular"
+          present={collapsed}
+          animated
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+          fallbackIntensity={100}
+          fallbackTint={ios.scheme === "dark" ? "rgba(0,20,64,0.72)" : "rgba(0,32,91,0.82)"}
+          androidTint={ios.scheme === "dark" ? "rgba(0,20,64,0.92)" : "rgba(0,32,91,0.94)"}
+        />
+        {collapsed && (
+          <View style={styles.pinnedRow}>
+            <Text style={styles.pinnedTitle} numberOfLines={1}>
+              {parkName}
+            </Text>
+            <Pressable onPress={handleLogout} hitSlop={10} style={styles.avatarCircle}>
+              <Ionicons name="person" size={18} color="#fff" />
+            </Pressable>
+          </View>
+        )}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  pinnedBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    overflow: "hidden",
+  },
+  pinnedRow: {
+    height: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  pinnedTitle: {
+    flex: 1,
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 16,
+    color: "#FFFFFF",
+  },
   root: { flex: 1, backgroundColor: FB.offWhite },
   scrollContent: {},
 
