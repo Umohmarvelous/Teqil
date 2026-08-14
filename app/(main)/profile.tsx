@@ -49,6 +49,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
+  type SharedValue,
 } from "react-native-reanimated";
 import { StatusBar } from "expo-status-bar";
 import { HugeiconsIcon } from "@hugeicons/react-native";
@@ -289,6 +290,82 @@ function BarFade({
   );
 }
 
+/**
+ * The profile picture, travelling.
+ *
+ * It lives OUTSIDE the scroll view, because a view inside the scroll can only
+ * scroll away — it can't stop at the bar. So the hero reserves an empty slot of
+ * exactly its size and this overlay draws it, tracking the scroll one-to-one
+ * until it reaches the bar, then docking there.
+ *
+ *     translateY = heroTop − progress × travel     (progress = scrollY / travel)
+ *
+ * ── Why the extra shift ──────────────────────────────────────────────────────
+ * `scale` works about the view's CENTRE, so shrinking alone would pull the top
+ * and left edges inward and the avatar would drift diagonally as it shrank. The
+ * shift term puts those edges back where they started, which is what makes the
+ * motion read as "the same picture getting smaller" rather than "a picture
+ * sliding and resizing at once".
+ *
+ * Transforms compose right-to-left, so `scale` is applied first and the
+ * translations act on the already-scaled result — that ordering is load-bearing.
+ */
+function TravellingAvatar({
+  scrollY,
+  insetTop,
+  barHeight,
+  name,
+  photoUri,
+  onPress,
+  badgeBg,
+  badgeColor,
+}: {
+  scrollY: SharedValue<number>;
+  insetTop: number;
+  barHeight: number;
+  name: string;
+  photoUri?: string | null;
+  onPress: () => void;
+  badgeBg: string;
+  badgeColor: string;
+}) {
+  const heroTop = barHeight + HERO_PAD_TOP;
+  const dockedTop = insetTop + (BAR_ROW_HEIGHT - AVATAR_BOX * AVATAR_SCALE) / 2;
+  // Guard the divide: a zero travel would make progress NaN on the first frame.
+  const travel = Math.max(1, heroTop - dockedTop);
+
+  const avatarStyle = useAnimatedStyle(() => {
+    const progress = Math.min(1, Math.max(0, scrollY.value / travel));
+    const scale = 1 - (1 - AVATAR_SCALE) * progress;
+    const shift = (AVATAR_BOX / 2) * (1 - scale);
+    return {
+      transform: [
+        { translateY: heroTop - progress * travel - shift },
+        { translateX: -shift },
+        { scale },
+      ],
+    };
+  });
+
+  // The camera badge is plain content — no glass — so it can safely fade.
+  const badgeStyle = useAnimatedStyle(() => ({
+    opacity: 1 - Math.min(1, Math.max(0, scrollY.value / travel)),
+  }));
+
+  return (
+    <Animated.View style={[styles.avatarTravel, avatarStyle]}>
+      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Change photo">
+        <View style={styles.avatarWrap}>
+          <Avatar name={name} photoUri={photoUri} size={AVATAR} />
+        </View>
+        <Animated.View style={[styles.cameraBtn, { backgroundColor: badgeBg }, badgeStyle]}>
+          <HugeiconsIcon icon={Camera01Icon} size={13} color={badgeColor} />
+        </Animated.View>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 // Reusable InfoRow with Hugeicons
 function InfoRow({
   icon,
@@ -385,6 +462,26 @@ const CARD_RADIUS = 30;
 /** Height of the pinned bar, excluding the status bar. */
 const BAR_ROW_HEIGHT = 52;
 
+// ─── Header geometry ─────────────────────────────────────────────────────────
+//
+// The avatar travels from the hero into the bar, so both ends of that journey
+// have to be known numbers rather than measured ones — a measured start would
+// arrive a frame late and the avatar would jump on first scroll.
+//
+// The hero pins them down: `heroRow` aligns to `flex-start`, so the avatar's top
+// edge IS the hero's content top, and its left edge IS the page gutter. The bar
+// end is arithmetic from the row height. Nothing needs measuring.
+
+/** Page gutter — the same on the hero and inside the bar, so X never travels. */
+const HERO_INSET = 16;
+const HERO_PAD_TOP = 14;
+const AVATAR = 66;
+/** Ring: 2pt border + 2pt padding, each side. */
+const AVATAR_BOX = AVATAR + 8;
+/** Size the avatar shrinks to once docked in the bar. */
+const AVATAR_DOCKED = 30;
+const AVATAR_SCALE = AVATAR_DOCKED / AVATAR;
+
 const SEARCH_SUGGESTIONS = [
   "Dark mode",
   "Payout account",
@@ -428,6 +525,9 @@ export default function ProfileTab() {
 
   const [tab, setTab] = useState<ProfilePane>("profile");
   const [refreshing, setRefreshing] = useState(false);
+  // Shared with SwipeableTabs so the travelling avatar and the bar's collapse
+  // are driven by the same offset and can never disagree by a frame.
+  const scrollY = useSharedValue(0);
 
   const [knownEmail, setKnownEmail] = useState<string | null>(null);
 
@@ -777,9 +877,11 @@ export default function ProfileTab() {
         />
 
         <View style={styles.barRow} pointerEvents="box-none">
-          <BarFade visible={collapsed} style={styles.barLeft}>
-            <Avatar name={displayName} photoUri={user?.profile_photo} size={30} />
-          </BarFade>
+          {/* The avatar docks here, but it is drawn by TravellingAvatar outside
+              this bar — a child of the bar would be clipped by it at rest, and
+              at rest the avatar is a whole hero below. This only holds its
+              place so the centre slot stays centred. */}
+          <View style={styles.barLeft} pointerEvents="none" />
 
           {/* Same centre slot as every other screen: the connection takes it
               over the moment it degrades, and hands it back on recovery. */}
@@ -831,6 +933,7 @@ export default function ProfileTab() {
           variant="capsule"
           barHeight={barHeight}
           renderBar={renderBar}
+          scrollY={scrollY}
           stripInset={16}
           contentContainerStyle={{ paddingBottom: bottomInset + 32 }}
           refreshControl={
@@ -844,14 +947,11 @@ export default function ProfileTab() {
           header={
             <View style={styles.hero}>
               <View style={styles.heroRow}>
-                <Pressable onPress={pickPhoto} accessibilityRole="button" accessibilityLabel="Change photo">
-                  <View style={styles.avatarWrap}>
-                    <Avatar name={displayName} photoUri={user?.profile_photo} size={66} />
-                  </View>
-                  <View style={[styles.cameraBtn, { backgroundColor: bg }]}>
-                    <HugeiconsIcon icon={Camera01Icon} size={13} color={textColor} />
-                  </View>
-                </Pressable>
+                {/* The avatar is drawn by TravellingAvatar, outside the scroll.
+                    This reserves exactly its footprint so the text sits where it
+                    always did — and because the row aligns to flex-start, the
+                    slot's top-left IS the coordinate that overlay starts from. */}
+                <View style={styles.avatarSlot} />
 
                 <View style={styles.heroText}>
                   <Text numberOfLines={1} style={[styles.heroName, { color: textColor }]}>
@@ -1262,6 +1362,19 @@ export default function ProfileTab() {
           </View>
         </SwipeableTabs>
 
+        {/* Drawn after SwipeableTabs so it sits above the pinned bar it docks
+            into, and outside it so nothing clips it on the way up. */}
+        <TravellingAvatar
+          scrollY={scrollY}
+          insetTop={insets.top}
+          barHeight={barHeight}
+          name={displayName}
+          photoUri={user?.profile_photo}
+          onPress={pickPhoto}
+          badgeBg={bg}
+          badgeColor={textColor}
+        />
+
         {/* Search: one field, the whole screen's contents behind it. */}
         <IOSSearchOverlay
           visible={searchOpen}
@@ -1366,9 +1479,20 @@ const styles = StyleSheet.create({
   },
 
   // ── Hero ───────────────────────────────────────────────────────────────────
-  hero: { paddingHorizontal: 16, paddingTop: 14 },
-  heroRow: { flexDirection: "row", alignItems: "center", gap: 14 },
-  heroText: { flex: 1, gap: 5 },
+  hero: { paddingHorizontal: HERO_INSET, paddingTop: HERO_PAD_TOP },
+  // flex-start, not center: it makes the slot's top edge exactly the hero's
+  // content top, which is the coordinate TravellingAvatar starts from.
+  heroRow: { flexDirection: "row", alignItems: "flex-start", gap: 14 },
+  avatarSlot: { width: AVATAR_BOX, height: AVATAR_BOX },
+  avatarTravel: {
+    position: "absolute",
+    top: 0,
+    left: HERO_INSET,
+    width: AVATAR_BOX,
+    height: AVATAR_BOX,
+    zIndex: 40,
+  },
+  heroText: { flex: 1, gap: 5, paddingTop: 2 },
   avatarWrap: {
     position: "relative",
     borderWidth: 2,

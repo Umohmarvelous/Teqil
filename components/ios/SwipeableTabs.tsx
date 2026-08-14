@@ -62,6 +62,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  type SharedValue,
 } from "react-native-reanimated";
 
 import { haptics } from "@/src/utils/haptics";
@@ -107,6 +108,15 @@ export interface SwipeableTabsProps<T extends string = string> {
   stripInset?: number;
   /** Height of the segmented control itself. */
   stripHeight?: number;
+  /**
+   * Scroll offset, if the caller needs it too.
+   *
+   * Chrome that has to travel *continuously* with the scroll — an avatar
+   * shrinking into the bar, say — can't work from the `collapsed` boolean,
+   * which only says which side of a threshold we're on. Pass a shared value and
+   * it's driven from the same handler, so the two never disagree by a frame.
+   */
+  scrollY?: SharedValue<number>;
 }
 
 export function SwipeableTabs<T extends string = string>({
@@ -124,10 +134,13 @@ export function SwipeableTabs<T extends string = string>({
   variant = "capsule",
   stripInset = 16,
   stripHeight = 52,
+  scrollY: externalScrollY,
 }: SwipeableTabsProps<T>) {
   const theme = useIOSTheme();
 
-  const scrollY = useSharedValue(0);
+  const internalScrollY = useSharedValue(0);
+  const scrollY = externalScrollY ?? internalScrollY;
+
   const onScroll = useAnimatedScrollHandler({
     onScroll: (e) => {
       scrollY.value = e.contentOffset.y;
