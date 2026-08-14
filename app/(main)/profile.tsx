@@ -101,6 +101,7 @@ import { useCreditsStore } from "@/src/store/useCreditsStore";
 import { useProgramStore } from "@/src/store/useProgramStore";
 import { useTransactionsStore } from "@/src/store/useTransactionsStore";
 import { useAchievementsStore } from "@/src/store/useAchievementsStore";
+import { useFollowsStore } from "@/src/store/useFollowsStore";
 import { useActivityFeed } from "@/src/hooks/useActivityFeed";
 import ActivityFeed from "@/components/ActivityFeed";
 import {
@@ -547,6 +548,26 @@ export default function ProfileTab() {
   const unlockedAchievements = useAchievementsStore((s) => s.unlocked);
   const activities = useActivityFeed();
 
+  // ── Social graph (Phase 6) ────────────────────────────────────────────────
+  const followStats = useFollowsStore((s) => (user?.id ? s.stats[user.id] : undefined));
+  const loadFollowStats = useFollowsStore((s) => s.loadStats);
+
+  useEffect(() => {
+    if (user?.id) void loadFollowStats(user.id);
+  }, [user?.id, loadFollowStats]);
+
+  const openFollows = useCallback(
+    (which: "followers" | "following") => {
+      if (!user?.id) return;
+      haptics.tap();
+      router.push({
+        pathname: "/follows/[userId]",
+        params: { userId: user.id, tab: which, name: user.full_name ?? "Connections" },
+      } as never);
+    },
+    [user?.id, user?.full_name],
+  );
+
   useEffect(() => {
     hydrateProgram(user ?? null);
   }, [user, hydrateProgram]);
@@ -647,11 +668,12 @@ export default function ProfileTab() {
         const trips = await TripsStorage.getByDriverId(user.id);
         setRecentTrips(trips.slice(-5).reverse());
       }
+      if (user?.id) await loadFollowStats(user.id);
       await triggerSyncNow();
     } finally {
       setRefreshing(false);
     }
-  }, [user?.id]);
+  }, [user?.id, loadFollowStats]);
 
   const pickPhoto = useCallback(async () => {
     haptics.tap();
@@ -720,6 +742,9 @@ export default function ProfileTab() {
           const { logout } = useAuthStore.getState();
           await signOut();
           logout();
+          // Cached follow stats are keyed by user id, so without this the next
+          // account signing in on this device sees the last one's numbers.
+          useFollowsStore.getState().reset();
           router.replace("/(auth)/login");
         },
       },
@@ -756,8 +781,10 @@ export default function ProfileTab() {
         credits,
         achievementsEarned: Object.keys(unlockedAchievements ?? {}).length,
         isPartner: programStatus !== "none",
+        followers: followStats?.followers,
+        following: followStats?.following,
       }),
-    [user, recentTrips, activities, credits, unlockedAchievements, programStatus],
+    [user, recentTrips, activities, credits, unlockedAchievements, programStatus, followStats],
   );
 
   const counts = useMemo(
@@ -1008,6 +1035,39 @@ export default function ProfileTab() {
                     )}
                   </View>
                 </View>
+              </View>
+
+              {/* Followers / following. Counts open the same screen on
+                  different tabs — tapping a number should land on that number's
+                  list, not make you find it. */}
+              <View style={styles.followRow}>
+                <Pressable
+                  onPress={() => openFollows("followers")}
+                  hitSlop={8}
+                  style={styles.followStat}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${followStats?.followers ?? 0} followers`}
+                >
+                  <Text style={[styles.followValue, { color: textColor }]}>
+                    {followStats?.followers ?? 0}
+                  </Text>
+                  <Text style={[styles.followLabel, { color: subTextColor }]}>Followers</Text>
+                </Pressable>
+
+                <View style={[styles.followDivider, { backgroundColor: borderColor }]} />
+
+                <Pressable
+                  onPress={() => openFollows("following")}
+                  hitSlop={8}
+                  style={styles.followStat}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${followStats?.following ?? 0} following`}
+                >
+                  <Text style={[styles.followValue, { color: textColor }]}>
+                    {followStats?.following ?? 0}
+                  </Text>
+                  <Text style={[styles.followLabel, { color: subTextColor }]}>Following</Text>
+                </Pressable>
               </View>
 
               {/* Full-width search across the header. A button, not a field —
@@ -1531,6 +1591,11 @@ const styles = StyleSheet.create({
   roleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   roleLabel: { fontFamily: "Poppins_400Regular", fontSize: 12 },
   dot: { width: 3, height: 3, borderRadius: 2 },
+  followRow: { flexDirection: "row", alignItems: "center", gap: 18, marginTop: 16 },
+  followStat: { flexDirection: "row", alignItems: "baseline", gap: 5 },
+  followValue: { fontFamily: "Poppins_700Bold", fontSize: 15 },
+  followLabel: { fontFamily: "Poppins_400Regular", fontSize: 12 },
+  followDivider: { width: StyleSheet.hairlineWidth, height: 14 },
   headerSearch: { marginTop: 16, marginHorizontal: -16 },
 
   // ── Panes ──────────────────────────────────────────────────────────────────

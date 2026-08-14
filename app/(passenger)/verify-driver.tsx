@@ -15,6 +15,7 @@ import { supabase } from '@/src/services/supabase';
 import { useTripStore, useAuthStore } from '@/src/store/useStore';
 import { startLocationTracking } from '@/src/services/locationTracking';
 import { iosAlert } from "@/components/ios";
+import FollowButton from "@/components/FollowButton";
 
 // You can keep your brand's primary color, but we'll define dynamic colors for the UI
 const BrandColors = {
@@ -184,6 +185,14 @@ export default function VerifyDriverScreen() {
                 <Ionicons name="star" size={14} color={BrandColors.gold} />
                 <Text style={styles.ratingText}>{driver.avg_rating?.toFixed(1) || 'New'}</Text>
               </View>
+
+              {/* Follow lives here, on the one screen where a passenger has just
+                  met a driver and knows whether they want to see them again.
+                  Only when the QR resolved to a real account — a driver parsed
+                  from the QR payload alone has no id to follow. */}
+              {!!driver.id && (
+                <FollowButton userId={driver.id} size="small" style={styles.followBtn} />
+              )}
             </View>
 
             {/* Driver Details */}
@@ -300,6 +309,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     marginBottom: 6,
   },
+  followBtn: { marginTop: 12 },
   ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',

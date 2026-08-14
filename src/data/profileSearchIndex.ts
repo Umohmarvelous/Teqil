@@ -77,6 +77,8 @@ export interface ProfileIndexContext {
   credits?: number;
   achievementsEarned?: number;
   isPartner?: boolean;
+  followers?: number;
+  following?: number;
 }
 
 const CATEGORY_LABEL: Record<ProfileSearchCategory, string> = {
@@ -93,7 +95,16 @@ export function categoryLabel(c: ProfileSearchCategory): string {
 // ─── Build ───────────────────────────────────────────────────────────────────
 
 export function buildProfileIndex(ctx: ProfileIndexContext): ProfileSearchItem[] {
-  const { user, trips = [], activities = [], credits, achievementsEarned, isPartner } = ctx;
+  const {
+    user,
+    trips = [],
+    activities = [],
+    credits,
+    achievementsEarned,
+    isPartner,
+    followers,
+    following,
+  } = ctx;
   const items: ProfileSearchItem[] = [];
 
   // ── Your details ───────────────────────────────────────────────────────────
@@ -307,6 +318,27 @@ export function buildProfileIndex(ctx: ProfileIndexContext): ProfileSearchItem[]
       action: "sign-out",
     }, ["logout", "log out", "exit", "leave"]),
   );
+
+  if (user?.id) {
+    items.push(
+      action(
+        "followers",
+        "Followers",
+        followers === undefined ? "People who follow you" : `${followers} people follow you`,
+        "person.2",
+        { kind: "route", route: `/follows/${user.id}?tab=followers` },
+        ["follower", "fans", "regulars", "social"],
+      ),
+      action(
+        "following",
+        "Following",
+        following === undefined ? "Accounts you follow" : `You follow ${following}`,
+        "person.badge.plus",
+        { kind: "route", route: `/follows/${user.id}?tab=following` },
+        ["following", "follow", "subscriptions", "social"],
+      ),
+    );
+  }
 
   if (user?.role === "driver") {
     items.push(
