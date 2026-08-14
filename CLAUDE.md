@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Read [HANDOFF.md](HANDOFF.md) for the current working state** — what was just
+> built, exactly what is left, and the traps that repeat. Then [PRD.md](PRD.md)
+> for what the product is.
+>
 > **Read [PRD.md](PRD.md) first.** It is the single source of truth for what
 > EMILGO is, the domain rules that are easy to get wrong (the QR half-fare model,
 > barter, free-ride tracking, fuel coins), what is built, what is outstanding, and
