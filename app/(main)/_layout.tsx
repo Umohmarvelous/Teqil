@@ -29,9 +29,9 @@ import {
   MessageIcon,
   Message01Icon,
   Bell,
-  MoreHorizontalCircleIcon,
   BellOff,
   Menu03Icon,
+  Person,
 } from "@hugeicons/core-free-icons";
 import {
   Glass,
@@ -40,6 +40,7 @@ import {
   TAB_BAR_HEIGHT,
   TAB_BAR_BOTTOM_GAP,
   type IOSTab,
+  useIOSTheme,
 } from "@/components/ios";
 import Avatar from "@/components/Avatar";
 import { useAuthStore } from "@/src/store/useStore";
@@ -50,6 +51,7 @@ import SidedBar from "@/components/Sidedbar";
 import FindDriverModal from "@/components/FindDriverModal";
 import OnboardingOverlay from "@/components/OnboardingOverlay";
 import { useOnboarding } from "@/src/hooks/useOnboarding";
+import { SymbolView } from "expo-symbols";
 
 type Tab = "home" | "profile" | "messages" | "notifications";
 type TopTab = "home" | "discover";
@@ -62,7 +64,7 @@ type TopTab = "home" | "discover";
 const TABS: IOSTab[] = [
   { key: "home",     label: "Home",     icon: Home01Icon,     iconActive: HomeIcon },
   { key: "profile",  label: "You" },
-  { key: "messages", label: "Messages", icon: Message01Icon,  iconActive: MessageIcon },
+  { key: "messages", label: "Chat", icon: Message01Icon,  iconActive: MessageIcon },
   { key: "notifications", label: "Notifications", icon: Bell, iconActive: Bell},
 ];
 
@@ -94,6 +96,9 @@ export default function MainLayout() {
   const { conversations } = useMessagesStore();
   const user = useAuthStore((s) => s.user);
 
+    const ios = useIOSTheme();
+
+    
   const { shouldShow, isLoaded, complete } = useOnboarding();
 
   const [activeTab, setActiveTab] = useState<Tab>("home");
@@ -321,7 +326,7 @@ export default function MainLayout() {
 
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
-  const bg = isDark ? Colors.background : Colors.border;
+  const bg = isDark ? Colors.background : Colors.textWhite;
   const tabBarBg = isDark ? Colors.background : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
@@ -399,7 +404,7 @@ export default function MainLayout() {
         }}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={[{ width: SCREEN_WIDTH, flex: 1 }, { backgroundColor: tabBarBg }]}>
+        <View style={[{ width: SCREEN_WIDTH, flex: 1 }, { backgroundColor: 'transparent' }]}>
           <MainTab insetTop={HEADER_HEIGHT} insetBottom={BOTTOM_HEIGHT} />
         </View>
         <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
@@ -416,7 +421,7 @@ export default function MainLayout() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: tabBarBg }]}>
+    <View style={[styles.root, { backgroundColor: bg }]}>
       {/* Static sidebar behind the main screen; zooms in as it's revealed */}
       <Animated.View
         style={[
@@ -497,11 +502,11 @@ export default function MainLayout() {
                 style={[
                   styles.header,
                   {
-                    paddingTop: topPadding + -10,
+                    paddingTop: topPadding + 0,
                   },
                 ]}
               >
-                <Pressable onPress={openSidebar} style={[styles.menuBtn, {backgroundColor: Colors.overlayLight, borderWidth: 1, borderColor: borderColor, padding: 22, borderRadius: 50, alignItems:'center', justifyContent:'center'}]}>
+                <Pressable onPress={openSidebar} style={[styles.menuBtn, {backgroundColor: Colors.overlay, padding: 22, borderRadius: 50, alignItems:'center', justifyContent:'center'}]}>
                   <Glass
                     variant="regular"
                     interactive
@@ -533,7 +538,7 @@ export default function MainLayout() {
                   </NetworkStatus>
                 </View>
 
-                <View style={[styles.menuList, {borderWidth: 1, borderColor: borderColor, alignItems:'center', justifyContent:'center'}]}>
+                <View style={[styles.menuList, {backgroundColor: Colors.overlay,  alignItems:'center', justifyContent:'center'}]}>
 
                   {/* Glass, not a coloured pill. */}
                   <Glass
@@ -565,7 +570,7 @@ export default function MainLayout() {
                     fill={textColor}
                   />
                   
-                  <View style={{ backgroundColor: Colors.overlayLight, borderWidth: .5, borderColor: borderColor, padding: 8, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
+                  <View style={{ backgroundColor: isDark ? Colors.borderLight : Colors.background,  padding: 8, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
                     <Glass
                       variant="regular"
                       interactive
@@ -573,14 +578,17 @@ export default function MainLayout() {
                       style={StyleSheet.absoluteFill}
                       pointerEvents="none"
                       fallbackIntensity={40}
-                      fallbackTint={isDark ? Colors.overlayLight : Colors.border}
+                      fallbackTint={ios.systemGray3}
                     />
-                    <HugeiconsIcon
-                      icon={MoreHorizontalCircleIcon}
+                    {/* <HugeiconsIcon
+                      // icon={MoreHorizontalCircleIcon}
                       size={24}
                       color={textColor}
                       fill={textColor}
-                    />
+                    /> */}
+
+                    <SymbolView name="person.fill" size={22} tintColor={ios.label}  fallback={ios.label} />
+
                   </View>
                 </View>
               </View>
@@ -772,8 +780,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 15,
     overflow: "hidden",
-    position: 'absolute',
-    right: 20, top: 55,
+    position: 'relative',
+    right: 0, top: 1,
     paddingLeft: 12
   },
   menuBtn: {
@@ -789,7 +797,7 @@ const styles = StyleSheet.create({
     marginVertical: 15,
     justifyContent: "center",
     alignItems: "center",
-    flex: 1, marginRight: 30
+    flex: 1, marginRight: -35
   },
   photoImg: { width: 50, height: 50, alignSelf: "center" },
   topTabBar: {

@@ -28,7 +28,10 @@ import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { resolveBankAccount } from "@/src/services/paystack";
 import { syncUserToPublicTable } from "@/src/services/auth";
-import { iosAlert } from "@/components/ios";
+import { Glass, iosAlert, IOSButton } from "@/components/ios";
+import { text } from "node:stream/consumers";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import { Tick01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 
 const BANKS = [
   { name: "Access Bank", code: "044" },
@@ -54,8 +57,8 @@ export default function PayoutBankScreen() {
 
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const cardBg = isDark ? Colors.overlayLight : Colors.textWhite;
-  const bg = isDark ? Colors.background : Colors.border;
-  const subColor = Colors.textSecondary;
+  const bg = isDark ? Colors.background : Colors.textWhite;
+  const subColor = isDark ? Colors.text : Colors.textWhite;
 
   const canResolve = !!bankCode && accountNumber.trim().length === 10 && !resolving;
   const canSave = !!resolvedName && !saving;
@@ -70,10 +73,10 @@ export default function PayoutBankScreen() {
         setResolvedName(res.account_name);
       } else {
         setResolvedName("");
-        setError("Couldn't verify that account. Check the number and bank.");
+        setError("Couldn't verify that account • Check the number and bank.");
       }
     } catch {
-      setError("Verification failed. Please try again.");
+      setError("Verification failed • Please try again.");
     } finally {
       setResolving(false);
     }
@@ -112,7 +115,7 @@ export default function PayoutBankScreen() {
     <View style={[styles.root, { backgroundColor: bg }]}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color={textColor} />
+          <Ionicons name="chevron-back" size={22} color={textColor} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: textColor }]}>Payout Account</Text>
         <View style={{ width: 40 }} />
@@ -162,42 +165,74 @@ export default function PayoutBankScreen() {
               maxLength={10}
             />
 
-            {!resolvedName ? (
-              <Pressable
-                style={[styles.secondaryBtn, !canResolve && styles.btnDisabled]}
-                onPress={handleResolve}
-                disabled={!canResolve}
-              >
-                {resolving ? (
-                  <ActivityIndicator color={Colors.primary} />
-                ) : (
-                  <Text style={styles.secondaryBtnText}>Verify account</Text>
-                )}
-              </Pressable>
-            ) : (
-              <View style={styles.resolvedRow}>
-                <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
-                <Text style={[styles.resolvedName, { color: textColor }]}>{resolvedName}</Text>
-              </View>
-            )}
-
             {error && <Text style={styles.errorText}>{error}</Text>}
+
+
+            <View style={{ height: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+              <View style={{ flex: 1 }}>
+                <Glass
+                  variant="regular"
+                  interactive
+                  radius={50}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
+                  fallbackIntensity={40}
+                  fallbackTint={textColor}
+                />
+                {!resolvedName ? (
+                  <Pressable
+                    style={[styles.secondaryBtn, {backgroundColor: textColor}, !canResolve && styles.btnDisabled]}
+                  onPress={handleResolve}
+                  disabled={!canResolve}
+                  >
+              
+                    {resolving ? (
+                      <ActivityIndicator color={subColor} />
+                    ) : (
+                        <Text style={[styles.secondaryBtnText, {color:subColor}]}>Verify account</Text>
+                    )}
+                  </Pressable>
+                ) : (
+                  <View style={styles.resolvedRow}>
+                    <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
+                    <Text style={[styles.resolvedName, { color: Colors.primary }]}>{resolvedName}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* save details */}
+              <View style={[
+                // { paddingBottom: Math.max(insets.bottom, 12) }
+              ]}>
+                <Glass
+                  variant="regular"
+                  interactive
+                  radius={50}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
+                  fallbackIntensity={40}
+                  fallbackTint={textColor}
+                />
+                <Pressable
+                  style={[styles.saveBtn, {backgroundColor: textColor}, !canSave && styles.btnDisabled]}
+                  onPress={handleSave}
+                  disabled={!canSave}
+                >
+                  {saving ? (
+                    <ActivityIndicator color={subColor} />
+                  ) : (
+                      <View style={{flexDirection:'row',gap:5}}>
+                        <Text style={[styles.saveBtnText, { color: subColor }]}>Save Account</Text>
+                        
+                        <HugeiconsIcon icon={Tick02Icon} size={14} color={subColor}/>
+                    </View>
+                  )}
+                </Pressable>
+              </View>
+            </View>
           </View>
         </ScrollView>
 
-        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <Pressable
-            style={[styles.saveBtn, !canSave && styles.btnDisabled]}
-            onPress={handleSave}
-            disabled={!canSave}
-          >
-            {saving ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.saveBtnText}>Save payout account</Text>
-            )}
-          </Pressable>
-        </View>
       </KeyboardAvoidingView>
     </View>
   );
@@ -217,12 +252,12 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 18, gap: 14, paddingTop: 4 },
   lede: { fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 19 },
   card: { borderRadius: 20, padding: 16, gap: 10 },
-  label: { fontFamily: "Poppins_500Medium", fontSize: 12, marginLeft: 4, marginTop: 4 },
+  label: { fontFamily: "Poppins_500Medium", fontSize: 12, marginLeft: 4, marginTop: 44 },
   bankRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   bankChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 0,
     backgroundColor: "rgba(128,128,128,0.12)",
   },
   bankChipActive: { backgroundColor: Colors.primary },
@@ -230,37 +265,32 @@ const styles = StyleSheet.create({
   bankChipTextActive: { color: "#fff" },
   input: {
     height: 50,
-    borderRadius: 12,
+    borderRadius: 30,
     paddingHorizontal: 14,
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
+    marginVertical: 10, marginBottom: 0
   },
   secondaryBtn: {
-    height: 46,
-    borderRadius: 12,
+    flex: 1,
+    borderRadius: 30,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: Colors.primary,
-    marginTop: 4,
+    // borderWidth: 1,
+    // borderColor: Colors.primary,
   },
-  secondaryBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: Colors.primary },
+  secondaryBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 14,  },
   resolvedRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6, marginLeft: 4 },
   resolvedName: { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
-  errorText: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "#EF4444", marginLeft: 4 },
-  btnDisabled: { opacity: 0.5 },
-  footer: {
-    paddingHorizontal: 18,
-    paddingTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(128,128,128,0.2)",
-  },
+  errorText: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "#EF4444",  marginBottom: 15, marginLeft: 4 },
+  btnDisabled: { opacity: .3, backgroundColor: Colors.overlayLight },
+
   saveBtn: {
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: Colors.primary,
+    flex:1,
+    borderRadius: 30,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 15
   },
-  saveBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 15, color: "#fff" },
+  saveBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
 });

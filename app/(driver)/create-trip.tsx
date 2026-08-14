@@ -32,6 +32,7 @@ import type { Trip } from "@/src/models/types";
 import { Colors } from "@/constants/colors";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { iosAlert } from "@/components/ios";
+import { TextWrap } from "@hugeicons/core-free-icons";
 // ─── Animated Input ───────────────────────────────────────────────────────────
 interface AnimatedInputProps {
   /** Omit where a surrounding card heading already names the field. */
@@ -65,7 +66,7 @@ function AnimatedInput({
 
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
-  const bg = isDark ? Colors.background : Colors.border;
+  const bg = isDark ? Colors.background : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
   const cardBg = isDark ? "rgba(255,255,255,0.08)" : Colors.border;
@@ -95,7 +96,7 @@ function AnimatedInput({
           <Text style={[styles.inputLabel, { color: textColor }]}>{label}</Text>
         ) : null}
         <View style={{flexDirection: 'row'}}>
-          <View style={[styles.inputRow, { borderColor }, error ? styles.inputRowError : null, !editable &&  styles.inputRowDisabled, {paddingHorizontal: 10}, {backgroundColor: cardBg}]}>
+          <View style={[styles.inputRow, { borderColor }, error ? styles.inputRowError : null, !editable &&  styles.inputRowDisabled, {paddingHorizontal: 10}, {backgroundColor: Colors.textWhite}]}>
 
 
             <TextInput
@@ -163,12 +164,12 @@ export default function CreateTripScreen() {
 
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
-  const bg = isDark ? Colors.background : Colors.border;
+  const bg = isDark ? Colors.background : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.overlayColored : Colors.textTertiary;
-  const inputBgColor = isDark ? Colors.overlayColored : Colors.textWhite;
+  const inputBgColor = isDark ? Colors.overlayColored : Colors.border;
 
-  const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#e8ecf0";
+  const cardBg = isDark ? "#e8ecf0" : Colors.background;
 
   useEffect(() => {
     pageOpacity.value = withTiming(1, { duration: 480 });
@@ -357,14 +358,14 @@ export default function CreateTripScreen() {
                       rightElement={
                         <Pressable
                           onPress={detectLocation}
-                          style={[styles.gpsBtn, {backgroundColor: Colors.primary}]}
+                          style={[styles.gpsBtn, {backgroundColor: cardBg}]}
                           hitSlop={8}
                           disabled={locationLoading}
                         >
                           {locationLoading ? (
-                            <ActivityIndicator size={20} color={textColor} />
+                            <ActivityIndicator size={20} color={Colors.textWhite} />
                           ) : (
-                            <Ionicons name="navigate" size={20} color={textColor} />
+                            <Ionicons name="navigate" size={20} color={Colors.textWhite} />
                           )}
                         </Pressable>
                       }
@@ -424,7 +425,7 @@ export default function CreateTripScreen() {
                   styles.submitBtn,
                   pressed && styles.submitBtnPressed,
                   isLoading && styles.submitBtnLoading,
-                  {backgroundColor: Colors.primary}
+                  {backgroundColor: cardBg}
                 ]
               }
                 onPress={handleCreate}

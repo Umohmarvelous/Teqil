@@ -155,7 +155,7 @@ export function NetworkStatus({ children, style }: NetworkStatusProps) {
           </View>
         ) : (
           <View style={{alignItems: 'center', justifyContent: 'center', gap: 12, flexDirection: 'row'}}>
-            <HugeiconsIcon icon={Wifi} color={theme.label} size={15}/>
+            <HugeiconsIcon icon={Wifi} color={theme.systemGreen} size={15}/>
             <Text numberOfLines={1} style={[IOSAppFont.label, styles.label, { color: theme.systemGreen, fontFamily: "Poppins_700Bold" }]}>Back online...</Text>
           </View>
         )}

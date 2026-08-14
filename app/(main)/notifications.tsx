@@ -232,11 +232,11 @@ export default function NotificationsScreen() {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <SymbolView name="bell.slash" size={44} tintColor={ios.tertiaryLabel} fallback={null} />
-            <Text style={[IOSAppFont.label, { color: ios.label }]}>You&apos;re all caught up</Text>
-            <Text style={[IOSAppFont.description, styles.centre, { color: ios.secondaryLabel }]}>
+            <SymbolView name="bell.slash" size={54} tintColor={ios.tertiaryLabel} fallback={null} />
+            <Text style={[IOSAppFont.label, { color: ios.secondaryLabel }]}>No Recent Notification</Text>
+            {/* <Text style={[IOSAppFont.sectionTitle, styles.centre, { color: ios.secondaryLabel }, {width: 252}]}>
               Messages, sync alerts and app notices appear here. Trips and payments live in History.
-            </Text>
+            </Text> */}
           </View>
         }
       />
@@ -269,6 +269,6 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     overflow: "hidden",
   },
-  empty: { alignItems: "center", paddingTop: 80, paddingHorizontal: 44, gap: 8 },
+  empty: { alignItems: "center", paddingTop: 80, paddingHorizontal: 44, gap: 15 },
   centre: { textAlign: "center" },
 });

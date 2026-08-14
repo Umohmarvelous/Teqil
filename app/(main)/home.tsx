@@ -73,7 +73,7 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
     .reduce((sum, c) => sum + c.unread_count, 0);
 
   const isDark = theme === "dark";
-  // const bg = isDark ? Colors.background : Colors.border;
+  const bg = isDark ? Colors.background : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
 
@@ -106,17 +106,17 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
 
   // Define actions
   const PASSENGERSACTIONSBUTTON = [
-    { id: "qr", icon: QrCodeIcon, label: "Scan code", color: Colors.text },
-    { id: "share", icon: Share01Icon, label: "Share Trip", color: Colors.text },
+    { id: "qr", icon: QrCodeIcon, label: "Scan code", color: textColor },
+    { id: "share", icon: Share01Icon, label: "Share Trip", color: textColor },
     
-    { id: "history", icon: History, label: "History", color: Colors.text },
-    { id: "sos", icon: Warning, label: "Emergency Contact", color: Colors.text },
+    { id: "history", icon: History, label: "History", color: textColor },
+    { id: "sos", icon: Warning, label: "Emergency Contact", color: textColor },
   ] ;
   const DRIVERSACTIONSBUTTON = [
-    { id: "add", icon: Plus, label: "New Trip", color: Colors.text},
-    { id: "scan", icon: QrCodeIcon, label: "Get Code", color: Colors.text},
-    { id: "megaphone", icon: Message01Icon, label: "Messages", color: Colors.text},
-    { id: "time", icon: History, label: "History", color: Colors.text},
+    { id: "add", icon: Plus, label: "New Trip", color: textColor},
+    { id: "scan", icon: QrCodeIcon, label: "Get Code", color: textColor},
+    { id: "megaphone", icon: Message01Icon, label: "Chat", color: textColor},
+    { id: "time", icon: History, label: "History", color: textColor},
   ] ;
 
 
@@ -182,8 +182,8 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
   }, [loadTrips]);
 
   return (
-    <View style={[styles.root, { backgroundColor: tabBarBg } ]}>
-      <StatusBar style={isDark ? 'light' : 'dark'}  />
+    <View style={[styles.root, { backgroundColor: bg } ]}>
+      <StatusBar style={isDark ? 'light' : 'dark'}  animated/>
 
 
       {/* Header */}
@@ -251,7 +251,7 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
 
           {/* Loyalty Program entry */}
           <Pressable
-            style={[styles.card, styles.promoGradient, { backgroundColor: cardBg, }]}
+            style={[styles.card, styles.promoGradient, { backgroundColor: Colors.overlay }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
               router.push("/program");
@@ -263,11 +263,11 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
                 radius={50}
                 style={StyleSheet.absoluteFill}
                 pointerEvents="none"
-                fallbackIntensity={90}
+                fallbackIntensity={40}
                 fallbackTint={isDark ? Colors.overlayLight : Colors.border}
               />
             <View style={styles.loyaltyIconChip}>
-              <HugeiconsIcon icon={enrolled ? Trophy : GiftIcon} size={40} color={textColor} />
+              <HugeiconsIcon icon={enrolled ? Trophy : Trophy} size={40} color={textColor} />
             </View>
             <View style={styles.promoText}>
               <Text style={[styles.promoTitle, { color: textColor }]}>Loyalty Program</Text>
@@ -280,9 +280,9 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
 
 
 
-          <View style={{ backgroundColor: Colors.overlayLight, borderWidth: .5, borderColor: borderColor, padding: 8, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
+          {/* <View style={{ backgroundColor: Colors.overlayLight, borderWidth: .5, borderColor: borderColor, padding: 8, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
             <HugeiconsIcon icon={enrolled ? Trophy : GiftIcon} size={40} color={textColor} />
-          </View>
+          </View> */}
         </View>
 
 
@@ -367,7 +367,7 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
         {
         /* Empty state */}
         {recentTrips.length === 0 && (
-          <View style={[styles.card, { alignItems: "center", paddingVertical: 32 }]}>
+          <View style={[styles.card, { alignItems: "center", paddingVertical: 32, marginTop: 50 }]}>
             <HugeiconsIcon icon={Warning} size={40} color={Colors.warning} />
             <View style={{alignItems:'center'}}>
               <Text style={[styles.emptyText, { color: Colors.warning }]}>
@@ -472,7 +472,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20, 
-    borderRadius: 50
+    borderRadius: 50,
+    marginHorizontal: 10
   },
   loyaltyIconChip: {
     width: 48,

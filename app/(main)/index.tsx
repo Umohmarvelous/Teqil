@@ -17,7 +17,7 @@ export default function MainTab({ insetTop, insetBottom }: HomeTabProps) {
 
   return (
     <>
-        <View style={[{ flex: 1 }, { width: SCREEN_WIDTH }, { backgroundColor: topTabBg }]}>
+        <View style={[{ flex: 1 ,}, { width: SCREEN_WIDTH }, { backgroundColor: 'transparent' }]}>
             <HomeTab insetTop={insetTop} insetBottom={insetBottom} />
         </View>
     </>

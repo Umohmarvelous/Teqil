@@ -19,7 +19,7 @@ export default function QRReceiveScreen() {
   const { theme } = useSettingsStore();
 
   const isDark = theme === "dark";
-  const bg = isDark ? Colors.background : Colors.border;
+  const bg = isDark ? Colors.background : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.overlay;
   const cardBg = isDark ? Colors.overlayLight : "#FFFFFF";
@@ -44,31 +44,37 @@ export default function QRReceiveScreen() {
       <View
         style={[
           styles.container,
-          { paddingTop: insets.top + 15, backgroundColor: bg, alignItems: "center", justifyContent: "center", gap: 14, paddingHorizontal: 28 },
+          { flex: 1, paddingTop: insets.top + 195, backgroundColor: bg, alignItems: "center", justifyContent: "center", gap: 190, paddingHorizontal: 28, },
         ]}
       >
-        <StatusBar style={isDark ? "light" : "dark"} />
-        <Ionicons name="wallet-outline" size={60} color={Colors.primary} />
-        <Text style={[styles.heading, { color: textColor, textAlign: "center" }]}>Add your payout account</Text>
-        <Text style={[styles.subtext, { color: subTextColor, textAlign: "center" }]}>
-          You need a verified bank account to receive fare payments before you can show your QR code.
-        </Text>
-        <IOSButton
-          title="Add payout account"
-          size="large"
-          style={{ marginTop: 6 }}
-          onPress={() => router.push("/(driver)/payout-bank" as any)}
-        />
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Text style={{ color: subTextColor, fontFamily: "Poppins_400Regular", fontSize: 13 }}>Not now</Text>
-        </Pressable>
+        <View style={[styles.container, {gap: 10}]}>
+          <StatusBar style={isDark ? "light" : "dark"} animated />
+          <Ionicons name="wallet-outline" size={60} color={textColor} />
+          <Text style={[styles.heading, { color: textColor, textAlign: "center" }]}>Add your payout account</Text>
+          <Text style={[styles.subtext, { color: subTextColor, textAlign: "center" }]}>
+            You need a verified bank account to receive fare payments before you can show your QR code.
+          </Text>
+        </View>
+
+        <View style={[styles.container, {gap: 20}]}>
+          <IOSButton
+            title="Add payout account"
+            variant = "filled"
+            size="small"
+            style={{ backgroundColor: 'transparent' }}
+            onPress={() => router.push("/(driver)/payout-bank" as any)}
+          />
+          <Pressable onPress={() => router.back()} hitSlop={8}>
+            <Text style={{ color: subTextColor, fontFamily: "Poppins_700Bold", fontSize: 13 }}>Not now</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 15 }, { backgroundColor: bg }]}>
-      <StatusBar style={isDark ? 'light' : 'dark'}  />
+    <View style={[styles.container, { paddingTop: insets.top + 15 }, { backgroundColor: 'red' }]}>
+      <StatusBar style={isDark ? 'light' : 'dark' } animated  />
 
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', alignSelf: 'center'}}>
         <Pressable
@@ -201,11 +207,12 @@ export default function QRReceiveScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    // flex: 1,
+    // margin: 'auto',
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingBottom: 40,
-    justifyContent: 'space-between'
+    justifyContent: 'center',  
   },
   payoutBtn: {
     flexDirection: 'row',
@@ -249,7 +256,7 @@ const styles = StyleSheet.create({
   qrContainer: {
     padding: 10,
     borderRadius: 20,
-    alignItems:'center'
+    alignItems:'center',
   },
   profileContainer: {
     alignItems: 'center',

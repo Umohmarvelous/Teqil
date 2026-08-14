@@ -76,7 +76,8 @@ const LIGHT: IOSPalette = {
 
   // Emilgo's own surfaces, not Apple's #F2F2F7 / #FFFFFF — so a migrated screen
   // sits on exactly the background the original design put it on.
-  systemGroupedBackground: Colors.border,
+  // systemGroupedBackground: Colors.border,
+  systemGroupedBackground: '#ffffff',
   secondarySystemGroupedBackground: "#FFFFFF",
 
   separator: "rgba(60,60,67,0.29)",

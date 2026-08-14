@@ -146,11 +146,12 @@ export default function SidedBar() {
   
   // WhatsApp context menus must be solid to overlay background content cleanly
   const menuBgColor = isDark ? Colors.text : "#FFFFFF"; 
+  const bg = isDark ? Colors.background : Colors.textWhite;
   const cardBg = isDark ? Colors.background : "#FFFFFF";
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
   return (
-    <View style={[styles.drawerTop, styles.containerTop, { backgroundColor: cardBg, paddingTop: insets.top + 5, paddingBottom: insets.bottom }, {borderTopLeftRadius: 50, borderBottomLeftRadius: 50, }]}>
+    <View style={[styles.drawerTop, styles.containerTop, { backgroundColor: bg, paddingTop: insets.top + 5, paddingBottom: insets.bottom }, {borderTopLeftRadius: 50, borderBottomLeftRadius: 50, }]}>
       
       {/* WhatsApp style Invisible Dismiss Overlay */}
       {menuOpen && (

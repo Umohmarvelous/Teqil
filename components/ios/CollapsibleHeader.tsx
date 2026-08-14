@@ -315,7 +315,7 @@ export function CollapsibleHeader({
           maxFontSizeMultiplier={1.4}
           style={[
             IOSFont.largeTitle,
-            { fontFamily: IOSAppFont.screenTitle.fontFamily, fontSize: 28, color: theme.label },
+            { fontFamily: IOSAppFont.screenTitle.fontFamily, fontSize: 24, color: theme.label },
           ]}
         >
           {title}
