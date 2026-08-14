@@ -31,6 +31,7 @@ import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import { useIOSTheme, IOSMetrics, IOSAppFont } from "./theme";
 import { Glass } from "./Glass";
 import { IOSToggle } from "./IOSToggle";
+import { HugeiconsIcon } from "@hugeicons/react-native";
 
 // ─── Row ─────────────────────────────────────────────────────────────────────
 
@@ -88,17 +89,20 @@ export function IOSListRow({
       {hasTile && (
         <View style={styles.iconTile}>
           {/* Glass tile, not a coloured block. */}
-          <Glass
+          {/* <Glass
             variant="clear"
             radius={10}
             style={StyleSheet.absoluteFill}
             pointerEvents="none"
             fallbackIntensity={30}
             fallbackTint={theme.tertiarySystemFill}
-          />
+          /> */}
           {icon ??
             (symbol ? (
-              <SymbolView name={symbol} size={19} tintColor={glyphColor} fallback={null} />
+              <>
+                <SymbolView name={symbol} size={24} tintColor={glyphColor} fallback={null} />
+                {/* <HugeiconsIcon icon={symbol as any}  size={22}  fallback={null}  /> */}
+              </>
             ) : null)}
         </View>
       )}
@@ -252,13 +256,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 22,
     gap: 15,
   },
   iconTile: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    // width: 34,
+    // height: 34,
+    // borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",

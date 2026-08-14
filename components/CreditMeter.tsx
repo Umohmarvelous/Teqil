@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  credits: { fontFamily: "Poppins_700Bold", fontSize: 12, lineHeight: 26 },
+  credits: { fontFamily: "Poppins_700Bold", fontSize: 14, lineHeight: 26 },
   creditsLabel: { fontFamily: "Poppins_400Regular", fontSize: 12 },
   tierPill: {
     flexDirection: "row",

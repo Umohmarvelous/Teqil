@@ -50,15 +50,34 @@ SplashScreen.preventAutoHideAsync();
 // ----------------------------------------------------------------------
 // Theme synchronisation component
 // ----------------------------------------------------------------------
+//
+// Resolves the user's PREFERENCE (light / dark / system) against the OS
+// appearance and publishes the concrete scheme every screen reads.
+//
+// It used to write the preference itself — `setTheme(systemTheme)` whenever the
+// two disagreed. That made the Dark Mode switch impossible to turn on: the tap
+// set "dark", this effect saw it differ from a light OS, and set it straight
+// back to "light" on the very next render. "Match System" could never stay on
+// either, because the concrete value it wrote was no longer "system".
+//
+// So the rule is now one-way: the preference is the user's, and only this
+// component writes the resolved value.
 function ThemeSync() {
   const systemTheme = useColorScheme();
-  const { theme, setTheme } = useSettingsStore();
+  const themePreference = useSettingsStore((s) => s.themePreference);
+  const theme = useSettingsStore((s) => s.theme);
+  const setResolvedTheme = useSettingsStore((s) => s.setResolvedTheme);
 
   useEffect(() => {
-    if (systemTheme && systemTheme !== theme) {
-      setTheme(systemTheme === "dark" ? "dark" : "light");
-    }
-  }, [systemTheme, theme, setTheme]);
+    const resolved =
+      themePreference === "system"
+        ? systemTheme === "dark"
+          ? "dark"
+          : "light"
+        : themePreference;
+
+    if (resolved !== theme) setResolvedTheme(resolved);
+  }, [systemTheme, themePreference, theme, setResolvedTheme]);
 
   return null;
 }

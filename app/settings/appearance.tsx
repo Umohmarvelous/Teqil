@@ -15,7 +15,11 @@ export default function AppearanceSettings() {
   const { highlight } = useLocalSearchParams<{ highlight?: string }>();
   const flash = useHighlight(highlight);
 
+  // `theme` is the scheme in force, `themePreference` is what was chosen. The
+  // Dark Mode switch shows the former (so it's right under "Use System
+  // Setting"), and writes the latter.
   const theme = useSettingsStore((s) => s.theme);
+  const themePreference = useSettingsStore((s) => s.themePreference);
   const setTheme = useSettingsStore((s) => s.setTheme);
   const showTierBadge = useSettingsStore((s) => s.showTierBadge);
   const setShowTierBadge = useSettingsStore((s) => s.setShowTierBadge);
@@ -24,6 +28,7 @@ export default function AppearanceSettings() {
   const setLanguage = useAuthStore((s) => s.setLanguage);
 
   const isDark = theme === "dark";
+  const followingSystem = themePreference === "system";
 
   return (
     <IOSScreen title="Appearance" back>
@@ -34,6 +39,9 @@ export default function AppearanceSettings() {
         <IOSListRow
           symbol="moon.fill"
           label="Dark Mode"
+          // Setting it explicitly is a decision, so it takes the app off
+          // "follow the system" — the same thing iOS does in Display settings.
+          detail={followingSystem ? "Following your system appearance" : undefined}
           accessory={{
             type: "switch",
             value: isDark,
@@ -49,7 +57,9 @@ export default function AppearanceSettings() {
           label="Use System Setting"
           accessory={{
             type: "switch",
-            value: theme === "system",
+            value: followingSystem,
+            // Turning it off pins whatever is on screen right now, so the
+            // appearance never jumps as a side effect of this switch.
             onValueChange: (v) => {
               haptics.tap();
               setTheme(v ? "system" : isDark ? "dark" : "light");

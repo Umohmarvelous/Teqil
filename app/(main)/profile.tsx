@@ -202,12 +202,16 @@ function GlassCard({
   children: React.ReactNode;
   style?: object;
   padded?: boolean;
-}) {
+  }) {
+  const { theme } = useSettingsStore();
+
   const ios = useIOSTheme();
   const dark = ios.scheme === "dark";
+  const isDark = theme === "dark";
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
   return (
-    <View style={[styles.cardShadow, style]}>
+    <View style={[styles.cardShadow, style, {borderWidth: 1, borderColor: borderColor}]}>
       <View style={styles.cardClip}>
         <Glass
           variant="regular"
@@ -513,10 +517,10 @@ export default function ProfileTab() {
   const showCopied = useCallback(() => setCopyNonce((n) => n + 1), []);
 
   const isDark = theme === "dark";
-  const bg = isDark ? Colors.background : Colors.border;
+  const bg = isDark ? Colors.background : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const cardBg = isDark ? "rgba(255,255,255,0.06)" : "#FFFFFF";
+  const cardBg = isDark ? "rgba(255,255,255,0.06)" : Colors.border;
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
   const modalBg = isDark ? Colors.text : Colors.textWhite;
 
@@ -1602,15 +1606,15 @@ const styles = StyleSheet.create({
   paneContent: { paddingHorizontal: 16, paddingTop: 4 },
   cardShadow: {
     borderRadius: CARD_RADIUS,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    elevation: 3,
+    // shadowColor: "#000",
+    // shadowOffset: { width: 0, height: 6 },
+    // shadowOpacity: 0.06,
+    // shadowRadius: 14,
+    // elevation: 3,
   },
   cardClip: { borderRadius: CARD_RADIUS, overflow: "hidden" },
   cardInner: { padding: 22, gap: 14 },
-  cardSpacing: { marginTop: 12 },
+  cardSpacing: { marginTop: 5 },
   cardHead: {
     flexDirection: "row",
     alignItems: "center",
@@ -1634,11 +1638,11 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: CARD_RADIUS,
     marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 1, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 0,
-    elevation: 2,
+    // shadowColor: "#000",
+    // shadowOffset: { width: 1, height: 1 },
+    // shadowOpacity: 0.04,
+    // shadowRadius: 0,
+    // elevation: 2,
   },
   statsCard: { marginBottom: 12 },
   statsStrip: {

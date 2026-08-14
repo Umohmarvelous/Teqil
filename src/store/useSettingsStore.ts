@@ -3,6 +3,8 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
 export type ThemeMode = "light" | "dark" | "system";
+/** The scheme actually in force. "system" is a preference, never a palette. */
+export type ResolvedTheme = "light" | "dark";
 
 export type DistanceUnit = "km" | "mi";
 
@@ -48,7 +50,16 @@ export interface EmergencyContact {
   phone: string;
 }
 interface SettingsStore {
-  theme: ThemeMode;
+  /**
+   * The scheme in force right now — what every screen branches on.
+   *
+   * Always concrete. It is DERIVED: when `themePreference` is "system" this
+   * mirrors the OS appearance, otherwise it mirrors the preference. Only
+   * ThemeSync writes it, via setResolvedTheme.
+   */
+  theme: ResolvedTheme;
+  /** What the user actually chose. "system" means "follow the OS". */
+  themePreference: ThemeMode;
   pushNotifications: boolean;
   biometricLock: boolean;
   shareLocation: boolean;
@@ -73,7 +84,10 @@ interface SettingsStore {
   historyRetentionDays: RetentionDays;
   emergencyContact: EmergencyContact | null;
 
+  /** Record the user's choice. Pass "system" to hand control back to the OS. */
   setTheme: (t: ThemeMode) => void;
+  /** ThemeSync only — publishes the scheme the OS is currently reporting. */
+  setResolvedTheme: (t: ResolvedTheme) => void;
   setPushNotifications: (v: boolean) => void;
   setBiometricLock: (v: boolean) => void;
   setShareLocation: (v: boolean) => void;
@@ -102,6 +116,7 @@ export const useSettingsStore = create<SettingsStore>()(
   persist(
     (set) => ({
       theme: "light",
+      themePreference: "system",
       pushNotifications: true,
       biometricLock: false,
       shareLocation: true,
@@ -127,7 +142,16 @@ export const useSettingsStore = create<SettingsStore>()(
       historyRetentionDays: 365,
       emergencyContact: null,
 
-      setTheme: (theme) => set({ theme }),
+      // Choosing a concrete scheme applies it immediately as well as recording
+      // the preference, so the UI flips on the same frame as the tap rather
+      // than waiting for ThemeSync's effect to run.
+      setTheme: (themePreference) =>
+        set(
+          themePreference === "system"
+            ? { themePreference }
+            : { themePreference, theme: themePreference },
+        ),
+      setResolvedTheme: (theme) => set({ theme }),
       setPushNotifications: (pushNotifications) => set({ pushNotifications }),
       setBiometricLock: (biometricLock) => set({ biometricLock }),
       setShareLocation: (shareLocation) => set({ shareLocation }),
@@ -154,6 +178,23 @@ export const useSettingsStore = create<SettingsStore>()(
     {
       name: "teqil-settings",
       storage: createJSONStorage(() => AsyncStorage),
+      // v1 split `theme` into a preference plus a resolved scheme. Installs
+      // from before that hold a single field which may legitimately contain
+      // "system" — a value the resolved field can no longer represent.
+      version: 1,
+      migrate: (persisted: any, from: number) => {
+        if (from >= 1 || !persisted) return persisted;
+
+        const old = persisted.theme;
+        return {
+          ...persisted,
+          themePreference: old ?? "system",
+          // "system" was never a palette; ThemeSync fills in the real one on
+          // mount, and light is the safer thing to paint for the one frame
+          // before it does.
+          theme: old === "dark" ? "dark" : "light",
+        };
+      },
     }
   )
 );

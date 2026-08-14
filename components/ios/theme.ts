@@ -22,7 +22,6 @@ export type IOSColorScheme = "light" | "dark";
 
 export interface IOSPalette {
   scheme: IOSColorScheme;
-
   /** Primary text. */
   label: string;
   secondaryLabel: string;
