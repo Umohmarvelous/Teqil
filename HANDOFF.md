@@ -83,7 +83,7 @@ iOS 26. Fixed in `IOSAlert`, `IOSMenu`, `IOSModalCard`, `RatingModal`,
 | **3** Network indicator | **Done.** `components/ios/NetworkStatus.tsx`, in `CollapsibleHeader`'s centre slot so **every** kit screen gets it. `useConnectionQuality` exported separately for the sync layer. |
 | **4** Profile restructure | **Done, then redesigned.** Three panes inside `app/(main)/profile.tsx`, capsule tab strip, pinned bar, full-screen search. See §2. |
 | **5** Notification tab | **Done.** `app/(main)/notifications.tsx` took the Settings tab slot. |
-| **6** Followers/following | **Not started.** |
+| **6** Followers/following | **Done.** `supabase/migrations/migration_follows.sql` **must be run once** in the Supabase SQL editor — until then every call is a no-op with `error` set and the counts simply don't appear. |
 | **7** Proximity | **Not started.** |
 | **8** Watermark + deep link | **Not started.** RatingModal already ships. |
 
@@ -259,10 +259,27 @@ sits too low, check you are not re-adding a `paddingTop` of your own.
 
 ## 4. Phases 6, 7, 8 — what they need
 
-### Phase 6 — Followers / following
-Not started. Needs a Supabase migration for a social-graph table
-(`follows(follower_id, followee_id, created_at)` with a unique pair index),
-counts on driver profiles, a follow/unfollow toggle, and a follower list screen.
+### Phase 6 — Followers / following — **DONE, but the migration must be run**
+`supabase/migrations/migration_follows.sql` is written and idempotent. **Run it
+once** in Supabase → SQL Editor. Until it is applied, `useFollowsStore` degrades
+to no-ops with `error` set — the app runs, the counts just read 0.
+
+- `follows(follower_id, followee_id, created_at)`, composite PK — the pair is the
+  identity, so that one index gives uniqueness *and* the "does A follow B" lookup.
+- `users.follower_count` / `users.following_count`, kept by a trigger. Counts are
+  denormalised because every profile view needs both and `count(*)` is
+  O(followers) exactly where the traffic is.
+- Reads are `SECURITY DEFINER` RPCs (`get_follow_stats`, `list_followers`,
+  `list_following`) because `users` is not cross-readable — same reason
+  `get_driver_public` exists. **The select list in those functions IS the access
+  control**: SECURITY DEFINER bypasses RLS, so adding a column there exposes it.
+- Writes (`follow_user` / `unfollow_user`) take the follower from `auth.uid()`,
+  never a parameter.
+- `src/store/useFollowsStore.ts` is **deliberately not offline-first** — a follow
+  is a statement about another account and the server owns whether it took.
+  Optimistic UI, rollback on failure.
+- UI: counts in the profile hero, `app/follows/[userId].tsx` (two paged tabs),
+  `components/FollowButton.tsx`, and a follow button on `verify-driver`.
 
 ### Phase 7 — Proximity — **NOT blocked on any API key**
 This was clarified with the user and is important:
