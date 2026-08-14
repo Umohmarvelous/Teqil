@@ -58,24 +58,24 @@ export default function CreditMeter({
   }, [credits]);
 
   return (
-    <View style={[styles.card, ]}>
+    <View style={[styles.card,]}>
+      <View style={[styles.iconBadge, {flexDirection: 'row', alignItems: 'center', gap: 10}]}>
+            <HugeiconsIcon icon={Star as any} size={18} color={tier.color} fill={tier.color} />
+            <Text style={[styles.creditsLabel, { color: subColor }]}>Credits Status </Text>
+      </View>
+          
       <View style={styles.headerRow}>
         <View style={styles.creditWrap}>
-          <View style={[styles.iconBadge, ]}>
-            <HugeiconsIcon icon={Star as any} size={18} color={tier.color} />
-          </View>
-          <View>
-            <Text style={[styles.creditsLabel, { color: subColor }]}>Credits Status •</Text>
-
+          <View style={{flexDirection: 'column', alignItems: 'center', gap: 10}}>
             <View style={[styles.tierPill, { backgroundColor: tier.color + "22" }]}>
               <View style={[styles.tierDot, { backgroundColor: tier.color }]} />
               <Text style={[styles.tierName, { color: tier.color }]}>{tier.name}</Text>
             </View>
           </View>
-            <Text style={[styles.credits, { color: textColor }]}>
-              {display.toLocaleString("en-NG")}
-            </Text>
         </View>
+        <Text style={[styles.credits, { color: textColor }]}>
+          {display.toLocaleString("en-NG")}
+        </Text>
       </View>
 
       <View style={styles.track}>
@@ -112,13 +112,13 @@ const styles = StyleSheet.create({
   },
   creditWrap: { flexDirection: "row", alignItems: "center", gap: 12 },
   iconBadge: {
-    width: 40,
+    // width: 40,
     height: 40,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
-  credits: { fontFamily: "Poppins_700Bold", fontSize: 22, lineHeight: 26 },
+  credits: { fontFamily: "Poppins_700Bold", fontSize: 12, lineHeight: 26 },
   creditsLabel: { fontFamily: "Poppins_400Regular", fontSize: 12 },
   tierPill: {
     flexDirection: "row",
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   track: {
     height: 10,
     borderRadius: 6,
-    backgroundColor: Colors.border,
+    backgroundColor: Colors.borderLight,
     overflow: "hidden",
   },
   fill: { height: "100%", borderRadius: 6 },
