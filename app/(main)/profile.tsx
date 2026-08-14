@@ -1093,15 +1093,15 @@ export default function ProfileTab() {
             {tab === "profile" && (
               <>
                 {user?.role === "driver" ? (
-                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
+                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderWidth: 1, borderColor: borderColor }]}>
                     <DriverDashboard />
                   </View>
                 ) : user?.role === "passenger" ? (
-                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
+                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderWidth: 1, borderColor: borderColor }]}>
                     <PassengerDashboard />
                   </View>
                 ) : (
-                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
+                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderWidth: 1, borderColor: borderColor }]}>
                     <BalanceCard coins={totalEarnedCoins} onQuickTransferPress={() => {}} />
                   </View>
                 )}
