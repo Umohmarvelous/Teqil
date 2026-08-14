@@ -12,16 +12,46 @@
 //        │    NIN    │    BVN    │
 //        ╰───────────┴───────────╯
 //
-// By default only the TOP corners round, because this sits at the head of a
-// card and its bottom edge continues into the card body. Pass `rounded="all"`
-// where it stands alone.
+// Two variants:
 //
-// Sizing is intrinsic: segments share the width equally via flex, so the strip
-// fills whatever container it's given and adapts to any screen without
-// hard-coded widths.
+//   "underline" (default) — the strip above, with an accent rule under the
+//   active segment. Only the TOP corners round, because it sits at the head of
+//   a card whose body continues below it. Pass `rounded="all"` where it stands
+//   alone.
+//
+//   "capsule" — the iOS 26 segmented control: a single glass TRACK with a
+//   smaller glass THUMB that slides between segments.
+//
+//        ╭───────────────────────────────╮
+//        │ ⟨ Personal ⟩  Shared  Activity│    track + sliding thumb
+//        ╰───────────────────────────────╯
+//
+//   The thumb is a real second glass surface rather than a tinted View, so on
+//   iOS 26 it refracts what's behind the track exactly like the system control.
+//   It moves with a spring on `transform`, never on opacity — animating alpha
+//   anywhere above a GlassView renders the effect wrong (expo/expo#41024).
+//
+// Sizing is intrinsic in both variants: segments share the width equally via
+// flex, so the strip fills whatever container it's given and adapts to any
+// screen without hard-coded widths. The capsule thumb needs one number the
+// layout can't give it — the track's measured width — so it waits for a single
+// onLayout pass and positions itself without animating that first placement.
 
 import React from "react";
-import { View, Text, Pressable, StyleSheet, type ViewStyle, type StyleProp } from "react-native";
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  type LayoutChangeEvent,
+  type ViewStyle,
+  type StyleProp,
+} from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
 
 import { haptics } from "@/src/utils/haptics";
 import { useIOSTheme, IOSAppFont } from "./theme";
@@ -30,43 +60,81 @@ import { Glass } from "./Glass";
 export interface IOSSegment<T extends string = string> {
   key: T;
   label: string;
+  /** Optional trailing count, rendered as a subdued number after the label. */
+  badge?: number;
 }
+
+export type IOSSegmentedVariant = "underline" | "capsule";
 
 export interface IOSSegmentedTabsProps<T extends string = string> {
   segments: IOSSegment<T>[];
   active: T;
   onChange: (key: T) => void;
-  /** Corner radius of the control's outer corners. */
+  /** Corner radius of the control's outer corners. Capsules default to fully round. */
   radius?: number;
   /** Which corners round. 'top' suits a strip at the head of a card. */
   rounded?: "top" | "all";
-  /** Underline the active segment, as an iOS tab bar does. */
+  /** Underline the active segment, as an iOS tab bar does. Underline variant only. */
   underline?: boolean;
   /** Accent for the active label and underline. Defaults to the app tint. */
   tint?: string;
   height?: number;
+  variant?: IOSSegmentedVariant;
   style?: StyleProp<ViewStyle>;
 }
+
+/** Inset of the thumb inside the track. */
+const THUMB_INSET = 5;
+/** Enough travel to feel physical, short enough to stay out of the way. */
+const THUMB_SPRING = { damping: 20, stiffness: 240, mass: 0.8 } as const;
 
 export function IOSSegmentedTabs<T extends string = string>({
   segments,
   active,
   onChange,
-  radius = 30,
+  radius,
   rounded = "top",
   underline = true,
   tint,
   height,
+  variant = "underline",
   style,
 }: IOSSegmentedTabsProps<T>) {
   const theme = useIOSTheme();
   const accent = tint ?? theme.tint;
   const last = segments.length - 1;
 
+  const select = React.useCallback(
+    (key: T, isActive: boolean) => {
+      if (isActive) return;
+      haptics.select();
+      onChange(key);
+    },
+    [onChange],
+  );
+
+  // ── Capsule ────────────────────────────────────────────────────────────────
+  if (variant === "capsule") {
+    return (
+      <CapsuleTabs
+        segments={segments}
+        active={active}
+        onSelect={select}
+        accent={accent}
+        radius={radius}
+        height={height}
+        style={style}
+      />
+    );
+  }
+
+  // ── Underline ──────────────────────────────────────────────────────────────
+  const r = radius ?? 30;
+
   const outer: ViewStyle =
     rounded === "all"
-      ? { borderRadius: radius }
-      : { borderTopLeftRadius: radius, borderTopRightRadius: radius };
+      ? { borderRadius: r }
+      : { borderTopLeftRadius: r, borderTopRightRadius: r };
 
   return (
     <View style={[styles.row, outer, styles.clip, height ? { height } : null, style]}>
@@ -76,20 +144,16 @@ export function IOSSegmentedTabs<T extends string = string>({
         // Only the outermost corners round — inner edges stay square so the
         // segments read as one surface rather than as separate buttons.
         const corners: ViewStyle = {
-          borderTopLeftRadius: i === 0 ? radius : 0,
-          borderBottomLeftRadius: i === 0 && rounded === "all" ? radius : 0,
-          borderTopRightRadius: i === last ? radius : 0,
-          borderBottomRightRadius: i === last && rounded === "all" ? radius : 0,
+          borderTopLeftRadius: i === 0 ? r : 0,
+          borderBottomLeftRadius: i === 0 && rounded === "all" ? r : 0,
+          borderTopRightRadius: i === last ? r : 0,
+          borderBottomRightRadius: i === last && rounded === "all" ? r : 0,
         };
 
         return (
           <Pressable
             key={segment.key}
-            onPress={() => {
-              if (isActive) return;
-              haptics.select();
-              onChange(segment.key);
-            }}
+            onPress={() => select(segment.key, isActive)}
             style={[styles.segment, corners]}
             accessibilityRole="tab"
             accessibilityState={{ selected: isActive }}
@@ -133,6 +197,168 @@ export function IOSSegmentedTabs<T extends string = string>({
   );
 }
 
+// ─── Capsule ─────────────────────────────────────────────────────────────────
+
+interface CapsuleTabsProps<T extends string> {
+  segments: IOSSegment<T>[];
+  active: T;
+  onSelect: (key: T, isActive: boolean) => void;
+  accent: string;
+  radius?: number;
+  height?: number;
+  style?: StyleProp<ViewStyle>;
+}
+
+function CapsuleTabs<T extends string>({
+  segments,
+  active,
+  onSelect,
+  accent,
+  radius,
+  height = 52,
+  style,
+}: CapsuleTabsProps<T>) {
+  const theme = useIOSTheme();
+  const [trackWidth, setTrackWidth] = React.useState(0);
+
+  const activeIndex = Math.max(
+    0,
+    segments.findIndex((s) => s.key === active),
+  );
+
+  const trackRadius = radius ?? height / 2;
+  const thumbRadius = Math.max(4, trackRadius - THUMB_INSET);
+  const segmentWidth =
+    trackWidth > 0 ? (trackWidth - THUMB_INSET * 2) / segments.length : 0;
+
+  const x = useSharedValue(0);
+  // The very first placement must not animate — a thumb that slides in from the
+  // left on mount reads as the user having just switched tabs.
+  const placed = React.useRef(false);
+
+  React.useEffect(() => {
+    if (segmentWidth <= 0) return;
+    const target = activeIndex * segmentWidth;
+    if (!placed.current) {
+      placed.current = true;
+      x.value = target;
+      return;
+    }
+    x.value = withSpring(target, THUMB_SPRING);
+  }, [activeIndex, segmentWidth, x]);
+
+  const thumbStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.value }],
+  }));
+
+  const onLayout = React.useCallback((e: LayoutChangeEvent) => {
+    setTrackWidth(e.nativeEvent.layout.width);
+  }, []);
+
+  return (
+    <View
+      onLayout={onLayout}
+      style={[styles.track, { height, borderRadius: trackRadius }, style]}
+      accessibilityRole="tablist"
+    >
+      {/* The track is the quieter material: it's a container, not a control. */}
+      <Glass
+        variant="clear"
+        radius={trackRadius}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+        fallbackIntensity={26}
+        fallbackTint={
+          theme.scheme === "dark" ? "rgba(120,120,128,0.22)" : "rgba(120,120,128,0.12)"
+        }
+      />
+
+      {/* Sliding thumb. Transform only — never opacity, which would corrupt the
+          glass on iOS 26 (expo/expo#41024). */}
+      {segmentWidth > 0 && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.thumb,
+            {
+              width: segmentWidth,
+              top: THUMB_INSET,
+              bottom: THUMB_INSET,
+              left: THUMB_INSET,
+              borderRadius: thumbRadius,
+            },
+            thumbStyle,
+          ]}
+        >
+          <Glass
+            variant="regular"
+            interactive
+            radius={thumbRadius}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+            fallbackIntensity={70}
+            fallbackTint={
+              theme.scheme === "dark" ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.92)"
+            }
+          />
+          {/* Glass clips, so the rim has to be drawn inside it rather than as a
+              shadow outside. It's what separates thumb from track when the two
+              materials sample the same background. */}
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                borderRadius: thumbRadius,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: theme.separator,
+              },
+            ]}
+          />
+        </Animated.View>
+      )}
+
+      {segments.map((segment) => {
+        const isActive = segment.key === active;
+        return (
+          <Pressable
+            key={segment.key}
+            onPress={() => onSelect(segment.key, isActive)}
+            style={styles.capsuleSegment}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isActive }}
+            accessibilityLabel={segment.label}
+          >
+            <Text
+              numberOfLines={1}
+              style={[
+                IOSAppFont.label,
+                styles.label,
+                {
+                  color: isActive ? theme.label : theme.secondaryLabel,
+                  fontFamily: isActive ? "Poppins_600SemiBold" : "Poppins_500Medium",
+                },
+              ]}
+            >
+              {segment.label}
+            </Text>
+            {segment.badge !== undefined && segment.badge > 0 && (
+              <Text
+                style={[
+                  IOSAppFont.description,
+                  styles.badge,
+                  { color: isActive ? accent : theme.tertiaryLabel },
+                ]}
+              >
+                {segment.badge > 99 ? "99+" : segment.badge}
+              </Text>
+            )}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   row: { flexDirection: "row" },
   clip: { overflow: "hidden" },
@@ -154,6 +380,20 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: 2,
   },
+  track: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    overflow: "hidden",
+  },
+  thumb: { position: "absolute", overflow: "hidden" },
+  capsuleSegment: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+  },
+  badge: { marginTop: 0 },
 });
 
 export default IOSSegmentedTabs;

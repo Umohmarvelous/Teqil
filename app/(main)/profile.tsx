@@ -1,4 +1,33 @@
-import React, { useEffect, useState, useCallback } from "react";
+// app/(main)/profile.tsx
+//
+// The Profile tab: one screen, three panes, one pinned bar.
+//
+//   Profile  — the role dashboard, earnings, credit tier, partner CTA
+//   Account Settings — every settings section, plus the editable identity fields
+//   Activity — achievements and unified history
+//
+// ── Why the panes live in this file ──────────────────────────────────────────
+// They share too much to be separate screens: the same user, the same copy
+// toast, the same edit sheet, the same refresh. Splitting them would mean
+// duplicating that plumbing three ways or hoisting it into a context that only
+// ever has one consumer. `SwipeableTabs` mounts only the active pane, so the
+// cost of keeping them together is a `tab === …` check, not a render.
+//
+// ── The bar ──────────────────────────────────────────────────────────────────
+// The identity header scrolls away, but the actions on it (search, QR, sign
+// out) must not — those are the reasons people open this screen. So they live
+// in a bar pinned above everything, which materialises its glass once the hero
+// has gone. The centre slot is `NetworkStatus`, the same as every other screen:
+// it shows the collapsed name when the connection is fine and takes the slot
+// over when it isn't.
+//
+// ── Search ───────────────────────────────────────────────────────────────────
+// The resting search bar is a BUTTON, not a field — see the note in
+// IOSSearchBar. It opens a full-screen overlay whose index covers all three
+// panes at once (`src/data/profileSearchIndex.ts`), so "phone", "dark mode" and
+// a trip to Aba are all reachable from the same query.
+
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -12,8 +41,7 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as Haptics from "expo-haptics";
-import { haptics } from "@/src/utils/haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import * as Clipboard from "expo-clipboard";
 import Animated, {
@@ -22,13 +50,8 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { useAuthStore } from "@/src/store/useStore";
-import { useSettingsStore } from "@/src/store/useSettingsStore";
-import { supabase } from "@/src/services/supabase";
-import { Colors } from "@/constants/colors";
-import Avatar from "@/components/Avatar";
+import { StatusBar } from "expo-status-bar";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { TripsStorage } from "@/src/services/storage";
 import {
   UserIcon,
   Mail01Icon,
@@ -52,20 +75,23 @@ import {
   PencilLine,
   Tick02FreeIcons,
   Hospital,
+  Search02Icon,
 } from "@hugeicons/core-free-icons";
+
+import { useAuthStore } from "@/src/store/useStore";
+import { useSettingsStore } from "@/src/store/useSettingsStore";
+import { supabase } from "@/src/services/supabase";
+import { Colors } from "@/constants/colors";
+import Avatar from "@/components/Avatar";
+import { TripsStorage } from "@/src/services/storage";
+import { haptics } from "@/src/utils/haptics";
 import type { EmergencyContact, Trip } from "@/src/models/types";
-import { StatusBar } from "expo-status-bar";
 import PassengerDashboard from "../(passenger)";
 import DriverDashboard from "../(driver)";
 import QuickReceiveModal from "@/components/quickrecieveModal";
 import StatPill from "@/components/StatPill";
-
-import {
-  formatNaira,
-  coinsToNaira,
-} from "@/src/utils/helpers";
+import { formatNaira, coinsToNaira } from "@/src/utils/helpers";
 import BalanceCard from "@/components/BalanceCard";
-
 import FindDriverModal from "@/components/FindDriverModal";
 import { getBiometricCredentials } from "@/src/services/auth";
 import CreditMeter from "@/components/CreditMeter";
@@ -80,12 +106,27 @@ import {
   Glass,
   iosAlert,
   IOSSearchBar,
+  IOSSearchOverlay,
   IOSListSection,
   IOSListRow,
   SwipeableTabs,
+  NetworkStatus,
+  useIOSTheme,
+  useTabBarInset,
+  IOSAppFont,
   type IOSSegment,
+  type IOSFilterChip,
+  type IOSSearchResult,
 } from "@/components/ios";
 import { SETTINGS_SECTIONS } from "@/src/data/settingsIndex";
+import {
+  buildProfileIndex,
+  searchProfileIndex,
+  countByCategory,
+  type ProfilePane,
+  type ProfileSearchCategory,
+  type ProfileSearchItem,
+} from "@/src/data/profileSearchIndex";
 import { triggerSyncNow } from "@/src/services/sync";
 
 // Slide-in "Copied" toast, shared via context so every copy action triggers it.
@@ -147,6 +188,107 @@ const toastStyles = StyleSheet.create({
   text: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: "#fff" },
 });
 
+// ─── Glass card ──────────────────────────────────────────────────────────────
+//
+// Glass clips, so it can't cast a shadow. The shadow therefore lives on a
+// wrapper OUTSIDE the clipped surface — the card is two views, not one.
+
+function GlassCard({
+  children,
+  style,
+  padded = true,
+}: {
+  children: React.ReactNode;
+  style?: object;
+  padded?: boolean;
+}) {
+  const ios = useIOSTheme();
+  const dark = ios.scheme === "dark";
+
+  return (
+    <View style={[styles.cardShadow, style]}>
+      <View style={styles.cardClip}>
+        <Glass
+          variant="regular"
+          radius={CARD_RADIUS}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+          fallbackIntensity={45}
+          fallbackTint={dark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.92)"}
+          androidTint={dark ? "rgba(28,28,30,0.92)" : "rgba(255,255,255,0.96)"}
+        />
+        <View style={padded ? styles.cardInner : undefined}>{children}</View>
+      </View>
+    </View>
+  );
+}
+
+/** Round glass action button used in the pinned bar. */
+function BarButton({
+  icon,
+  label,
+  onPress,
+  color,
+}: {
+  icon: any;
+  label: string;
+  onPress: () => void;
+  color: string;
+}) {
+  const ios = useIOSTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      style={styles.barBtn}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <Glass
+        variant="regular"
+        interactive
+        radius={22}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+        fallbackIntensity={40}
+        fallbackTint={ios.tertiarySystemFill}
+      />
+      <HugeiconsIcon icon={icon} size={19} color={color} />
+    </Pressable>
+  );
+}
+
+/**
+ * Fades its children with the header's collapse.
+ *
+ * Safe because it carries no glass — only the avatar and the name. Anything
+ * with a `Glass` inside must never sit under an animated opacity
+ * (expo/expo#41024); the bar's own material uses `present` instead.
+ */
+function BarFade({
+  visible,
+  children,
+  style,
+}: {
+  visible: boolean;
+  children: React.ReactNode;
+  style?: object;
+}) {
+  const o = useSharedValue(visible ? 1 : 0);
+
+  useEffect(() => {
+    o.value = withTiming(visible ? 1 : 0, { duration: 220 });
+  }, [visible, o]);
+
+  const aStyle = useAnimatedStyle(() => ({ opacity: o.value }));
+
+  return (
+    <Animated.View pointerEvents={visible ? "auto" : "none"} style={[style, aStyle]}>
+      {children}
+    </Animated.View>
+  );
+}
+
 // Reusable InfoRow with Hugeicons
 function InfoRow({
   icon,
@@ -171,7 +313,7 @@ function InfoRow({
   const handleCopy = async () => {
     if (value) {
       await Clipboard.setStringAsync(value);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      haptics.success();
       showCopied();
     }
   };
@@ -217,32 +359,48 @@ const infoStyles = StyleSheet.create({
     justifyContent: "center",
   },
   textBlock: { flex: 1 },
-  label: { 
-    fontFamily: "Poppins_400Regular", 
-    fontSize: 11, 
-    textTransform: "uppercase", 
-    letterSpacing: 0.5
+  label: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 11,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
-  value: { 
-    fontFamily: "Poppins_500Medium", 
-    fontSize: 14, 
-    marginTop: 1 
+  value: {
+    fontFamily: "Poppins_500Medium",
+    fontSize: 14,
+    marginTop: 1,
   },
 });
-
-type ProfilePane = "profile" | "settings" | "activity";
 
 /** The three panes. Order is the swipe order. */
 const PROFILE_TABS: IOSSegment<ProfilePane>[] = [
   { key: "profile", label: "Profile" },
-  { key: "settings", label: "Account Settings" },
+  { key: "settings", label: "Settings" },
   { key: "activity", label: "Activity" },
+];
+
+const RECENTS_KEY = "emilgo.profile.recentSearches";
+const MAX_RECENTS = 6;
+const CARD_RADIUS = 30;
+/** Height of the pinned bar, excluding the status bar. */
+const BAR_ROW_HEIGHT = 52;
+
+const SEARCH_SUGGESTIONS = [
+  "Dark mode",
+  "Payout account",
+  "Phone",
+  "Free rides",
+  "Achievements",
+  "Sign out",
 ];
 
 export default function ProfileTab() {
   const insets = useSafeAreaInsets();
+  const ios = useIOSTheme();
   const { user, updateUser } = useAuthStore();
   const { theme } = useSettingsStore();
+  const bottomInset = useTabBarInset();
+
   const [editField, setEditField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [saving, setSaving] = useState(false);
@@ -255,25 +413,29 @@ export default function ProfileTab() {
   const [totalEarnedCoins, setTotalEarnedCoins] = useState(0);
   const [finderVisible, setFinderVisible] = useState(false);
   const [copyNonce, setCopyNonce] = useState(0);
-  const showCopied = () => setCopyNonce((n) => n + 1);
+  const showCopied = useCallback(() => setCopyNonce((n) => n + 1), []);
 
   const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.border;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
+  const cardBg = isDark ? "rgba(255,255,255,0.06)" : "#FFFFFF";
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
   const modalBg = isDark ? Colors.text : Colors.textWhite;
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const [receiveVisible, setReceiveVisible] = useState(false);
   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
 
   const [tab, setTab] = useState<ProfilePane>("profile");
-  const [profileQuery, setProfileQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
   const [knownEmail, setKnownEmail] = useState<string | null>(null);
+
+  // ── Search ────────────────────────────────────────────────────────────────
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [profileQuery, setProfileQuery] = useState("");
+  const [searchFilter, setSearchFilter] = useState<ProfileSearchCategory | "all">("all");
+  const [recents, setRecents] = useState<string[]>([]);
 
   // ── Step 7: credit meter + achievements ──────────────────────────────────
   const credits = useCreditsStore((s) => s.balance);
@@ -282,6 +444,7 @@ export default function ProfileTab() {
   const hydrateProgram = useProgramStore((s) => s.hydrateFromUser);
   const txHistory = useTransactionsStore((s) => s.history);
   const evaluateAchievements = useAchievementsStore((s) => s.evaluate);
+  const unlockedAchievements = useAchievementsStore((s) => s.unlocked);
   const activities = useActivityFeed();
 
   useEffect(() => {
@@ -311,25 +474,53 @@ export default function ProfileTab() {
     });
   }, [user?.id, credits, creditHistory, programStatus, txHistory, evaluateAchievements]);
 
-  // Load the device's stored account on mount.
+  // Load the device's stored account on mount. It backs the Email row when the
+  // session hasn't carried one through yet.
   useEffect(() => {
     (async () => {
       const creds = await getBiometricCredentials();
-      if (creds) {
-        setKnownEmail(creds.email);
-        // setHasStoredCreds(true);
+      if (creds) setKnownEmail(creds.email);
+    })();
+  }, []);
+
+  // Recent searches survive the app being closed — the first tap on a search
+  // field is usually a repeat of the last one.
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(RECENTS_KEY);
+        if (raw) setRecents(JSON.parse(raw));
+      } catch {
+        /* a corrupt recents list is not worth surfacing */
       }
     })();
   }, []);
 
+  const rememberQuery = useCallback((q: string) => {
+    const term = q.trim();
+    if (!term) return;
+    setRecents((prev) => {
+      const next = [term, ...prev.filter((r) => r.toLowerCase() !== term.toLowerCase())].slice(
+        0,
+        MAX_RECENTS,
+      );
+      AsyncStorage.setItem(RECENTS_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const clearRecents = useCallback(() => {
+    setRecents([]);
+    AsyncStorage.removeItem(RECENTS_KEY).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!user?.id || user.role !== "driver") return;
     const loadEarnings = async () => {
       const trips = await TripsStorage.getByDriverId(user.id);
-      const completed = trips.filter(t => t.status === "completed");
+      const completed = trips.filter((t) => t.status === "completed");
       const earned = completed.reduce((sum, trip) => {
-        const passengerCount = 0; 
+        const passengerCount = 0;
         const durationMinutes = trip.end_time
           ? (new Date(trip.end_time).getTime() - new Date(trip.start_time).getTime()) / 60000
           : 0;
@@ -362,8 +553,8 @@ export default function ProfileTab() {
     }
   }, [user?.id]);
 
-  const pickPhoto = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const pickPhoto = useCallback(async () => {
+    haptics.tap();
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -379,13 +570,13 @@ export default function ProfileTab() {
         iosAlert("Error", "Could not update photo.");
       }
     }
-  };
+  }, [updateUser]);
 
-  const startEdit = (field: string, currentValue: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const startEdit = useCallback((field: string, currentValue: string) => {
+    haptics.tap();
     setEditField(field);
     setEditValue(currentValue || "");
-  };
+  }, []);
 
   const saveEdit = async () => {
     if (!editField) return;
@@ -402,13 +593,38 @@ export default function ProfileTab() {
     }
   };
 
-  const handleCopy = async () => {
-    if (user?.driver_id) {
-      await Clipboard.setStringAsync(user?.driver_id);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      showCopied();
-    }
-  };
+  /**
+   * Copy the handle people actually share.
+   *
+   * This used to copy `driver_id` while the chip beside it showed `@username`,
+   * so the button copied something the user was not looking at — and it carried
+   * a `hitSlop` of 912, a touch target larger than the screen, which swallowed
+   * every tap in the header around it.
+   */
+  const handleCopy = useCallback(async () => {
+    const handle = user?.username ? `@${user.username}` : user?.driver_id;
+    if (!handle) return;
+    await Clipboard.setStringAsync(handle);
+    haptics.success();
+    showCopied();
+  }, [user?.username, user?.driver_id, showCopied]);
+
+  const confirmSignOut = useCallback(() => {
+    iosAlert("Sign Out", "Are you sure?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          const { signOut } = await import("@/src/services/supabase");
+          const { logout } = useAuthStore.getState();
+          await signOut();
+          logout();
+          router.replace("/(auth)/login");
+        },
+      },
+    ]);
+  }, []);
 
   const addEmergencyContact = () => {
     if (!newContactName.trim() || !newContactPhone.trim()) return;
@@ -420,7 +636,7 @@ export default function ProfileTab() {
     updateUser({ emergency_contacts: updated } as any);
     setNewContactName("");
     setNewContactPhone("");
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    haptics.success();
   };
 
   const removeContact = (idx: number) => {
@@ -429,319 +645,440 @@ export default function ProfileTab() {
     updateUser({ emergency_contacts: updated } as any);
   };
 
+  // ── Search wiring ─────────────────────────────────────────────────────────
+
+  const searchIndex = useMemo(
+    () =>
+      buildProfileIndex({
+        user,
+        trips: recentTrips,
+        activities,
+        credits,
+        achievementsEarned: Object.keys(unlockedAchievements ?? {}).length,
+        isPartner: programStatus !== "none",
+      }),
+    [user, recentTrips, activities, credits, unlockedAchievements, programStatus],
+  );
+
+  const counts = useMemo(
+    () => countByCategory(searchIndex, profileQuery),
+    [searchIndex, profileQuery],
+  );
+
+  const hits = useMemo(
+    () => searchProfileIndex(searchIndex, profileQuery, searchFilter),
+    [searchIndex, profileQuery, searchFilter],
+  );
+
+  const searching = profileQuery.trim().length > 0;
+
+  const filters: IOSFilterChip<ProfileSearchCategory | "all">[] = useMemo(
+    () => [
+      { key: "all", label: "All", count: searching ? counts.all : undefined },
+      { key: "settings", label: "Settings", count: searching ? counts.settings : undefined },
+      { key: "profile", label: "Details", count: searching ? counts.profile : undefined },
+      { key: "activity", label: "Activity", count: searching ? counts.activity : undefined },
+      { key: "actions", label: "Actions", count: searching ? counts.actions : undefined },
+    ],
+    [counts, searching],
+  );
+
+  /**
+   * Act on a result.
+   *
+   * Anything that presents — the edit sheet, the QR sheet, an alert, a pushed
+   * route — has to wait for this overlay to finish dismissing. iOS refuses to
+   * present a second modal over one that is still animating away, and the
+   * request is dropped silently rather than queued.
+   */
+  const runResult = useCallback(
+    (item: ProfileSearchItem) => {
+      rememberQuery(profileQuery);
+      setSearchOpen(false);
+
+      const after = (fn: () => void) => setTimeout(fn, 320);
+
+      // Bind the target before the closures: TypeScript's narrowing of
+      // `item.target` doesn't survive into a deferred callback.
+      const target = item.target;
+
+      switch (target.kind) {
+        case "route":
+          after(() => router.push(target.route as never));
+          break;
+        case "pane":
+          setTab(target.pane);
+          break;
+        case "action":
+          switch (target.action) {
+            case "edit-field":
+              after(() => startEdit(target.field!, target.value ?? ""));
+              break;
+            case "change-photo":
+              after(pickPhoto);
+              break;
+            case "show-qr":
+              after(() => setReceiveVisible(true));
+              break;
+            case "sign-out":
+              after(confirmSignOut);
+              break;
+            case "copy-username":
+              void handleCopy();
+              break;
+          }
+          break;
+      }
+    },
+    [profileQuery, rememberQuery, startEdit, pickPhoto, confirmSignOut, handleCopy],
+  );
+
+  const results: IOSSearchResult[] = useMemo(
+    () =>
+      hits.map((h) => ({
+        id: h.id,
+        title: h.title,
+        subtitle: h.subtitle,
+        symbol: h.symbol,
+        group: h.group,
+        onPress: () => runResult(h),
+      })),
+    [hits, runResult],
+  );
+
+  const openSearch = useCallback(() => setSearchOpen(true), []);
+
+  // ── Chrome ────────────────────────────────────────────────────────────────
+
+  const barHeight = insets.top + BAR_ROW_HEIGHT;
+  const displayName = user?.full_name || "No user";
+  const handle = user?.username ? `@${user.username}` : user?.driver_id ?? "";
+  const roleLabel =
+    user?.role === "driver"
+      ? "Driver"
+      : user?.role === "park_owner"
+        ? "Park Owner"
+        : "Passenger";
+
+  const renderBar = useCallback(
+    (collapsed: boolean) => (
+      <View style={[styles.barRoot, { paddingTop: insets.top }]} pointerEvents="box-none">
+        {/* The bar materialises its glass on a threshold rather than fading it
+            in — opacity above a GlassView renders the effect wrong. */}
+        <Glass
+          variant="regular"
+          present={collapsed}
+          animated
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+          fallbackIntensity={100}
+          fallbackTint={isDark ? "rgba(7,7,7,0.72)" : "rgba(255,255,255,0.78)"}
+          androidTint={isDark ? "rgba(7,7,7,0.9)" : "rgba(255,255,255,0.92)"}
+        />
+
+        <View style={styles.barRow} pointerEvents="box-none">
+          <BarFade visible={collapsed} style={styles.barLeft}>
+            <Avatar name={displayName} photoUri={user?.profile_photo} size={30} />
+          </BarFade>
+
+          {/* Same centre slot as every other screen: the connection takes it
+              over the moment it degrades, and hands it back on recovery. */}
+          <View style={styles.barCentre} pointerEvents="none">
+            <NetworkStatus>
+              <BarFade visible={collapsed}>
+                <Text
+                  numberOfLines={1}
+                  style={[IOSAppFont.label, { color: textColor, fontFamily: "Poppins_600SemiBold" }]}
+                >
+                  {displayName}
+                </Text>
+              </BarFade>
+            </NetworkStatus>
+          </View>
+
+          <View style={styles.barRight}>
+            <BarButton icon={Search02Icon} label="Search profile" onPress={openSearch} color={textColor} />
+            {user?.role === "driver" && (
+              <BarButton
+                icon={QrCode01Icon}
+                label="My QR code"
+                onPress={() => setReceiveVisible(true)}
+                color={textColor}
+              />
+            )}
+            <BarButton icon={LogoutIcon} label="Sign out" onPress={confirmSignOut} color={textColor} />
+          </View>
+        </View>
+      </View>
+    ),
+    [insets.top, isDark, displayName, user?.profile_photo, user?.role, textColor, openSearch, confirmSignOut],
+  );
+
   return (
     <CopyToastContext.Provider value={showCopied}>
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: bg }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
-    >
-      <CopyToast nonce={copyNonce} />
-      <SwipeableTabs
-        segments={PROFILE_TABS}
-        active={tab}
-        onChange={setTab}
-        contentContainerStyle={{ paddingBottom: 140 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
-        }
-        header={
-          <View style={styles.mainContainer}>
-            <StatusBar style={isDark ? 'light' : 'dark'} />
-            {/* Hero Section */}
-            <View style={ [styles.profileHeader, { marginTop: topPadding + 25 },  ]}>
-              <View style={[styles.hero]}>
-                <Pressable onPress={pickPhoto} >
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: bg }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+      >
+        <StatusBar style={isDark ? "light" : "dark"} />
+        <CopyToast nonce={copyNonce} />
+
+        <SwipeableTabs
+          segments={PROFILE_TABS}
+          active={tab}
+          onChange={setTab}
+          variant="capsule"
+          barHeight={barHeight}
+          renderBar={renderBar}
+          stripInset={16}
+          contentContainerStyle={{ paddingBottom: bottomInset + 32 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              progressViewOffset={barHeight}
+              tintColor={Colors.primary}
+            />
+          }
+          header={
+            <View style={styles.hero}>
+              <View style={styles.heroRow}>
+                <Pressable onPress={pickPhoto} accessibilityRole="button" accessibilityLabel="Change photo">
                   <View style={styles.avatarWrap}>
-                    <Avatar name={user?.full_name || "User"} photoUri={user?.profile_photo} size={58} />
+                    <Avatar name={displayName} photoUri={user?.profile_photo} size={66} />
                   </View>
-                  <View style={styles.cameraBtn}>
-                    <HugeiconsIcon icon={Camera01Icon} size={14} color="#fff" />
+                  <View style={[styles.cameraBtn, { backgroundColor: bg }]}>
+                    <HugeiconsIcon icon={Camera01Icon} size={13} color={textColor} />
                   </View>
                 </Pressable>
-                <View style={{alignItems: 'flex-start', justifyContent: 'flex-start', gap: 3 }}>
-                  <Text style={[styles.heroName, {color: textColor} ]}>{user?.full_name || "No user"}</Text>
-                  <View style={styles.roleBadge}>
 
-                    <Text style={styles.roleText}>
-                        {user?.role === "driver" && (
-                          <View style={styles.roleContainer}>
-                            {/* {user?.username && user?.driver_id && ( */}
-                            <Text style={[{ color: Colors.warning }]}>@{user?.username}</Text>
-                            {/* )} */}
-                            {/* {!!user?.driver_id && (
-                            <View style={styles.driverIdChip}>
-                              <Text style={styles.driverIdText}>@ {user.username}</Text>
-                            </View>
-                          )} */}
-                            {/* {!!user?.driver_id && (
-                            <View style={styles.driverIdChip}>
-                              <Text style={styles.driverIdText}>@ {user.driver_id}</Text>
-                            </View>
-                          )} */}
-                          </View>
-                        )}
-                        {user?.role === "passenger" && (
-                        <View style={styles.roleContainer}>
-                            <Text style={[{ color: Colors.warning }]}>@{user?.username}</Text>
-                          
-                            {/* {user?.username
-                              ? `@${user.username}`
-                              : user?.role === "park_owner"
-                                ? "Park Owner"
-                                :   (
-                                      <Text style={[{ color: Colors.warning }]}>@{user?.username}</Text>
-                                    )} */}
-                        </View>
-                        //   ) :
-                        // (<Text style={[{ color: Colors.warning }]}>@username</Text>)
-                      )}
-                    </Text>
-                    <Pressable style={styles.copyIcon} onPress={handleCopy} hitSlop={912}>
-                        <HugeiconsIcon icon={Copy01Icon as any} size={14} color={Colors.warning} />
+                <View style={styles.heroText}>
+                  <Text numberOfLines={1} style={[styles.heroName, { color: textColor }]}>
+                    {displayName}
+                  </Text>
+
+                  <View style={styles.handleRow}>
+                    {!!handle && (
+                      <View style={styles.handleChip}>
+                        <Glass
+                          variant="clear"
+                          radius={30}
+                          style={StyleSheet.absoluteFill}
+                          pointerEvents="none"
+                          fallbackIntensity={26}
+                          fallbackTint={ios.tertiarySystemFill}
+                        />
+                        <Text numberOfLines={1} style={styles.handleText}>
+                          {handle}
+                        </Text>
+                      </View>
+                    )}
+
+                    <Pressable
+                      onPress={handleCopy}
+                      hitSlop={12}
+                      style={styles.copyBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel="Copy username"
+                    >
+                      <Glass
+                        variant="clear"
+                        interactive
+                        radius={30}
+                        style={StyleSheet.absoluteFill}
+                        pointerEvents="none"
+                        fallbackIntensity={26}
+                        fallbackTint={ios.tertiarySystemFill}
+                      />
+                      <HugeiconsIcon icon={Copy01Icon as any} size={14} color={Colors.warning} />
                     </Pressable>
                   </View>
+
+                  <View style={styles.roleRow}>
+                    <Text style={[styles.roleLabel, { color: subTextColor }]}>{roleLabel}</Text>
+                    {!!user?.avg_rating && (
+                      <>
+                        <View style={[styles.dot, { backgroundColor: subTextColor }]} />
+                        <HugeiconsIcon icon={Star as any} size={12} color={Colors.gold} />
+                        <Text style={[styles.roleLabel, { color: subTextColor }]}>
+                          {user.avg_rating.toFixed(1)}
+                        </Text>
+                      </>
+                    )}
+                  </View>
                 </View>
               </View>
 
-              {/*  */}
-              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 15,  padding: 10, paddingTop:0, alignSelf:'flex-end'}}>
-                {/* Sign Out Button */}
-                <View style={[styles.menuList, { borderColor }]}>
-                  <Glass
-                    variant="regular"
-                    radius={30}
-                    style={StyleSheet.absoluteFill}
-                    pointerEvents="none"
-                    fallbackIntensity={40}
-                    fallbackTint={isDark ? Colors.overlayLight : Colors.textWhite}
-                  />
+              {/* Full-width search across the header. A button, not a field —
+                  the overlay owns the live one. */}
+              <View style={styles.headerSearch}>
+                <IOSSearchBar
+                  asButton
+                  value={profileQuery}
+                  onChangeText={setProfileQuery}
+                  onPress={openSearch}
+                  placeholder="Search settings, details and activity"
+                />
+              </View>
+            </View>
+          }
+        >
+          <View style={styles.paneContent}>
+            {/* ── Profile: balance, stats, credit ── */}
+            {tab === "profile" && (
+              <>
+                {user?.role === "driver" ? (
+                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
+                    <DriverDashboard />
+                  </View>
+                ) : user?.role === "passenger" ? (
+                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
+                    <PassengerDashboard />
+                  </View>
+                ) : (
+                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
+                    <BalanceCard coins={totalEarnedCoins} onQuickTransferPress={() => {}} />
+                  </View>
+                )}
 
-
-                  <Pressable
-                    style={[styles.signOutBtn, { borderColor: "transparent" }]}
-                    onPress={() => {
-                      iosAlert("Sign Out", "Are you sure?", [
-                        { text: "Cancel", style: "cancel" },
-                        {
-                          text: "Sign Out",
-                          style: "destructive",
-                          onPress: async () => {
-                            const { signOut } = await import("@/src/services/supabase");
-                            const { logout } = useAuthStore.getState();
-                            await signOut();
-                            logout();
-                            router.replace("/(auth)/login");
-                          },
-                        },
-                      ]);
-                    }}>
-                    <HugeiconsIcon icon={LogoutIcon} size={21} color={textColor} />
-                  </Pressable>
-                </View>
-
+                {/* ── Earnings summary strip ── */}
                 {user?.role === "driver" && (
-                  <Pressable onPress={() => setReceiveVisible(true)}>
-                    <HugeiconsIcon icon={QrCode01Icon} size={23} color={textColor} />
+                  <GlassCard style={styles.statsCard} padded={false}>
+                    <View style={styles.statsStrip}>
+                      <View style={styles.statInner}>
+                        <StatPill
+                          iconName={CheckmarkBadge01Icon}
+                          label="Trips"
+                          value={recentTrips.length.toString()}
+                          color={textColor}
+                        />
+                        <StatPill
+                          iconName={Trophy}
+                          label="Completed"
+                          value={completedTrips.toString()}
+                          color={textColor}
+                        />
+                      </View>
+
+                      <View style={styles.statInner}>
+                        <StatPill
+                          iconName={Wallet}
+                          label="Earned"
+                          value={formatNaira(coinsToNaira(totalEarnedCoins))}
+                          color={textColor}
+                        />
+                        <StatPill
+                          iconName={Star}
+                          label="Rating"
+                          value={user?.avg_rating ? user.avg_rating.toFixed(1) : "—"}
+                          color={textColor}
+                        />
+                      </View>
+                    </View>
+                  </GlassCard>
+                )}
+
+                {/* ── Step 7: credit meter · partner CTA · achievements ── */}
+                <CreditMeter textColor={textColor} subColor={subTextColor} cardBg={cardBg} />
+
+                {programStatus === "none" && (
+                  <Pressable
+                    style={[styles.partnerBtn, { backgroundColor: Colors.primary }]}
+                    onPress={() => router.push("/program")}
+                  >
+                    <HugeiconsIcon icon={CheckmarkBadge01Icon as any} size={20} color="#fff" />
+                    <Text style={styles.partnerBtnText}>Become a partner</Text>
+                    <HugeiconsIcon icon={ChevronRight as any} size={18} color="#fff" />
                   </Pressable>
                 )}
-              </View>
-            </View>
+              </>
+            )}
 
+            {/* ── Account Settings: every settings section, plus identity ── */}
+            {tab === "settings" && (
+              <>
+                <IOSListSection>
+                  {SETTINGS_SECTIONS.map((s) => (
+                    <IOSListRow
+                      key={s.id}
+                      symbol={s.symbol as never}
+                      label={s.title}
+                      detail={s.summary}
+                      accessory={{ type: "disclosure" }}
+                      onPress={() => {
+                        haptics.tap();
+                        router.push(s.route as never);
+                      }}
+                    />
+                  ))}
+                </IOSListSection>
 
-
-            {/* Full-width search across the header. */}
-            <View style={styles.headerSearch}>
-              <IOSSearchBar
-                value={profileQuery}
-                onChangeText={setProfileQuery}
-                placeholder="Search settings and activity"
-              />
-            </View>
-          </View>
-        }
-      >
-        <View style={styles.scrollContent}>
-          {/* ── Profile: balance, stats, credit ── */}
-          {tab === "profile" && (
-            <>
-              { user?.role === "driver" ?
-                (
-                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
-                      <DriverDashboard />
-                  </View>
-                )
-                : user?.role === "passenger" ? (
-                    <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
-                      <PassengerDashboard />
+                {/* Personal Information */}
+                <GlassCard style={styles.cardSpacing}>
+                  <Pressable
+                    style={styles.cardHead}
+                    onPress={() => setShowPersonalInfo((v) => !v)}
+                    hitSlop={8}
+                  >
+                    <View style={styles.cardHeadTitle}>
+                      <HugeiconsIcon icon={UserIcon} size={20} color={textColor} />
+                      <Text style={[styles.cardTitle, { color: textColor }]}>
+                        Personal Information
+                      </Text>
                     </View>
-                ) : (
-                    <View style={[styles.coinbalanceSection, { backgroundColor: cardBg }]}>
-                      <BalanceCard
-                        coins={totalEarnedCoins}
-                        onQuickTransferPress={() => { }}
+                    <HugeiconsIcon
+                      icon={showPersonalInfo ? ChevronRight : ChevronDown}
+                      size={22}
+                      color={textColor}
+                    />
+                  </Pressable>
+
+                  {showPersonalInfo && (
+                    <View>
+                      <InfoRow
+                        icon={Mail01Icon}
+                        label="Email"
+                        value={user?.email || knownEmail || ""}
+                        textColor={textColor}
+                        subTextColor={subTextColor}
+                        borderColor={borderColor}
+                      />
+                      <InfoRow
+                        icon={CallIcon}
+                        label="Phone"
+                        value={user?.phone || ""}
+                        editable
+                        onEdit={() => startEdit("phone", user?.phone || "")}
+                        textColor={textColor}
+                        subTextColor={subTextColor}
+                        borderColor="transparent"
                       />
                     </View>
-              )}
+                  )}
+                </GlassCard>
 
-              {/* ── Earnings summary strip ── */}
-              {user?.role === "driver" && (
-                <View style={styles.statsStrip}>
-                  <View style={[ styles.statInner ]}>
-                    <StatPill
-                      iconName={CheckmarkBadge01Icon}
-                      label="Trips"
-                      value={recentTrips.length.toString()}
-                      color={textColor}
-                    />
-                    <StatPill
-                      iconName={Trophy}
-                      label="Completed"
-                      value={completedTrips.toString()}
-                      color={textColor}
-                    />
-                  </View>
-
-                  <View style={[ styles.statInner ]}>
-                    <StatPill
-                      iconName={ Wallet}
-                      label="Earned"
-                      value={formatNaira(coinsToNaira(totalEarnedCoins))}
-                      color={textColor}
-                    />
-                    <StatPill
-                      iconName={Star}
-                      label="Rating"
-                      value={user?.avg_rating ? user.avg_rating.toFixed(1) : "—"}
-                      color={textColor}
-                    />
-                  </View>
-                </View>
-              )}
-          
-              {/* ── Step 7: credit meter · partner CTA · achievements ── */}
-              <CreditMeter textColor={textColor} subColor={subTextColor} cardBg={cardBg} />
-
-              {programStatus === "none" && (
-                <Pressable
-                  style={[styles.partnerBtn, { backgroundColor: Colors.primary }]}
-                  onPress={() => router.push("/program")}
-                >
-                  <HugeiconsIcon icon={CheckmarkBadge01Icon as any} size={20} color="#fff" />
-                  <Text style={styles.partnerBtnText}>Become a partner</Text>
-                  <HugeiconsIcon icon={ChevronRight as any} size={18} color="#fff" />
-                </Pressable>
-              )}
-
-            </>
-          )}
-
-          {/* ── Account Settings: every settings section, plus identity ── */}
-          {tab === "settings" && (
-            <>
-              <IOSListSection>
-                {SETTINGS_SECTIONS.map((s) => (
-                  <IOSListRow
-                    key={s.id}
-                    symbol={s.symbol as never}
-                    label={s.title}
-                    detail={s.summary}
-                    accessory={{ type: "disclosure" }}
-                    onPress={() => {
-                      haptics.tap();
-                      router.push(s.route as never);
-                    }}
-                  />
-                ))}
-              </IOSListSection>
-              {/* Personal Information */}
-              <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
-                <Pressable style={{
-                  flexDirection: 'row', 
-                  alignItems:'flex-start', 
-                  flex: 1, 
-                  justifyContent: 'space-between'
-                }} 
-                  onPress={() =>  setShowPersonalInfo(v => !v)} hitSlop={8}
-                >
-                  <View style={{flexDirection: 'row', gap: 10, marginHorizontal: 7}}>
-                    <HugeiconsIcon icon={UserIcon} size={20} color={textColor} />
-                    <Text style={[styles.cardTitle, { color: textColor }]}>Personal Information</Text>
-                  </View>
-                  <HugeiconsIcon icon={showPersonalInfo ? ChevronRight : ChevronDown} size={22} color={textColor}/>
-                </Pressable>
-
-                {showPersonalInfo && (
-                  <View>
-                    {/* <InfoRow
-                      icon={UserIcon}
-                      label="Full Name"
-                      value={user?.full_name || ""}
-                      editable
-                      onEdit={() => startEdit("full_name", user?.full_name || "")}
-                      textColor={textColor}
-                      subTextColor={subTextColor}
-                      borderColor={borderColor}
-                    /> */}
-                    <InfoRow
-                      icon={Mail01Icon}
-                      label="Email"
-                      value={user?.email || ""}
-                      textColor={textColor}
-                      subTextColor={subTextColor}
-                      borderColor={borderColor}
-                    />
-                    <InfoRow
-                      icon={CallIcon}
-                      label="Phone"
-                      value={user?.phone || ""}
-                      editable
-                      onEdit={() => startEdit("phone", user?.phone || "")}
-                      textColor={textColor}
-                      subTextColor={subTextColor}
-                      borderColor="transparent"
-                    />
-                    {/* <InfoRow
-                      icon={CalendarIcon}
-                      label="Age"
-                      value={user?.age?.toString() || ""}
-                      textColor={textColor}
-                      subTextColor={subTextColor}
-                      borderColor="transparent"
-                    /> */}
-                  </View>
-                )}
-              </View>
-
-              {/* Driver Details */}
-              {user?.role === "driver" && (
-                <View>
-                  <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
-                    <Pressable style={{
-                      flexDirection: 'row', 
-                      alignItems:'flex-start', 
-                      flex: 1, 
-                      justifyContent: 'space-between'
-                    }} 
-                      onPress={() => setShowDriverDetails(v => !v)} hitSlop={8}
+                {/* Driver Details */}
+                {user?.role === "driver" && (
+                  <GlassCard style={styles.cardSpacing}>
+                    <Pressable
+                      style={styles.cardHead}
+                      onPress={() => setShowDriverDetails((v) => !v)}
+                      hitSlop={8}
                     >
-                      <View style={{flexDirection: 'row', gap: 10, marginHorizontal: 7}}>
+                      <View style={styles.cardHeadTitle}>
                         <HugeiconsIcon icon={Car01Icon} size={20} color={textColor} />
                         <Text style={[styles.cardTitle, { color: textColor }]}>Driver Details</Text>
                       </View>
-                      <HugeiconsIcon icon={showDriverDetails ? ChevronRight : ChevronDown} size={22} color={textColor}/>
+                      <HugeiconsIcon
+                        icon={showDriverDetails ? ChevronRight : ChevronDown}
+                        size={22}
+                        color={textColor}
+                      />
                     </Pressable>
 
                     {showDriverDetails && (
                       <View>
-                        {/* <InfoRow
-                          icon={IdentityCardIcon}
-                          label="Driver ID"
-                          value={user?.driver_id || ""}
-                          textColor={textColor}
-                          subTextColor={subTextColor}
-                          borderColor={borderColor}
-                        /> */}
                         <InfoRow
                           icon={CarIcon}
                           label="Vehicle"
@@ -773,28 +1110,30 @@ export default function ProfileTab() {
                           borderColor="transparent"
                         />
                       </View>
-                      )}
-                  </View>
-                </View>
-              )}
+                    )}
+                  </GlassCard>
+                )}
 
-              {/* Park Owner Details */}
-              {user?.role === "park_owner" && (
-                <View>
-                  <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
-                    <Pressable style={{
-                      flexDirection: 'row', 
-                      alignItems:'flex-start', 
-                      flex: 1, 
-                      justifyContent: 'space-between'
-                    }} 
-                      onPress={() => setParkExpanded((v) => !v)} hitSlop={8}
-                    > 
-                      <Text style={[styles.cardTitle, { color: textColor }]}>Park Details</Text>
-                      <HugeiconsIcon icon={parkExpanded ? ChevronRight : ChevronDown} size={22} color={textColor}/>
+                {/* Park Owner Details */}
+                {user?.role === "park_owner" && (
+                  <GlassCard style={styles.cardSpacing}>
+                    <Pressable
+                      style={styles.cardHead}
+                      onPress={() => setParkExpanded((v) => !v)}
+                      hitSlop={8}
+                    >
+                      <View style={styles.cardHeadTitle}>
+                        <HugeiconsIcon icon={BuildingIcon} size={20} color={textColor} />
+                        <Text style={[styles.cardTitle, { color: textColor }]}>Park Details</Text>
+                      </View>
+                      <HugeiconsIcon
+                        icon={parkExpanded ? ChevronRight : ChevronDown}
+                        size={22}
+                        color={textColor}
+                      />
                     </Pressable>
 
-                    {parkExpanded ? (
+                    {parkExpanded && (
                       <View>
                         <InfoRow
                           icon={BuildingIcon}
@@ -817,35 +1156,41 @@ export default function ProfileTab() {
                           borderColor="transparent"
                         />
                       </View>
-                        ) : (
-                      <></>
                     )}
-                  </View>
-                </View>
-              )}
+                  </GlassCard>
+                )}
 
-              {/* Emergency Contacts (Passenger) */}
-              {!user?.role && (
-                <View>
-                  <View style={[styles.card, { backgroundColor: cardBg }]}>
-                    <View style={{flexDirection: 'row', gap: 10, marginHorizontal: 7}}>
-                      <HugeiconsIcon icon={Hospital} size={20} color={ textColor } />
-                      <Text style={[styles.cardTitle, { color: textColor }]}>Emergency Contacts</Text>
+                {/* Emergency Contacts */}
+                {!user?.role && (
+                  <GlassCard style={styles.cardSpacing}>
+                    <View style={styles.cardHeadTitle}>
+                      <HugeiconsIcon icon={Hospital} size={20} color={textColor} />
+                      <Text style={[styles.cardTitle, { color: textColor }]}>
+                        Emergency Contacts
+                      </Text>
                     </View>
-                    {((user as any)?.emergency_contacts as EmergencyContact[] || []).map((c, idx) => (
-                      <View key={idx} style={[styles.contactRow, { borderBottomColor: borderColor }]}>
-                        <View style={[styles.contactAvatar, { backgroundColor: Colors.primaryLight }]}>
-                          <Text style={[styles.contactInitial, { color: Colors.primary }]}>{c.name.charAt(0).toUpperCase()}</Text>
+
+                    {(((user as any)?.emergency_contacts as EmergencyContact[]) || []).map(
+                      (c, idx) => (
+                        <View key={idx} style={[styles.contactRow, { borderBottomColor: borderColor }]}>
+                          <View style={[styles.contactAvatar, { backgroundColor: Colors.primaryLight }]}>
+                            <Text style={[styles.contactInitial, { color: Colors.primary }]}>
+                              {c.name.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.contactName, { color: textColor }]}>{c.name}</Text>
+                            <Text style={[styles.contactPhone, { color: subTextColor }]}>
+                              {c.phone}
+                            </Text>
+                          </View>
+                          <Pressable onPress={() => removeContact(idx)} hitSlop={8}>
+                            <HugeiconsIcon icon={Close} size={20} color={Colors.error} />
+                          </Pressable>
                         </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.contactName, { color: textColor }]}>{c.name}</Text>
-                          <Text style={[styles.contactPhone, { color: subTextColor }]}>{c.phone}</Text>
-                        </View>
-                        <Pressable onPress={() => removeContact(idx)} hitSlop={8}>
-                          <HugeiconsIcon icon={Close} size={20} color={Colors.error} />
-                        </Pressable>
-                      </View>
-                    ))}
+                      ),
+                    )}
+
                     <View style={styles.addContactRow}>
                       <TextInput
                         style={[styles.addInput, { backgroundColor: cardBg, color: textColor }]}
@@ -862,209 +1207,229 @@ export default function ProfileTab() {
                         value={newContactPhone}
                         onChangeText={setNewContactPhone}
                       />
-                      <Pressable style={[styles.addBtn, { backgroundColor: Colors.primary }]} onPress={addEmergencyContact}>
+                      <Pressable
+                        style={[styles.addBtn, { backgroundColor: Colors.primary }]}
+                        onPress={addEmergencyContact}
+                      >
                         <HugeiconsIcon icon={AddCircleIcon as any} size={30} color="#fff" />
                       </Pressable>
                     </View>
-                  </View>
-                </View>
-              )}
-            </>
-          )}
+                  </GlassCard>
+                )}
+              </>
+            )}
 
-          {/* ── Activity: achievements and recent history ── */}
-          {tab === "activity" && (
-            <>
-              <AchievementsCard
-                textColor={textColor}
-                subColor={subTextColor}
-                cardBg={cardBg}
-                borderColor={borderColor}
-              />
-
-              {/* Recent activity (unified history: trips · payments · rewards · ads) */}
-              <View style={[styles.card, styles.cardSub, { backgroundColor: cardBg }]}>
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                  <Text style={[styles.cardTitle, { color: textColor }]}>Recent activity</Text>
-                  <Pressable
-                    onPress={() =>
-                      router.push(
-                        (user?.role === "driver"
-                          ? "/(driver)/history"
-                          : "/(passenger)/history") as any
-                      )
-                    }
-                    hitSlop={8}
-                  >
-                    <Text style={{ fontFamily: "Poppins_500Medium", fontSize: 12, color: Colors.primary }}>
-                      See all
-                    </Text>
-                  </Pressable>
-                </View>
-                <ActivityFeed
-                  activities={activities}
+            {/* ── Activity: achievements and recent history ── */}
+            {tab === "activity" && (
+              <>
+                <AchievementsCard
                   textColor={textColor}
                   subColor={subTextColor}
-                  cardBg={isDark ? "rgba(255,255,255,0.04)" : "#F7F9FB"}
+                  cardBg={cardBg}
                   borderColor={borderColor}
-                  limit={5}
-                  emptyText="No activity yet. Your trips, payments and rewards will show here."
                 />
-              </View>
 
+                {/* Recent activity (unified history: trips · payments · rewards · ads) */}
+                <GlassCard style={styles.cardSpacing}>
+                  <View style={styles.cardHead}>
+                    <Text style={[styles.cardTitle, { color: textColor }]}>Recent activity</Text>
+                    <Pressable
+                      onPress={() =>
+                        router.push(
+                          (user?.role === "driver"
+                            ? "/(driver)/history"
+                            : "/(passenger)/history") as any,
+                        )
+                      }
+                      hitSlop={8}
+                    >
+                      <Text style={styles.seeAll}>See all</Text>
+                    </Pressable>
+                  </View>
 
-
-            </>
-          )}
-        </View>
-      </SwipeableTabs>
-
-      {/* Edit Modal Sheet with Smooth Slide Animation */}
-      <Modal visible={!!editField} transparent animationType="slide" onRequestClose={() => setEditField(null)}>
-        <KeyboardAvoidingView 
-          style={styles.editOverlay}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-        >
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setEditField(null)} />
-          <View style={[styles.editSheet, { backgroundColor: modalBg }]}>
-            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-              <Text style={[styles.editTitle, { color: textColor }]}>Edit {editField?.replace("_", " ")}</Text>
-              <View style={styles.editActions}>
-                <Pressable style={[styles.editCancelBtn, { borderColor: Colors.error }]} onPress={() => setEditField(null)}>
-                  {/* <Text style={[styles.editCancelText, { color: Colors.error  }]}>Cancel</Text> */}
-                      <HugeiconsIcon icon={Close} size={20} color={Colors.error} />
-                </Pressable>
-                <Pressable style={[styles.editSaveBtn, { backgroundColor: Colors.primary }]} onPress={saveEdit} disabled={saving}>
-                  {saving ?
-                    (<>
-                      <Text style={[styles.editSaveText, { color: '#fff' }]}>{saving ? "Saving..." : "Save"}</Text>
-                    </>)
-                  :
-                    (<>
-                      <HugeiconsIcon icon={Tick02FreeIcons} size={20} color={"#fff"} />
-                    </>)
-                   }
-                </Pressable>
-              </View>
-            </View>
-            <TextInput
-              style={[styles.editInput, { color: textColor, borderColor, backgroundColor: borderColor }]}
-              value={editValue}
-              onChangeText={setEditValue}
-              autoFocus
-              onSubmitEditing={saveEdit}
-            />
+                  <ActivityFeed
+                    activities={activities}
+                    textColor={textColor}
+                    subColor={subTextColor}
+                    cardBg={isDark ? "rgba(255,255,255,0.04)" : "#F7F9FB"}
+                    borderColor={borderColor}
+                    limit={5}
+                    emptyText="No activity yet. Your trips, payments and rewards will show here."
+                  />
+                </GlassCard>
+              </>
+            )}
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        </SwipeableTabs>
 
-      <FindDriverModal
-        visible={finderVisible}
-        onClose={() => setFinderVisible(false)}
-      />
+        {/* Search: one field, the whole screen's contents behind it. */}
+        <IOSSearchOverlay
+          visible={searchOpen}
+          onClose={() => {
+            rememberQuery(profileQuery);
+            setSearchOpen(false);
+          }}
+          query={profileQuery}
+          onChangeQuery={setProfileQuery}
+          placeholder="Search settings, details and activity"
+          filters={filters}
+          activeFilter={searchFilter}
+          onChangeFilter={setSearchFilter}
+          results={results}
+          recents={recents}
+          onSelectRecent={setProfileQuery}
+          onClearRecents={clearRecents}
+          suggestions={SEARCH_SUGGESTIONS}
+          emptyHint="Try a setting, a field on your profile, or somewhere you've travelled."
+        />
 
-      <QuickReceiveModal
-        visible={receiveVisible}
-        onClose={() => setReceiveVisible(false)}
-        driverId={user?.driver_id}
-      />
-    </KeyboardAvoidingView>
+        {/* Edit Modal Sheet with Smooth Slide Animation */}
+        <Modal
+          visible={!!editField}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setEditField(null)}
+        >
+          <KeyboardAvoidingView
+            style={styles.editOverlay}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+          >
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setEditField(null)} />
+            <View style={[styles.editSheet, { backgroundColor: modalBg }]}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text style={[styles.editTitle, { color: textColor }]}>
+                  Edit {editField?.replace("_", " ")}
+                </Text>
+                <View style={styles.editActions}>
+                  <Pressable
+                    style={[styles.editCancelBtn, { borderColor: Colors.error }]}
+                    onPress={() => setEditField(null)}
+                  >
+                    <HugeiconsIcon icon={Close} size={20} color={Colors.error} />
+                  </Pressable>
+                  <Pressable
+                    style={[styles.editSaveBtn, { backgroundColor: Colors.primary }]}
+                    onPress={saveEdit}
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <Text style={[styles.editSaveText, { color: "#fff" }]}>Saving...</Text>
+                    ) : (
+                      <HugeiconsIcon icon={Tick02FreeIcons} size={20} color="#fff" />
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+              <TextInput
+                style={[styles.editInput, { color: textColor, borderColor, backgroundColor: borderColor }]}
+                value={editValue}
+                onChangeText={setEditValue}
+                autoFocus
+                onSubmitEditing={saveEdit}
+              />
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+
+        <FindDriverModal visible={finderVisible} onClose={() => setFinderVisible(false)} />
+
+        <QuickReceiveModal
+          visible={receiveVisible}
+          onClose={() => setReceiveVisible(false)}
+          driverId={user?.driver_id}
+        />
+      </KeyboardAvoidingView>
     </CopyToastContext.Provider>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    marginHorizontal: 5,
+  // ── Pinned bar ─────────────────────────────────────────────────────────────
+  barRoot: { flex: 1, overflow: "hidden" },
+  barRow: {
+    height: BAR_ROW_HEIGHT,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    gap: 10,
   },
-  profileHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    // marginTop: 50,
+  barLeft: { width: 34, alignItems: "flex-start" },
+  barCentre: { flex: 1, alignItems: "center", justifyContent: "center" },
+  barRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  barBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
-  headerSearch: { marginTop: 14, marginBottom: 4 },
-  mainContainer: {
-    paddingHorizontal: 8,
-    justifyContent: 'space-between'
-  },
-  hero: {
-    flexDirection: 'row',
-    paddingHorizontal: 0,
-    gap: 5,
-  },
+
+  // ── Hero ───────────────────────────────────────────────────────────────────
+  hero: { paddingHorizontal: 16, paddingTop: 14 },
+  heroRow: { flexDirection: "row", alignItems: "center", gap: 14 },
+  heroText: { flex: 1, gap: 5 },
   avatarWrap: {
     position: "relative",
-    borderWidth: 2, 
-    borderRadius: 100, 
-    padding: 2, 
-    borderColor: Colors.primary
+    borderWidth: 2,
+    borderRadius: 100,
+    padding: 2,
+    borderColor: Colors.primary,
   },
   cameraBtn: {
     position: "absolute",
-    bottom: 5,
-    right: 1,
-    width: 23,
-    height: 23,
+    bottom: 2,
+    right: 0,
+    width: 24,
+    height: 24,
     borderRadius: 13,
-    backgroundColor: Colors.background,
     alignItems: "center",
     justifyContent: "center",
   },
-  heroName: { 
-    fontFamily: "Poppins_700Bold", 
-    fontSize: 22,
-    alignSelf:'flex-start'
+  heroName: { fontFamily: "Poppins_700Bold", fontSize: 21 },
+  handleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  handleChip: {
+    flexShrink: 1,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 30,
+    overflow: "hidden",
   },
-  roleBadge: { 
-    alignItems: 'center', 
-    // marginTop: 2, 
-    flexDirection: 'row',
-    gap: 5,
+  handleText: { fontFamily: "Poppins_600SemiBold", fontSize: 12, color: Colors.warning },
+  copyBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
-  roleText: {
-    fontFamily: "Poppins_600SemiBold", 
-    fontSize: 12, 
-    color: Colors.gold,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    borderRadius: 20, 
-    alignItems: 'center',
-    backgroundColor: Colors.primaryDarker,
+  roleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  roleLabel: { fontFamily: "Poppins_400Regular", fontSize: 12 },
+  dot: { width: 3, height: 3, borderRadius: 2 },
+  headerSearch: { marginTop: 16, marginHorizontal: -16 },
+
+  // ── Panes ──────────────────────────────────────────────────────────────────
+  paneContent: { paddingHorizontal: 16, paddingTop: 4 },
+  cardShadow: {
+    borderRadius: CARD_RADIUS,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 3,
   },
-  copyIcon: {
-    borderRadius: 50, 
-    alignItems: 'center', 
-    marginTop: 2, 
-    backgroundColor: Colors.primaryDarker, 
-    padding: 8
-  },
-  driverIdChip: {
+  cardClip: { borderRadius: CARD_RADIUS, overflow: "hidden" },
+  cardInner: { padding: 22, gap: 14 },
+  cardSpacing: { marginTop: 12 },
+  cardHead: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    // paddingVertical: 4,
-    marginVertical: 2,
-    borderColor: Colors.textSecondary,
+    justifyContent: "space-between",
   },
-  driverIdText: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 12,
-    color: Colors.gold,
-    letterSpacing: 1.2,
-  },
-  roleContainer: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 4
-  },
-  scrollContent: {
-    paddingBottom: 132,
-    paddingHorizontal: 0, marginTop: 50,
-    flex: 1, flexDirection:'column'
-  },
+  cardHeadTitle: { flexDirection: "row", alignItems: "center", gap: 10 },
+  cardTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, textAlign: "left" },
+  seeAll: { fontFamily: "Poppins_500Medium", fontSize: 12, color: Colors.primary },
   partnerBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1072,93 +1437,98 @@ const styles = StyleSheet.create({
     gap: 8,
     borderRadius: 30,
     paddingVertical: 15,
+    marginTop: 12,
     marginBottom: 10,
   },
   partnerBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: "#fff" },
   coinbalanceSection: {
     padding: 20,
-    borderRadius: 30,
-    marginBottom: 10,
+    borderRadius: CARD_RADIUS,
+    marginBottom: 12,
     shadowColor: "#000",
     shadowOffset: { width: 1, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 0,
     elevation: 2,
   },
+  statsCard: { marginBottom: 12 },
   statsStrip: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: 'space-between',
-    gap: 10,
-    borderRadius: 30,
-    paddingVertical: 14,
-    flexWrap: 'wrap',
-    shadowColor: "#000",
-    shadowOffset: { width: 1, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 0,
-    elevation: 2,
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    paddingVertical: 6,
   },
   statInner: {
     flex: 1,
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 25,
-    borderRadius: 30,
-    padding: 20
-  },
-  statsDivider: { width: 12, height: 32, padding:30, backgroundColor: Colors.primary },
-  card: {
-    borderRadius: 30,
-    padding: 28,
-    shadowColor: "#000",
-    shadowOffset: { width: 1, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 0,
-    elevation: 2,
-    marginBottom: 10,
-    marginTop: 5
-  },
-  cardTitle: { 
-    fontFamily: "Poppins_600SemiBold", 
-    fontSize: 14, 
-    textAlign:'left' 
-  },
-  cardSub: {
-    gap: 20
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 22,
+    padding: 18,
   },
   contactRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
     paddingVertical: 12,
+    borderBottomWidth: 1,
   },
-  contactAvatar: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+  contactAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   contactInitial: { fontFamily: "Poppins_700Bold", fontSize: 15 },
   contactName: { fontFamily: "Poppins_500Medium", fontSize: 14 },
   contactPhone: { fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 2 },
   addContactRow: { flexDirection: "row", gap: 8, marginTop: 12, alignItems: "center" },
-  addInput: { flex: 1, borderRadius: 30, paddingHorizontal: 12, paddingVertical: 10, fontFamily: "Poppins_400Regular", fontSize: 13 },
-  addBtn: { width: 40, height: 40, borderRadius: 30, alignItems: "center", justifyContent: "center" },
-  signOutBtn: { flexDirection: "column", alignItems: "center", justifyContent: "space-between",},
-  signOutText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: Colors.error },
-  menuList: {
+  addInput: {
+    flex: 1,
     borderRadius: 30,
-    padding: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 30,
-    borderWidth: 1,
-      overflow: "hidden",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontFamily: "Poppins_400Regular",
+    fontSize: 13,
   },
-  editOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0 0 0 / 0.77)", justifyContent: "flex-end", zIndex: 200, },
-  editSheet: { borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 34, paddingBottom: 190, gap: 16, top: 100 },
-  editTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 16, textTransform: "capitalize", alignSelf: 'flex-end' },
-  editInput: { borderWidth: .5, borderRadius: 54, paddingHorizontal: 14, paddingVertical: 13, fontFamily: "Poppins_400Regular", fontSize: 15 },
-  editActions: { flexDirection: "row", gap: 12, justifyContent: 'center' },
-  editCancelBtn: { borderWidth: .5, borderRadius: 54, padding: 13, alignItems: "center" },
-  editCancelText: { fontFamily: "Poppins_600SemiBold", fontSize: 14 },
+  addBtn: { width: 40, height: 40, borderRadius: 30, alignItems: "center", justifyContent: "center" },
+
+  // ── Edit sheet ─────────────────────────────────────────────────────────────
+  editOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0 0 0 / 0.77)",
+    justifyContent: "flex-end",
+    zIndex: 200,
+  },
+  editSheet: {
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 34,
+    paddingBottom: 190,
+    gap: 16,
+    top: 100,
+  },
+  editTitle: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 16,
+    textTransform: "capitalize",
+    alignSelf: "flex-end",
+  },
+  editInput: {
+    borderWidth: 0.5,
+    borderRadius: 54,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontFamily: "Poppins_400Regular",
+    fontSize: 15,
+  },
+  editActions: { flexDirection: "row", gap: 12, justifyContent: "center" },
+  editCancelBtn: { borderWidth: 0.5, borderRadius: 54, padding: 13, alignItems: "center" },
   editSaveBtn: { borderRadius: 54, padding: 13, alignItems: "center" },
   editSaveText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: Colors.primary },
 });

@@ -25,6 +25,7 @@ export {
   IOSSegmentedTabs,
   type IOSSegmentedTabsProps,
   type IOSSegment,
+  type IOSSegmentedVariant,
 } from "./IOSSegmentedTabs";
 export { SwipeableTabs, type SwipeableTabsProps } from "./SwipeableTabs";
 export { IOSSheet, type IOSSheetProps, type IOSSheetDetent } from "./IOSSheet";
@@ -34,6 +35,12 @@ export { useIOSAlert, type UseIOSAlert } from "./useIOSAlert";
 export { AlertHost, iosAlert, iosActionSheet, type IOSAlertButton } from "./AlertHost";
 export { IOSMenu, type IOSMenuProps, type IOSMenuItem } from "./IOSMenu";
 export { IOSSearchBar, type IOSSearchBarProps } from "./IOSSearchBar";
+export { IOSFilterChips, type IOSFilterChipsProps, type IOSFilterChip } from "./IOSFilterChips";
+export {
+  IOSSearchOverlay,
+  type IOSSearchOverlayProps,
+  type IOSSearchResult,
+} from "./IOSSearchOverlay";
 export {
   NetworkStatus,
   useConnectionQuality,

@@ -55,6 +55,16 @@ export interface IOSSearchBarProps extends Omit<TextInputProps, "style" | "value
   /** Force the focused (cancel-visible) layout, e.g. while results are showing. */
   active?: boolean;
   autoFocusOnMount?: boolean;
+  /**
+   * Render as a button rather than a field.
+   *
+   * Search that opens a full-screen overlay needs the resting bar to be a
+   * TARGET, not an input: two live fields — one on the page, one in the
+   * overlay — fight over focus and the keyboard flickers between them. In this
+   * mode the bar looks identical but simply reports the tap.
+   */
+  asButton?: boolean;
+  onPress?: () => void;
 }
 
 export function IOSSearchBar({
@@ -65,6 +75,8 @@ export function IOSSearchBar({
   onCancel,
   active,
   autoFocusOnMount,
+  asButton,
+  onPress,
   ...inputProps
 }: IOSSearchBarProps) {
   const theme = useIOSTheme();
@@ -126,6 +138,68 @@ export function IOSSearchBar({
       ? "flex-start"
       : "flex-start") as "flex-start" | "flex-start",
   }));
+
+  // Button mode: same capsule, same material, no input. Everything below this
+  // point is the live field.
+  if (asButton) {
+    return (
+      <View style={styles.row}>
+        <Pressable
+          style={styles.fieldWrap}
+          onPress={() => {
+            haptics.tap();
+            onPress?.();
+          }}
+          accessibilityRole="search"
+          accessibilityLabel={placeholder}
+        >
+          <View style={styles.field}>
+            <Glass
+              variant="regular"
+              radius={FIELD_RADIUS}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+              fallbackIntensity={40}
+              fallbackTint={theme.tertiarySystemFill}
+            />
+            <View style={styles.fieldInner}>
+              <SymbolView
+                name="magnifyingglass"
+                size={20}
+                tintColor={theme.secondaryLabel}
+                fallback={null}
+              />
+              <Text
+                numberOfLines={1}
+                style={[
+                  IOSFont.body,
+                  styles.buttonLabel,
+                  { color: value ? theme.label : theme.secondaryLabel },
+                ]}
+              >
+                {value || placeholder}
+              </Text>
+              {value.length > 0 && (
+                <Pressable
+                  onPress={() => onChangeText("")}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear search"
+                >
+                  <SymbolView
+                    name="xmark.circle.fill"
+                    size={24}
+                    tintColor={theme.tertiaryLabel}
+                    fallback={<Text style={{ color: theme.tertiaryLabel }}>✕</Text>}
+                  />
+                </Pressable>
+              )}
+            </View>
+          </View>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.row}>
@@ -222,6 +296,7 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   input: { padding: 0, height: "100%" },
+  buttonLabel: { flex: 1 },
   inputCollapsed: { flexGrow: 0, flexShrink: 1, minWidth: 60 },
   inputExpanded: { flex: 1 },
   cancelWrap: {
