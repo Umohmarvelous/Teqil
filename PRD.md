@@ -190,8 +190,24 @@ crash on the API — hence the `isGlassEffectAPIAvailable()` second check.
 
 ### Kit inventory
 `Glass`, `GlassGroup`, `GlassScrim`, `IOSButton`, `IOSToggle`, `IOSSheet`,
-`IOSModalCard`, `IOSAlert`, `IOSMenu`, `IOSSearchBar`, `IOSList`, `IOSScreen`,
-`IOSTabBar`, `CollapsibleHeader`, `RatingModal`, `FeedbackModal`, `AlertHost`.
+`IOSModalCard`, `IOSAlert`, `IOSMenu`, `IOSSearchBar`, `IOSSearchOverlay`,
+`IOSFilterChips`, `IOSSegmentedTabs`, `SwipeableTabs`, `IOSList`, `IOSScreen`,
+`IOSTabBar`, `CollapsibleHeader`, `NetworkStatus`, `RatingModal`,
+`FeedbackModal`, `AlertHost`.
+
+Three of these carry decisions worth knowing before you change them:
+
+- **`IOSSegmentedTabs`** has two variants. `underline` reads as one control with
+  square inner edges. `capsule` is the iOS 26 segmented control: a glass track
+  with a smaller glass thumb that springs between segments. The thumb is a real
+  second glass surface, not a tinted View, so it refracts the background exactly
+  as the system control does — and it animates on `transform` only.
+- **`SwipeableTabs`** pins its strip with a scroll-driven overlay rather than
+  `stickyHeaderIndices`, because sticky headers pin at the top of the scroll
+  viewport, which is behind the pinned bar; the strip would slide under it and
+  disappear. iOS could be told otherwise via `contentInset`, Android could not.
+- **`IOSSearchOverlay`** presents with `animationType="slide"`, never `"fade"` —
+  a fade animates the modal's alpha, and this surface is full of glass.
 
 **`/ui-kit`** is a live gallery of every component, with a banner reporting which
 rendering path the device is on. Not linked from navigation — open it directly.
@@ -236,10 +252,10 @@ Requested 2026-08-11. Strict phase order.
 
 | Phase | Scope | Status |
 |---|---|---|
-| **1** | Collapsible headers on every scrollable screen (title left/large → centred/small, glass on scroll). WhatsApp-style profile header. | **In progress — 9 of ~24 candidates done.** Done: driver/messages, park-owner/alerts, achievements, free-rides, tiers, saved-routes, passenger/history, route-history/index, park-owner/drivers. Profile header not started. |
-| **2** | Translucent tab bar with content scrolling behind it, correct safe-area insets, no clipping. | **In progress** — `useCollapsibleScroll({ tabBar: true })` supplies both insets; Home fixed. Remaining screens follow with Phase 1. |
+| **1** | Collapsible headers on every scrollable screen (title left/large → centred/small, glass on scroll). WhatsApp-style profile header. | **Done.** 16 screens converted. The park-owner dashboard took a different shape on purpose — its gradient hero IS its header, so it got a compact glass bar that takes over on scroll instead of a second title. Profile header: the bar pins and cross-fades; the continuous travelling avatar is still outstanding. |
+| **2** | Translucent tab bar with content scrolling behind it, correct safe-area insets, no clipping. | **Done** — `useCollapsibleScroll({ tabBar: true })` supplies both insets in one bundle so a screen cannot apply the top one and forget the bottom. |
 | **3** | Replace the full-width network banner with a centred header status. | **Done.** `components/ios/NetworkStatus.tsx`, wired into the home header's centre slot. `useConnectionQuality` exported separately so the sync layer can share the signal. |
-| **4** | Profile restructure: swipeable tabs; Account Settings under Profile; pull-to-refresh; tab bar pins on scroll with blur, stays swipeable. | **Done.** Three panes inside `app/(main)/profile.tsx` — Profile / Account Settings / Activity — via `SwipeableTabs`. Gear icon removed; full-width search in the header. Settings screens under `app/settings/` untouched. |
+| **4** | Profile restructure: swipeable tabs; Account Settings under Profile; pull-to-refresh; tab bar pins on scroll with blur, stays swipeable. | **Done, then redesigned.** Three panes inside `app/(main)/profile.tsx` — Profile / Account Settings / Activity — via `SwipeableTabs`, now with a capsule glass tab strip, a bar pinned above everything carrying search/QR/sign-out, and full-screen search covering all three panes (`src/data/profileSearchIndex.ts`). Gear icon removed; settings screens under `app/settings/` untouched. |
 | **5** | New **Notification** tab replaces the Settings tab. | **Done.** `app/(main)/notifications.tsx`, iOS-grouped (Today/Yesterday/This Week/Earlier). Currently sourced only from unread conversations — sync and system notices need the push/sync layers to report into a store. |
 | **6** | Followers/following. Passengers follow drivers; driver profiles show follower and following counts; follow/unfollow toggle; follower list. Scalable social-graph schema. | Not started |
 | **7** | Proximity: **Fastest Finger** (driver offers an immediate discounted ride, nearby passengers accept instantly); **Find driver/passenger near you** wired into bargaining and ride requests; **Find nearest filling station**. | Not started |
@@ -257,7 +273,18 @@ on them makes them worse:
   `app/(main)/_layout.tsx` already draws their header; adding IOSScreen would
   double it.
 - **Chat, maps, carousels, modals** — `direct-chat`, `live-trip-code/[code]`,
-  `(auth)/welcome`, `rating`, `ui-kit`.
+  `(auth)/welcome`, `rating`, `ui-kit`, `route-history/[id]` (the floating glass
+  back button over the map is the right chrome; a title bar would cover the
+  route).
+- **Screens that are really modal content** — `(passenger)/find-driver` is
+  imported and rendered by `components/FindDriverModal.tsx`. A large-title nav
+  bar inside a bottom sheet is wrong.
+- **Full-bleed branded surfaces** — `(passenger)/pay-fare`. Its white-on-green
+  header is part of the artwork.
+- **Screens that are already the modern chrome** — `driver-search` is a
+  Spotlight-style expanding search field with no title to collapse.
+- **Wizards** — `program`. The progress bar under the header must never scroll
+  away, or the user loses their place in the flow.
 
 ### Decisions taken on the roadmap (2026-08-11)
 

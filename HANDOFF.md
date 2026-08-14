@@ -78,25 +78,47 @@ iOS 26. Fixed in `IOSAlert`, `IOSMenu`, `IOSModalCard`, `RatingModal`,
 ### Phases
 | Phase | State |
 |---|---|
-| **1** Collapsible headers | **In progress — 9 of ~12 real candidates done.** See §3. |
+| **1** Collapsible headers | **Done.** 16 screens converted; 5 of the original 12 turned out to be genuine exclusions. See §3. |
 | **2** Tab bar overlap | **Done.** `useCollapsibleScroll({ tabBar: true })` returns both insets in one `scrollProps` bundle so a screen can't apply top and forget bottom. |
 | **3** Network indicator | **Done.** `components/ios/NetworkStatus.tsx`, in `CollapsibleHeader`'s centre slot so **every** kit screen gets it. `useConnectionQuality` exported separately for the sync layer. |
-| **4** Profile restructure | **Done.** Three panes inside `app/(main)/profile.tsx`. |
+| **4** Profile restructure | **Done, then redesigned.** Three panes inside `app/(main)/profile.tsx`, capsule tab strip, pinned bar, full-screen search. See §2. |
 | **5** Notification tab | **Done.** `app/(main)/notifications.tsx` took the Settings tab slot. |
 | **6** Followers/following | **Not started.** |
 | **7** Proximity | **Not started.** |
 | **8** Watermark + deep link | **Not started.** RatingModal already ships. |
 
 ### New kit components built this session
-- `components/ios/IOSSegmentedTabs.tsx` — segments read as ONE control: only the
-  outer corners round (first segment leading, last trailing), inner edges square.
-  `rounded="top"` for a strip at the head of a card. Segments flex to equal
-  shares, so it's responsive with no measurement.
-- `components/ios/SwipeableTabs.tsx` — header scrolls away, tab strip pins with
-  blur via `stickyHeaderIndices`, panes swipe horizontally.
+- `components/ios/IOSSegmentedTabs.tsx` — two variants.
+  `variant="underline"` (default): segments read as ONE control — only the outer
+  corners round (first segment leading, last trailing), inner edges square.
+  `rounded="top"` for a strip at the head of a card.
+  `variant="capsule"`: the iOS 26 segmented control — a glass TRACK with a
+  smaller glass THUMB that springs between segments. The thumb is a real second
+  glass surface, not a tinted View, so on iOS 26 it refracts what is behind the
+  track like the system control. It moves on `transform` only.
+  Segments flex to equal shares in both variants, so the strip is responsive with
+  no measurement; the capsule thumb needs the track's measured width and waits
+  for one `onLayout`, placing itself without animating that first frame.
+- `components/ios/SwipeableTabs.tsx` — hero header scrolls away, a bar stays
+  pinned at the very top, the tab strip travels with the content until it meets
+  that bar, panes swipe horizontally.
   **Deliberately NOT a PagerView** — a pager has no intrinsic height and these
   panes differ enormously; a fixed height clips the tall one or leaves dead space
   under the short one. Only the active pane mounts and sizes itself.
+  **Deliberately NOT `stickyHeaderIndices`** — sticky headers pin at the top of
+  the scroll VIEWPORT, which is behind the pinned bar, so the strip would slide
+  under it and vanish. There is no cross-platform way to move that stop (iOS
+  honours `contentInset`, Android does not). The strip is an overlay driven by
+  scroll position: `translateY = max(barHeight, stripRestY − scrollY)`.
+- `components/ios/IOSSearchOverlay.tsx` — full-screen search presented over the
+  page that asked for it. `animationType="slide"`, never `"fade"`: a fade
+  animates the modal's alpha and this surface is full of glass.
+- `components/ios/IOSFilterChips.tsx` — glass filter chips with counts. The
+  active chip takes the tint as a FILL, because a tinted label alone is too weak
+  to survive over glass.
+- `IOSSearchBar` gained `asButton` — the resting bar on a page that opens a
+  search overlay must be a TARGET, not an input; two live fields fight over focus
+  and flicker the keyboard.
 - `components/ios/NetworkStatus.tsx` — see Phase 3 above.
 - `components/ios/IOSToggle.tsx` — glass switch. RN's `<Switch>` renders
   `UISwitch`, which fills its track with a flat colour and **cannot** be made
@@ -115,27 +137,58 @@ Pull-to-refresh on all three tabs.
 
 **Gotcha:** the component is already named `ProfileTab`, so the pane type had to
 be `ProfilePane` — the collision made TypeScript resolve the type to the function.
+It now lives in `src/data/profileSearchIndex.ts` and is imported.
+
+**The redesign on top of that:**
+- The tab strip is `variant="capsule"` — glass track, sliding glass thumb.
+- A bar stays pinned above everything carrying the actions people open this
+  screen for (search, QR, sign out), materialising its glass through `present`
+  once the hero has scrolled away. Its centre slot is `NetworkStatus`.
+- **Search covers all three panes.** `src/data/profileSearchIndex.ts` assembles
+  settings sections and entries, the user's own fields WITH their current values
+  as subtitles, recent trips and activity, and the screen's actions into one
+  ranked list. Half of it is live data, which is why it is built per render
+  rather than declared — a static list could name "Phone" but not the number,
+  and could never contain the trip finished this morning.
+  Results carry a typed `target`: push a route, switch pane, or run an action.
+  **Anything that presents must wait ~320ms for the overlay to dismiss** — iOS
+  drops a second modal presented over one still animating away, silently.
+- The header copy button carried `hitSlop={912}` — a touch target larger than
+  the screen, swallowing every tap around it — and copied `driver_id` while the
+  chip beside it showed `@username`. Both fixed.
 
 ---
 
 ## 3. Phase 1 — exact remaining work
 
-### Converted (9)
+### Converted (16)
 `(driver)/messages`, `(park-owner)/alerts`, `(park-owner)/drivers`,
 `(passenger)/history`, `(passenger)/saved-routes`, `achievements`, `free-rides`,
-`tiers`, `route-history/index`.
+`tiers`, `route-history/index` — then `(driver)/history`, `(driver)/free-ride`,
+`barter/[offerId]`, `find-driver`, `(passenger)/find-trip`,
+`(passenger)/payment`, and `(park-owner)/index`.
 (Plus `(main)/profile`, `(main)/notifications`, `account-settings` and the seven
 `app/settings/*` screens, which were already on the kit.)
 
-### Still to convert (~12)
-```
-app/(driver)/history.tsx           app/(passenger)/find-driver.tsx
-app/(driver)/free-ride.tsx         app/(passenger)/find-trip.tsx
-app/(park-owner)/index.tsx         app/(passenger)/payment.tsx
-app/barter/[offerId].tsx           app/(passenger)/pay-fare.tsx
-app/driver-search.tsx              app/route-history/[id].tsx
-app/find-driver.tsx                app/program.tsx
-```
+`(park-owner)/index` took a **different shape on purpose**: its gradient hero IS
+its header, so a large title above it would be a second one. It got the other
+half of the behaviour instead — a compact glass bar that takes over once the hero
+has scrolled past.
+
+### The five that turned out to be exclusions, not work
+Each was on the "still to convert" list until reading it showed why it isn't a
+candidate. Do not reopen these without a reason:
+- **`(passenger)/find-driver`** — not a screen. `components/FindDriverModal.tsx`
+  imports and renders it as bottom-sheet content. A large-title nav bar inside a
+  sheet is wrong.
+- **`route-history/[id]`** — map screen. The floating glass back button over the
+  map is the correct chrome; a title bar would cover the route.
+- **`(passenger)/pay-fare`** — full-bleed branded green gradient. Its white-on-
+  green header is part of the artwork, not chrome to be replaced.
+- **`driver-search`** — already kit-native: a Spotlight-style expanding search
+  field, no title at all. Nothing to collapse.
+- **`program`** — multi-step wizard. The progress bar under the header must never
+  scroll away, or the user loses their place in the flow.
 
 ### DELIBERATELY EXCLUDED — do not "fix" these
 A collapsing large title is for scrolling **lists**. These are not:
@@ -151,9 +204,12 @@ A collapsing large title is for scrolling **lists**. These are not:
   Account Settings profile tab. Left in place, not converted.
 
 ### Also outstanding in Phase 1
-**The WhatsApp-style profile header** — profile picture centred, shrinking and
-moving to top-left on scroll; username vanishing and reappearing as the centred
-header title; action buttons staying sticky. **Not started.**
+**The WhatsApp-style profile header** — profile picture shrinking and moving to
+top-left on scroll, username vanishing and reappearing as the centred header
+title. **Partly done:** the profile bar now pins, fades in a mini avatar and the
+name, and keeps its action buttons reachable throughout. What is left is the
+*continuous* version — the large avatar physically travelling into the bar rather
+than one fading out as the other fades in.
 
 ### The conversion recipe (works every time)
 ```tsx
@@ -187,7 +243,17 @@ For a plain ScrollView screen, omit `scrollable={false}` and pass
 
 **Sticky footers** (e.g. `tiers`) must be a *sibling* of `IOSScreen` inside a
 flex wrapper — they're `position: absolute` and must float over the scroll, not
-inside it.
+inside it. A footer that must ride above the KEYBOARD (`payment`, `barter`) is
+different: it stays inside the `KeyboardAvoidingView` as a sibling of the scroll
+view, and the KAV goes inside `IOSScreen`.
+
+**`IOSScreen` no longer pads the frame when you pass `scroll`.** It used to do
+both — frame padding *and* the content inset your scrollable applies from
+`scroll.scrollProps` — so content started a whole header-height too low and, far
+worse, nothing passed under the bar, leaving the glass with nothing to sample and
+rendering it flat. Frame padding now applies only when there is no external
+`scroll`, i.e. a genuinely static screen. If you convert a screen and the content
+sits too low, check you are not re-adding a `paddingTop` of your own.
 
 ---
 
@@ -240,6 +306,15 @@ This was clarified with the user and is important:
 9. **Verify with a real bundle**, not just typecheck:
    `CI=1 npx expo export --platform ios --output-dir /tmp/x --no-minify`.
    Typecheck passes on JSX that fails to bundle.
+10. **A second modal presented over one still dismissing is dropped silently** by
+    iOS — not queued, not errored. Anything a search result or sheet triggers
+    (`router.push`, another modal, an alert) needs ~320ms after the close.
+11. **Components declared inside a component are a new type every render**, so
+    React remounts their subtree — text inputs lose focus and the keyboard
+    dismisses on every keystroke. `free-ride` had this. Declare at module scope.
+12. **`stickyHeaderIndices` pins at the scroll viewport's top**, which is behind
+    any pinned bar of your own. There is no cross-platform way to move that stop.
+    Drive an overlay off the scroll offset instead — see `SwipeableTabs`.
 
 ---
 
@@ -254,5 +329,9 @@ This was clarified with the user and is important:
   elsewhere, it needs a store.
 - Loyalty tier revenue persistence not implemented.
 - `services/` microservices unintegrated; `src/db/` empty.
-- Pre-existing unused `knownEmail` in `profile.tsx`.
 - No test suite.
+- The profile bar's collapse is a cross-fade, not the continuous WhatsApp
+  travelling avatar. See §3.
+- `profileSearchIndex` rebuilds on every render of the profile screen. It's
+  memoised on its inputs, and the list is small (~80 entries), but if activity
+  history grows large this is the first place to look.
