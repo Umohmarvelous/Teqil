@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
-  View, Text, StyleSheet, Pressable, TextInput, ScrollView,
+  View, Text, StyleSheet, Pressable, TextInput,
   Platform, Animated, Easing, KeyboardAvoidingView,
   ActivityIndicator,
 } from "react-native";
+import Reanimated from "react-native-reanimated";
 import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAuthStore, useTripStore } from "@/src/store/useStore";
@@ -16,8 +16,7 @@ import type { Trip, Passenger, EmergencyContact } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
 import { Colors } from "@/constants/colors";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { ChevronLeft } from "@hugeicons/core-free-icons";
-import { iosAlert } from "@/components/ios";
+import { iosAlert, IOSScreen, useCollapsibleScroll } from "@/components/ios";
 
 
 // ─── Entrance animation hook ───────────────────────────────────────────────────
@@ -70,7 +69,7 @@ function ContactChip({ contact, onRemove }: { contact: EmergencyContact; onRemov
 
 // ─── Main screen ───────────────────────────────────────────────────────────────
 export default function FindTripScreen() {
-  const insets = useSafeAreaInsets();
+  const scroll = useCollapsibleScroll();
   const { user } = useAuthStore();
   const { setActiveTrip } = useTripStore();
   const { t } = useTranslation();
@@ -158,36 +157,30 @@ export default function FindTripScreen() {
     }
   };
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
-
   return (
-    <View style={styles.root}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: topPadding + 32 }]}>
-        {step === "details" ? (
-          <Pressable style={styles.backBtn} onPress={() => { setStep("search"); setFoundTrip(null); }}>
-            <HugeiconsIcon icon={ChevronLeft} size={20} color={Colors.text} />
-          </Pressable>
-        ) : (
-          <>
-            <View style={{ width: 40 }} />
-            {/* <Pressable style={styles.backBtn} onPress={() => { setStep("search"); setFoundTrip(null); }}>
-              <HugeiconsIcon icon={ChevronLeft} size={20} color={Colors.text} />
-            </Pressable> */}
-          </>
-        )}
-        <Text style={styles.headerTitle}>
-          {step === "search" ? t("passenger.enterCode") : "Join Trip"}
-        </Text>
-        <View style={{ width: 40 }} />
-      </View>
-
+    <IOSScreen
+      title={step === "search" ? t("passenger.enterCode") : "Join Trip"}
+      back
+      // In the details step "back" means back to the code entry, not off the
+      // screen — the user hasn't finished what they came to do.
+      onBack={
+        step === "details"
+          ? () => {
+              setStep("search");
+              setFoundTrip(null);
+            }
+          : undefined
+      }
+      scrollable={false}
+      scroll={scroll}
+    >
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView
+        <Reanimated.ScrollView
           style={styles.scroll}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 24) + 80 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          {...scroll.scrollProps}
+          contentContainerStyle={[styles.scrollContent, scroll.scrollProps.contentContainerStyle]}
         >
           {/* ── STEP 1: Search ── */}
           {step === "search" && (
@@ -338,18 +331,15 @@ export default function FindTripScreen() {
               </View>
             </Animated.View>
           )}
-        </ScrollView>
+        </Reanimated.ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </IOSScreen>
   );
 }
 
 // ─── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 14 },
   backBtn: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 16, color: Colors.text, letterSpacing: 0.2 },
   scroll: { flex: 1, },
   scrollContent: { padding: 60, gap: 0,  alignItems: 'center', justifyContent: 'center' },
   heroRow: { flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 28 },

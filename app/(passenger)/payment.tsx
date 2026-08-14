@@ -23,7 +23,6 @@ import {
   TextInput,
   ActivityIndicator,
   Image,
-  ScrollView,
   Platform,
   KeyboardAvoidingView,
 } from "react-native";
@@ -47,7 +46,8 @@ import {
 import { useTierStore } from "@/src/store/useTierStore";
 import { useTransactionsStore } from "@/src/store/useTransactionsStore";
 import { formatNaira } from "@/src/utils/helpers";
-import { iosAlert } from "@/components/ios";
+import Animated from "react-native-reanimated";
+import { iosAlert, IOSScreen, useCollapsibleScroll } from "@/components/ios";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -58,6 +58,7 @@ export default function PaymentScreen() {
     driver_payload?: string;
   }>();
   const insets = useSafeAreaInsets();
+  const scroll = useCollapsibleScroll();
   const { user } = useAuthStore();
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
@@ -325,20 +326,13 @@ export default function PaymentScreen() {
   }
 
   return (
-    <View style={[styles.root, { backgroundColor: bg }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color={textColor} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: textColor }]}>Pay Driver</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
+    <IOSScreen title="Pay Driver" back scrollable={false} scroll={scroll}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) + 24 }]}
+        <Animated.ScrollView
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          {...scroll.scrollProps}
+          contentContainerStyle={[styles.content, scroll.scrollProps.contentContainerStyle]}
         >
           {/* Driver card */}
           <View style={[styles.driverCard, { backgroundColor: cardBg }]}>
@@ -419,7 +413,7 @@ export default function PaymentScreen() {
           <Text style={[styles.note, { color: subColor }]}>
             You pay half the fare; your rewards pool covers the other half, so the driver receives the full fare plus a {formatNaira(driverBonus)} bonus.
           </Text>
-        </ScrollView>
+        </Animated.ScrollView>
 
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <Pressable
@@ -441,7 +435,7 @@ export default function PaymentScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
-    </View>
+    </IOSScreen>
   );
 }
 
@@ -469,15 +463,6 @@ function Row({
 const styles = StyleSheet.create({
   root: { flex: 1 },
   loadingText: { fontFamily: "Poppins_500Medium", fontSize: 14, marginTop: 12 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
-  backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 17 },
   content: { paddingHorizontal: 18, gap: 14, paddingTop: 4 },
 
   driverCard: { flexDirection: "row", alignItems: "flex-start", gap: 14, borderRadius: 20, padding: 16 },
