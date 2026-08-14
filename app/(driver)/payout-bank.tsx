@@ -28,10 +28,10 @@ import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { resolveBankAccount } from "@/src/services/paystack";
 import { syncUserToPublicTable } from "@/src/services/auth";
-import { Glass, iosAlert, IOSButton } from "@/components/ios";
+import { Glass, iosAlert } from "@/components/ios";
 import { text } from "node:stream/consumers";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { Tick01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { Tick02Icon } from "@hugeicons/core-free-icons";
 
 const BANKS = [
   { name: "Access Bank", code: "044" },

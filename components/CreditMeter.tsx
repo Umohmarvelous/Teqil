@@ -58,23 +58,23 @@ export default function CreditMeter({
   }, [credits]);
 
   return (
-    <View style={[styles.card, { backgroundColor: cardBg }]}>
+    <View style={[styles.card, ]}>
       <View style={styles.headerRow}>
         <View style={styles.creditWrap}>
-          <View style={[styles.iconBadge, { backgroundColor: tier.color + "22" }]}>
+          <View style={[styles.iconBadge, ]}>
             <HugeiconsIcon icon={Star as any} size={18} color={tier.color} />
           </View>
           <View>
+            <Text style={[styles.creditsLabel, { color: subColor }]}>Credits Status •</Text>
+
+            <View style={[styles.tierPill, { backgroundColor: tier.color + "22" }]}>
+              <View style={[styles.tierDot, { backgroundColor: tier.color }]} />
+              <Text style={[styles.tierName, { color: tier.color }]}>{tier.name}</Text>
+            </View>
+          </View>
             <Text style={[styles.credits, { color: textColor }]}>
               {display.toLocaleString("en-NG")}
             </Text>
-            <Text style={[styles.creditsLabel, { color: subColor }]}>Credits</Text>
-          </View>
-        </View>
-
-        <View style={[styles.tierPill, { backgroundColor: tier.color + "22" }]}>
-          <View style={[styles.tierDot, { backgroundColor: tier.color }]} />
-          <Text style={[styles.tierName, { color: tier.color }]}>{tier.name}</Text>
         </View>
       </View>
 

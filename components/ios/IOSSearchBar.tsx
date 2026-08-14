@@ -38,7 +38,7 @@ import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
 import { Glass } from "./Glass";
 
 const CANCEL_WIDTH = 66;
-const FIELD_HEIGHT = 45;
+const FIELD_HEIGHT = 48;
 /** UISearchBar's field radius. */
 const FIELD_RADIUS = 50;
 /** iOS uses a quick, flat ease for this — not a spring. */
@@ -165,7 +165,7 @@ export function IOSSearchBar({
             <View style={styles.fieldInner}>
               <SymbolView
                 name="magnifyingglass"
-                size={20}
+                size={21}
                 tintColor={theme.secondaryLabel}
                 fallback={null}
               />
@@ -174,7 +174,7 @@ export function IOSSearchBar({
                 style={[
                   IOSFont.body,
                   styles.buttonLabel,
-                  { color: value ? theme.label : theme.secondaryLabel },
+                  { color: value ? theme.label : theme.secondaryLabel ,fontWeight: '500'},
                 ]}
               >
                 {value || placeholder}
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
   fieldInner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     paddingHorizontal: 8,
     height: "100%",
   },

@@ -65,15 +65,12 @@ import {
   Car01Icon,       // ← new: used for trip-based list items
   IdentityCardIcon, // ← new: Driver ID tab icon
   Chat, // ← new: Driver ID tab icon
-  MoreHorizontalCircleIcon, // ← new: Driver ID tab icon
-  BellOff, // ← new: Driver ID tab icon
-  Search02Icon, // ← new: Driver ID tab icon
 } from '@hugeicons/core-free-icons';
 import { StatusBar }  from 'expo-status-bar';
 import Swipeable      from 'react-native-gesture-handler/Swipeable';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase }   from '@/src/services/supabase';
-import { Glass, iosAlert, useIOSTheme } from "@/components/ios";
+import { Glass, iosAlert, IOSSearchBar, useIOSTheme } from "@/components/ios";
 import { SymbolView } from 'expo-symbols';
 // expo-av was removed in Expo SDK 57 — stub so the voice-recording code compiles.
 // Recording is disabled (permission returns "denied") until migrated to expo-audio.
@@ -508,7 +505,7 @@ function NewChatModal({
   const cardBg    = isDark ? Colors.primaryDarker : '#FFFFFF';
   const border    = isDark ? 'rgba(255,255,255,0.12)' : '#E8ECF0';
   const inputBg   = isDark ? Colors.background    : '#F4F6FA';
-  const tabBg     = isDark ? '#1A1A2E' : '#F0F2F5';
+  // const tabBg     = isDark ? '#1A1A2E' : '#F0F2F5';
   const bg     = isDark ? Colors.overlayLight : Colors.border;
 
   useEffect(() => {
@@ -827,11 +824,21 @@ function ConvItem({
 
 export default function MessagesTab() {
   const insets = useSafeAreaInsets();
-  const { theme }  = useSettingsStore();
+  const { theme }  = useSettingsStore() ;
   const { user }   = useAuthStore();
   const { conversations, addConversation, deleteConversation, subscribeToRealtime } = useMessagesStore();
+  
+  const themes = useIOSTheme();
+  const ios = useIOSTheme();
 
-      const ios = useIOSTheme();
+
+  const [profileQuery, setProfileQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+
+
+
+  const openSearch = useCallback(() => setSearchOpen(true), []);
+
 
   const [activeConv,      setActiveConv]      = useState<Conversation | null>(null);
   const [activeInvalidId, setActiveInvalidId] = useState(false);
@@ -839,13 +846,14 @@ export default function MessagesTab() {
   const [refreshing,      setRefreshing]      = useState(false);
 
   const isDark    = theme === 'dark';
-  const bg        = isDark ? Colors.background : Colors.textWhite;
+  // const bg        = isDark ? Colors.background : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite     : Colors.text;
   const subTextColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
   const cardBg    = isDark ? Colors.primaryDarker : '#FFFFFF';
   const border    = isDark ? 'rgba(255,255,255,0.08)' : '#E8ECF0';
   const topPad    = Platform.OS === 'web' ? 67 : insets.top;
 
+  
   const subscribeRef = useRef(subscribeToRealtime);
   useEffect(() => { subscribeRef.current = subscribeToRealtime; });
 
@@ -920,68 +928,80 @@ export default function MessagesTab() {
     );
   }
 
+
+
+
   return (
     <>
       <GestureHandlerRootView style={[S.root, { backgroundColor: 'transparent' }]}>
         <StatusBar style={isDark ? 'light' : 'dark'} animated />
 
-        <View style={[S.header, { backgroundColor: 'transparent', paddingTop: topPad + 12, borderBottomColor: border }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={[S.headerTitle, { color: textColor }]}>Messages</Text>
+        <View style={[S.header, {borderBottomWidth: 1, borderBottomColor: border,}]}>
+  
+          <View style={[ { backgroundColor: 'transparent', paddingTop: topPad + 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[S.headerTitle, { color: textColor }]}>Messages</Text>
+            </View>
+            {/* <Pressable style={S.newBtn} onPress={() => setNewChatVisible(true)}>
+              <HugeiconsIcon icon={PlusSignIcon} size={23} color={'#fff'} />
+            </Pressable> */}
+
+            <View style={[S.menuList, {backgroundColor: Colors.overlay,  alignItems:'center', justifyContent:'center'}]}>
+
+              {/* Glass, not a coloured pill. */}
+              <Glass
+                variant="regular"
+                interactive
+                radius={30}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+                fallbackIntensity={40}
+              fallbackTint={themes.tertiarySystemFill}
+              />
+
+              {/* <Pressable
+                onPress={toggleSearch}
+                accessibilityRole="button"
+                accessibilityLabel="Find a driver"
+              >
+                <HugeiconsIcon
+                  icon={Search02Icon}
+                  size={24}
+                  color={textColor}
+                />
+              </Pressable> */}
+
+
+              <Pressable style={{  padding: 8, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }} onPress={() => setNewChatVisible(true)}>
+                <HugeiconsIcon icon={PlusSignIcon} size={23} color={ios.label} />
+              </Pressable>
+      
+              <View style={{  padding: 2, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
+                {/* <Glass
+                  variant="regular"
+                  interactive
+                  radius={30}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
+                  fallbackIntensity={40}
+                  fallbackTint={ios.systemGray3}
+                /> */}
+
+                <SymbolView name="person.circle.fill" size={36} tintColor={ios.label}  fallback={ios.label} />
+              </View>
+            </View>
           </View>
-          {/* <Pressable style={S.newBtn} onPress={() => setNewChatVisible(true)}>
-            <HugeiconsIcon icon={PlusSignIcon} size={23} color={'#fff'} />
-          </Pressable> */}
 
-          <View style={[S.menuList, {backgroundColor: Colors.overlay,  alignItems:'center', justifyContent:'center'}]}>
 
-                  {/* Glass, not a coloured pill. */}
-                  <Glass
-                    variant="regular"
-                    interactive
-                    radius={30}
-                    style={StyleSheet.absoluteFill}
-                    pointerEvents="none"
-                    fallbackIntensity={40}
-                    fallbackTint={isDark ? Colors.overlayLight : Colors.border}
-                  />
-
-                  {/* <Pressable
-                    onPress={toggleSearch}
-                    accessibilityRole="button"
-                    accessibilityLabel="Find a driver"
-                  >
-                    <HugeiconsIcon
-                      icon={Search02Icon}
-                      size={24}
-                      color={textColor}
-                    />
-                  </Pressable> */}
-
-                  <HugeiconsIcon
-                    icon={Search02Icon}
-                    size={24}
-                    color={ios.label}
-                  />
-
-                  <Pressable onPress={() => setNewChatVisible(true)}>
-                    <HugeiconsIcon icon={PlusSignIcon} size={23} color={ios.label} />
-                  </Pressable>
-          
-                  <View style={{backgroundColor: 'isDark ? Colors.borderLight : Colors.background',  padding: 8, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
-                    <Glass
-                      variant="regular"
-                      interactive
-                      radius={30}
-                      style={StyleSheet.absoluteFill}
-                      pointerEvents="none"
-                      fallbackIntensity={40}
-                      fallbackTint={ios.systemGray3}
-                    />
-
-                    <SymbolView name="person.fill" size={22} tintColor={ios.label}  fallback={ios.label} />
-                  </View>
-                </View>
+          <View style={S.headerSearch}>
+            <IOSSearchBar
+              asButton
+              value={profileQuery}
+              onChangeText={setProfileQuery}
+              onPress={openSearch}
+              placeholder="Search"
+            />
+          </View>
         </View>
 
         <FlatList
@@ -1019,27 +1039,7 @@ export default function MessagesTab() {
               onDelete={() => confirmDelete(item.id)}
             />
           )}
-          // ListEmptyComponent={
-          //   <View style={[S.empty]}>
-          //     {/* <HugeiconsIcon icon={ChartBubbleIcon} size={52} color={subTextColor} /> */}
-          //     <Text style={[S.emptyTitle, { color: textColor }]}>Opps!...No message yet.</Text>
-          //     <Text style={[S.emptySub, { color: subTextColor }]}>
-          //       {user?.role === 'driver'
-          //         ? (<>
-          //             <Text>
-          //               Tap <Text style={[{ color: Colors.primary }]}> + </Text> to start a conversation.
-          //             </Text>
-          //           </>)
-          //         :
-          //           <>
-          //             <Text>
-          //               Tap <Text style={[{ color: Colors.primary }]}> + </Text> to start a conversation.
-          //             </Text>
-          //           </>
-          //       }
-          //     </Text>
-          //   </View>
-          // }
+
           ListEmptyComponent={
             <View style={S.emptyState}>
               <View style={S.emptyIconBg}>
@@ -1065,6 +1065,28 @@ export default function MessagesTab() {
         />
       </GestureHandlerRootView>
 
+
+      {/* Search: one field, the whole screen's contents behind it. */}
+      {/* <IOSSearchOverlay
+          visible={searchOpen}
+          onClose={() => {
+            rememberQuery(profileQuery);
+            setSearchOpen(false);
+          }}
+          query={profileQuery}
+          onChangeQuery={setProfileQuery}
+          placeholder="Search settings, details and activity"
+          filters={filters}
+          activeFilter={searchFilter}
+          onChangeFilter={setSearchFilter}
+          results={results}
+          recents={recents}
+          onSelectRecent={setProfileQuery}
+          onClearRecents={clearRecents}
+          suggestions={SEARCH_SUGGESTIONS}
+          emptyHint="Try a setting, a field on your profile, or somewhere you've travelled."
+      />
+         */}
       <NewChatModal
         visible={newChatVisible}
         onClose={() => setNewChatVisible(false)}
@@ -1082,7 +1104,7 @@ const S = StyleSheet.create({
   backdrop: { flex: 1 },
   handle:  { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(154,154,154,0.3)', alignSelf: 'center', marginBottom: 4 },
 
-  header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1 },
+  header:{  flexDirection: 'column',  justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 14 },
   headerTitle: { fontFamily: 'Poppins_700Bold', fontSize: 24 },
   newBtn: { width: 40, height: 40, borderRadius: 50, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background },
 
@@ -1105,6 +1127,7 @@ const S = StyleSheet.create({
     justifyContent: "center",
   },
 
+  headerSearch: { marginTop: 16, marginHorizontal: -16 },
 
 
   convItem:     { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth },

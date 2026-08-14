@@ -107,7 +107,6 @@ import ActivityFeed from "@/components/ActivityFeed";
 import {
   Glass,
   iosAlert,
-  IOSSearchBar,
   IOSSearchOverlay,
   IOSListSection,
   IOSListRow,
@@ -909,7 +908,6 @@ export default function ProfileTab() {
               at rest the avatar is a whole hero below. This only holds its
               place so the centre slot stays centred. */}
           <View style={styles.barLeft} pointerEvents="none" />
-
           {/* Same centre slot as every other screen: the connection takes it
               over the moment it degrades, and hands it back on recovery. */}
           <View style={styles.barCentre} pointerEvents="none">
@@ -940,7 +938,7 @@ export default function ProfileTab() {
         </View>
       </View>
     ),
-    [insets.top, isDark, displayName, user?.profile_photo, user?.role, textColor, openSearch, confirmSignOut],
+    [insets.top, isDark, displayName, user?.role, textColor, openSearch, confirmSignOut],
   );
 
   return (
@@ -1034,45 +1032,47 @@ export default function ProfileTab() {
                       </>
                     )}
                   </View>
+
+
+                  {/* Followers / following. Counts open the same screen on
+                      different tabs — tapping a number should land on that number's
+                      list, not make you find it. */}
+                  <View style={styles.followRow}>
+                    <Pressable
+                      onPress={() => openFollows("followers")}
+                      hitSlop={8}
+                      style={styles.followStat}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${followStats?.followers ?? 0} followers`}
+                    >
+                      <Text style={[styles.followValue, { color: textColor }]}>
+                        {followStats?.followers ?? 0}
+                      </Text>
+                      <Text style={[styles.followLabel, { color: subTextColor }]}>Followers</Text>
+                    </Pressable>
+
+                    <View style={[styles.followDivider, { backgroundColor: borderColor }]} />
+
+                    <Pressable
+                      onPress={() => openFollows("following")}
+                      hitSlop={8}
+                      style={styles.followStat}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${followStats?.following ?? 0} following`}
+                    >
+                      <Text style={[styles.followValue, { color: textColor }]}>
+                        {followStats?.following ?? 0}
+                      </Text>
+                      <Text style={[styles.followLabel, { color: subTextColor }]}>Following</Text>
+                    </Pressable>
+                  </View>
                 </View>
               </View>
 
-              {/* Followers / following. Counts open the same screen on
-                  different tabs — tapping a number should land on that number's
-                  list, not make you find it. */}
-              <View style={styles.followRow}>
-                <Pressable
-                  onPress={() => openFollows("followers")}
-                  hitSlop={8}
-                  style={styles.followStat}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${followStats?.followers ?? 0} followers`}
-                >
-                  <Text style={[styles.followValue, { color: textColor }]}>
-                    {followStats?.followers ?? 0}
-                  </Text>
-                  <Text style={[styles.followLabel, { color: subTextColor }]}>Followers</Text>
-                </Pressable>
-
-                <View style={[styles.followDivider, { backgroundColor: borderColor }]} />
-
-                <Pressable
-                  onPress={() => openFollows("following")}
-                  hitSlop={8}
-                  style={styles.followStat}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${followStats?.following ?? 0} following`}
-                >
-                  <Text style={[styles.followValue, { color: textColor }]}>
-                    {followStats?.following ?? 0}
-                  </Text>
-                  <Text style={[styles.followLabel, { color: subTextColor }]}>Following</Text>
-                </Pressable>
-              </View>
 
               {/* Full-width search across the header. A button, not a field —
                   the overlay owns the live one. */}
-              <View style={styles.headerSearch}>
+              {/* <View style={styles.headerSearch}>
                 <IOSSearchBar
                   asButton
                   value={profileQuery}
@@ -1080,7 +1080,7 @@ export default function ProfileTab() {
                   onPress={openSearch}
                   placeholder="Search settings, details and activity"
                 />
-              </View>
+              </View> */}
             </View>
           }
         >
@@ -1142,7 +1142,7 @@ export default function ProfileTab() {
                 {/* ── Step 7: credit meter · partner CTA · achievements ── */}
                 <CreditMeter textColor={textColor} subColor={subTextColor} cardBg={cardBg} />
 
-                {programStatus === "none" && (
+                {/* {programStatus === "none" && (
                   <Pressable
                     style={[styles.partnerBtn, { backgroundColor: Colors.primary }]}
                     onPress={() => router.push("/program")}
@@ -1151,7 +1151,7 @@ export default function ProfileTab() {
                     <Text style={styles.partnerBtnText}>Become a partner</Text>
                     <HugeiconsIcon icon={ChevronRight as any} size={18} color="#fff" />
                   </Pressable>
-                )}
+                )} */}
               </>
             )}
 
@@ -1526,7 +1526,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 10,
   },
-  barLeft: { width: 34, alignItems: "flex-start" },
+  barLeft: { width: 74, alignItems: "flex-start" },
   barCentre: { flex: 1, alignItems: "center", justifyContent: "center" },
   barRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   barBtn: {
@@ -1591,7 +1591,7 @@ const styles = StyleSheet.create({
   roleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   roleLabel: { fontFamily: "Poppins_400Regular", fontSize: 12 },
   dot: { width: 3, height: 3, borderRadius: 2 },
-  followRow: { flexDirection: "row", alignItems: "center", gap: 18, marginTop: 16 },
+  followRow: { flexDirection: "row", alignItems: "center", gap: 18, marginTop: 6, marginBottom: 20 },
   followStat: { flexDirection: "row", alignItems: "baseline", gap: 5 },
   followValue: { fontFamily: "Poppins_700Bold", fontSize: 15 },
   followLabel: { fontFamily: "Poppins_400Regular", fontSize: 12 },
