@@ -31,6 +31,7 @@ import {
   Linking,
   RefreshControl,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { router }               from 'expo-router';
 import { useSafeAreaInsets }    from 'react-native-safe-area-context';
@@ -65,12 +66,13 @@ import {
   Car01Icon,       // ← new: used for trip-based list items
   IdentityCardIcon, // ← new: Driver ID tab icon
   Chat, // ← new: Driver ID tab icon
+  BellOff, // ← new: Driver ID tab icon
 } from '@hugeicons/core-free-icons';
 import { StatusBar }  from 'expo-status-bar';
 import Swipeable      from 'react-native-gesture-handler/Swipeable';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase }   from '@/src/services/supabase';
-import { Glass, iosAlert, IOSSearchBar, useIOSTheme } from "@/components/ios";
+import { Glass, iosAlert, IOSSearchBar, NetworkStatus, useIOSTheme } from "@/components/ios";
 import { SymbolView } from 'expo-symbols';
 // expo-av was removed in Expo SDK 57 — stub so the voice-recording code compiles.
 // Recording is disabled (permission returns "denied") until migrated to expo-audio.
@@ -80,6 +82,9 @@ const Audio: any = {
   Recording: { createAsync: async () => { throw new Error('Voice recording unavailable'); } },
   RecordingOptionsPresets: { HIGH_QUALITY: {} },
 };
+
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+
 
 // ─── Helpers ───────── ──────────── ──────────── ─────────── ─────────── ───────────
 
@@ -227,7 +232,8 @@ export function ChatScreen({
   useEffect(() => { subscribeRef.current = subscribeToRealtime; });
   useEffect(() => { markReadRef.current  = markRead; });
 
-  const bg        = isDark ? Colors.background   : '#F5F5F5';
+
+  const bg        = isDark ? Colors.background   : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite     : Colors.text;
   const subTextColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
   const cardBg    = isDark ? Colors.primaryDarker : '#FFFFFF';
@@ -506,7 +512,8 @@ function NewChatModal({
   const border    = isDark ? 'rgba(255,255,255,0.12)' : '#E8ECF0';
   const inputBg   = isDark ? Colors.background    : '#F4F6FA';
   // const tabBg     = isDark ? '#1A1A2E' : '#F0F2F5';
-  const bg     = isDark ? Colors.overlayLight : Colors.border;
+  const bg        = isDark ? Colors.background : Colors.textWhite;
+  const tabBg     = isDark ? Colors.overlayLight : Colors.border;
 
   useEffect(() => {
     if (!visible) {
@@ -620,7 +627,7 @@ function NewChatModal({
         style={{ flex: 1, justifyContent: 'flex-end',  }}
       >
         <Pressable style={S.backdrop} onPress={onClose} />
-        <View style={[S.newSheet, { backgroundColor: bg }]}>
+        <View style={[S.newSheet, { backgroundColor: tabBg }]}>
           <View style={S.handle} />
           <Text style={[S.newTitle, { color: textColor }]}>New Message</Text>
 
@@ -719,7 +726,7 @@ function NewChatModal({
                         <Text style={[S.resultName, { color: textColor }]}>{result.full_name || 'Driver'}</Text>
                         <Text style={[S.resultDriverId, { color: Colors.primary }]}>{result.driver_id}</Text>
                         {result.vehicle_details
-                          ? <Text style={[S.resultSub, { color: subTextColor }]}>🚗 {result.vehicle_details}</Text>
+                          ? <Text style={[S.resultSub, { color: subTextColor }]}> {result.vehicle_details}</Text>
                           : null}
                       </>
                     ) : (
@@ -828,6 +835,7 @@ export default function MessagesTab() {
   const { user }   = useAuthStore();
   const { conversations, addConversation, deleteConversation, subscribeToRealtime } = useMessagesStore();
   
+  
   const themes = useIOSTheme();
   const ios = useIOSTheme();
 
@@ -933,63 +941,90 @@ export default function MessagesTab() {
 
   return (
     <>
-      <GestureHandlerRootView style={[S.root, { backgroundColor: 'transparent' }]}>
+      <GestureHandlerRootView style={[S.root, { backgroundColor: 'transparent', paddingTop: topPad,  }]}>
         <StatusBar style={isDark ? 'light' : 'dark'} animated />
 
         <View style={[S.header, {borderBottomWidth: 1, borderBottomColor: border,}]}>
   
-          <View style={[ { backgroundColor: 'transparent', paddingTop: topPad + 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={[S.headerTitle, { color: textColor }]}>Messages</Text>
-            </View>
+          <View style={[ {backgroundColor: 'transparent', justifyContent: 'space-between', gap: 30 }]}>
             {/* <Pressable style={S.newBtn} onPress={() => setNewChatVisible(true)}>
               <HugeiconsIcon icon={PlusSignIcon} size={23} color={'#fff'} />
             </Pressable> */}
 
-            <View style={[S.menuList, {backgroundColor: Colors.overlay,  alignItems:'center', justifyContent:'center'}]}>
+            <View style={[S.menuList]}>
+              <NetworkStatus />
 
-              {/* Glass, not a coloured pill. */}
-              <Glass
-                variant="regular"
-                interactive
-                radius={30}
-                style={StyleSheet.absoluteFill}
-                pointerEvents="none"
-                fallbackIntensity={40}
-              fallbackTint={themes.tertiarySystemFill}
-              />
-
-              {/* <Pressable
-                onPress={toggleSearch}
-                accessibilityRole="button"
-                accessibilityLabel="Find a driver"
-              >
-                <HugeiconsIcon
-                  icon={Search02Icon}
-                  size={24}
-                  color={textColor}
-                />
-              </Pressable> */}
-
-
-              <Pressable style={{  padding: 8, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }} onPress={() => setNewChatVisible(true)}>
-                <HugeiconsIcon icon={PlusSignIcon} size={23} color={ios.label} />
-              </Pressable>
-      
-              <View style={{  padding: 2, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
-                {/* <Glass
+              {/* <View style={[S.menuListContent, {backgroundColor: Colors.overlayLight,  alignItems:'center', alignSelf:'flex-end', justifyContent:'center'}]}>
+                <Glass
                   variant="regular"
                   interactive
                   radius={30}
                   style={StyleSheet.absoluteFill}
                   pointerEvents="none"
                   fallbackIntensity={40}
-                  fallbackTint={ios.systemGray3}
-                /> */}
+                  fallbackTint={themes.tertiarySystemFill}
+                />
 
-                <SymbolView name="person.circle.fill" size={36} tintColor={ios.label}  fallback={ios.label} />
-              </View>
+                <Pressable style={{  padding: 8, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }} onPress={() => setNewChatVisible(true)}>
+                  <HugeiconsIcon icon={PlusSignIcon} size={23} color={ios.label} />
+                </Pressable>
+        
+                <View style={{  padding: 2, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
+                  <SymbolView name="person.circle.fill" size={36} tintColor={ios.label}  fallback={ios.label} />
+                </View>
+              </View> */}
+
+
+              <View style={[S.menuListContent, {backgroundColor: Colors.overlay,  alignItems:'center', justifyContent:'center'}]}>
+
+                  {/* Glass, not a coloured pill. */}
+                  <Glass
+                    variant="regular"
+                    interactive
+                    radius={30}
+                    style={StyleSheet.absoluteFill}
+                    pointerEvents="none"
+                    fallbackIntensity={40}
+                    fallbackTint={isDark ? Colors.overlayLight : Colors.border}
+                  />
+
+                  {/* <Pressable
+                    onPress={toggleSearch}
+                    accessibilityRole="button"
+                    accessibilityLabel="Find a driver"
+                  >
+                    <HugeiconsIcon
+                      icon={Search02Icon}
+                      size={24}
+                      color={textColor}
+                    />
+                  </Pressable> */}
+
+                  <HugeiconsIcon
+                    icon={BellOff}
+                    size={24}
+                    color={textColor}
+                    fill={textColor}
+                  />
+                  
+                  <View style={{ backgroundColor: isDark ? Colors.borderLight : Colors.background,  padding: 5, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
+                    <Glass
+                      variant="regular"
+                      interactive
+                      radius={30}
+                      style={StyleSheet.absoluteFill}
+                      pointerEvents="none"
+                      fallbackIntensity={40}
+                      fallbackTint={ios.systemGray3}
+                    />
+                    <SymbolView name="person.fill" size={22} tintColor={ios.label}  fallback={ios.label} />
+                  </View>
+                </View>
             </View>
+
+            <View style={{ alignSelf:'flex-start' }}>
+              <Text style={[S.headerTitle, { color: textColor }]}>Messages</Text>              
+            </View>            
           </View>
 
 
@@ -1043,23 +1078,10 @@ export default function MessagesTab() {
           ListEmptyComponent={
             <View style={S.emptyState}>
               <View style={S.emptyIconBg}>
-                <HugeiconsIcon icon={Chat} size={60}  color={subTextColor}/>
+                <HugeiconsIcon icon={Chat} size={45}  color={subTextColor}/>
               </View>
               <Text style={[S.emptyTitle,{color: subTextColor}]}>No messages yet!</Text>
-              <Text style={[S.emptySubtitle, { color: subTextColor }]}>Recent {user?.role === 'driver'
-                  ? (<>
-                      <Text>
-                        Tap <Text style={[{ color: Colors.primary }]}> + </Text> to start a conversation.
-                      </Text>
-                    </>)
-                  :
-                    <>
-                      <Text>
-                        Tap <Text style={[{ color: Colors.primary }]}> + </Text> to start a conversation.
-                      </Text>
-                    </>
-                }
-              </Text>
+              
             </View>
           }
         />
@@ -1104,21 +1126,34 @@ const S = StyleSheet.create({
   backdrop: { flex: 1 },
   handle:  { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(154,154,154,0.3)', alignSelf: 'center', marginBottom: 4 },
 
-  header:{  flexDirection: 'column',  justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 14 },
+  header:{ flexDirection: 'column',  justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 14 },
   headerTitle: { fontFamily: 'Poppins_700Bold', fontSize: 24 },
   newBtn: { width: 40, height: 40, borderRadius: 50, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background },
 
   menuList: {
-    borderRadius: 30,
     padding: 3,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "center", 
+    justifyContent: 'flex-end',
     gap: 15,
-    overflow: "hidden",
-    position: 'relative',
-    right: 0, top: 1,
+  },
+
+  menuListContent: {
+    borderRadius: 30,
+    padding: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 20,
     paddingLeft: 12
   },
+
+  // menuListContent: {
+  //   borderRadius: 30,
+  //   padding: 3,
+  //   flexDirection: "row",
+  //   alignItems: "center",
+  //   gap: 15,
+  // },
   menuBtn: {
     width: 38,
     height: 38,
@@ -1173,7 +1208,7 @@ const S = StyleSheet.create({
   },
   emptyTitle: {
     fontFamily: "Poppins_500Medium",
-    fontSize: 16,
+    fontSize: 15,
     color: Colors.text,
     textAlign: "center",
   },

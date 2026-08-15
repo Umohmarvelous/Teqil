@@ -32,6 +32,7 @@ import {
   BellOff,
   Menu03Icon,
   Person,
+  Search02Icon,
 } from "@hugeicons/core-free-icons";
 import {
   Glass,
@@ -538,6 +539,7 @@ export default function MainLayout() {
                   </NetworkStatus>
                 </View>
 
+
                 <View style={[styles.menuList, {backgroundColor: Colors.overlay,  alignItems:'center', justifyContent:'center'}]}>
 
                   {/* Glass, not a coloured pill. */}
@@ -570,7 +572,7 @@ export default function MainLayout() {
                     fill={textColor}
                   />
                   
-                  <View style={{ backgroundColor: isDark ? Colors.borderLight : Colors.background,  padding: 8, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
+                  <View style={{ backgroundColor: isDark ? Colors.borderLight : Colors.background,  padding: 5, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
                     <Glass
                       variant="regular"
                       interactive
@@ -580,15 +582,7 @@ export default function MainLayout() {
                       fallbackIntensity={40}
                       fallbackTint={ios.systemGray3}
                     />
-                    {/* <HugeiconsIcon
-                      // icon={MoreHorizontalCircleIcon}
-                      size={24}
-                      color={textColor}
-                      fill={textColor}
-                    /> */}
-
                     <SymbolView name="person.fill" size={22} tintColor={ios.label}  fallback={ios.label} />
-
                   </View>
                 </View>
               </View>
@@ -771,18 +765,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    // borderRadius: 50,
+    // borderRadius: 50, 
+    // borderWidth: 2, borderColor: 'red',
+    
   },
   menuList: {
     borderRadius: 30,
-    padding: 3,
+    padding: 5,
     flexDirection: "row",
     alignItems: "center",
-    gap: 15,
-    overflow: "hidden",
-    position: 'relative',
-    right: 0, top: 1,
-    paddingLeft: 12
+    gap: 20,
+    // overflow: "hidden",
+    // position: 'relative',
+    // right: 0, top: 1,
+    paddingLeft: 12, 
   },
   menuBtn: {
     width: 38,

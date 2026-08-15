@@ -37,7 +37,9 @@ import Animated, {
 
 import { useIOSTheme, IOSAppFont } from "./theme";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { Wifi } from "@hugeicons/core-free-icons";
+import { CellularNetworkIcon, CellularNetworkOfflineIcon, Network } from "@hugeicons/core-free-icons";
+
+
 
 export type ConnectionQuality = "healthy" | "weak" | "reconnecting";
 
@@ -149,14 +151,16 @@ export function NetworkStatus({ children, style }: NetworkStatusProps) {
       /> */}
       <View style={[styles.row]}>
         {weak ? (
-          <View style={{alignItems: 'center', justifyContent: 'center', gap: 15, flexDirection: 'row'}}>
-            <ActivityIndicator color={theme.systemRed} size={5} />
-            <Text numberOfLines={1} style={[IOSAppFont.label, styles.label, { color: tint, fontFamily: "Poppins_700Bold" }]}>{`You are offline...`}</Text>
+          <View style={{alignItems: 'center', justifyContent: 'center', gap: 15, flexDirection: 'row', }}>
+            <ActivityIndicator color={theme.label} size={5} />
+            {/* <HugeiconsIcon icon={CellularNetworkOfflineIcon} size={17} color={'red'}/> */}
+
+            <Text numberOfLines={1} style={[IOSAppFont.label, styles.label, { color: theme.label, fontFamily: "Poppins_500Bold" }, {}]}>{`No service!!`}</Text>
           </View>
         ) : (
           <View style={{alignItems: 'center', justifyContent: 'center', gap: 12, flexDirection: 'row'}}>
-            <HugeiconsIcon icon={Wifi} color={theme.systemGreen} size={15}/>
-            <Text numberOfLines={1} style={[IOSAppFont.label, styles.label, { color: theme.systemGreen, fontFamily: "Poppins_700Bold" }]}>Back online...</Text>
+              <ActivityIndicator color={theme.label} size={5} />
+              <Text numberOfLines={1} style={[IOSAppFont.label, styles.label, { color: theme.label, fontFamily: "Poppins_500Bold" }]}>Back online • Reconnecting...</Text>
           </View>
         )}
       </View>

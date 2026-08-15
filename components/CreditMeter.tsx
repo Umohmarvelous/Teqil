@@ -58,10 +58,10 @@ export default function CreditMeter({
   }, [credits]);
 
   return (
-    <View style={[styles.card,]}>
-      <View style={[styles.iconBadge, {flexDirection: 'row', alignItems: 'center', gap: 10}]}>
-            <HugeiconsIcon icon={Star as any} size={18} color={tier.color} fill={tier.color} />
-            <Text style={[styles.creditsLabel, { color: subColor }]}>Credits Status </Text>
+    <View style={[styles.card]}>
+      <View style={[styles.iconBadge]}>
+        <HugeiconsIcon icon={Star as any} size={18} color={tier.color} fill={tier.color} />
+        <Text style={[styles.creditsLabel, { color: subColor }]}>Credits Status </Text>
       </View>
           
       <View style={styles.headerRow}>
@@ -95,10 +95,9 @@ export default function CreditMeter({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 30,
-    padding: 20,
+    padding: 15,
     marginBottom: 10,
-    gap: 14,
+    gap: 14, 
     shadowColor: "#000",
     shadowOffset: { width: 1, height: 1 },
     shadowOpacity: 0.04,
@@ -116,7 +115,9 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 12,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
+    flexDirection: 'row',
+    gap: 10
   },
   credits: { fontFamily: "Poppins_700Bold", fontSize: 14, lineHeight: 26 },
   creditsLabel: { fontFamily: "Poppins_400Regular", fontSize: 12 },

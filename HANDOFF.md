@@ -259,10 +259,12 @@ sits too low, check you are not re-adding a `paddingTop` of your own.
 
 ## 4. Phases 6, 7, 8 — what they need
 
-### Phase 6 — Followers / following — **DONE, but the migration must be run**
-`supabase/migrations/migration_follows.sql` is written and idempotent. **Run it
-once** in Supabase → SQL Editor. Until it is applied, `useFollowsStore` degrades
-to no-ops with `error` set — the app runs, the counts just read 0.
+### Phase 6 — Followers / following — **DONE, migration applied**
+`supabase/migrations/migration_follows.sql` was applied on 2026-08-15 and
+verified in the database: table + composite PK, both indexes, the `follows_counts`
+trigger, `users.follower_count` / `users.following_count`, RLS enabled with three
+policies, and all five RPCs present as `SECURITY DEFINER`. It is idempotent, so
+re-running it is safe.
 
 - `follows(follower_id, followee_id, created_at)`, composite PK — the pair is the
   identity, so that one index gives uniqueness *and* the "does A follow B" lookup.

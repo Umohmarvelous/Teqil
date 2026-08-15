@@ -77,7 +77,7 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
 
-  const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";
+  const cardBg = isDark ? "rgba(255,255,255,0.06)" : Colors.border;
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
   const tabBarBg = isDark ? Colors.background : Colors.textWhite;
 
@@ -247,11 +247,11 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
         </View>
 
 
-        <View style={{flex: 1, alignItems: 'center', justifyContent: 'space-between', flexDirection: 'row', gap: 8}}>
+        <View style={{flex: 1, alignItems: 'center', justifyContent: 'space-between', flexDirection: 'row', gap: 8, }}>
 
           {/* Loyalty Program entry */}
           <Pressable
-            style={[styles.card, styles.promoGradient, { backgroundColor: Colors.overlay }]}
+            style={[styles.card, styles.promoGradient, { backgroundColor: cardBg }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
               router.push("/program");
@@ -264,7 +264,7 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
                 style={StyleSheet.absoluteFill}
                 pointerEvents="none"
                 fallbackIntensity={40}
-                fallbackTint={isDark ? Colors.overlayLight : Colors.border}
+                fallbackTint={isDark ? Colors.text : Colors.border}
               />
             <View style={styles.loyaltyIconChip}>
               <HugeiconsIcon icon={enrolled ? Trophy : Trophy} size={40} color={textColor} />
@@ -364,26 +364,24 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
           </View>
         )}
 
-        {
-        /* Empty state */}
+        {/* Empty state */}
         {recentTrips.length === 0 && (
-          <View style={[styles.card, { alignItems: "center", paddingVertical: 32, marginTop: 50 }]}>
-            <HugeiconsIcon icon={Warning} size={40} color={Colors.warning} />
+          <View style={[styles.card, { alignItems: "center", paddingVertical: 32, marginTop: 10, gap: 0, borderWidth: .5, borderColor: Colors.overlayLight, borderRadius: 30 }]}>
+            <HugeiconsIcon icon={Warning} size={40} color={Colors.overlayLight} />
             <View style={{alignItems:'center'}}>
-              <Text style={[styles.emptyText, { color: Colors.warning }]}>
-                No trips yet
+              <Text style={[styles.emptyText, { color: Colors.overlayLight }]}>
+                No record yet!
               </Text>
-              <Text style={[styles.emptySub, { color: textColor }]}>
+              <Text style={[styles.emptySub, { color: subTextColor }]}>
                 {user?.role === "driver"
-                  ? "Tap 'Start Trip' to create your first trip"
-                  : "Tap 'Find Trip' to join a trip"}
+                  ? "Recent trip records will appear here"
+                  : "Recent trip records will appear here"}
               </Text>
             </View>
           </View>
         )}
 
 
-        
         {/* <View style={[styles.promoBanner]}>
           <View
             style={[styles.promoGradient, styles.card, 

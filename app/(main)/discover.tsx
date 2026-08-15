@@ -708,7 +708,8 @@ import { Glass, GlassScrim } from "@/components/ios";
 //   },
 //   fullScreenContent: { width: "100%", alignItems: "center" },
 //   fullScreenImage: { width: SCREEN_WIDTH, height: SCREEN_WIDTH },
-//   fullScreenVideoContainer: { width: SCREEN_WIDTH, height: SCREEN_WIDTH * 0.75 },
+//   fullScreenVideoContainer: { width: SCREEN_
+// WIDTH, height: SCREEN_WIDTH * 0.75 },
 //   fullScreenVideo: { flex: 1 },
 //   muteButton: {
 //     position: "absolute",

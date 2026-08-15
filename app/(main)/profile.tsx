@@ -77,6 +77,8 @@ import {
   Tick02FreeIcons,
   Hospital,
   Search02Icon,
+  BellOff,
+  Logout,
 } from "@hugeicons/core-free-icons";
 
 import { useAuthStore } from "@/src/store/useStore";
@@ -129,6 +131,7 @@ import {
   type ProfileSearchItem,
 } from "@/src/data/profileSearchIndex";
 import { triggerSyncNow } from "@/src/services/sync";
+import { SymbolView } from "expo-symbols";
 
 // Slide-in "Copied" toast, shared via context so every copy action triggers it.
 const CopyToastContext = React.createContext<() => void>(() => {});
@@ -478,7 +481,7 @@ const BAR_ROW_HEIGHT = 52;
 
 /** Page gutter — the same on the hero and inside the bar, so X never travels. */
 const HERO_INSET = 16;
-const HERO_PAD_TOP = 14;
+const HERO_PAD_TOP = 10;
 const AVATAR = 66;
 /** Ring: 2pt border + 2pt padding, each side. */
 const AVATAR_BOX = AVATAR + 8;
@@ -927,7 +930,18 @@ export default function ProfileTab() {
             </NetworkStatus>
           </View>
 
-          <View style={styles.barRight}>
+
+
+          {/* <View style={[styles.barRight, { backgroundColor: isDark ? Colors.borderLight : Colors.background, padding: 8, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }]}>    
+            <Glass
+              variant="regular"
+              interactive
+              radius={30}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+              fallbackIntensity={40}
+              fallbackTint={ios.systemGray3}
+            />
             <BarButton icon={Search02Icon} label="Search profile" onPress={openSearch} color={textColor} />
             {user?.role === "driver" && (
               <BarButton
@@ -938,11 +952,65 @@ export default function ProfileTab() {
               />
             )}
             <BarButton icon={LogoutIcon} label="Sign out" onPress={confirmSignOut} color={textColor} />
-          </View>
+
+
+
+          </View> */}
+
+
+            <View style={[styles.menuListContent, {backgroundColor: Colors.overlay,  alignItems:'center', justifyContent:'center'}]}>
+
+                {/* Glass, not a coloured pill. */}
+                <Glass
+                  variant="regular"
+                  interactive
+                  radius={30}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
+                  fallbackIntensity={40}
+                  fallbackTint={isDark ? Colors.overlayLight : Colors.border}
+                />
+
+                <HugeiconsIcon
+                  icon={Search02Icon}
+                  size={24}
+                  color={textColor}
+                  onPress={openSearch}
+                />
+
+                {user?.role === "driver" && (
+                  <HugeiconsIcon
+                    icon={Logout}
+                    size={24}
+                    color={textColor}
+                    onPress={() => setReceiveVisible(true)}
+                  />
+                )}
+                
+                <View style={{ backgroundColor: isDark ? Colors.borderLight : Colors.background,  padding: 5, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
+                  <Glass
+                    variant="regular"
+                    interactive
+                    radius={30}
+                    style={StyleSheet.absoluteFill}
+                    pointerEvents="none"
+                    fallbackIntensity={40}
+                    fallbackTint={ios.systemGray3}
+                  />
+                  {/* <SymbolView name="person.fill" size={22} tintColor={ios.label}  fallback={ios.label} /> */}
+                  <HugeiconsIcon
+                    icon={Logout}
+                    size={24}
+                    color={textColor}
+                    onPress={confirmSignOut} 
+                  />
+                </View>
+            </View>
         </View>
       </View>
     ),
-    [insets.top, isDark, displayName, user?.role, textColor, openSearch, confirmSignOut],
+    // [insets.top, isDark, displayName, user?.role, textColor, openSearch, confirmSignOut, ios.systemGray3],
+    [],
   );
 
   return (
@@ -975,12 +1043,12 @@ export default function ProfileTab() {
           }
           header={
             <View style={styles.hero}>
-              <View style={styles.heroRow}>
+              <View style={[styles.heroRow, { }]}>
                 {/* The avatar is drawn by TravellingAvatar, outside the scroll.
                     This reserves exactly its footprint so the text sits where it
                     always did — and because the row aligns to flex-start, the
                     slot's top-left IS the coordinate that overlay starts from. */}
-                <View style={styles.avatarSlot} />
+                <View style={[styles.avatarSlot, { }]} />
 
                 <View style={styles.heroText}>
                   <Text numberOfLines={1} style={[styles.heroName, { color: textColor }]}>
@@ -1004,7 +1072,7 @@ export default function ProfileTab() {
                       </View>
                     )}
 
-                    <Pressable
+                    {/* <Pressable
                       onPress={handleCopy}
                       hitSlop={12}
                       style={styles.copyBtn}
@@ -1021,11 +1089,11 @@ export default function ProfileTab() {
                         fallbackTint={ios.tertiarySystemFill}
                       />
                       <HugeiconsIcon icon={Copy01Icon as any} size={14} color={Colors.warning} />
-                    </Pressable>
+                    </Pressable> */}
                   </View>
 
                   <View style={styles.roleRow}>
-                    <Text style={[styles.roleLabel, { color: subTextColor }]}>{roleLabel}</Text>
+                    {/* <Text style={[styles.roleLabel, { color: subTextColor }]}>{roleLabel}</Text> */}
                     {!!user?.avg_rating && (
                       <>
                         <View style={[styles.dot, { backgroundColor: subTextColor }]} />
@@ -1092,6 +1160,11 @@ export default function ProfileTab() {
             {/* ── Profile: balance, stats, credit ── */}
             {tab === "profile" && (
               <>
+
+                {/* ── Step 7: credit meter · partner CTA · achievements ── */}
+                <CreditMeter textColor={textColor} subColor={subTextColor} cardBg={cardBg} />
+
+
                 {user?.role === "driver" ? (
                   <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderWidth: 1, borderColor: borderColor }]}>
                     <DriverDashboard />
@@ -1143,9 +1216,7 @@ export default function ProfileTab() {
                   </GlassCard>
                 )}
 
-                {/* ── Step 7: credit meter · partner CTA · achievements ── */}
-                <CreditMeter textColor={textColor} subColor={subTextColor} cardBg={cardBg} />
-
+              
                 {/* {programStatus === "none" && (
                   <Pressable
                     style={[styles.partnerBtn, { backgroundColor: Colors.primary }]}
@@ -1542,21 +1613,34 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
 
+
+  menuListContent: {
+    borderRadius: 30,
+    padding: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 20,
+    paddingLeft: 12, zIndex: 20
+  },
+
+
   // ── Hero ───────────────────────────────────────────────────────────────────
   hero: { paddingHorizontal: HERO_INSET, paddingTop: HERO_PAD_TOP },
   // flex-start, not center: it makes the slot's top edge exactly the hero's
   // content top, which is the coordinate TravellingAvatar starts from.
-  heroRow: { flexDirection: "row", alignItems: "flex-start", gap: 14 },
+  // heroRow: { flexDirection: "row", alignItems: "flex-start", gap: 14,  },
+  heroRow: { flexDirection: "column", alignItems: "center", gap: 14, },
   avatarSlot: { width: AVATAR_BOX, height: AVATAR_BOX },
   avatarTravel: {
     position: "absolute",
     top: 0,
-    left: HERO_INSET,
+    // left: HERO_INSET,
+    alignSelf:'center',
     width: AVATAR_BOX,
     height: AVATAR_BOX,
     zIndex: 40,
   },
-  heroText: { flex: 1, gap: 5, paddingTop: 2 },
+  heroText: { flex: 1, gap: 5, paddingTop: 2, textAlign:'center', alignItems:'center' },
   avatarWrap: {
     position: "relative",
     borderWidth: 2,

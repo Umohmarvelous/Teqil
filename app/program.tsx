@@ -439,7 +439,7 @@ export default function ProgramScreen() {
                       label="Verification code"
                       value={otp}
                       onChangeText={setOtp}
-                      placeholder={`Enter code (dev: ${DEV_OTP_CODE})`}
+                      placeholder={`Enter code`}
                       keyboardType="number-pad"
                       maxLength={6}
                       textColor={textColor}
