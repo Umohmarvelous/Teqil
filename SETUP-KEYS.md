@@ -124,9 +124,11 @@ between origin and destination.
 create an API key → **restrict it** by bundle ID (`com.teqil.app`) and to the
 Directions API only. Billing must be enabled; there is a free monthly tier.
 
-> **Not needed for finding nearby drivers.** Proximity search (Phase 7) runs
-> against your own Supabase rows, exactly as Bolt does — no third-party key.
-> Filling-station lookup uses **Overpass**, which is free and keyless.
+> **Not needed for finding nearby drivers or fuel.** Phase 7 shipped without any
+> key: proximity search runs against your own `user_presence` rows exactly as
+> Bolt does, and filling stations come from **Overpass** (OpenStreetMap), which
+> is free, keyless and needs no billing account. Verified against Lagos — 17
+> stations within 5 km. Directions is the *only* thing this key buys.
 
 ### 2.2 Feedback — no channel configured
 
@@ -249,3 +251,8 @@ Copy into an issue and work down it.
 - [ ] Remove `EXPO_PUBLIC_DEV_PREMIUM_TIER` before release
 - [ ] De-duplicate `DATABASE_URL`
 - [ ] Decide on WhatsApp: deep link (free) vs Business Platform (metered)
+- [ ] Turn on **leaked-password protection** in Supabase → Auth (one toggle)
+- [ ] Harden the ~20 pre-existing functions with a mutable `search_path`, and the
+      `SECURITY DEFINER` view `v_active_park_trips` — run Supabase's advisor and
+      work the list (the Phase 6/7 functions are already done, see
+      `migration_harden_definer.sql`)

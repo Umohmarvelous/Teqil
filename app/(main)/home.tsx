@@ -108,13 +108,14 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
   const PASSENGERSACTIONSBUTTON = [
     { id: "qr", icon: QrCodeIcon, label: "Scan code", color: textColor },
     { id: "share", icon: Share01Icon, label: "Share Trip", color: textColor },
-    
+    { id: "nearby", icon: Navigation01Icon, label: "Nearby", color: textColor },
     { id: "history", icon: History, label: "History", color: textColor },
     { id: "sos", icon: Warning, label: "Emergency Contact", color: textColor },
   ] ;
   const DRIVERSACTIONSBUTTON = [
     { id: "add", icon: Plus, label: "New Trip", color: textColor},
     { id: "scan", icon: QrCodeIcon, label: "Get Code", color: textColor},
+    { id: "nearby", icon: Navigation01Icon, label: "Nearby", color: textColor},
     { id: "megaphone", icon: Message01Icon, label: "Chat", color: textColor},
     { id: "time", icon: History, label: "History", color: textColor},
   ] ;
@@ -134,6 +135,12 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
         break;
       case "sos":
         iosAlert("Emergency SOS", "SOS is available during a live trip. Start or join a trip to activate it.");
+        break;
+      // Both roles: who and what is around you right now.
+      // `as any` because expo-router's typed routes only regenerate on the next
+      // start/build; app/nearby.tsx is a real route.
+      case "nearby":
+        router.push("/nearby" as any);
         break;
 
       // Driver's Actions

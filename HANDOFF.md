@@ -43,12 +43,13 @@ Everything asked for, and where it stands. Ordered by area, not by date.
 | 19 | Home header bell + avatar are real controls | Bell → Notifications with badge; avatar → glass account menu |
 | 20 | Multi-account: add and switch, Keychain-backed | `switchAccount` replaces the Supabase session |
 | 21 | `IOSBadge` — one badge component, one unread source | Tab bar + bell agree by construction |
+| 22 | **Phase 7** — proximity: nearby people, Fastest Finger, filling stations | Migration applied + verified; **no API key needed** |
+| 23 | SECURITY: pinned `search_path` and revoked `anon` EXECUTE on all Phase 6/7 RPCs | Found by Supabase's advisor — both were real |
 
 ### Not started
 
 | # | Task | Blocked by |
 | --- | --- | --- |
-| 22 | **Phase 7** — proximity: nearby drivers, Fastest Finger, filling stations | Nothing. Needs no API key (§4) |
 | 23 | Messages rewrite — WhatsApp-style list + thread, offline-first | Nothing |
 | 24 | Messages — voice notes (record / send / play) | Nothing |
 | 25 | Messages — swipe-to-delete a chat | Nothing; `SwipeableRow` already exists |
@@ -70,6 +71,42 @@ Everything asked for, and where it stands. Ordered by area, not by date.
 - `src/services/kyc.ts` `IDENTITY_SALT` is a committed constant — should be a
   server secret (SETUP-KEYS §1.2).
 - `.env` defines `DATABASE_URL` twice.
+- **~20 pre-existing functions still have a mutable `search_path`**, and
+  `v_active_park_trips` is a `SECURITY DEFINER` view (advisor ERROR). Only the
+  Phase 6/7 functions were hardened — the rest predate this session and were left
+  alone rather than touched blind. Run `get_advisors` before launch.
+- `auth_leaked_password_protection` is off in Supabase Auth settings — one
+  toggle, worth turning on.
+
+---
+
+## Phase 7 — how proximity works
+
+Three features, two data sources, **no API key** (this is the part that is easy
+to get wrong and expensive to get wrong).
+
+- **Nearby people is not a maps question.** Drivers are rows in our own
+  `user_presence` table with a lat/lng, so it is a radius query against our own
+  database — the same way Bolt queries its own fleet. A maps provider is only
+  needed to *draw a route*, which is separate and optional.
+- **Filling stations** come from OpenStreetMap's Overpass API: free, keyless, no
+  billing account. Verified against Lagos — 17 stations within 5 km.
+  **14 of those 17 are `way` elements, not `node`s**, so a query that asks only
+  for nodes silently misses ~80% of stations. That is why the query asks for both
+  and uses `out center`.
+- **No PostGIS.** A bounding-box prefilter on a btree index followed by an exact
+  haversine gives the same answer at this scale without an extension to enable or
+  a geography column to maintain. The prefilter is what makes it fast; the
+  trigonometry then runs over tens of rows. Migration path if the fleet outgrows
+  it is additive.
+- **The Fastest Finger race is resolved in SQL**, by a single `UPDATE` with the
+  seat guard in its `WHERE`. Read-compare-write would lose updates, and this
+  feature is *designed* to make people tap simultaneously, so it would happen
+  constantly rather than rarely.
+- **Presence piggybacks on the location tracker's existing throttle** rather than
+  running its own timer: the tracker already has a fresh fix and already honours
+  `shareLocation` and `dataSaver`. A second GPS consumer would double the battery
+  cost and could publish a position the user had just opted out of.
 
 ---
 

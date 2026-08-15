@@ -20,6 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore, useTripStore } from '../store/useStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { supabase } from './supabase';
+import { publishPresence } from './proximity';
 import type { LiveLocation } from '../models/types';
 
 // ─── Tunables ────────────────────────────────────────────────────────────────
@@ -367,7 +368,7 @@ function onFix(location: Location.LocationObject) {
 function publish(location: Location.LocationObject, moved: boolean) {
   if (!session) return;
 
-  const { latitude, longitude, speed, heading } = location.coords;
+  const { latitude, longitude, speed, heading, accuracy } = location.coords;
   const point: LiveLocation = {
     latitude,
     longitude,
@@ -409,6 +410,20 @@ function publish(location: Location.LocationObject, moved: boolean) {
       // Offline — the checkpoint below is what protects the track.
       void checkpoint();
     });
+
+  // Phase 7: make this position discoverable to people searching nearby.
+  //
+  // Deliberately piggybacking on the broadcast throttle rather than running its
+  // own timer: this tracker already holds a fresh fix and already honours
+  // `shareLocation` (checked before the session starts) and `dataSaver` (the
+  // interval above). A second GPS consumer would double the battery cost of the
+  // feature and could publish a position the user had just opted out of.
+  void publishPresence({
+    lat: latitude,
+    lng: longitude,
+    heading: heading ?? null,
+    accuracy: accuracy ?? null,
+  });
 }
 
 /**
