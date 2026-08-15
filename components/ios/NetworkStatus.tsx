@@ -36,8 +36,6 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { useIOSTheme, IOSAppFont } from "./theme";
-import { HugeiconsIcon } from "@hugeicons/react-native";
-import { CellularNetworkIcon, CellularNetworkOfflineIcon, Network } from "@hugeicons/core-free-icons";
 
 
 
@@ -134,7 +132,7 @@ export function NetworkStatus({ children, style }: NetworkStatusProps) {
   }
 
   const weak = quality === "weak";
-  const tint = weak ? theme.systemRed : theme.tint;
+  // const tint = weak ? theme.systemRed : theme.tint;
 
   return (
     <Animated.View

@@ -61,6 +61,8 @@ import {
   CallIcon,
   Search01Icon,
   Mic01Icon,
+  PlayIcon,
+  PauseIcon,
   MicOff01Icon,
   UserIcon,        // ← new: used for direct-chat list items
   Car01Icon,       // ← new: used for trip-based list items
@@ -74,14 +76,22 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase }   from '@/src/services/supabase';
 import { Glass, iosAlert, IOSSearchBar, NetworkStatus, useIOSTheme } from "@/components/ios";
 import { SymbolView } from 'expo-symbols';
-// expo-av was removed in Expo SDK 57 — stub so the voice-recording code compiles.
-// Recording is disabled (permission returns "denied") until migrated to expo-audio.
-const Audio: any = {
-  requestPermissionsAsync: async () => ({ status: 'denied' }),
-  setAudioModeAsync: async () => {},
-  Recording: { createAsync: async () => { throw new Error('Voice recording unavailable'); } },
-  RecordingOptionsPresets: { HIGH_QUALITY: {} },
-};
+// Voice notes run on expo-audio.
+//
+// This used to be a stub whose permission request always returned "denied",
+// left behind when expo-av was removed — so the whole recording UI was live and
+// did nothing. expo-audio is the supported replacement and is hook-based rather
+// than imperative, which is why the recorder is created at the top of
+// ChatScreen instead of inside the press handler.
+import {
+  useAudioRecorder,
+  useAudioRecorderState,
+  useAudioPlayer,
+  useAudioPlayerStatus,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  RecordingPresets,
+} from 'expo-audio';
 
   const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -148,6 +158,72 @@ function ContactInfoModal({
   );
 }
 
+/** mm:ss from milliseconds, for the live recording counter. */
+function formatRecDuration(ms: number): string {
+  const total = Math.max(0, Math.floor((ms ?? 0) / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+
+// ─── Voice note ──────────────────────────────────────────────────────────────
+//
+// A received voice note used to render as the literal text "🎤 Voice message",
+// which was honest about the recording being stubbed but useless once it isn't.
+//
+// The player is per-bubble because `useAudioPlayer` binds one native player to
+// one source. Sharing a single player across the list would mean starting a
+// second note silently stops the first with no way to show which is playing —
+// and the progress bar would jump between bubbles.
+
+function VoiceNote({ uri, isMe, textColor }: { uri: string; isMe: boolean; textColor: string }) {
+  const player = useAudioPlayer({ uri });
+  const status = useAudioPlayerStatus(player);
+
+  const tint = isMe ? '#fff' : textColor;
+  const track = isMe ? 'rgba(255,255,255,0.28)' : 'rgba(120,120,128,0.28)';
+
+  const duration = status?.duration ?? 0;
+  const position = status?.currentTime ?? 0;
+  const progress = duration > 0 ? Math.min(1, position / duration) : 0;
+
+  const toggle = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (status?.playing) {
+      player.pause();
+      return;
+    }
+    // Replay from the start once it has finished, rather than sitting at the
+    // end doing nothing when tapped.
+    if (duration > 0 && position >= duration - 0.05) player.seekTo(0);
+    player.play();
+  }, [player, status?.playing, position, duration]);
+
+  const secs = Math.max(0, Math.round((duration || 0) - (position || 0)));
+  const label = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+
+  return (
+    <View style={S.voiceRow}>
+      <Pressable
+        onPress={toggle}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={status?.playing ? 'Pause voice message' : 'Play voice message'}
+      >
+        <HugeiconsIcon
+          icon={status?.playing ? PauseIcon : PlayIcon}
+          size={22}
+          color={tint}
+        />
+      </Pressable>
+
+      <View style={[S.voiceTrack, { backgroundColor: track }]}>
+        <View style={[S.voiceFill, { width: `${progress * 100}%`, backgroundColor: tint }]} />
+      </View>
+
+      <Text style={[S.voiceTime, { color: tint }]}>{label}</Text>
+    </View>
+  );
+}
+
 // ─── Message Bubble (named export for direct-chat route) ──────────────────────
 
 export function MessageBubble({
@@ -183,9 +259,13 @@ export function MessageBubble({
           S.bubble,
           isMe ? S.bubbleMe : [S.bubbleThem, { backgroundColor: isDark ? '#1E2820' : '#F0F0F0' }],
         ]}>
-          <Text style={[S.bubbleText, { color: isMe ? '#fff' : textColor }]}>
-            {message.audio_uri ? '🎤 Voice message' : message.text}
-          </Text>
+          {message.audio_uri ? (
+            <VoiceNote uri={message.audio_uri} isMe={isMe} textColor={textColor} />
+          ) : (
+            <Text style={[S.bubbleText, { color: isMe ? '#fff' : textColor }]}>
+              {message.text}
+            </Text>
+          )}
           <View style={S.bubbleMeta}>
             <Text style={[S.bubbleTime, { color: isMe ? 'rgba(255,255,255,0.55)' : subTextColor }]}>
               {timeStr}
@@ -222,7 +302,11 @@ export function ChatScreen({
   const [infoVisible, setInfoVisible] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
 
-  const recordingRef = useRef<any>(null);
+  // expo-audio is hook-based, so the recorder is created here rather than
+  // inside the press handler the way the old imperative expo-av API allowed.
+  const recorder      = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(recorder, 250);
+
   const listRef      = useRef<FlatList>(null);
   const typingTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets       = useSafeAreaInsets();
@@ -287,26 +371,33 @@ export function ChatScreen({
 
   const startRecording = async () => {
     try {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== 'granted') {
+      const { granted } = await requestRecordingPermissionsAsync();
+      if (!granted) {
         iosAlert('Permission required', 'Microphone access is needed for voice messages.');
         return;
       }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-      const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      recordingRef.current = recording;
+      // `allowsRecording` opens the input; `playsInSilentMode` is what lets the
+      // note play back when the ringer switch is off, which on iOS is otherwise
+      // silent and reads as a broken recording.
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
       setIsRecording(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch { iosAlert('Error', 'Could not start recording.'); }
   };
 
   const stopRecording = async () => {
-    if (!recordingRef.current || !user?.id) return;
+    if (!user?.id) return;
     setIsRecording(false);
     try {
-      await recordingRef.current.stopAndUnloadAsync();
-      const uri = recordingRef.current.getURI();
-      recordingRef.current = null;
+      await recorder.stop();
+      const uri = recorder.uri;
+
+      // Release the input again so other audio isn't ducked for the rest of the
+      // session — iOS keeps the recording route active until told otherwise.
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (uri) {
         await addMessage({
@@ -325,10 +416,11 @@ export function ChatScreen({
   };
 
   const cancelRecording = async () => {
-    if (!recordingRef.current) return;
     setIsRecording(false);
-    try { await recordingRef.current.stopAndUnloadAsync(); } catch {}
-    recordingRef.current = null;
+    try {
+      await recorder.stop();
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+    } catch {}
   };
 
   const handleCall = () => {
@@ -415,7 +507,12 @@ export function ChatScreen({
       {isRecording && (
         <View style={[S.recBanner, { backgroundColor: Colors.error + '22' }]}>
           <View style={S.recDot} />
-          <Text style={[S.recText, { color: Colors.error }]}>Recording… release to send</Text>
+          {/* A live counter, not just "Recording…": without it there is no way
+              to tell a recording that is running from one that silently failed
+              to start. */}
+          <Text style={[S.recText, { color: Colors.error }]}>
+            {formatRecDuration(recorderState.durationMillis)} · release to send
+          </Text>
           <Pressable onPress={cancelRecording} hitSlop={8}>
             <Text style={{ color: Colors.error, fontSize: 20, lineHeight: 22 }}>×</Text>
           </Pressable>
@@ -1275,6 +1372,11 @@ const S = StyleSheet.create({
   bubbleMe:       { backgroundColor: Colors.primary, borderBottomRightRadius: 4 },
   bubbleThem:     { borderBottomLeftRadius: 4 },
   bubbleText:     { fontFamily: 'Poppins_400Regular', fontSize: 14, lineHeight: 21 },
+  // Voice note: play control, progress track, remaining time.
+  voiceRow:       { flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 168, paddingVertical: 2 },
+  voiceTrack:     { flex: 1, height: 3, borderRadius: 2, overflow: 'hidden' },
+  voiceFill:      { height: '100%', borderRadius: 2 },
+  voiceTime:      { fontFamily: 'Poppins_500Medium', fontSize: 11, minWidth: 32, textAlign: 'right' },
   bubbleMeta:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
   bubbleTime:     { fontFamily: 'Poppins_400Regular', fontSize: 10 },
   swipeActions:   { flexDirection: 'row', alignItems: 'center' },
