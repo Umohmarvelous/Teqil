@@ -12,45 +12,50 @@
 // Yesterday / This Week / Earlier), newest first, unread carrying a leading
 // dot rather than a different background — a filled row reads as "selected" on
 // iOS, not "unread".
+//
+// ── Records, not a projection ────────────────────────────────────────────────
+// The list comes from `useNotificationsStore`, which persists real rows. It used
+// to be computed on the fly from conversations with unread messages, which made
+// swipe-to-delete impossible: deleting recomputed the item straight back on the
+// next render. The store folds conversations in through `ingestConversations`
+// and remembers dismissals, so a swipe sticks.
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, Pressable, RefreshControl, SectionList } from "react-native";
 import { router } from "expo-router";
-import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import Animated from "react-native-reanimated";
+import { SymbolView, type SymbolViewProps } from "expo-symbols";
 
 import {
   Glass,
   IOSScreen,
+  SwipeableRow,
+  iosActionSheet,
   useCollapsibleScroll,
   useIOSTheme,
   IOSAppFont,
+  type SwipeableRowHandle,
   type IOSPalette,
 } from "@/components/ios";
+import Avatar from "@/components/Avatar";
 import { useMessagesStore } from "@/src/store/useMessagesStore";
+import {
+  useNotifications,
+  useNotificationsStore,
+  type AppNotification,
+  type NotificationKind,
+} from "@/src/store/useNotificationsStore";
 import { triggerSyncNow } from "@/src/services/sync";
 import { haptics } from "@/src/utils/haptics";
-
-// ─── Model ───────────────────────────────────────────────────────────────────
-
-export type NotificationKind = "message" | "sync" | "system" | "social";
-
-export interface AppNotification {
-  id: string;
-  kind: NotificationKind;
-  title: string;
-  body: string;
-  createdAt: string;
-  read: boolean;
-  /** Where tapping it goes. */
-  route?: string;
-}
+import { Colors } from "@/constants/colors";
 
 const KIND_GLYPH: Record<NotificationKind, SymbolViewProps["name"]> = {
   message: "bubble.left.fill",
   sync: "arrow.triangle.2.circlepath",
   system: "bell.fill",
   social: "person.2.fill",
+  trip: "car.fill",
+  payment: "creditcard.fill",
 };
 
 // Reanimated re-exports FlatList and ScrollView but not SectionList, so the
@@ -109,52 +114,93 @@ function NotificationRow({
   item,
   ios,
   onPress,
+  onDelete,
+  onToggleRead,
+  registerRow,
 }: {
   item: AppNotification;
   ios: IOSPalette;
   onPress: () => void;
+  onDelete: () => void;
+  onToggleRead: () => void;
+  registerRow: (id: string, handle: SwipeableRowHandle | null) => void;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.row,
-        { backgroundColor: pressed ? ios.systemFill : "transparent" },
+    <SwipeableRow
+      ref={(h) => registerRow(item.id, h)}
+      // Destructive last: it sits against the screen edge, which is where the
+      // full swipe grows from.
+      actions={[
+        {
+          key: "read",
+          label: item.read ? "Unread" : "Read",
+          symbol: item.read ? "envelope.badge" : "envelope.open",
+          color: ios.systemGray,
+          onPress: onToggleRead,
+        },
+        {
+          key: "delete",
+          label: "Delete",
+          symbol: "trash",
+          color: ios.systemRed,
+          destructive: true,
+          onPress: onDelete,
+        },
       ]}
-      accessibilityRole="button"
-      accessibilityLabel={`${item.title}. ${item.body}`}
     >
-      {/* Unread marker. A dot, not a tinted row — a filled row reads as
-          "selected" on iOS, which is a different meaning. */}
-      <View style={styles.unreadSlot}>
-        {!item.read && <View style={[styles.unreadDot, { backgroundColor: ios.tint }]} />}
-      </View>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.row,
+          // The row slides over the action panel, so it needs its own opaque
+          // fill — a transparent row would show the red panel through it.
+          { backgroundColor: pressed ? ios.systemFill : ios.systemGroupedBackground },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.title}. ${item.body}`}
+      >
+        {/* Unread marker. A dot, not a tinted row — a filled row reads as
+            "selected" on iOS, which is a different meaning. */}
+        <View style={styles.unreadSlot}>
+          {!item.read && <View style={[styles.unreadDot, { backgroundColor: ios.tint }]} />}
+        </View>
 
-      <View style={styles.iconTile}>
-        <Glass
-          variant="clear"
-          radius={10}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-          fallbackIntensity={25}
-          fallbackTint={ios.tertiarySystemFill}
-        />
-        <SymbolView name={KIND_GLYPH[item.kind]} size={17} tintColor={ios.label} fallback={null} />
-      </View>
+        {/* People-shaped notifications show the person, not a glyph. */}
+        {item.kind === "message" ? (
+          <Avatar name={item.title} photoUri={item.photoUri} size={34} />
+        ) : (
+          <View style={styles.iconTile}>
+            <Glass
+              variant="clear"
+              radius={10}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+              fallbackIntensity={25}
+              fallbackTint={ios.tertiarySystemFill}
+            />
+            <SymbolView
+              name={KIND_GLYPH[item.kind]}
+              size={17}
+              tintColor={ios.label}
+              fallback={null}
+            />
+          </View>
+        )}
 
-      <View style={styles.rowText}>
-        <Text numberOfLines={1} style={[IOSAppFont.label, { color: ios.label }]}>
-          {item.title}
+        <View style={styles.rowText}>
+          <Text numberOfLines={1} style={[IOSAppFont.label, { color: ios.label }]}>
+            {item.title}
+          </Text>
+          <Text numberOfLines={2} style={[IOSAppFont.description, { color: ios.secondaryLabel }]}>
+            {item.body}
+          </Text>
+        </View>
+
+        <Text style={[IOSAppFont.description, { color: ios.tertiaryLabel }]}>
+          {relativeTime(item.createdAt)}
         </Text>
-        <Text numberOfLines={2} style={[IOSAppFont.description, { color: ios.secondaryLabel }]}>
-          {item.body}
-        </Text>
-      </View>
-
-      <Text style={[IOSAppFont.description, { color: ios.tertiaryLabel }]}>
-        {relativeTime(item.createdAt)}
-      </Text>
-    </Pressable>
+      </Pressable>
+    </SwipeableRow>
   );
 }
 
@@ -166,25 +212,34 @@ export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const conversations = useMessagesStore((s) => s.conversations);
+  const notifications = useNotifications();
 
-  // Unread conversations surface here as notifications. This is the only real
-  // source wired so far — sync and system notices land here as the push and
-  // sync layers start reporting into a store.
-  const notifications = useMemo<AppNotification[]>(() => {
-    return (conversations ?? [])
-      .filter((c: any) => (c.unread_count ?? 0) > 0)
-      .map((c: any) => ({
-        id: `msg-${c.id}`,
-        kind: "message" as const,
-        title: c.participant_name || "New message",
-        body: c.last_message || "You have a new message",
-        createdAt: c.updated_at || c.created_at || new Date().toISOString(),
-        read: false,
-        route: `/direct-chat/${c.id}`,
-      }));
-  }, [conversations]);
+  const ingestConversations = useNotificationsStore((s) => s.ingestConversations);
+  const markRead = useNotificationsStore((s) => s.markRead);
+  const markUnread = useNotificationsStore((s) => s.markUnread);
+  const markAllRead = useNotificationsStore((s) => s.markAllRead);
+  const remove = useNotificationsStore((s) => s.remove);
+  const clearAll = useNotificationsStore((s) => s.clearAll);
+
+  // Fold unread conversations into the inbox whenever they change. Idempotent,
+  // and it honours dismissals, so this can run as often as it likes.
+  useEffect(() => {
+    ingestConversations(conversations ?? []);
+  }, [conversations, ingestConversations]);
 
   const sections = useMemo(() => groupByRecency(notifications), [notifications]);
+  const unread = notifications.reduce((n, i) => n + (i.read ? 0 : 1), 0);
+
+  // Only one row stays open at a time, as in Mail: opening a second closes the
+  // first, so there is never a hidden action panel off-screen.
+  const rows = useRef(new Map<string, SwipeableRowHandle | null>());
+  const registerRow = useCallback((id: string, handle: SwipeableRowHandle | null) => {
+    if (handle) rows.current.set(id, handle);
+    else rows.current.delete(id);
+  }, []);
+  const closeAllRows = useCallback(() => {
+    for (const handle of rows.current.values()) handle?.close();
+  }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -192,18 +247,73 @@ export default function NotificationsScreen() {
     setRefreshing(false);
   }, []);
 
-  const open = useCallback((item: AppNotification) => {
+  const open = useCallback(
+    (item: AppNotification) => {
+      haptics.tap();
+      closeAllRows();
+      markRead(item.id);
+      if (item.route) router.push(item.route as never);
+    },
+    [closeAllRows, markRead],
+  );
+
+  const showActions = useCallback(() => {
     haptics.tap();
-    if (item.route) router.push(item.route as never);
-  }, []);
+    iosActionSheet(
+      "Notifications",
+      undefined,
+      [
+        {
+          text: unread > 0 ? `Mark all as read (${unread})` : "Mark all as read",
+          onPress: () => {
+            haptics.success();
+            markAllRead();
+          },
+        },
+        {
+          text: "Clear all",
+          style: "destructive",
+          onPress: () => {
+            haptics.success();
+            clearAll();
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ],
+    );
+  }, [unread, markAllRead, clearAll]);
 
   return (
-    <IOSScreen title="Notifications" scrollable={false} scroll={scroll}>
+    <IOSScreen
+      title="Notifications"
+      subtitle={unread > 0 ? `${unread} unread` : undefined}
+      scrollable={false}
+      scroll={scroll}
+      right={
+        notifications.length > 0 ? (
+          <Pressable onPress={showActions} hitSlop={12} accessibilityRole="button" accessibilityLabel="Notification options">
+            <SymbolView
+              name="ellipsis.circle"
+              size={22}
+              tintColor={ios.tint}
+              fallback={<Text style={{ color: ios.tint }}>•••</Text>}
+            />
+          </Pressable>
+        ) : undefined
+      }
+    >
       <AnimatedSectionList
         sections={sections}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <NotificationRow item={item} ios={ios} onPress={() => open(item)} />
+          <NotificationRow
+            item={item}
+            ios={ios}
+            registerRow={registerRow}
+            onPress={() => open(item)}
+            onDelete={() => remove(item.id)}
+            onToggleRead={() => (item.read ? markUnread(item.id) : markRead(item.id))}
+          />
         )}
         renderSectionHeader={({ section }) => (
           <View style={styles.sectionHeader}>
@@ -221,22 +331,22 @@ export default function NotificationsScreen() {
         )}
         stickySectionHeadersEnabled
         showsVerticalScrollIndicator={false}
+        onScrollBeginDrag={closeAllRows}
         {...scroll.scrollProps}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
             progressViewOffset={scroll.contentInset}
-            tintColor={ios.tint}
+            tintColor={Colors.primary}
           />
         }
         ListEmptyComponent={
           <View style={styles.empty}>
             <SymbolView name="bell.slash" size={54} tintColor={ios.tertiaryLabel} fallback={null} />
-            <Text style={[IOSAppFont.label, { color: ios.secondaryLabel }]}>No Recent Notification</Text>
-            {/* <Text style={[IOSAppFont.sectionTitle, styles.centre, { color: ios.secondaryLabel }, {width: 252}]}>
-              Messages, sync alerts and app notices appear here. Trips and payments live in History.
-            </Text> */}
+            <Text style={[IOSAppFont.label, { color: ios.secondaryLabel }]}>
+              No Recent Notification
+            </Text>
           </View>
         }
       />
@@ -249,6 +359,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    paddingLeft: 0,
     paddingRight: 20,
     paddingVertical: 14,
     minHeight: 44,
@@ -270,5 +381,4 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   empty: { alignItems: "center", paddingTop: 80, paddingHorizontal: 44, gap: 15 },
-  centre: { textAlign: "center" },
 });

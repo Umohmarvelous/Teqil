@@ -48,6 +48,7 @@ import {
   getBiometricCredentials,
   syncUserToPublicTable,
 } from "@/src/services/auth";
+import { rememberAccount } from "@/src/services/accounts";
 import { supabase } from "@/src/services/supabase";
 import { getDeviceFingerprint } from "@/src/utils/device";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
@@ -130,6 +131,13 @@ export default function LoginScreen() {
       } catch {
         /* fingerprint best-effort */
       }
+      // Add this account to the device's picker so the avatar menu can switch
+      // back to it without a password. No-ops when there is no session to save,
+      // which is exactly the offline-cache path below.
+      rememberAccount(user).catch(() => {
+        /* the picker is a convenience; never block a successful login on it */
+      });
+
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setUser(user);
       setIsAuthenticated(true);

@@ -36,6 +36,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import {
   Glass,
+  IOSBadge,
   IOSTabBar,
   NetworkStatus,
   TAB_BAR_HEIGHT,
@@ -43,6 +44,8 @@ import {
   type IOSTab,
   useIOSTheme,
 } from "@/components/ios";
+import AccountMenu from "@/components/AccountMenu";
+import { useUnreadNotificationCount } from "@/src/store/useNotificationsStore";
 import Avatar from "@/components/Avatar";
 import { useAuthStore } from "@/src/store/useStore";
 import BottomSheet from "@gorhom/bottom-sheet";
@@ -96,6 +99,9 @@ export default function MainLayout() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const { conversations } = useMessagesStore();
   const user = useAuthStore((s) => s.user);
+  // One source for every notification count in the app — the bell here, and the
+  // Notifications tab below.
+  const unreadNotifications = useUnreadNotificationCount();
 
     const ios = useIOSTheme();
 
@@ -553,37 +559,51 @@ export default function MainLayout() {
                     fallbackTint={isDark ? Colors.overlayLight : Colors.border}
                   />
 
-                  {/* <Pressable
-                    onPress={toggleSearch}
+                  {/* Bell → the Notifications tab, badged with the same unread
+                      count the tab bar shows. A bell that isn't a button is
+                      decoration, which is all this was. */}
+                  <Pressable
+                    onPress={() => handleTabPress("notifications")}
+                    hitSlop={8}
+                    style={styles.bellBtn}
                     accessibilityRole="button"
-                    accessibilityLabel="Find a driver"
+                    accessibilityLabel={
+                      unreadNotifications > 0
+                        ? `Notifications, ${unreadNotifications} unread`
+                        : "Notifications"
+                    }
                   >
                     <HugeiconsIcon
-                      icon={Search02Icon}
+                      icon={unreadNotifications > 0 ? Bell : BellOff}
                       size={24}
                       color={textColor}
+                      fill={textColor}
                     />
-                  </Pressable> */}
+                    <IOSBadge count={unreadNotifications} />
+                  </Pressable>
 
-                  <HugeiconsIcon
-                    icon={BellOff}
-                    size={24}
-                    color={textColor}
-                    fill={textColor}
+                  {/* Avatar → the account menu: other signed-in accounts, add
+                      an account, appearance, support, sign out. */}
+                  <AccountMenu
+                    anchor={
+                      <View style={{ backgroundColor: isDark ? Colors.borderLight : Colors.background,  padding: 5, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
+                        <Glass
+                          variant="regular"
+                          interactive
+                          radius={30}
+                          style={StyleSheet.absoluteFill}
+                          pointerEvents="none"
+                          fallbackIntensity={40}
+                          fallbackTint={ios.systemGray3}
+                        />
+                        {user?.profile_photo ? (
+                          <Avatar name={user?.full_name || "U"} photoUri={user.profile_photo} size={22} />
+                        ) : (
+                          <SymbolView name="person.fill" size={22} tintColor={ios.label} fallback={ios.label} />
+                        )}
+                      </View>
+                    }
                   />
-                  
-                  <View style={{ backgroundColor: isDark ? Colors.borderLight : Colors.background,  padding: 5, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
-                    <Glass
-                      variant="regular"
-                      interactive
-                      radius={30}
-                      style={StyleSheet.absoluteFill}
-                      pointerEvents="none"
-                      fallbackIntensity={40}
-                      fallbackTint={ios.systemGray3}
-                    />
-                    <SymbolView name="person.fill" size={22} tintColor={ios.label}  fallback={ios.label} />
-                  </View>
                 </View>
               </View>
 
@@ -667,6 +687,7 @@ export default function MainLayout() {
             <IOSTabBar
               tabs={TABS.map((t) => {
                 if (t.key === "messages") return { ...t, badge: totalUnread };
+                if (t.key === "notifications") return { ...t, badge: unreadNotifications };
                 if (t.key === "profile") {
                   return {
                     ...t,
@@ -787,6 +808,9 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "center",
   },
+  // Relatively positioned so IOSBadge, which pins to its parent, lands on the
+  // bell rather than on the row.
+  bellBtn: { position: "relative", alignItems: "center", justifyContent: "center" },
   logoBtn: {
     width: 25,
     height: 25,
