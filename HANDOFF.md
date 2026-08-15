@@ -83,7 +83,7 @@ iOS 26. Fixed in `IOSAlert`, `IOSMenu`, `IOSModalCard`, `RatingModal`,
 | **3** Network indicator | **Done.** `components/ios/NetworkStatus.tsx`, in `CollapsibleHeader`'s centre slot so **every** kit screen gets it. `useConnectionQuality` exported separately for the sync layer. |
 | **4** Profile restructure | **Done, then redesigned.** Three panes inside `app/(main)/profile.tsx`, capsule tab strip, pinned bar, full-screen search. See §2. |
 | **5** Notification tab | **Done.** `app/(main)/notifications.tsx` took the Settings tab slot. |
-| **6** Followers/following | **Done.** `supabase/migrations/migration_follows.sql` **must be run once** in the Supabase SQL editor — until then every call is a no-op with `error` set and the counts simply don't appear. |
+| **6** Followers/following | **Done.** `supabase/migrations/migration_follows.sql` was applied and verified on 2026-08-15. |
 | **7** Proximity | **Not started.** |
 | **8** Watermark + deep link | **Not started.** RatingModal already ships. |
 
