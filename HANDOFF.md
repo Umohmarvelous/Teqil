@@ -4,8 +4,72 @@
 > organised. This file is the working state: what just got built, what is left,
 > and the traps that will cost you an hour if you rediscover them the hard way.
 >
-> Written 2026-08-13. Branch **`sdk-54-temp`**, HEAD **`d51cc4a`**.
-> Typecheck: **0 errors**. iOS bundle: **exports clean, 15.9 MB**.
+> **Anything that needs a key, an account or a business verification before it
+> genuinely works is in [SETUP-KEYS.md](SETUP-KEYS.md).** Most of those features
+> degrade to a mock rather than failing, so they look finished and are not —
+> payments and KYC especially.
+>
+> Updated 2026-08-15. Branch **`sdk-54-temp`**, HEAD **`de179ff`**.
+> Typecheck: **0 errors**. iOS bundle: **exports clean, 16 MB**.
+
+---
+
+## 0. Task ledger
+
+Everything asked for, and where it stands. Ordered by area, not by date.
+
+### Done
+
+| # | Task | Notes |
+| --- | --- | --- |
+| 1 | Liquid Glass kit across all iOS kit components, with blur fallback | 4 rendering paths; `/ui-kit` shows which one the device is on |
+| 2 | Settings redesigned to the app's original look; no coloured icon tiles | Glass tiles + tinted glyphs only |
+| 3 | SDK 57 → 54 temporary downgrade | Branch `sdk-54-temp`; zero app-code changes needed |
+| 4 | `animated-opacity-over-GlassView` defect fixed in 6 kit components | Was 5 by the original count; RatingModal found while auditing |
+| 5 | npm `ETARGET` diagnosed — stale cache, not a dep conflict | `npm cache clean --force`; `--prefer-online` is insufficient |
+| 6 | Dead commented-out code deleted; `direct-chat` rebuilt | 84 lines there, later 929 more in `useMessagesStore` |
+| 7 | **Phase 1a/b/c** — every eligible screen on collapsible headers | ~21 converted, ~15 deliberately excluded (§3) |
+| 8 | Phase 1c — profile picture *travels* into the bar | Continuous transform, not a cross-fade |
+| 9 | **Phase 2** — content scrolls behind the translucent tab bar | Content insets, never frame padding |
+| 10 | **Phase 3** — network indicator replaced the full-width banner | Centred in the header on every screen |
+| 11 | **Phase 4** — profile: three swipeable tabs *inside* `profile.tsx` | Profile / Account Settings / Activity |
+| 12 | **Phase 5** — Notification tab took the Settings tab slot | |
+| 13 | Profile redesign: capsule segmented control, pinned bar, full-screen search | Search indexes all three panes at once |
+| 14 | Profile header copy icon fixed | Had `hitSlop={912}` — a target larger than the screen — and copied the wrong field |
+| 15 | **Phase 6** — followers/following, migration applied and verified | Table, indexes, trigger, counters, RLS + 3 policies, 5 `SECURITY DEFINER` RPCs |
+| 16 | **Dark Mode switch fixed** | `ThemeSync` was overwriting the user's choice every render — see §5 |
+| 17 | Notifications are persisted records, not a projection | Makes delete, mark-all-read and dismissal survive restarts |
+| 18 | `SwipeableRow` — WhatsApp/Mail swipe-to-delete in the kit | Spring back / rest open / full-swipe commit |
+| 19 | Home header bell + avatar are real controls | Bell → Notifications with badge; avatar → glass account menu |
+| 20 | Multi-account: add and switch, Keychain-backed | `switchAccount` replaces the Supabase session |
+| 21 | `IOSBadge` — one badge component, one unread source | Tab bar + bell agree by construction |
+
+### Not started
+
+| # | Task | Blocked by |
+| --- | --- | --- |
+| 22 | **Phase 7** — proximity: nearby drivers, Fastest Finger, filling stations | Nothing. Needs no API key (§4) |
+| 23 | Messages rewrite — WhatsApp-style list + thread, offline-first | Nothing |
+| 24 | Messages — voice notes (record / send / play) | Nothing |
+| 25 | Messages — swipe-to-delete a chat | Nothing; `SwipeableRow` already exists |
+| 26 | Messages — driver chat screen showing recent messages | Nothing |
+| 27 | Messages — direct calling | Nothing for `tel:`; a real in-app call needs a voice provider |
+| 28 | Messages — WhatsApp linking + two-way sync | **Meta Business API + hosted webhook.** Not possible in app code alone — see SETUP-KEYS §4.2 |
+| 29 | Per-contact conversation records in Activity | Depends on #23 |
+| 30 | Same header controls in `messages.tsx` and `profile.tsx` | Nothing; `AccountMenu` is ready to drop in |
+| 31 | Auth gating — no feature usable unless authenticated | Nothing |
+| 32 | Offline-first audit across every feature | Nothing |
+| 33 | Error-control components (boundaries, retry, failure states) | Nothing |
+| 34 | **Phase 8** — watermark overlay + shareable profile deep link | Rating modal already ships |
+| 35 | Verify account switching against two real accounts | Needs two test accounts on one device |
+
+### Carrying debt
+
+- `src/services/auth.ts` still has a ~330-line commented-out block at the top.
+- `src/services/ai.ts` is a keyword-matching mock, not a model.
+- `src/services/kyc.ts` `IDENTITY_SALT` is a committed constant — should be a
+  server secret (SETUP-KEYS §1.2).
+- `.env` defines `DATABASE_URL` twice.
 
 ---
 

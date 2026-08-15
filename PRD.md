@@ -313,6 +313,12 @@ on them makes them worse:
 
 ## 7. Environment and build
 
+> **Keys, accounts and manual setup live in [SETUP-KEYS.md](SETUP-KEYS.md).**
+> Read it before treating any of these as finished: Paystack is on **test keys**
+> (no real money moves), KYC runs in **mock mode** (anyone can become a verified
+> partner), and push has no `projectId`. All three degrade silently rather than
+> failing, so they demo perfectly and are not production.
+
 ### Commands
 ```bash
 npx expo start          # Metro

@@ -2,9 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **Read [HANDOFF.md](HANDOFF.md) for the current working state** — what was just
-> built, exactly what is left, and the traps that repeat. Then [PRD.md](PRD.md)
-> for what the product is.
+> **Read [HANDOFF.md](HANDOFF.md) for the current working state** — the task
+> ledger (done / not started / debt), and the traps that repeat. Then
+> [PRD.md](PRD.md) for what the product is, and
+> [SETUP-KEYS.md](SETUP-KEYS.md) for every feature that needs a key, an account
+> or a business verification before it genuinely works.
+>
+> **Do not assume a feature is production-ready because it runs.** Paystack is on
+> test keys, KYC is mocked, push has no project ID — each degrades to a
+> convincing fallback instead of failing.
 >
 > **Read [PRD.md](PRD.md) first.** It is the single source of truth for what
 > EMILGO is, the domain rules that are easy to get wrong (the QR half-fare model,
