@@ -6,7 +6,7 @@
 > from "Planned" to "Built" and note the date. When you learn something
 > non-obvious about the domain or the constraints, write it down here.
 >
-> Last updated: 2026-08-11
+> Last updated: 2026-08-16
 
 ---
 
@@ -259,6 +259,7 @@ Requested 2026-08-11. Strict phase order.
 | **5** | New **Notification** tab replaces the Settings tab. | **Done.** `app/(main)/notifications.tsx`, iOS-grouped (Today/Yesterday/This Week/Earlier). Currently sourced only from unread conversations — sync and system notices need the push/sync layers to report into a store. |
 | **6** | Followers/following. Passengers follow drivers; driver profiles show follower and following counts; follow/unfollow toggle; follower list. Scalable social-graph schema. | **Done** — `follows` with a composite PK, trigger-maintained counters on `users`, and SECURITY DEFINER RPCs for the lists (RLS makes `users` own-row only, so a follower list cannot be a plain select). **`supabase/migrations/migration_follows.sql` must be run once**; until then the client degrades to no-ops. |
 | **7** | Proximity: **Fastest Finger** (driver offers an immediate discounted ride, nearby passengers accept instantly); **Find driver/passenger near you** wired into bargaining and ride requests; **Find nearest filling station**. | **Done.** `app/nearby.tsx` — three panes on one location fix. `user_presence` + `fastest_finger_offers`/`_claims`, bounding-box + haversine (no PostGIS), seat race resolved by a guarded `UPDATE`. Stations from Overpass — free, keyless, verified against Lagos. Presence publishes off the location tracker's existing throttle. `migration_proximity.sql` applied and verified. |
+| **Messaging** | Passenger↔driver chat: find by @username or driver ID, text + voice notes, driver replies, offline-first. | **Working, verified end-to-end between two accounts under RLS.** Chat had never worked: `conversations` had RLS with zero policies, `messages` was a different table than the app writes (no `audio_uri` at all), conversation ids were typed `uuid` against the app's `direct_<uuid>_<uuid>` keys, and rows described only one side so recipients saw a chat with themselves. See HANDOFF §8. Realtime streaming still targets the old shape. |
 | **8** | Persistent watermark overlay so screenshots carry the logo; shareable profile deep link; rating/feedback modal. | Partly done — `RatingModal` (Twitter-style alert, 4–5★ → store, 1–3★ → feedback form) already ships. |
 
 ### Screens deliberately excluded from Phase 1

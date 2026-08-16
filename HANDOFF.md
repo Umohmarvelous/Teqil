@@ -9,14 +9,18 @@
 > degrade to a mock rather than failing, so they look finished and are not —
 > payments and KYC especially.
 >
-> Updated 2026-08-15. Branch **`sdk-54-temp`**, HEAD **`de179ff`**.
-> Typecheck: **0 errors**. iOS bundle: **exports clean, 16 MB**.
+> Updated 2026-08-16. Branch **`sdk-54-temp`**, HEAD **`88ca775`**, tree clean.
+> Typecheck: **0 errors**. Metro serves the real bundle: **HTTP 200, 30.3 MB dev**.
+> App **boots on simulator and device**.
 
 ---
 
 ## 0. Task ledger
 
 Everything asked for, and where it stands. Ordered by area, not by date.
+
+**Start here after a compaction:** §0 is the whole picture; §7 is the exact next
+actions in priority order.
 
 ### Done
 
@@ -45,27 +49,43 @@ Everything asked for, and where it stands. Ordered by area, not by date.
 | 21 | `IOSBadge` — one badge component, one unread source | Tab bar + bell agree by construction |
 | 22 | **Phase 7** — proximity: nearby people, Fastest Finger, filling stations | Migration applied + verified; **no API key needed** |
 | 23 | SECURITY: pinned `search_path` and revoked `anon` EXECUTE on all Phase 6/7 RPCs | Found by Supabase's advisor — both were real |
+| 24 | **App boots again** — `createScreenFactory is not a function` fixed | Two `@react-navigation/native` copies; see §5 |
+| 25 | Startup dep errors — missing `expo-asset` peer, duplicated native module | `expo-doctor` found both; fixed with bun |
+| 26 | **Voice notes work** — migrated off the dead expo-av stub to `expo-audio` | Record, send, and a real player with play/pause + progress |
+| 27 | **Messaging works between two accounts** — verified e2e under RLS | Three DB faults fixed; see §8 |
+| 28 | Chat by `@username` or `DRV-A1B2C3`, with debounced type-ahead | `find_user_for_chat` / `search_users_for_chat` RPCs |
+| 29 | Home top tabs use the glass capsule control | Same `IOSSegmentedTabs variant="capsule"` as Profile |
+| 30 | Bottom tab bar hidden inside a chat | `MessagesTab` reports `onChatOpenChange` up to the layout |
+| 31 | Profile shows the username under the name, for every role | Its own chip; driver ID is a separate chip |
 
 ### Not started
 
 | # | Task | Blocked by |
 | --- | --- | --- |
-| 23 | Messages rewrite — WhatsApp-style list + thread, offline-first | Nothing |
-| 24 | Messages — voice notes (record / send / play) | Nothing |
-| 25 | Messages — swipe-to-delete a chat | Nothing; `SwipeableRow` already exists |
-| 26 | Messages — driver chat screen showing recent messages | Nothing |
-| 27 | Messages — direct calling | Nothing for `tel:`; a real in-app call needs a voice provider |
-| 28 | Messages — WhatsApp linking + two-way sync | **Meta Business API + hosted webhook.** Not possible in app code alone — see SETUP-KEYS §4.2 |
-| 29 | Per-contact conversation records in Activity | Depends on #23 |
-| 30 | Same header controls in `messages.tsx` and `profile.tsx` | Nothing; `AccountMenu` is ready to drop in |
-| 31 | Auth gating — no feature usable unless authenticated | Nothing |
-| 32 | Offline-first audit across every feature | Nothing |
-| 33 | Error-control components (boundaries, retry, failure states) | Nothing |
-| 34 | **Phase 8** — watermark overlay + shareable profile deep link | Rating modal already ships |
-| 35 | Verify account switching against two real accounts | Needs two test accounts on one device |
+| 32 | **Verify chat on device between two real accounts** | Nothing — highest priority, see §7 |
+| 33 | Realtime subscription still targets the OLD message shape | Nothing. Messages arrive on refresh, may not stream live |
+| 34 | Chat-list swipe still uses the old RNGH `Swipeable` | Nothing; `SwipeableRow` exists and is better |
+| 35 | Driver chat screen showing recent messages | Nothing |
+| 36 | Per-contact conversation records in Activity | Depends on the chat list settling |
+| 37 | In-chat **Call** button has no number for direct chats | A product decision — `get_driver_public` deliberately omits `phone` |
+| 38 | Messages — WhatsApp linking + two-way sync | **Meta Business API + hosted webhook.** Not possible in app code alone — SETUP-KEYS §4.2. Deep link is the free 80% |
+| 39 | Same header controls in `messages.tsx` and `profile.tsx` | Nothing; `AccountMenu` is ready to drop in |
+| 40 | Auth gating — no feature usable unless authenticated | Nothing |
+| 41 | Offline-first audit across every feature | Nothing |
+| 42 | Error-control components (boundaries, retry, failure states) | Nothing |
+| 43 | **Phase 8** — watermark overlay + shareable profile deep link | Rating modal already ships |
+| 44 | Verify account switching against two real accounts | Needs two test accounts on one device |
 
 ### Carrying debt
 
+- **`app/(main)/messages.tsx` is 1,400+ lines** and holds the chat list, the chat
+  screen, the new-chat modal and the contact sheet. `ChatScreen` and
+  `MessageBubble` are exported from it because `direct-chat/[conversationId].tsx`
+  reuses them. Splitting it is worthwhile but touches both routes.
+- **Three legacy messaging tables remain**, renamed not dropped:
+  `messages_legacy_chats`, `chats`, and `message` (singular, its blocking FK
+  dropped). All empty. Drop them once the new schema has run in production for a
+  while — dropping a table is not reversible.
 - `src/services/auth.ts` still has a ~330-line commented-out block at the top.
 - `src/services/ai.ts` is a keyword-matching mock, not a model.
 - `src/services/kyc.ts` `IDENTITY_SALT` is a committed constant — should be a
@@ -77,6 +97,127 @@ Everything asked for, and where it stands. Ordered by area, not by date.
   alone rather than touched blind. Run `get_advisors` before launch.
 - `auth_leaked_password_protection` is off in Supabase Auth settings — one
   toggle, worth turning on.
+
+---
+
+## 6b. Migration status
+
+Applied to the live project (`orygxuxgjmhamcisjkfu`, "Teq_database") **this
+session**, each verified afterwards:
+
+| Migration | Applied | What it did |
+| --- | --- | --- |
+| `migration_follows.sql` | ✅ 2026-08-15 | Phase 6 social graph |
+| `migration_proximity.sql` | ✅ 2026-08-15 | Phase 7 presence + Fastest Finger |
+| `migration_harden_definer.sql` | ✅ 2026-08-15 | Pinned `search_path`, revoked `anon` on Phase 6/7 RPCs |
+| `migration_chat_handles.sql` | ✅ 2026-08-16 | `find_user_for_chat`, `search_users_for_chat` |
+| `migration_messaging.sql` | ✅ 2026-08-16 | Conversation/message RLS + the correct schema |
+
+All are **idempotent** — re-running is safe. The older migrations in that folder
+predate this session; their status is unknown, so verify rather than assume.
+
+To apply one by hand, the Supabase MCP (`apply_migration`) works, or connect
+directly: `DATABASE_URL` on **port 5432** (session mode). Port 6543 is the
+transaction pooler and is a poor fit for multi-statement DDL.
+
+---
+
+## 7. Next actions, in order
+
+Do these top-down. Each is independent unless stated.
+
+1. **Verify chat on a device between two real accounts.** The database and RLS
+   are proven (§8), the React layer is not. Sign in as a passenger on one
+   device, a driver on another, search the driver by `@username`, send both
+   ways, send a voice note. This is the highest-value 15 minutes available.
+2. **Rewire the realtime subscription to the new schema.** `subscribeToRealtime`
+   in `src/store/useMessagesStore.ts` still filters on the old message shape, so
+   messages land on refresh but may not stream live. The table is already in the
+   `supabase_realtime` publication — this is client-side only.
+3. **Swap the chat list's `Swipeable` for `SwipeableRow`.** `ConvItem` in
+   `app/(main)/messages.tsx` uses the old RNGH component. `SwipeableRow`
+   (`components/ios/`) gives full-swipe-to-commit and a rest-open state; add a
+   confirmation before deleting a whole conversation.
+4. **Driver chat screen — recent messages.** `app/(driver)/messages.tsx` is 202
+   lines and thin; it should show recent threads the way the main tab does.
+5. **Per-contact conversation records in Activity** — one entry per person
+   chatted with, not per message.
+6. **Auth gating**, then the **offline/error-control audit**.
+7. **Phase 8** — watermark overlay + shareable profile deep link.
+
+---
+
+## 8. Messaging — what was wrong, and how it was proven
+
+Chat had **never** worked between two accounts. It looked fine because the app
+is offline-first: every write landed in AsyncStorage and every cloud write
+failed silently.
+
+### The three database faults
+
+1. **`conversations` had RLS enabled and ZERO policies.** That denies everything.
+   No account could read or write it, ever.
+2. **`messages` was a different table than the app writes.** It had
+   `(chat_id, sender_id, text, status)` with an FK to `chats`, against an app
+   writing `conversation_id, sender_name, sender_role, audio_uri, read`. There
+   was **no `audio_uri` column at all**, so voice notes could never have synced.
+   The database held **three** overlapping messaging designs, all empty, none
+   reachable: `chats`+`messages`, `message` (singular), and `conversations`.
+3. **Conversation ids were typed `uuid`.** The app derives
+   `direct_<uuid>_<uuid>` so both devices compute the same id with no
+   coordination — deliberate and worth keeping — but that is not a UUID, so
+   every insert would have been rejected as malformed even once policies
+   existed. `generateId()` (`Date.now()+random`) has the same shape problem for
+   message ids. Both columns are `TEXT` now.
+
+### The symmetry bug — why drivers saw nothing
+
+A conversation row described only `participant_*` plus a bare `passenger_id`,
+and the client **always** rendered `participant_*` as "the other person". So the
+recipient opened their inbox and saw a chat **with themselves** — their own name
+and photo.
+
+Rows now describe both sides (`passenger_name`, `passenger_username`,
+`passenger_photo`, `participant_username`), and `conversationForViewer(row,
+viewerId)` picks whichever side is not the viewer. **Anywhere you turn a stored
+row into a `Conversation`, use that helper** — there were two such places and
+only fixing one leaves the bug half-present.
+
+### How it was verified
+
+`migration_messaging.sql` is applied. Verification ran as **two distinct
+authenticated users with RLS enforced** — not as admin, which would bypass the
+thing being tested — using
+`set_config('request.jwt.claims', …)` + `SET LOCAL ROLE authenticated`, inside a
+transaction that was rolled back:
+
+```
+1. A created the conversation                 OK
+2. A sent a text message                      OK
+3. B sees the conversation                    OK
+4. B can read A's message                     OK
+5. From B's view the other person is A        OK
+6. B replied                                  OK
+7. B sent a VOICE NOTE (audio_uri)            OK
+8. A sees the full thread (3 msgs)            OK
+9. Outsider sees 0 messages, 0 conversations  OK
+10. Outsider cannot forge a message           OK
+```
+
+To re-run it after a schema change, that harness is worth rebuilding — a test
+run as `postgres` proves nothing, because the superuser bypasses RLS.
+
+### Handle lookup
+
+`find_user_for_chat(handle)` resolves `@username` or `DRV-A1B2C3`;
+`search_users_for_chat(q)` powers the type-ahead. Both are `SECURITY DEFINER`
+with a pinned `search_path` and `anon` revoked, and they return **display-safe
+columns only** — no phone, email, or payout data. That select list IS the access
+control.
+
+Search is **prefix-matched, not substring**. Substring search over a user table
+lets two characters enumerate the userbase; prefix matching is what a handle
+lookup actually needs.
 
 ---
 
@@ -409,6 +550,21 @@ This was clarified with the user and is important:
 
 ## 5. Traps that will cost you time
 
+0. **`createScreenFactory is not a function` at boot.** Two copies of
+   `@react-navigation/native` in the tree — expo-router resolved one, a nested
+   dependency dragged in another, and the newer API was missing from the copy
+   that won. Fix: pin ONE version (a `resolutions`/`overrides` entry) and
+   reinstall with **bun**. Diagnose with
+   `find node_modules -path "*@react-navigation/native/package.json"`. Any
+   `X is not a function (it is undefined)` from a library that clearly exports
+   `X` is this shape of problem: duplicate copies, not a missing export.
+0b. **This project uses `bun`** (`bun.lock`). Running `npm install` here
+   restructures `node_modules` and produces duplicate-native-module warnings from
+   `expo-doctor`. There is also a **tracked `package-lock.json`** — having both
+   lock files makes EAS Build guess the package manager. Worth deleting one.
+0c. **`npx expo-doctor` is the fastest first move for any boot failure.** It
+   found the missing `expo-asset` peer and the duplicated native module in
+   seconds, both of which were real device-path breakage.
 1. **Never animate opacity on a `GlassView` or any ancestor.** Fixed nine times
    already; it keeps coming back. Use `present` + motion-only containers.
 2. **Glass clips**, so a glassed card can't cast a shadow. Shadow goes on a
