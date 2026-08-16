@@ -158,7 +158,7 @@ export function NetworkStatus({ children, style }: NetworkStatusProps) {
         ) : (
           <View style={{alignItems: 'center', justifyContent: 'center', gap: 12, flexDirection: 'row'}}>
               <ActivityIndicator color={theme.label} size={5} />
-              <Text numberOfLines={1} style={[IOSAppFont.label, styles.label, { color: theme.label, fontFamily: "Poppins_500Bold" }]}>Back online • Reconnecting...</Text>
+              <Text numberOfLines={1} style={[IOSAppFont.label, styles.label, { color: theme.label, fontFamily: "Poppins_500Bold" }]}>Reconnecting...</Text>
           </View>
         )}
       </View>

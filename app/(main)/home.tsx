@@ -373,7 +373,7 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
 
         {/* Empty state */}
         {recentTrips.length === 0 && (
-          <View style={[styles.card, { alignItems: "center", paddingVertical: 32, marginTop: 10, gap: 0, borderWidth: .5, borderColor: Colors.overlayLight, borderRadius: 30 }]}>
+          <View style={[styles.card, { alignItems: "center", paddingVertical: 92, marginHorizontal: 20, marginTop: 10, gap: 0, borderWidth: .5, borderColor: Colors.overlayLight, borderRadius: 30 }]}>
             <HugeiconsIcon icon={Warning} size={40} color={Colors.overlayLight} />
             <View style={{alignItems:'center'}}>
               <Text style={[styles.emptyText, { color: Colors.overlayLight }]}>
