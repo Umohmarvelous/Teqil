@@ -48,6 +48,8 @@ import {
 import { triggerSyncNow } from "@/src/services/sync";
 import { haptics } from "@/src/utils/haptics";
 import { Colors } from "@/constants/colors";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import { MoreHorizontalCircleIcon } from "@hugeicons/core-free-icons";
 
 const KIND_GLYPH: Record<NotificationKind, SymbolViewProps["name"]> = {
   message: "bubble.left.fill",
@@ -292,12 +294,13 @@ export default function NotificationsScreen() {
       right={
         notifications.length > 0 ? (
           <Pressable onPress={showActions} hitSlop={12} accessibilityRole="button" accessibilityLabel="Notification options">
-            <SymbolView
+            {/* <SymbolView
               name="ellipsis.circle"
-              size={22}
-              tintColor={ios.tint}
-              fallback={<Text style={{ color: ios.tint }}>•••</Text>}
-            />
+              size={32}
+              tintColor={ios.label}
+              fallback={<Text style={{ color: ios.label }}>•••</Text>}
+            /> */}
+            <HugeiconsIcon icon={MoreHorizontalCircleIcon} size={20} color={ios.label} />
           </Pressable>
         ) : undefined
       }

@@ -20,9 +20,7 @@ import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
   MoreHorizontalCircleIcon,
   Alert01Icon,
-  Home01Icon,
   UserIcon,
-  Message02Icon,
   Navigation01Icon,
   Settings01Icon,
   CrownIcon,
@@ -37,7 +35,7 @@ import {
   Route01Icon,
 } from "@hugeicons/core-free-icons";
 import FindDriverModal from "./FindDriverModal";
-import { withDangerousMod } from "expo/config-plugins";
+// import { withDangerousMod } from "expo/config-plugins";
 import { Glass, iosAlert } from "@/components/ios";
 
 const SIDEBAR_WIDTH = 340;
@@ -104,7 +102,7 @@ export default function SidedBar() {
 
   const navItems: SidebarItem[] = [
     // { id: "home", icon: Home01Icon as any, label: "Home", onPress: () => router.push("/(main)") },
-    { id: "profile", icon: UserIcon as any, label: "My Profile", onPress: () => router.push("/(main)/profile") },
+    { id: "profile", icon: UserIcon as any, label: "My Profile", onPress: () => router.navigate("/(main)/messages") },
     // { id: "messages", icon: Message02Icon as any, label: "Messages", onPress: () => router.push("/(main)/messages") },
     // {
     //   id: "trips",
@@ -119,7 +117,7 @@ export default function SidedBar() {
     { id: "program", icon: IdentityCardFreeIcons as any, label: "Loyalty Program", onPress: () => router.push("/program") },
     { id: "free-rides", icon: Navigation01Icon as any, label: "Free Rides", onPress: () => router.push("/free-rides" as any) },
     { id: "route-history", icon: Route01Icon as any, label: "Route History", onPress: () => router.push("/route-history" as any) },
-    { id: "tiers", icon: CrownIcon as any, label: "Emilgo Premium", onPress: () => router.push("/tiers") },
+    { id: "tiers", icon: CrownIcon as any, label: "Go Premium", onPress: () => router.push("/tiers") },
     { id: "settings", icon: Settings01Icon as any, label: "Settings", onPress: () => router.push("/(main)/settings") },
     { id: "referral", icon: GiftIcon as any, label: "Refer a Friend", onPress: () => iosAlert("Refer", "Coming soon!") },
     { id: "help", icon: HelpCircleIcon as any, label: "Help Centre", onPress: () => iosAlert("Help", "Support coming soon.") },
@@ -316,7 +314,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 100,
     // borderWidth: .5,
-    padding: 3
+    padding: 0
   },
 
 

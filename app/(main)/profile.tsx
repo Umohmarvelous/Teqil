@@ -79,6 +79,7 @@ import {
   Search02Icon,
   BellOff,
   Logout,
+  Logout02Icon,
 } from "@hugeicons/core-free-icons";
 
 import { useAuthStore } from "@/src/store/useStore";
@@ -482,7 +483,7 @@ const BAR_ROW_HEIGHT = 52;
 /** Page gutter — the same on the hero and inside the bar, so X never travels. */
 const HERO_INSET = 16;
 const HERO_PAD_TOP = 10;
-const AVATAR = 66;
+const AVATAR = 86;
 /** Ring: 2pt border + 2pt padding, each side. */
 const AVATAR_BOX = AVATAR + 8;
 /** Size the avatar shrinks to once docked in the bar. */
@@ -973,38 +974,22 @@ export default function ProfileTab() {
 
                 <HugeiconsIcon
                   icon={Search02Icon}
-                  size={24}
+                  size={26}
                   color={textColor}
                   onPress={openSearch}
                 />
 
-                {user?.role === "driver" && (
+
+                {/* <SymbolView name="person.fill" size={22} tintColor={ios.label}  fallback={ios.label} /> */}
+                {/* {user?.role === "driver" && ( */}
                   <HugeiconsIcon
-                    icon={Logout}
-                    size={24}
-                    color={textColor}
-                    onPress={() => setReceiveVisible(true)}
-                  />
-                )}
-                
-                <View style={{ backgroundColor: isDark ? Colors.borderLight : Colors.background,  padding: 5, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
-                  <Glass
-                    variant="regular"
-                    interactive
-                    radius={30}
-                    style={StyleSheet.absoluteFill}
-                    pointerEvents="none"
-                    fallbackIntensity={40}
-                    fallbackTint={ios.systemGray3}
-                  />
-                  {/* <SymbolView name="person.fill" size={22} tintColor={ios.label}  fallback={ios.label} /> */}
-                  <HugeiconsIcon
-                    icon={Logout}
-                    size={24}
+                    icon={Logout02Icon}
+                    size={26}
                     color={textColor}
                     onPress={confirmSignOut} 
+                    // onPress={() => setReceiveVisible(true)}
                   />
-                </View>
+                {/* )} */}
             </View>
         </View>
       </View>
@@ -1020,7 +1005,7 @@ export default function ProfileTab() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
       >
-        <StatusBar style={isDark ? "light" : "dark"} />
+        <StatusBar style={isDark ? "light" : "dark"} animated />
         <CopyToast nonce={copyNonce} />
 
         <SwipeableTabs
@@ -1173,7 +1158,7 @@ export default function ProfileTab() {
                       <Text style={[styles.followLabel, { color: subTextColor }]}>Followers</Text>
                     </Pressable>
 
-                    <View style={[styles.followDivider, { backgroundColor: borderColor }]} />
+                    <View style={[styles.followDivider, { backgroundColor: textColor }]} />
 
                     <Pressable
                       onPress={() => openFollows("following")}
@@ -1666,7 +1651,7 @@ const styles = StyleSheet.create({
 
   menuListContent: {
     borderRadius: 30,
-    padding: 5,
+    padding: 8,
     flexDirection: "row",
     alignItems: "center",
     gap: 20,

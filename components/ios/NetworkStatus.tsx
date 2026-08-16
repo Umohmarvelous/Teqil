@@ -153,7 +153,7 @@ export function NetworkStatus({ children, style }: NetworkStatusProps) {
             <ActivityIndicator color={theme.label} size={5} />
             {/* <HugeiconsIcon icon={CellularNetworkOfflineIcon} size={17} color={'red'}/> */}
 
-            <Text numberOfLines={1} style={[IOSAppFont.label, styles.label, { color: theme.label, fontFamily: "Poppins_500Bold" }, {}]}>{`No service!!`}</Text>
+            <Text numberOfLines={1} style={[IOSAppFont.label, styles.label, { color: theme.label, fontFamily: "Poppins_500Bold" }, {}]}>{`No internet...`}</Text>
           </View>
         ) : (
           <View style={{alignItems: 'center', justifyContent: 'center', gap: 12, flexDirection: 'row'}}>

@@ -1121,11 +1121,21 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
         <View style={[S.header, {borderBottomWidth: 1, borderBottomColor: border,}]}>
   
           <View style={[ {backgroundColor: 'transparent', justifyContent: 'space-between', gap: 30 }]}>
-            {/* <Pressable style={S.newBtn} onPress={() => setNewChatVisible(true)}>
-              <HugeiconsIcon icon={PlusSignIcon} size={23} color={'#fff'} />
-            </Pressable> */}
 
             <View style={[S.menuList]}>
+              <Pressable style={[S.newBtn, {backgroundColor: isDark ? Colors.overlay : Colors.border}]} onPress={() => setNewChatVisible(true)}>
+                <Glass
+                  variant="regular"
+                  interactive
+                  radius={30}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
+                  fallbackIntensity={40}
+                  fallbackTint={isDark ? Colors.overlayLight : Colors.border}
+                />
+                <HugeiconsIcon icon={PlusSignIcon} size={23} color={textColor} />
+              </Pressable>
+
               <NetworkStatus />
 
               {/* <View style={[S.menuListContent, {backgroundColor: Colors.overlayLight,  alignItems:'center', alignSelf:'flex-end', justifyContent:'center'}]}>
@@ -1189,9 +1199,9 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
                       style={StyleSheet.absoluteFill}
                       pointerEvents="none"
                       fallbackIntensity={40}
-                      fallbackTint={ios.systemGray3}
+                      fallbackTint={isDark ? Colors.overlayLight : Colors.border}
                     />
-                    <SymbolView name="person.fill" size={22} tintColor={ios.label}  fallback={ios.label} />
+                    <SymbolView name="person.fill" size={24} tintColor={ios.label}  fallback={ios.label} />
                   </View>
                 </View>
             </View>
@@ -1302,13 +1312,13 @@ const S = StyleSheet.create({
 
   header:{ flexDirection: 'column',  justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 14 },
   headerTitle: { fontFamily: 'Poppins_700Bold', fontSize: 24 },
-  newBtn: { width: 40, height: 40, borderRadius: 50, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background },
+  newBtn: { width: 40, height: 40, borderRadius: 50, alignItems: 'center', justifyContent: 'center',  },
 
   menuList: {
     padding: 3,
     flexDirection: "row",
     alignItems: "center", 
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     gap: 15,
   },
 

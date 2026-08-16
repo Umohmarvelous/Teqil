@@ -40,3 +40,4 @@ yarn-error.*
 .vercel
 
 .env
+.dbq.mjs

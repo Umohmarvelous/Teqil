@@ -172,10 +172,10 @@ export function IOSScreen({
 }
 
 /** Page gutter, matching the app's original screens. */
-const PAGE_INSET = 16;
+const PAGE_INSET = 26;
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, borderWidth: 1, borderColor: 'red' },
   body: { flex: 1 },
 });
 

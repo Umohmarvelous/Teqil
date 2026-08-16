@@ -1447,7 +1447,9 @@ function ContentCard({
   onSharePress: (item: FeedItem) => void;
   onFullScreen: (item: FeedItem) => void;
   isPlaying?: boolean;
-}) {
+  }) {
+  const bg = isDark ? Colors.background : Colors.textWhite;
+  const cardBg = isDark ? "rgba(255,255,255,0.06)" : Colors.border;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subColor = isDark ? Colors.textSecondary : Colors.textTertiary;
   const iconColor = isDark ? Colors.textWhite : Colors.text;
@@ -1577,11 +1579,33 @@ function ContentCard({
 // ----------------------------------------------------------------------
 // Auth Prompt Overlay
 // ----------------------------------------------------------------------
-function AuthPromptOverlay({ visible, onDismiss }: { visible: boolean; onDismiss: () => void }) {
+function AuthPromptOverlay({ 
+  visible, 
+  onDismiss, 
+  isDark
+}: {
+  isDark: boolean;
+  visible: boolean; onDismiss: () => void
+}) {
   if (!visible) return null;
+    const cardBg = isDark ? Colors.overlay : Colors.border;
+    const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+    const textColor = isDark ? Colors.textWhite : Colors.text;
+
+
   return (
-    <Pressable style={styles.authOverlay} onPress={onDismiss}>
-      <View style={styles.authCard}>
+    <Pressable style={[styles.authOverlay, {backgroundColor: 'rgba(0,0,0,0.7)'}]} onPress={onDismiss}>
+      <View style={[styles.authCard, {borderWidth: 1, borderColor: borderColor }]}>
+        <Glass
+          variant="regular"
+          tint={cardBg}
+          interactive
+          radius={16}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+          fallbackIntensity={40}
+          fallbackTint={cardBg}
+        />
         <Text style={styles.authTitle}>Join Teqil</Text>
         <Text style={styles.authSub}>Sign up to like, comment, and interact with posts.</Text>
         <Pressable
@@ -1591,7 +1615,7 @@ function AuthPromptOverlay({ visible, onDismiss }: { visible: boolean; onDismiss
             router.push("/(auth)/login");
           }}
         >
-          <Text style={styles.authBtnText}>Sign Up / Log In</Text>
+          <Text style={[styles.authBtnText, {backgroundColor: Colors.primary}, {color: textColor}]}>Sign In</Text>
         </Pressable>
       </View>
     </Pressable>
@@ -1957,7 +1981,7 @@ export default function DiscoverTab({
         />
         <View style={[styles.createPostInput, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F5F6F8" }]}>
           <Text style={[styles.createPostPlaceholder, { color: subColor }]}>
-            What's on your mind?
+            {`What's on your mind?`}
           </Text>
         </View>
       </Pressable>
@@ -1973,7 +1997,7 @@ export default function DiscoverTab({
           onPress={() => { setFeedError(false); fetchFeed("initial"); }}
           style={{ paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
         >
-          <Text style={[{ fontWeight: "900" }, { color: textColor }]}>Retry</Text>
+          <Text style={[{ fontWeight: "900" }, { color: Colors.primary }]}>Retry</Text>
         </Pressable>
       </View>
     );
@@ -2171,12 +2195,12 @@ const styles = StyleSheet.create({
   adCtaButtonText: { color: "#FFF" },
 
   // Auth
-  authOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.7)", alignItems: "center", justifyContent: "flex-end", paddingBottom: 80, paddingHorizontal: 24 },
-  authCard: { backgroundColor: "#fff", borderRadius: 24, padding: 28, width: "100%", alignItems: "center", gap: 12 },
+  authOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "flex-end", paddingBottom: 80, paddingHorizontal: 24 },
+  authCard: {  borderRadius: 30, padding: 28, width: "100%", alignItems: "center", gap: 12 },
   authTitle: { fontFamily: "Poppins_700Bold", fontSize: 22 },
   authSub: { fontSize: 14, textAlign: "center" },
-  authBtn: { backgroundColor: Colors.primary, borderRadius: 14, paddingHorizontal: 32, paddingVertical: 14, width: "100%", alignItems: "center" },
-  authBtnText: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 15 },
+  authBtn: {  borderRadius: 30, paddingHorizontal: 32, paddingVertical: 14, width: "100%", alignItems: "center" },
+  authBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
   footerLoader: { paddingVertical: 28, alignItems: "center" },
   errorContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
 });

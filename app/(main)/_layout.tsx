@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   Pressable,
-  Text,
   Platform,
   Animated,
   PanResponder,
@@ -31,8 +30,6 @@ import {
   Bell,
   BellOff,
   Menu03Icon,
-  Person,
-  Search02Icon,
 } from "@hugeicons/core-free-icons";
 import {
   Glass,
@@ -336,18 +333,18 @@ export default function MainLayout() {
     });
   };
 
-  const indicatorTranslateX = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH],
-    outputRange: [SCREEN_WIDTH * 0.2, SCREEN_WIDTH * 0.7],
-    extrapolate: "clamp",
-  });
+  // const indicatorTranslateX = scrollX.interpolate({
+  //   inputRange: [0, SCREEN_WIDTH],
+  //   outputRange: [SCREEN_WIDTH * 0.2, SCREEN_WIDTH * 0.7],
+  //   extrapolate: "clamp",
+  // });
 
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.textWhite;
   const tabBarBg = isDark ? Colors.background : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite : Colors.text;
-  const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
+  // const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
   const sideBorderColor = isDark ? Colors.overlayLight : Colors.overlayLight;
 
 
@@ -384,7 +381,7 @@ export default function MainLayout() {
     setFinderVisible(true);
   };
 
-  const HEADER_HEIGHT = topPadding + 95;
+  const HEADER_HEIGHT = topPadding + 130;
   // const HEADER_HEIGHT = topPadding + 110;
   // Content padding so the last row clears the translucent bar it scrolls under.
   // The bar now floats clear of the screen edge, so content must clear the gap too.
@@ -445,7 +442,7 @@ export default function MainLayout() {
         style={[
           styles.sidebarBehind,
           {
-            backgroundColor: bg,
+            // backgroundColor: bg,
             opacity: sidebarContentOpacity,
             transform: [{ scale: sidebarScale }],
           },
@@ -513,8 +510,9 @@ export default function MainLayout() {
                 variant="regular"
                 style={StyleSheet.absoluteFill}
                 pointerEvents="none"
-                fallbackIntensity={90}
-                fallbackTint={tabBarBg}
+                fallbackIntensity={20}
+                // fallbackTint={tabBarBg}
+                fallbackTint={isDark ? Colors.overlay : 'transparent'}
               />
               <View
                 style={[
@@ -557,10 +555,10 @@ export default function MainLayout() {
                 </View>
 
 
-                <View style={[styles.menuList, {backgroundColor: Colors.overlay,  alignItems:'center', justifyContent:'center'}]}>
+                <View style={[styles.menuList, { alignItems:'center', justifyContent:'center'}]}>
 
                   {/* Glass, not a coloured pill. */}
-                  <Glass
+                  {/* <Glass
                     variant="regular"
                     interactive
                     radius={30}
@@ -568,12 +566,12 @@ export default function MainLayout() {
                     pointerEvents="none"
                     fallbackIntensity={40}
                     fallbackTint={isDark ? Colors.overlayLight : Colors.border}
-                  />
+                  /> */}
 
                   {/* Bell → the Notifications tab, badged with the same unread
                       count the tab bar shows. A bell that isn't a button is
                       decoration, which is all this was. */}
-                  <Pressable
+                  {/* <Pressable
                     onPress={() => handleTabPress("notifications")}
                     hitSlop={8}
                     style={styles.bellBtn}
@@ -586,18 +584,18 @@ export default function MainLayout() {
                   >
                     <HugeiconsIcon
                       icon={unreadNotifications > 0 ? Bell : BellOff}
-                      size={24}
+                      size={22}
                       color={textColor}
                       fill={textColor}
                     />
                     <IOSBadge count={unreadNotifications} />
-                  </Pressable>
+                  </Pressable> */}
 
                   {/* Avatar → the account menu: other signed-in accounts, add
                       an account, appearance, support, sign out. */}
                   <AccountMenu
                     anchor={
-                      <View style={{ backgroundColor: isDark ? Colors.borderLight : Colors.background,  padding: 5, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
+                      <View style={{ backgroundColor: Colors.overlay,  padding: 2, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
                         <Glass
                           variant="regular"
                           interactive
@@ -605,12 +603,14 @@ export default function MainLayout() {
                           style={StyleSheet.absoluteFill}
                           pointerEvents="none"
                           fallbackIntensity={40}
-                          fallbackTint={ios.systemGray3}
+                          fallbackTint={isDark ? Colors.overlayLight : Colors.border}
                         />
                         {user?.profile_photo ? (
-                          <Avatar name={user?.full_name || "U"} photoUri={user.profile_photo} size={22} />
+                          <Avatar name={user?.full_name || "U"} photoUri={user.profile_photo} size={36} />
                         ) : (
-                          <SymbolView name="person.fill" size={22} tintColor={ios.label} fallback={ios.label} />
+                          <View style={{margin: 7}}>
+                            <SymbolView name="person.fill" size={24} tintColor={ios.label} fallback={ios.label} />
+                          </View>
                         )}
                       </View>
                     }
@@ -763,7 +763,7 @@ const styles = StyleSheet.create({
     padding: 5,
     flexDirection: "row",
     alignItems: "center",
-    gap: 20,
+    gap: 22,
     // overflow: "hidden",
     // position: 'relative',
     // right: 0, top: 1,
@@ -790,9 +790,9 @@ const styles = StyleSheet.create({
   photoImg: { width: 50, height: 50, alignSelf: "center" },
   topTabBar: {
     paddingTop: 12,
-    paddingBottom: 10,
-    paddingHorizontal: 20,
-    marginTop: 20
+    paddingBottom: 0,
+    paddingHorizontal: 10,
+    marginTop: 5
   },
   tabBar: {
     position: "relative",

@@ -17,7 +17,7 @@ import { triggerSyncNow } from "@/src/services/sync";
 import { formatDate } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { CheckmarkCircle01Icon, ChevronRight, GiftIcon, History, Message01Icon, Message02Icon, Navigation01Icon,  Plus,  QrCodeIcon,  Share01Icon, Trophy, Warning,
+import { Briefcase, CheckmarkCircle01Icon, ChevronRight, Clock04Icon, Crown02Icon, Crown03Icon, CrownIcon, LocationUser01Icon, Message01Icon, Message02Icon, Navigation01Icon, QrCodeIcon, Trophy, Warning,
  } from "@hugeicons/core-free-icons";
 import { StatusBar } from "expo-status-bar";
 import QuickTransferModal from "@/components/QuickTransferModal";
@@ -31,6 +31,7 @@ import TripListener from "@/components/TripListener";
 import { useProgramStore } from "@/src/store/useProgramStore";
 import { parseDriverQR, toDriverPayload } from "@/src/utils/qr";
 import { Glass, iosAlert } from "@/components/ios";
+import { text } from "node:stream/consumers";
 
 
 export interface HomeTabProps {
@@ -79,7 +80,7 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
 
   const cardBg = isDark ? "rgba(255,255,255,0.06)" : Colors.border;
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
-  const tabBarBg = isDark ? Colors.background : Colors.textWhite;
+  // const tabBarBg = isDark ? Colors.background : Colors.textWhite;
 
   const [quickTransferVisible, setQuickTransferVisible] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
@@ -107,17 +108,23 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
   // Define actions
   const PASSENGERSACTIONSBUTTON = [
     { id: "qr", icon: QrCodeIcon, label: "Scan code", color: textColor },
-    { id: "share", icon: Share01Icon, label: "Share Trip", color: textColor },
     { id: "nearby", icon: Navigation01Icon, label: "Nearby", color: textColor },
-    { id: "history", icon: History, label: "History", color: textColor },
+    { id: "deal", icon: Briefcase, label: "Ride deals", color: textColor },
+    { id: "program", icon: Trophy, label: "Join the Program", color: textColor },
+    { id: "tiers", icon: CrownIcon, label: "Go Premium", color: textColor },
+    { id: "history", icon: Clock04Icon, label: "History", color: textColor },
+    { id: "share", icon: LocationUser01Icon, label: "Share Location", color: textColor },
     { id: "sos", icon: Warning, label: "Emergency Contact", color: textColor },
   ] ;
   const DRIVERSACTIONSBUTTON = [
-    { id: "add", icon: Plus, label: "New Trip", color: textColor},
+    // { id: "add", icon: Plus, label: "New Trip", color: textColor},
     { id: "scan", icon: QrCodeIcon, label: "Get Code", color: textColor},
     { id: "nearby", icon: Navigation01Icon, label: "Nearby", color: textColor},
+    { id: "deal", icon: Briefcase, label: "Ride deals", color: textColor },
+    { id: "program", icon: Trophy, label: "Join the Program", color: textColor },
+    { id: "tiers", icon: CrownIcon, label: "Go Premium", color: textColor },
     { id: "megaphone", icon: Message01Icon, label: "Chat", color: textColor},
-    { id: "time", icon: History, label: "History", color: textColor},
+    { id: "time", icon: Clock04Icon, label: "History", color: textColor},
   ] ;
 
 
@@ -142,6 +149,15 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
       case "nearby":
         router.push("/nearby" as any);
         break;
+      case "deal":
+        router.push ("/free-rides");
+        break;
+      case "program":
+        router.push ("/program");
+        break;
+      case "tiers":
+        router.push ("/tiers");
+        break;
 
       // Driver's Actions
       case "add":
@@ -152,6 +168,9 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
           break;
       case "megaphone":
         router.push ("/(driver)/messages");
+        break;
+      case "offer":
+        router.push ("/tiers");
         break;
       case "time":
         router.push ("/(driver)/history");
@@ -258,10 +277,10 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
 
           {/* Loyalty Program entry */}
           <Pressable
-            style={[styles.card, styles.promoGradient, { backgroundColor: cardBg }]}
+            style={[styles.card, styles.promoGradient, { backgroundColor: cardBg },{ borderWidth: 1, borderColor: borderColor}]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
-              router.push("/program");
+              router.push("/tiers");
             }}
           >
               <Glass
@@ -274,12 +293,13 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
                 fallbackTint={isDark ? Colors.text : Colors.border}
               />
             <View style={styles.loyaltyIconChip}>
-              <HugeiconsIcon icon={enrolled ? Trophy : Trophy} size={40} color={textColor} />
+              <HugeiconsIcon icon={enrolled ? Crown02Icon : Crown02Icon} size={40} fill={textColor} color={textColor} />
             </View>
             <View style={styles.promoText}>
-              <Text style={[styles.promoTitle, { color: textColor }]}>Loyalty Program</Text>
+              <Text style={[styles.promoTitle, { color: Colors.warning }]}>Go Premium</Text>
               <Text style={[styles.promoSub, { color: subTextColor }]}>
-                {enrolled ? "You're in the program ✓" : "Join the rewards program"}
+                {/* {enrolled ? "You're in the program ✓" : "Join the rewards program"} */}
+                {enrolled ? "You're already a subscribed" : "Subscribe for Pro features"}
               </Text>
             </View>
             <HugeiconsIcon icon={ChevronRight} size={20} color={subTextColor} />
@@ -315,60 +335,62 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
 
         {/* Recent trips */}
         {recentTrips.length > 0 && (
-          <View style={[styles.card, {paddingHorizontal: 20,marginHorizontal: 10, borderRadius: 40}, { backgroundColor: cardBg, borderColor }]}>
-            <Text style={[styles.sectionTitle, { color: textColor }]}>
-              Recent Trips
-            </Text>
-            
-            {recentTrips.map((trip, idx) => (
-              <View key={trip.id}>
-                <View style={styles.tripRow}>
-                  <View
-                    style={[
-                      styles.tripIcon]}
-                  >
-                    <HugeiconsIcon
-                      icon={trip.status === "completed" ? CheckmarkCircle01Icon : Navigation01Icon}
-                      size={18}
-                      color={trip.status === "completed" ? Colors.primary : Colors.gold}
-                    />
-                  </View>
-                  <View style={styles.tripInfo}>
-                    <Text style={[styles.tripRoute, { color: textColor }]} numberOfLines={1}>
-                      {trip.origin} → {trip.destination}
-                    </Text>
-                    <Text style={[styles.tripDate, { color: subTextColor }]}>
-                      {formatDate(trip.created_at)} · {trip.trip_code}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.tripStatus,
-                      {
-                        backgroundColor:
-                          trip.status === "completed" ? "#F0FDF4" : Colors.goldLight,
-                      },
-                    ]}
-                  >
-                    <Text
+          <>
+            <Text style={[styles.sectionTitle, { color: textColor }, { marginTop: 20, marginLeft: 10}]}>
+                Recent Trips
+              </Text>
+            <View style={[styles.card, {paddingHorizontal: 20,marginHorizontal: 10, borderRadius: 40}, { backgroundColor: cardBg, borderColor }]}>
+              
+              {recentTrips.map((trip, idx) => (
+                <View key={trip.id}>
+                  <View style={styles.tripRow}>
+                    <View
                       style={[
-                        styles.tripStatusText,
+                        styles.tripIcon]}
+                    >
+                      <HugeiconsIcon
+                        icon={trip.status === "completed" ? CheckmarkCircle01Icon : Navigation01Icon}
+                        size={18}
+                        color={trip.status === "completed" ? Colors.primary : Colors.gold}
+                      />
+                    </View>
+                    <View style={styles.tripInfo}>
+                      <Text style={[styles.tripRoute, { color: textColor }]} numberOfLines={1}>
+                        {trip.origin} → {trip.destination}
+                      </Text>
+                      <Text style={[styles.tripDate, { color: subTextColor }]}>
+                        {formatDate(trip.created_at)} · {trip.trip_code}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.tripStatus,
                         {
-                          color:
-                            trip.status === "completed" ? "#16A34A" : "#92400E",
+                          backgroundColor:
+                            trip.status === "completed" ? "#F0FDF4" : Colors.goldLight,
                         },
                       ]}
                     >
-                      {trip.status === "completed" ? "Done" : "Active"}
-                    </Text>
+                      <Text
+                        style={[
+                          styles.tripStatusText,
+                          {
+                            color:
+                              trip.status === "completed" ? "#16A34A" : "#92400E",
+                          },
+                        ]}
+                      >
+                        {trip.status === "completed" ? "Done" : "Active"}
+                      </Text>
+                    </View>
                   </View>
+                  {idx < recentTrips.length - 1 && (
+                    <View style={[styles.divider, { backgroundColor: borderColor }]} />
+                  )}
                 </View>
-                {idx < recentTrips.length - 1 && (
-                  <View style={[styles.divider, { backgroundColor: borderColor }]} />
-                )}
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          </>
         )}
 
         {/* Empty state */}
@@ -450,12 +472,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderRadius: 30, 
     paddingVertical: 15,
-    gap: 20,
+    gap: 15,
     flexDirection: "column",
     flex: 1,
     paddingHorizontal: 14,
   },
-  shortcut: { alignItems: "flex-start", gap: 30, flex: 1, flexDirection: "row", justifyContent:'space-between', flexWrap:'wrap',
+  shortcut: { alignItems: "flex-start", gap: 16, flex: 1, flexDirection: "row", justifyContent:'space-between', flexWrap:'wrap',
   },
   shortcutIcon: { width: 60, height: 60, borderRadius: 15, gap: 5, alignItems: "center", justifyContent: "center" },
   shortcutLabel: { fontFamily: "Poppins_500Medium", fontSize: 10, textAlign: "center", color: "#000", },
@@ -487,7 +509,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   promoText: { flex: 1 },
-  promoTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 15, color: "#fff" },
+  promoTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 18, color: "#fff" },
   promoSub: {
     fontFamily: "Poppins_400Regular",
     fontSize: 12,

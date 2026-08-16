@@ -59,7 +59,8 @@
       "expo-secure-store",
       "expo-splash-screen",
       "expo-audio",
-      "expo-asset"
+      "expo-asset",
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true,
