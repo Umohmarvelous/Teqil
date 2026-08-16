@@ -1055,8 +1055,58 @@ export default function ProfileTab() {
                     {displayName}
                   </Text>
 
+                  {/* Username, directly under the name — for every role.
+                      It used to fall back to the driver ID when no username was
+                      set, which labelled an ID as a handle. They are different
+                      things and now render as separate chips. */}
                   <View style={styles.handleRow}>
-                    {!!handle && (
+                    {user?.username ? (
+                      <Pressable
+                        style={styles.handleChip}
+                        onPress={handleCopy}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Copy username @${user.username}`}
+                      >
+                        <Glass
+                          variant="clear"
+                          interactive
+                          radius={30}
+                          style={StyleSheet.absoluteFill}
+                          pointerEvents="none"
+                          fallbackIntensity={26}
+                          fallbackTint={ios.tertiarySystemFill}
+                        />
+                        <Text numberOfLines={1} style={styles.handleText}>
+                          @{user.username}
+                        </Text>
+                      </Pressable>
+                    ) : (
+                      // People message each other by handle, so an unset one is
+                      // worth prompting for rather than leaving blank.
+                      <Pressable
+                        style={styles.handleChip}
+                        onPress={() => startEdit("username", "")}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel="Set a username"
+                      >
+                        <Glass
+                          variant="clear"
+                          interactive
+                          radius={30}
+                          style={StyleSheet.absoluteFill}
+                          pointerEvents="none"
+                          fallbackIntensity={26}
+                          fallbackTint={ios.tertiarySystemFill}
+                        />
+                        <Text numberOfLines={1} style={[styles.handleText, { color: ios.secondaryLabel }]}>
+                          Set a username
+                        </Text>
+                      </Pressable>
+                    )}
+
+                    {!!user?.driver_id && (
                       <View style={styles.handleChip}>
                         <Glass
                           variant="clear"
@@ -1066,8 +1116,8 @@ export default function ProfileTab() {
                           fallbackIntensity={26}
                           fallbackTint={ios.tertiarySystemFill}
                         />
-                        <Text numberOfLines={1} style={styles.handleText}>
-                          {handle}
+                        <Text numberOfLines={1} style={[styles.handleText, { color: Colors.primary }]}>
+                          {user.driver_id}
                         </Text>
                       </View>
                     )}

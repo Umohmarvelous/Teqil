@@ -13,6 +13,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/src/services/supabase';
+import { useAuthStore } from '@/src/store/useStore';
 
 export interface Message {
   id: string;
@@ -36,6 +37,7 @@ export interface Conversation {
   participant_driver_id?: string;
   participant_vehicle?: string;
   participant_park_name?: string;
+  participant_username?: string;
   participant_phone?: string;
   last_message: string;
   last_message_at: string;
@@ -120,6 +122,42 @@ interface MessagesState {
 
   /** Ranked partial matches for a type-ahead field. */
   searchUsersForChat: (query: string) => Promise<ChatCandidate[]>;
+}
+
+/**
+ * Turn a stored conversation row into "the other person", from `viewerId`'s
+ * point of view.
+ *
+ * A conversation row is symmetric — it describes both sides — but a
+ * `Conversation` in the UI is one-sided: `participant_*` always means "who I am
+ * talking to". Which stored side that is depends entirely on who is asking, and
+ * getting it wrong is what made a driver's inbox show a chat with themselves.
+ */
+function conversationForViewer(row: any, viewerId: string): Conversation {
+  // If the viewer IS the stored participant, the other side is the passenger.
+  const viewerIsParticipant = row.participant_id === viewerId;
+
+  return {
+    id:   row.id,
+    type: row.type,
+    participant_id: viewerIsParticipant ? row.passenger_id : row.participant_id,
+    participant_name: viewerIsParticipant
+      ? row.passenger_name || 'Passenger'
+      : row.participant_name || 'Driver',
+    participant_role: (viewerIsParticipant ? 'passenger' : row.participant_role || 'driver') as any,
+    participant_photo: viewerIsParticipant ? row.passenger_photo : row.participant_photo,
+    participant_username: viewerIsParticipant ? row.passenger_username : row.participant_username,
+    // These describe a driver specifically, so they only apply when the other
+    // side IS the driver.
+    participant_driver_id: viewerIsParticipant ? undefined : row.participant_driver_id,
+    participant_vehicle:   viewerIsParticipant ? undefined : row.participant_vehicle,
+    participant_park_name: viewerIsParticipant ? undefined : row.participant_park_name,
+    participant_phone:     row.participant_phone,
+    last_message:    row.last_message    || '',
+    last_message_at: row.last_message_at || new Date().toISOString(),
+    unread_count:    row.unread_count    || 0,
+    trip_code:       row.trip_code,
+  };
 }
 
 function normalizeMessage(msg: any): Message {
@@ -215,6 +253,17 @@ export const useMessagesStore = create<MessagesState>()(
             read:            normalized.read,
             status:          'delivered',
           }]);
+          // Bump the conversation so the RECIPIENT's inbox shows the preview and
+          // an unread count. Without this a message arrives but the chat list
+          // still reads "Tap to start chatting", which looks like it failed.
+          await supabase
+            .from('conversations')
+            .update({
+              last_message:    normalized.audio_uri ? '🎤 Voice message' : normalized.text ?? '',
+              last_message_at: normalized.created_at,
+            })
+            .eq('id', normalized.conversation_id);
+
           if (error) {
             console.warn('[Messages] insert error:', error.message);
           } else {
@@ -385,6 +434,8 @@ export const useMessagesStore = create<MessagesState>()(
 
       loadConversations: async (userId, role) => {
         try {
+          // RLS now restricts this to conversations the caller is in, so the
+          // client-side filter is belt and braces rather than the access rule.
           const { data, error } = await supabase
             .from('conversations')
             .select('*')
@@ -393,22 +444,9 @@ export const useMessagesStore = create<MessagesState>()(
           const filtered = data.filter((c: any) =>
             c.participant_id === userId || c.passenger_id === userId
           );
-          const normalized: Conversation[] = filtered.map((c: any) => ({
-            id:                    c.id,
-            type:                  c.type,
-            participant_id:        c.participant_id,
-            participant_name:      c.participant_name      || 'Driver',
-            participant_role:      c.participant_role      || 'driver',
-            participant_photo:     c.participant_photo,
-            participant_driver_id: c.participant_driver_id,
-            participant_vehicle:   c.participant_vehicle,
-            participant_park_name: c.participant_park_name,
-            participant_phone:     c.participant_phone,
-            last_message:          c.last_message          || '',
-            last_message_at:       c.last_message_at       || new Date().toISOString(),
-            unread_count:          c.unread_count           || 0,
-            trip_code:             c.trip_code,
-          }));
+          const normalized: Conversation[] = filtered.map((c: any) =>
+            conversationForViewer(c, userId),
+          );
           set({ conversations: normalized });
           for (const conv of normalized) {
             const { data: msgs } = await supabase
@@ -524,20 +562,10 @@ export const useMessagesStore = create<MessagesState>()(
           .from('conversations').select('*').eq('id', convId).maybeSingle();
 
         if (remote) {
-          const normalized: Conversation = {
-            id:                    remote.id,
-            participant_id:        remote.participant_id,
-            participant_name:      remote.participant_name      || 'Driver',
-            participant_role:      remote.participant_role      || 'driver',
-            participant_photo:     remote.participant_photo,
-            participant_driver_id: remote.participant_driver_id,
-            participant_vehicle:   remote.participant_vehicle,
-            participant_park_name: remote.participant_park_name,
-            participant_phone:     remote.participant_phone,
-            last_message:          remote.last_message          || '',
-            last_message_at:       remote.last_message_at       || new Date().toISOString(),
-            unread_count:          remote.unread_count           || 0,
-          };
+          // Same rule as loadConversations: render the side that ISN'T me.
+          // Reading `participant_*` unconditionally here would show the
+          // recipient a chat with themselves.
+          const normalized = conversationForViewer(remote, passengerId);
           set((s) => ({
             conversations: s.conversations.find((c) => c.id === convId)
               ? s.conversations
@@ -579,7 +607,16 @@ export const useMessagesStore = create<MessagesState>()(
           unread_count:          0,
         };
 
-        // Persist — include the new `type` column from the migration
+        // Persist BOTH sides.
+        //
+        // The row used to describe only `participant_*` (the person being
+        // messaged) plus a bare `passenger_id`. Since the client always renders
+        // `participant_*` as "the other person", the recipient opening their
+        // inbox saw a conversation with THEMSELVES — their own name and photo.
+        // Writing the initiator's display fields too is what lets each side
+        // pick the one that isn't them (see loadConversations).
+        const me = useAuthStore.getState().user;
+
         await supabase.from('conversations').insert([{
           id:                    newConv.id,
           type:                  'direct',
@@ -590,8 +627,11 @@ export const useMessagesStore = create<MessagesState>()(
           participant_driver_id: newConv.participant_driver_id ?? null,
           participant_vehicle:   newConv.participant_vehicle   ?? null,
           participant_park_name: newConv.participant_park_name ?? null,
-          participant_phone:     newConv.participant_phone     ?? null,
+          participant_username:  driver.username               ?? null,
           passenger_id:          passengerId,
+          passenger_name:        me?.full_name                 ?? null,
+          passenger_username:    me?.username                  ?? null,
+          passenger_photo:       me?.profile_photo             ?? null,
           last_message:          '',
           last_message_at:       newConv.last_message_at,
           unread_count:          0,

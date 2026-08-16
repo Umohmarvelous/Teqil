@@ -33,6 +33,44 @@
 -- back to `users`, which RLS makes unreadable across accounts anyway.
 -- ═════════════════════════════════════════════════════════════════════════════
 
+-- ─── 0. Conversation ids are text, not UUIDs ─────────────────────────────────
+--
+-- The app derives a conversation id as `direct_` + the two user ids sorted:
+--
+--     direct_<uuid-a>_<uuid-b>
+--
+-- That is deliberate and worth keeping — both devices compute the SAME id
+-- independently, so a conversation needs no coordination round trip to exist on
+-- both sides. It is also not a UUID, and the column was `uuid`, so every insert
+-- would have been rejected as malformed input even once the policies existed.
+--
+-- Message ids have the same shape problem: `generateId()` returns
+-- `Date.now() + random`, which is not a UUID either. The new table below types
+-- it TEXT accordingly.
+--
+-- Both tables are empty, so widening the type costs nothing.
+--
+-- ── The three dead schemas ───────────────────────────────────────────────────
+-- This database accumulated THREE overlapping messaging designs, all empty and
+-- none of them reachable by the app:
+--
+--   chats + messages(chat_id)   — the oldest; the app never queries `chats`
+--   message (singular)          — field names match the app, but the app
+--                                 queries `messages` (plural), so it was never
+--                                 hit; RLS on, no policies either way
+--   conversations               — the one the app does use
+--
+-- `message.conversation_id` is a UUID foreign key into conversations(id), which
+-- makes the type change below impossible while it exists. The constraint is
+-- dropped rather than the table: `message` is empty and unused, and dropping a
+-- table is not reversible whereas re-adding a constraint is.
+ALTER TABLE IF EXISTS public.message
+  DROP CONSTRAINT IF EXISTS messages_conversation_id_fkey;
+
+ALTER TABLE public.conversations
+  ALTER COLUMN id DROP DEFAULT,
+  ALTER COLUMN id TYPE TEXT USING id::TEXT;
+
 -- ─── Conversations: describe both sides ──────────────────────────────────────
 
 ALTER TABLE public.conversations

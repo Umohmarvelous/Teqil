@@ -792,6 +792,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 10,
     paddingHorizontal: 20,
+    marginTop: 20
   },
   tabBar: {
     position: "relative",
