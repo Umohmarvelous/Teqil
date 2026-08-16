@@ -37,10 +37,12 @@ import {
 import {
   Glass,
   IOSBadge,
+  IOSSegmentedTabs,
   IOSTabBar,
   NetworkStatus,
   TAB_BAR_HEIGHT,
   TAB_BAR_BOTTOM_GAP,
+  type IOSSegment,
   type IOSTab,
   useIOSTheme,
 } from "@/components/ios";
@@ -70,6 +72,12 @@ const TABS: IOSTab[] = [
   { key: "profile",  label: "You" },
   { key: "messages", label: "Chat", icon: Message01Icon,  iconActive: MessageIcon },
   { key: "notifications", label: "Notifications", icon: Bell, iconActive: Bell},
+];
+
+/** The home screen's two panes, as a segmented control. */
+const TOP_TABS: IOSSegment<TopTab>[] = [
+  { key: "home", label: "Home" },
+  { key: "discover", label: "For You" },
 ];
 
 const SIDEBAR_WIDTH = 330;
@@ -111,6 +119,9 @@ export default function MainLayout() {
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [activeTopTab, setActiveTopTab] = useState<TopTab>("home");
   const [finderVisible, setFinderVisible] = useState(false);
+  // A chat fills the screen, so the floating tab bar must get out of the way.
+  // MessagesTab reports this up because the bar lives here, not there.
+  const [chatOpen, setChatOpen] = useState(false);
 
   const sidebarOpen = useRef(false);
   const sidebarAnim = useRef(new Animated.Value(0)).current;
@@ -385,7 +396,7 @@ export default function MainLayout() {
         case "profile":
           return <ProfileTab />;
         case "messages":
-          return <MessagesTab />;
+          return <MessagesTab onChatOpenChange={setChatOpen} />;
         case "notifications":
           return <NotificationsTab />;
         default:
@@ -607,64 +618,16 @@ export default function MainLayout() {
                 </View>
               </View>
 
-              <View
-                style={[
-                  styles.topTabBar,
-                  {
-                    borderBottomColor: borderColor,
-                  },
-                ]}
-              >
-                <View style={styles.topTabItemContainer}>
-                  <Pressable
-                    style={styles.topTabItem}
-                    onPress={() => handleTopTabPress("home")}
-                  >
-                    <Text
-                      style={[
-                        styles.topTabText,
-                        {
-                          color: textColor,
-                          fontFamily:
-                            activeTopTab === "home"
-                              ? "Poppins_700Bold"
-                              : "Poppins_400Medium",
-                          opacity: activeTopTab === "home" ? 1 : 0.45,
-                        },
-                      ]}
-                    >
-                      Home
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.topTabItem}
-                    onPress={() => handleTopTabPress("discover")}
-                  >
-                    <Text
-                      style={[
-                        styles.topTabText,
-                        {
-                          color: textColor,
-                          fontFamily:
-                            activeTopTab === "discover"
-                              ? "Poppins_700Bold"
-                              : "Poppins_400Medium",
-                          opacity: activeTopTab === "discover" ? 1 : 0.45,
-                        },
-                      ]}
-                    >
-                      For You
-                    </Text>
-                  </Pressable>
-                </View>
-                <Animated.View
-                  style={[
-                    styles.topTabIndicator,
-                    {
-                      backgroundColor: Colors.primary,
-                      transform: [{ translateX: indicatorTranslateX }],
-                    },
-                  ]}
+              {/* The same capsule segmented control the Profile screen uses:
+                  a glass track with a glass thumb that springs between
+                  segments, rather than a text row with an underline. */}
+              <View style={styles.topTabBar}>
+                <IOSSegmentedTabs
+                  segments={TOP_TABS}
+                  active={activeTopTab}
+                  onChange={handleTopTabPress}
+                  variant="capsule"
+                  rounded="all"
                 />
               </View>
             </Animated.View>
@@ -673,7 +636,11 @@ export default function MainLayout() {
           <View style={[styles.content]}>{renderMainContent()}</View>
 
           {/* Floating Liquid Glass tab bar. Content scrolls under it, and it
-              minimises rather than sliding away — the iOS 26 behaviour. */}
+              minimises rather than sliding away — the iOS 26 behaviour.
+              Hidden entirely inside a chat: a conversation is a full-screen
+              context with its own back affordance, and the bar would sit on top
+              of the composer. */}
+          {!chatOpen && (
           <View
             style={{
               position: "absolute",
@@ -709,6 +676,7 @@ export default function MainLayout() {
               minimized={activeTab === "home" && tabBarMinimized}
             />
           </View>
+          )}
 
         </View>
       </Animated.View>
@@ -821,26 +789,9 @@ const styles = StyleSheet.create({
   },
   photoImg: { width: 50, height: 50, alignSelf: "center" },
   topTabBar: {
-    flexDirection: "column",
-    paddingBottom: 0,
-    borderBottomWidth: 0.5,
-    position: "relative",
-    paddingTop: 15,
-  },
-  topTabItemContainer: { flexDirection: "row" },
-  topTabItem: {
-    flex: 1,
-    alignItems: "center",
-    paddingBottom: 9,
-  },
-  topTabText: { fontSize: 16, letterSpacing: 0 },
-  topTabIndicator: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    height: 3.5,
-    width: "10%",
-    borderRadius: 50,
+    paddingTop: 12,
+    paddingBottom: 10,
+    paddingHorizontal: 20,
   },
   tabBar: {
     position: "relative",

@@ -40,6 +40,7 @@ import { useAuthStore }         from '@/src/store/useStore';
 import { useSettingsStore }     from '@/src/store/useSettingsStore';
 import {
   useMessagesStore,
+  type ChatCandidate,
   type Conversation,
   type Message,
 } from '@/src/store/useMessagesStore';
@@ -592,16 +593,34 @@ function NewChatModal({
   isDark:   boolean;
 }) {
   const { user }                          = useAuthStore();
-  const { fetchConversationByDriverId }   = useMessagesStore();
+  const { fetchConversationByDriverId, searchUsersForChat } = useMessagesStore();
 
   const [tab,     setTab]     = useState<SearchTab>('trip');
   const [query,   setQuery]   = useState('');
   const [status,  setStatus]  = useState<SearchStatus>('idle');
   const [result,  setResult]  = useState<DriverRecord | null>(null);
 
-  // Driver ID tab — loading state for fetchConversationByDriverId
+  // Handle tab — loading state for fetchConversationByHandle
   const [driverLoading, setDriverLoading] = useState(false);
   const [driverError,   setDriverError]   = useState('');
+
+  // Type-ahead. Debounced because every keystroke is a network round trip, and
+  // an un-debounced field fires one per character while the user is still
+  // typing the handle they already know.
+  const [suggestions, setSuggestions] = useState<ChatCandidate[]>([]);
+  useEffect(() => {
+    if (tab !== 'driver') { setSuggestions([]); return; }
+    const typed = query.trim();
+    if (typed.replace(/^@/, '').length < 2) { setSuggestions([]); return; }
+
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const found = await searchUsersForChat(typed);
+      if (!cancelled) setSuggestions(found);
+    }, 280);
+
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [query, tab, searchUsersForChat]);
 
   const textColor = isDark ? Colors.textWhite     : Colors.text;
   const subTextColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
@@ -690,8 +709,9 @@ function NewChatModal({
   };
 
   // ── Driver ID direct-chat (new) ───────────────────────────────────────────
-  const handleDriverIdSearch = async () => {
-    const raw = query.trim();
+  /** Open a chat with a handle — from the field, or from a tapped suggestion. */
+  const openWith = async (handle: string) => {
+    const raw = handle.trim();
     if (!raw || !user?.id) return;
     setDriverLoading(true);
     setDriverError('');
@@ -703,17 +723,20 @@ function NewChatModal({
         pathname: '/direct-chat/[conversationId]',
         params: {
           conversationId: conversation.id,
-          driverName:     driverUser.full_name ?? 'Driver',
+          driverName:     driverUser.full_name ?? 'Emilgo user',
           driverId:       driverUser.driver_id ?? '',
         },
       });
     } catch (err: any) {
-      setDriverError(err?.message ?? 'Driver not found. Check the ID and try again.');
+      setDriverError(err?.message ?? 'Nobody found. Check the username or ID and try again.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setDriverLoading(false);
     }
   };
+
+  /** Submit whatever is in the field. */
+  const handleHandleSearch = () => openWith(query);
 
   const isFound   = status === 'found';
 
@@ -742,14 +765,14 @@ function NewChatModal({
               onPress={() => { setTab('driver'); reset(); setQuery(''); }}
             >
               <HugeiconsIcon icon={IdentityCardIcon} size={14} color={tab === 'driver' ? Colors.primary : subTextColor} />
-              <Text style={[S.tabBtnText, { color: tab === 'driver' ? Colors.primary : subTextColor }]}>Driver ID</Text>
+              <Text style={[S.tabBtnText, { color: tab === 'driver' ? Colors.primary : subTextColor }]}>Username or ID</Text>
             </Pressable>
           </View>
 
           <Text style={[S.newSub, { color: subTextColor }]}>
             {tab === 'trip'
               ? user?.role === 'driver' ? 'Enter a passengers user ID to start chatting' : 'Enter the drivers ID (e.g. DRV-A3X9KL) or their user ID'
-              : 'Enter the drivers badge ID (e.g. DRV-A1B2C3) to start a private chat'}
+              : 'Type a username like @ada, or a badge ID like DRV-A1B2C3'}
           </Text>
 
           {/* ── Input ── */}
@@ -757,15 +780,15 @@ function NewChatModal({
             <HugeiconsIcon icon={Search01Icon} size={18} color={subTextColor} />
             <TextInput
               style={[S.newInput, { color: textColor }]}
-              placeholder={tab === 'trip' ? 'DRV-A3X9KL or user ID' : 'DRV-A1B2C3'}
+              placeholder={tab === 'trip' ? 'DRV-A3X9KL or user ID' : '@username or DRV-A1B2C3'}
               placeholderTextColor={subTextColor}
               value={query}
-              onChangeText={(v) => { setQuery(tab === 'driver' ? v.toUpperCase() : v); reset(); }}
+              onChangeText={(v) => { setQuery(v); reset(); }}
               autoFocus
-              autoCapitalize={tab === 'driver' ? 'characters' : 'none'}
+              autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="search"
-              onSubmitEditing={tab === 'trip' ? handleTripSearch : handleDriverIdSearch}
+              onSubmitEditing={tab === 'trip' ? handleTripSearch : handleHandleSearch}
             />
             {query.length > 0 && (
               <Pressable hitSlop={8} onPress={() => { setQuery(''); reset(); }}>
@@ -774,7 +797,37 @@ function NewChatModal({
             )}
           </View>
 
-          {/* Driver ID error */}
+          {/* Type-ahead results. Tapping one is unambiguous — you can see who
+              you are about to message before the chat opens. */}
+          {tab === 'driver' && suggestions.length > 0 ? (
+            <View style={S.suggestionList}>
+              {suggestions.map((person) => (
+                <Pressable
+                  key={person.id}
+                  style={({ pressed }) => [
+                    S.suggestionRow,
+                    { borderBottomColor: border },
+                    pressed && { backgroundColor: inputBg },
+                  ]}
+                  onPress={() => openWith(person.username ? `@${person.username}` : person.driver_id ?? '')}
+                >
+                  <Avatar name={person.full_name || 'User'} photoUri={person.profile_photo ?? undefined} size={36} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[S.suggestionName, { color: textColor }]} numberOfLines={1}>
+                      {person.full_name || 'Emilgo user'}
+                    </Text>
+                    <Text style={[S.suggestionMeta, { color: subTextColor }]} numberOfLines={1}>
+                      {person.username ? `@${person.username}` : person.driver_id}
+                      {person.vehicle_details ? ` · ${person.vehicle_details}` : ''}
+                    </Text>
+                  </View>
+                  <Text style={[S.suggestionRole, { color: Colors.primary }]}>{person.role}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+
+          {/* Handle lookup error */}
           {tab === 'driver' && driverError ? (
             <Text style={[S.driverError, { color: Colors.error }]}>{driverError}</Text>
           ) : null}
@@ -786,7 +839,7 @@ function NewChatModal({
                 backgroundColor: query.trim() ? Colors.primary : isDark ? '#2A2A2A' : '#E5E7EB',
                 opacity: driverLoading ? 0.7 : 1,
               }]}
-              onPress={handleDriverIdSearch}
+              onPress={handleHandleSearch}
               disabled={!query.trim() || driverLoading}
             >
               {driverLoading
@@ -926,7 +979,17 @@ function ConvItem({
 
 // ─── Main Tab ─────────────────────────────────────────────────────────────────
 
-export default function MessagesTab() {
+export interface MessagesTabProps {
+  /**
+   * Fires when a chat opens or closes.
+   *
+   * The tab shell owns the floating tab bar, so this screen cannot hide it by
+   * itself — it reports, and the layout decides.
+   */
+  onChatOpenChange?: (open: boolean) => void;
+}
+
+export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {}) {
   const insets = useSafeAreaInsets();
   const { theme }  = useSettingsStore() ;
   const { user }   = useAuthStore();
@@ -947,6 +1010,15 @@ export default function MessagesTab() {
 
   const [activeConv,      setActiveConv]      = useState<Conversation | null>(null);
   const [activeInvalidId, setActiveInvalidId] = useState(false);
+
+  // Report chat open/closed to the tab shell so it can hide the floating tab
+  // bar. Also fires `false` on unmount, so switching tabs while a chat is open
+  // can never strand the bar hidden.
+  useEffect(() => {
+    onChatOpenChange?.(!!activeConv);
+    return () => onChatOpenChange?.(false);
+  }, [activeConv, onChatOpenChange]);
+
   const [newChatVisible,  setNewChatVisible]  = useState(false);
   const [refreshing,      setRefreshing]      = useState(false);
 
@@ -1019,7 +1091,12 @@ export default function MessagesTab() {
     ]);
   };
 
-  // Inline chat view (hides bottom tabs by filling the full screen)
+  // Inline chat view.
+  //
+  // Filling the screen is NOT enough to hide the bottom tabs: the tab bar is
+  // absolutely positioned at zIndex 100 in app/(main)/_layout.tsx, so it floats
+  // over whatever this renders. The layout has to be told, which is what
+  // `onChatOpenChange` above is for.
   if (activeConv) {
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
@@ -1334,6 +1411,18 @@ const S = StyleSheet.create({
   newSearchBtn:  { borderRadius: 14, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', minHeight: 50 },
   newSearchBtnText: { fontFamily: 'Poppins_600SemiBold', fontSize: 15 },
 
+  suggestionList: { marginTop: 10, borderRadius: 14, overflow: 'hidden' },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  suggestionName: { fontFamily: 'Poppins_600SemiBold', fontSize: 14 },
+  suggestionMeta: { fontFamily: 'Poppins_400Regular', fontSize: 12, marginTop: 1 },
+  suggestionRole: { fontFamily: 'Poppins_500Medium', fontSize: 11, textTransform: 'capitalize' },
   driverError:   { fontFamily: 'Poppins_400Regular', fontSize: 12, lineHeight: 18, marginTop: -6 },
 
   resultCard:    { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 14, borderWidth: 1 },

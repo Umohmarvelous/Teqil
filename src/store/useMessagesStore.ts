@@ -55,6 +55,25 @@ export interface Conversation {
   typing?: boolean;
 }
 
+/**
+ * A person you can start a chat with.
+ *
+ * Exactly the columns `find_user_for_chat` / `search_users_for_chat` return —
+ * display-safe only. If you find yourself wanting a phone or an email here,
+ * that is a signal to change the RPC deliberately, not to widen this type.
+ */
+export interface ChatCandidate {
+  id: string;
+  full_name: string | null;
+  username: string | null;
+  role: 'driver' | 'passenger' | 'park_owner';
+  driver_id: string | null;
+  profile_photo: string | null;
+  vehicle_details: string | null;
+  park_name?: string | null;
+  avg_rating: number | null;
+}
+
 interface MessagesState {
   conversations: Conversation[];
   messages: Record<string, Message[]>;
@@ -91,7 +110,16 @@ interface MessagesState {
   fetchConversationByDriverId: (
     driverDisplayId: string,
     passengerId: string,
-  ) => Promise<{ driverUser: { id: string; full_name: string | null; driver_id: string | null }; conversation: Conversation }>;
+  ) => Promise<{ driverUser: ChatCandidate; conversation: Conversation }>;
+
+  /** Resolve "@username" or "DRV-XXXXXX" to a person and open the chat. */
+  fetchConversationByHandle: (
+    handle: string,
+    currentUserId: string,
+  ) => Promise<{ driverUser: ChatCandidate; conversation: Conversation }>;
+
+  /** Ranked partial matches for a type-ahead field. */
+  searchUsersForChat: (query: string) => Promise<ChatCandidate[]>;
 }
 
 function normalizeMessage(msg: any): Message {
@@ -518,14 +546,19 @@ export const useMessagesStore = create<MessagesState>()(
           return normalized;
         }
 
-        // Fetch driver profile so the conversation card is fully populated
-        const { data: driver, error } = await supabase
-          .from('users')
-          .select('id, full_name, phone, driver_id, profile_photo, vehicle_details, park_name')
-          .eq('id', driverUserId)
-          .maybeSingle();
+        // Resolve the other person's display fields.
+        //
+        // This used to be `from('users').select().eq('id', …)`, which cannot
+        // work: RLS on `users` is own-row only, so looking up ANYONE else
+        // returned nothing and this threw "Driver profile not found." every
+        // time. get_driver_public is a SECURITY DEFINER RPC that returns only
+        // display-safe columns, and it accepts a UUID as well as a badge ID.
+        const { data: rpcRows, error } = await supabase.rpc('get_driver_public', {
+          p_driver_id: driverUserId,
+        });
+        const driver = Array.isArray(rpcRows) ? rpcRows[0] : rpcRows;
 
-        if (error || !driver) throw new Error('Driver profile not found.');
+        if (error || !driver) throw new Error('Could not load that profile.');
 
         const newConv: Conversation = {
           id:                    convId,
@@ -536,6 +569,10 @@ export const useMessagesStore = create<MessagesState>()(
           participant_driver_id: driver.driver_id       ?? undefined,
           participant_vehicle:   driver.vehicle_details ?? undefined,
           participant_park_name: driver.park_name       ?? undefined,
+          // NOTE: get_driver_public deliberately does not return `phone`, so the
+          // in-chat Call button has no number for a direct chat. Exposing phone
+          // numbers to anyone who can resolve a handle is a privacy decision,
+          // not an oversight — it needs a deliberate change to that RPC.
           participant_phone:     driver.phone           ?? undefined,
           last_message:          '',
           last_message_at:       new Date().toISOString(),
@@ -564,40 +601,59 @@ export const useMessagesStore = create<MessagesState>()(
         return newConv;
       },
 
-      fetchConversationByDriverId: async (driverDisplayId, passengerId) => {
-        // Normalise: "a1b2c3" | "DRV A1B2C3" | "drv-a1b2c3" → "DRV-A1B2C3"
-        const raw        = driverDisplayId.trim().toUpperCase().replace(/\s+/g, '-');
-        const normalised = raw.startsWith('DRV-') ? raw : `DRV-${raw.replace(/^DRV/, '')}`;
+      /**
+       * Resolve a username or an ID to a person, and open a chat with them.
+       *
+       * This used to query `users` directly. That could never have worked for
+       * anyone else's account: RLS on `users` is own-row only, so the select
+       * came back empty regardless of how the handle was spelled. Resolution now
+       * goes through `find_user_for_chat`, a SECURITY DEFINER RPC that returns
+       * only display-safe columns (see migration_chat_handles.sql).
+       *
+       * Accepts "@ada", "ada", "DRV-A1B2C3", "a1b2c3" — and works in both
+       * directions, so a driver can reach a passenger the same way.
+       */
+      fetchConversationByHandle: async (handle, currentUserId) => {
+        const typed = handle.trim();
+        if (!typed) throw new Error('Enter a username or ID to start a chat.');
 
-        // Strategy 1: exact match on indexed driver_id (fast path)
-        let driver: any = null;
-        const { data: exact } = await supabase
-          .from('users')
-          .select('id, full_name, phone, driver_id, profile_photo, vehicle_details, park_name')
-          .eq('driver_id', normalised)
-          .eq('role', 'driver')
-          .maybeSingle();
-        driver = exact;
+        const { data, error } = await supabase.rpc('find_user_for_chat', { p_handle: typed });
 
-        // Strategy 2: suffix match — user typed "A1B2C3" without the "DRV-" prefix
-        if (!driver) {
-          const suffix = normalised.replace(/^DRV-/, '');
-          const { data: fuzzy } = await supabase
-            .from('users')
-            .select('id, full_name, phone, driver_id, profile_photo, vehicle_details, park_name')
-            .ilike('driver_id', `%${suffix}%`)
-            .eq('role', 'driver')
-            .maybeSingle();
-          driver = fuzzy;
+        if (error) {
+          console.warn('[Messages] find_user_for_chat error:', error.message);
+          throw new Error('Could not search right now. Check your connection and try again.');
         }
 
-        if (!driver) {
-          throw new Error(`No driver found with ID "${driverDisplayId}". Check the ID and try again.`);
+        const person = Array.isArray(data) ? data[0] : data;
+        if (!person) {
+          throw new Error(`Nobody found for "${typed}". Check the username or ID and try again.`);
         }
 
-        const conversation = await get().startDirectChat(passengerId, driver.id);
-        return { driverUser: driver, conversation };
+        const conversation = await get().startDirectChat(currentUserId, person.id);
+        return { driverUser: person, conversation };
       },
+
+      /** Ranked partial matches for type-ahead. Prefix-matched, see the migration. */
+      searchUsersForChat: async (query) => {
+        const typed = query.trim();
+        if (typed.replace(/^@/, '').length < 2) return [];
+
+        const { data, error } = await supabase.rpc('search_users_for_chat', {
+          p_query: typed,
+          p_limit: 10,
+        });
+
+        if (error) {
+          console.warn('[Messages] search_users_for_chat error:', error.message);
+          return [];
+        }
+        return (data ?? []) as ChatCandidate[];
+      },
+
+      // Kept so the four existing call sites keep working; they gain username
+      // support for free by delegating.
+      fetchConversationByDriverId: async (driverDisplayId, passengerId) =>
+        get().fetchConversationByHandle(driverDisplayId, passengerId),
     }),
     {
       name:       'teqil-messages-v2',
