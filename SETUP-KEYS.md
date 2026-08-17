@@ -58,6 +58,35 @@ nothing in production.
 > the moment someone adds `EXPO_PUBLIC_` to it by accident it ships to every
 > device. Consider splitting into `.env` (app) and `.env.server` (server).
 
+#### Payout accounts are blocked until Paystack is live
+
+A driver cannot receive a fare until they have added a payout bank account, and
+adding one calls Paystack's account-resolution endpoint to name-check the NUBAN.
+That needs a live secret key on the server. So **until Paystack verification
+completes, no driver can add a payout account, and scan-to-pay cannot be tested
+end to end.**
+
+Two things used to hide this. `resolveBankAccount` invented an account name from
+a list of five made-up Nigerians whenever no server was configured, so the screen
+looked like it worked; that is deleted. It now returns unresolved with a reason.
+
+To test the flow before Paystack is live, set the flag in
+**`constants/devFlags.ts`**:
+
+```ts
+export const ALLOW_UNVERIFIED_PAYOUT_ACCOUNT = true;   // testing
+export const ALLOW_UNVERIFIED_PAYOUT_ACCOUNT = false;  // production  ← default
+```
+
+Reload the app afterwards (`r` in the Metro terminal). With it on, the driver
+types the account name themselves, the Verify step disappears, and the screen
+carries a permanent orange **TEST MODE** banner so an unverified account is never
+mistaken for a verified one. It does **not** move money — Paystack still rejects
+an account number that does not exist.
+
+`assertProductionFlags()` throws at startup in a production build if any flag is
+left on, so this cannot ship by accident.
+
 ### 1.2 Smile Identity (KYC) — currently MOCK
 
 | Var | Where | Now |
@@ -232,10 +261,39 @@ silently. Delete whichever is stale before it causes a confusing incident.
 
 ---
 
+### 4.4 Ad creatives — the feed has no ads until someone sells one
+
+`serve_feed_ads` runs a real auction over `public.ad_creatives`: role and state
+targeting, weighting, daily caps, and impression/click/dismiss events in
+`ad_events`. It is finished code. It returns **nothing**, because that table is
+empty, and the feed correctly renders no promoted units.
+
+This is not a key — it is a sales problem. To put an ad in the feed, insert a row
+with an advertiser name, a headline, a destination URL and a weight. Nothing was
+seeded with placeholder ads on purpose: a fake advertiser in a production feed is
+indistinguishable from a real one to a user, and the click-through would go
+somewhere nobody agreed to.
+
+### 4.5 Phone numbers — consented disclosure now, masking later
+
+`get_contact_phone` hands over one number at a time, only between two people who
+already share a conversation, only while the owner allows it, and never across a
+block. That is the honest interim and it needs no key.
+
+**Number masking** — a proxy that connects both parties without either seeing the
+other's number — is the better answer and is what Bolt and Uber use. It needs a
+telco account, a provisioned pool of numbers and per-minute billing, so it is a
+business decision rather than a code one. Until then a driver's real number is
+disclosed to passengers they are chatting with, which they consent to via the
+switch in Account Settings → Phone number.
+
 ## 5. Quick checklist
 
 Copy into an issue and work down it.
 
+- [ ] **Apply `supabase/migrations/migration_contact_phone.sql`** — nothing about
+      calling a contact works until it lands
+- [ ] **`constants/devFlags.ts` — every flag `false` before release**
 - [ ] Paystack business verification → live keys, secret server-side only
 - [ ] Paystack webhook endpoint deployed
 - [ ] Smile Identity partner ID + API key; replace mock bodies in `server/kyc.ts`
@@ -252,6 +310,8 @@ Copy into an issue and work down it.
 - [ ] De-duplicate `DATABASE_URL`
 - [ ] Decide on WhatsApp: deep link (free) vs Business Platform (metered)
 - [ ] Turn on **leaked-password protection** in Supabase → Auth (one toggle)
+- [ ] Insert real `ad_creatives` rows, or accept a feed with no ads (§4.4)
+- [ ] Decide on number masking vs consented disclosure (§4.5)
 - [ ] Harden the ~20 pre-existing functions with a mutable `search_path`, and the
       `SECURITY DEFINER` view `v_active_park_trips` — run Supabase's advisor and
       work the list (the Phase 6/7 functions are already done, see

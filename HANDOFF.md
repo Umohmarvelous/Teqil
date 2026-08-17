@@ -9,9 +9,14 @@
 > degrade to a mock rather than failing, so they look finished and are not —
 > payments and KYC especially.
 >
-> Updated 2026-08-16. Branch **`sdk-54-temp`**, HEAD **`88ca775`**, tree clean.
-> Typecheck: **0 errors**. Metro serves the real bundle: **HTTP 200, 30.3 MB dev**.
+> Updated 2026-08-18. Branch **`sdk-54-temp`**, HEAD **`5ff891c`**, tree clean.
+> Typecheck: **0 errors**. Metro serves the real bundle: **HTTP 200, 30.0 MB dev**.
 > App **boots on simulator and device**.
+>
+> ⚠️ **`migration_contact_phone.sql` is written but NOT applied.** The database
+> was unreachable for the whole of the 2026-08-18 session. Until it is applied,
+> the Call button in chat and the phone row in Account Settings both fail
+> softly — see §6b.
 
 ---
 
@@ -57,24 +62,39 @@ actions in priority order.
 | 29 | Home top tabs use the glass capsule control | Same `IOSSegmentedTabs variant="capsule"` as Profile |
 | 30 | Bottom tab bar hidden inside a chat | `MessagesTab` reports `onChatOpenChange` up to the layout |
 | 31 | Profile shows the username under the name, for every role | Its own chip; driver ID is a separate chip |
+| 32 | **Metro "cannot resolve empty-module.js" boot failure** | Stale `$TMPDIR/metro-cache` pointing at a nested `metro-runtime` that no longer exists. See Trap 0d |
+| 33 | **Social feed — full schema** | `migration_social_feed.sql`, 39 functions, applied + 28/29 e2e checks under RLS |
+| 34 | Feed service + normalised store | `src/services/feed.ts`, `src/store/useFeedStore.ts` |
+| 35 | Feed UI kit | `PostCard`, `PostMedia`, `PostPoll`, `PostText`, `PromotedPost`, `FeedList` |
+| 36 | For You screen rebuilt as a real social feed | Was a news reader hitting `/api/feed` |
+| 37 | Twitter-style thread screen | `app/post/[id].tsx` |
+| 38 | Composer — media, poll, place, reply, quote, edit | `app/compose.tsx`; draft persisted, timelines are not |
+| 39 | `/search`, `/hashtag/[tag]`, `/bookmarks`, `/u/[handle]` | Handle route redirects to the id-keyed profile |
+| 40 | Reusable `HeaderActions` (bell + badge, overflow menu) | Wired into the shell and every feed route |
+| 41 | Reusable `ScreenSearch` + real search on Notifications | Searches what the screen holds, not the server |
+| 42 | Follow buttons on cards, thread, search and suggestions | `applyFollow` keeps every cached post in step |
+| 43 | Phone capture + on-demand Call in chat | `PhoneNumberSheet`, `get_contact_phone`. **Needs the migration** |
+| 44 | Payout bypass flag for scan-to-pay testing | `constants/devFlags.ts`; fake bank names deleted |
+| 45 | Realtime delivers the FIRST message of a new chat | It used to drop it, so a new chat needed a refresh |
+| 46 | Driver inbox shows real conversations | It listed only park broadcasts while promising chats |
 
 ### Not started
 
 | # | Task | Blocked by |
 | --- | --- | --- |
-| 32 | **Verify chat on device between two real accounts** | Nothing — highest priority, see §7 |
-| 33 | Realtime subscription still targets the OLD message shape | Nothing. Messages arrive on refresh, may not stream live |
-| 34 | Chat-list swipe still uses the old RNGH `Swipeable` | Nothing; `SwipeableRow` exists and is better |
-| 35 | Driver chat screen showing recent messages | Nothing |
-| 36 | Per-contact conversation records in Activity | Depends on the chat list settling |
-| 37 | In-chat **Call** button has no number for direct chats | A product decision — `get_driver_public` deliberately omits `phone` |
-| 38 | Messages — WhatsApp linking + two-way sync | **Meta Business API + hosted webhook.** Not possible in app code alone — SETUP-KEYS §4.2. Deep link is the free 80% |
-| 39 | Same header controls in `messages.tsx` and `profile.tsx` | Nothing; `AccountMenu` is ready to drop in |
-| 40 | Auth gating — no feature usable unless authenticated | Nothing |
-| 41 | Offline-first audit across every feature | Nothing |
-| 42 | Error-control components (boundaries, retry, failure states) | Nothing |
-| 43 | **Phase 8** — watermark overlay + shareable profile deep link | Rating modal already ships |
-| 44 | Verify account switching against two real accounts | Needs two test accounts on one device |
+| 47 | **Apply `migration_contact_phone.sql`** | The database was unreachable all session. Highest priority — see §7 |
+| 48 | **Verify chat on device between two real accounts** | Nothing. DB is proven, the React layer is not |
+| 49 | **Verify the feed on device with two real accounts** | Nothing. Same gap: 28/29 DB checks pass, the UI is untested against real traffic |
+| 50 | Per-contact conversation records in Activity | Depends on the chat list settling |
+| 51 | Messages — WhatsApp linking + two-way sync | **Meta Business API + hosted webhook.** Not possible in app code alone — SETUP-KEYS §4.2 |
+| 52 | Same header controls in `messages.tsx` and `profile.tsx` | Nothing; `AccountMenu` is ready to drop in |
+| 53 | Auth gating — no feature usable unless authenticated | Nothing |
+| 54 | Offline-first audit across every feature | Nothing |
+| 55 | Error-control components (boundaries, retry, failure states) | Nothing |
+| 56 | **Phase 8** — watermark overlay + shareable profile deep link | Rating modal already ships |
+| 57 | Verify account switching against two real accounts | Needs two test accounts on one device |
+| 58 | Ad creatives — there are none | An advertiser and a creative. `serve_feed_ads` returns nothing until `ad_creatives` has rows; the feed simply shows no promoted units, which is correct |
+| 59 | Number masking instead of raw phone disclosure | A telco account + per-minute billing. SETUP-KEYS |
 
 ### Carrying debt
 
@@ -112,6 +132,8 @@ session**, each verified afterwards:
 | `migration_harden_definer.sql` | ✅ 2026-08-15 | Pinned `search_path`, revoked `anon` on Phase 6/7 RPCs |
 | `migration_chat_handles.sql` | ✅ 2026-08-16 | `find_user_for_chat`, `search_users_for_chat` |
 | `migration_messaging.sql` | ✅ 2026-08-16 | Conversation/message RLS + the correct schema |
+| `migration_social_feed.sql` | ✅ 2026-08-17 | The whole feed: 12 tables, 39 functions, `post-media` bucket + policies |
+| `migration_contact_phone.sql` | ❌ **NOT APPLIED** | `share_phone` column, `get_contact_phone`, `set_my_phone`, `get_my_phone`, E.164 normalisation |
 
 All are **idempotent** — re-running is safe. The older migrations in that folder
 predate this session; their status is unknown, so verify rather than assume.
@@ -120,30 +142,51 @@ To apply one by hand, the Supabase MCP (`apply_migration`) works, or connect
 directly: `DATABASE_URL` on **port 5432** (session mode). Port 6543 is the
 transaction pooler and is a poor fit for multi-statement DDL.
 
+**`migration_contact_phone.sql` is the one outstanding.** Apply it with:
+
+```bash
+node ./.dbq.mjs -f supabase/migrations/migration_contact_phone.sql
+```
+
+Until it lands, `get_contact_phone` does not exist, so `getContactPhone()`
+logs a warning and returns null; the Call button says the number is not
+available and the Account Settings phone row shows the placeholder. Nothing
+crashes — but nobody can call anybody.
+
 ---
 
 ## 7. Next actions, in order
 
 Do these top-down. Each is independent unless stated.
 
-1. **Verify chat on a device between two real accounts.** The database and RLS
+1. **Apply `migration_contact_phone.sql`.** One command (§6b). Everything about
+   calling a contact is written and typechecked and does nothing until this
+   lands. It was not applied only because the database was unreachable.
+2. **Verify chat on a device between two real accounts.** The database and RLS
    are proven (§8), the React layer is not. Sign in as a passenger on one
    device, a driver on another, search the driver by `@username`, send both
-   ways, send a voice note. This is the highest-value 15 minutes available.
-2. **Rewire the realtime subscription to the new schema.** `subscribeToRealtime`
-   in `src/store/useMessagesStore.ts` still filters on the old message shape, so
-   messages land on refresh but may not stream live. The table is already in the
-   `supabase_realtime` publication — this is client-side only.
-3. **Swap the chat list's `Swipeable` for `SwipeableRow`.** `ConvItem` in
-   `app/(main)/messages.tsx` uses the old RNGH component. `SwipeableRow`
-   (`components/ios/`) gives full-swipe-to-commit and a rest-open state; add a
-   confirmation before deleting a whole conversation.
-4. **Driver chat screen — recent messages.** `app/(driver)/messages.tsx` is 202
-   lines and thin; it should show recent threads the way the main tab does.
+   ways, send a voice note, then tap Call. This is the highest-value 15 minutes
+   available.
+3. **Verify the feed on a device with two real accounts.** Post with an image,
+   reply from the other account, check the reply count moves on the first
+   device without a refresh, like from the thread and confirm the timeline row
+   agrees. 28 of 29 database checks pass; none of them exercise React.
+4. **Re-create the feed e2e harness.** It lived in a scratchpad and did not
+   survive the session. Worth rebuilding under `supabase/tests/` so it is not
+   lost a third time — it is the only thing that proves RLS is right, and a
+   test run as `postgres` proves nothing because superuser bypasses RLS.
 5. **Per-contact conversation records in Activity** — one entry per person
    chatted with, not per message.
 6. **Auth gating**, then the **offline/error-control audit**.
 7. **Phase 8** — watermark overlay + shareable profile deep link.
+
+### Before any release
+
+- `constants/devFlags.ts` — **every flag must be `false`**.
+  `assertProductionFlags()` throws in a production build if one is left on, but
+  check it rather than relying on the crash.
+- Run `get_advisors` — ~20 pre-existing functions still have a mutable
+  `search_path` (see Carrying debt).
 
 ---
 
@@ -549,6 +592,22 @@ This was clarified with the user and is important:
 ---
 
 ## 5. Traps that will cost you time
+
+0d. **`Unable to resolve .../metro-config/node_modules/metro-runtime/src/modules/empty-module.js`
+   at bundle time.** The path in the error does not exist and never will —
+   `metro-config` has no nested `metro-runtime`. It is a **stale Metro cache**
+   holding a resolution from an older install. Nothing in `package.json` or
+   `metro.config.js` needs touching. Fix:
+
+   ```bash
+   rm -rf "$TMPDIR"metro-cache "$TMPDIR"metro-file-map-* .expo/cache
+   npx expo start -c
+   ```
+
+   Generalise it: when an error names an absolute path inside `node_modules`
+   that is not on disk, suspect the cache before the dependency tree. Check
+   with `ls` on the exact path in the message first — it takes five seconds and
+   rules out an hour of dependency archaeology.
 
 0. **`createScreenFactory is not a function` at boot.** Two copies of
    `@react-navigation/native` in the tree — expo-router resolved one, a nested
