@@ -52,9 +52,20 @@ export interface PremiumSplit {
 export interface BankAccountResult {
   resolved: boolean;
   account_name: string;
+  /**
+   * Why it did not resolve, when it did not. `unconfigured` means the app has
+   * no server to ask and the UI should offer the manual path; `rejected` means
+   * Paystack answered and said no, which the driver must fix.
+   */
+  reason?: "unconfigured" | "rejected";
 }
 
-/** Mock: derive a deterministic "account name" from the account number. */
+/**
+ * Name-checks a Nigerian NUBAN against its bank via Paystack.
+ *
+ * Never invents a name. An unresolved account is reported as unresolved, so the
+ * UI can say so rather than showing a plausible-looking stranger's name.
+ */
 export async function resolveBankAccount(
   bankCode: string,
   accountNumber: string
@@ -77,14 +88,21 @@ export async function resolveBankAccount(
     }
   }
 
-  const names = ["Chidi Okonkwo", "Amina Bello", "Emeka Obi", "Ngozi Eze", "Tunde Alabi"];
-  let sum = 0;
-  for (let i = 0; i < clean.length; i++) sum += clean.charCodeAt(i);
-  const resolved = clean.length === 10; // Nigerian NUBAN is 10 digits
-  console.log("[Paystack placeholder] resolveBankAccount (no server configured) →", { resolved });
+  // No server configured. This used to invent a name from a list of five made-up
+  // Nigerians, which meant a driver could "verify" an account that does not
+  // exist and only find out when a payout failed. There is no honest name to
+  // return without Paystack, so none is returned.
+  //
+  // ALLOW_UNVERIFIED_PAYOUT_ACCOUNT is the supported way past this while
+  // testing: it does not fake a name, it lets the driver type their own and
+  // marks the account unverified. See constants/devFlags.ts.
+  console.warn(
+    "[Paystack] resolveBankAccount: no server configured, cannot name-check this account.",
+  );
   return {
-    resolved,
-    account_name: resolved ? names[sum % names.length] : "",
+    resolved: false,
+    account_name: "",
+    reason: "unconfigured",
   };
 }
 

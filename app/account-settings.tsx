@@ -35,6 +35,8 @@ import {
   type SettingsSearchResult,
 } from "@/src/data/settingsIndex";
 import { useAuthStore } from "@/src/store/useStore";
+import PhoneNumberSheet from "@/components/PhoneNumberSheet";
+import { getMyPhone, formatNgPhone } from "@/src/services/contact";
 import { haptics } from "@/src/utils/haptics";
 
 const CARD_RADIUS = 30;
@@ -90,6 +92,14 @@ export default function AccountSettingsScreen() {
 
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
+  const [phoneSheet, setPhoneSheet] = useState(false);
+
+  // Read from the server rather than from the auth store: the store's copy came
+  // from signup metadata and may predate any edit made on another device.
+  const [phone, setPhone] = useState<string | null>(null);
+  React.useEffect(() => {
+    getMyPhone().then(({ phone }) => setPhone(phone));
+  }, []);
 
   const results = useMemo(() => searchSettings(query), [query]);
   const showResults = searching || query.length > 0;
@@ -200,6 +210,19 @@ export default function AccountSettingsScreen() {
           accessory={{ type: "disclosure" }}
           onPress={() => open("/(main)/profile")}
         />
+        {/* Phone sits directly under identity because it is identity: it is how
+            a driver and a passenger reach each other once chat is not enough. */}
+        <IOSListRow
+          symbol="phone.fill"
+          label="Phone number"
+          detail={
+            phone
+              ? formatNgPhone(phone)
+              : "Add a number so your chats can call you"
+          }
+          accessory={{ type: "disclosure" }}
+          onPress={() => setPhoneSheet(true)}
+        />
         {user?.role === "driver" && (
           <IOSListRow
             symbol="car.fill"
@@ -228,6 +251,12 @@ export default function AccountSettingsScreen() {
       <Text style={[IOSAppFont.description, styles.version, { color: ios.secondaryLabel }]}>
         Emilgo v1.0.0 · Made in Nigeria 🇳🇬
       </Text>
+
+      <PhoneNumberSheet
+        visible={phoneSheet}
+        onClose={() => setPhoneSheet(false)}
+        onSaved={setPhone}
+      />
     </IOSScreen>
   );
 }

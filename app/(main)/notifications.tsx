@@ -38,6 +38,13 @@ import {
   type IOSPalette,
 } from "@/components/ios";
 import Avatar from "@/components/Avatar";
+import {
+  ScreenSearch,
+  ScreenSearchBar,
+  useScreenSearch,
+  type SearchEntry,
+} from "@/components/ScreenSearch";
+import { listNotifications, markNotificationsRead } from "@/src/services/feed";
 import { useMessagesStore } from "@/src/store/useMessagesStore";
 import {
   useNotifications,
@@ -66,6 +73,21 @@ const KIND_GLYPH: Record<NotificationKind, SymbolViewProps["name"]> = {
 const AnimatedSectionList = Animated.createAnimatedComponent(
   SectionList as new () => SectionList<AppNotification, { title: string }>,
 );
+
+/**
+ * Search filters. `all` first so it is the default chip, then the two axes a
+ * long inbox actually gets narrowed on: state, and whether it is a person
+ * writing to you or the app telling you something.
+ */
+type NotifFilter = "all" | "unread" | "read" | "messages" | "activity";
+
+const NOTIF_FILTERS = [
+  { key: "all" as const, label: "All" },
+  { key: "unread" as const, label: "Unread" },
+  { key: "read" as const, label: "Read" },
+  { key: "messages" as const, label: "Messages" },
+  { key: "activity" as const, label: "Activity" },
+];
 
 // ─── Grouping ────────────────────────────────────────────────────────────────
 
@@ -217,6 +239,7 @@ export default function NotificationsScreen() {
   const notifications = useNotifications();
 
   const ingestConversations = useNotificationsStore((s) => s.ingestConversations);
+  const ingestSocial = useNotificationsStore((s) => s.ingestSocial);
   const markRead = useNotificationsStore((s) => s.markRead);
   const markUnread = useNotificationsStore((s) => s.markUnread);
   const markAllRead = useNotificationsStore((s) => s.markAllRead);
@@ -229,8 +252,54 @@ export default function NotificationsScreen() {
     ingestConversations(conversations ?? []);
   }, [conversations, ingestConversations]);
 
+  // Server-side social activity — likes, replies, follows — lands in the same
+  // inbox as messages. One list, one badge: a user who sees "3" on the bell
+  // should find three things here, not three messages plus some likes on a
+  // different screen.
+  const pullSocial = useCallback(async () => {
+    const rows = await listNotifications(50, 0);
+    ingestSocial(rows);
+  }, [ingestSocial]);
+
+  useEffect(() => {
+    pullSocial();
+  }, [pullSocial]);
+
   const sections = useMemo(() => groupByRecency(notifications), [notifications]);
   const unread = notifications.reduce((n, i) => n + (i.read ? 0 : 1), 0);
+
+  // ── Search ────────────────────────────────────────────────────────────────
+  // Real content search, over the rows actually on this screen. The filter
+  // chips narrow by state and kind, which is what a long inbox needs more than
+  // a query does.
+  const searchEntries = useMemo<SearchEntry<NotifFilter>[]>(
+    () =>
+      notifications.map((n) => ({
+        id: n.id,
+        title: n.title,
+        subtitle: n.body,
+        symbol: KIND_GLYPH[n.kind],
+        group: n.read ? "Read" : "Unread",
+        hint: relativeTime(n.createdAt),
+        keywords: [n.kind, relativeTime(n.createdAt)],
+        filters: [
+          "all",
+          n.read ? ("read" as const) : ("unread" as const),
+          n.kind === "message" ? ("messages" as const) : ("activity" as const),
+        ],
+        onPress: () => {
+          markRead(n.id);
+          if (n.route) router.push(n.route as never);
+        },
+      })),
+    [notifications, markRead],
+  );
+
+  const search = useScreenSearch<NotifFilter>({
+    scope: "notifications",
+    entries: searchEntries,
+    filters: NOTIF_FILTERS,
+  });
 
   // Only one row stays open at a time, as in Mail: opening a second closes the
   // first, so there is never a hidden action panel off-screen.
@@ -245,9 +314,9 @@ export default function NotificationsScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await triggerSyncNow();
+    await Promise.all([triggerSyncNow(), pullSocial()]);
     setRefreshing(false);
-  }, []);
+  }, [pullSocial]);
 
   const open = useCallback(
     (item: AppNotification) => {
@@ -270,6 +339,9 @@ export default function NotificationsScreen() {
           onPress: () => {
             haptics.success();
             markAllRead();
+            // The server owns read state for social rows, so clearing locally
+            // alone would leave the badge full again on the next pull.
+            markNotificationsRead().catch(() => undefined);
           },
         },
         {
@@ -305,6 +377,19 @@ export default function NotificationsScreen() {
         ) : undefined
       }
     >
+      {/* The bar is a button; the only real field lives in the overlay. Two
+          live inputs across a modal boundary fight over focus. */}
+      <ScreenSearchBar
+        search={search}
+        placeholder="Search notifications"
+        style={styles.searchBar}
+      />
+      <ScreenSearch
+        search={search}
+        placeholder="Search notifications"
+        emptyHint="Search by who sent it, what it says, or how long ago."
+      />
+
       <AnimatedSectionList
         sections={sections}
         keyExtractor={(item) => item.id}
@@ -367,6 +452,10 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     minHeight: 44,
   },
+  // Sits above the list, inside the screen's own padding. It does not scroll
+  // away: search is how you find something in a long inbox, and hiding it
+  // behind a scroll-to-top means scrolling the thing you cannot navigate.
+  searchBar: { paddingHorizontal: 16, paddingBottom: 8 },
   unreadSlot: { width: 22, alignItems: "center" },
   unreadDot: { width: 8, height: 8, borderRadius: 4 },
   iconTile: {

@@ -31,7 +31,6 @@ import TripListener from "@/components/TripListener";
 import { useProgramStore } from "@/src/store/useProgramStore";
 import { parseDriverQR, toDriverPayload } from "@/src/utils/qr";
 import { Glass, iosAlert } from "@/components/ios";
-import { text } from "node:stream/consumers";
 
 
 export interface HomeTabProps {

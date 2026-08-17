@@ -22,6 +22,10 @@ import {
   StyleSheet,
   Keyboard,
   type TextInputProps,
+  type StyleProp,
+  type ViewStyle,
+  type TextStyle,
+  Dimensions,
 } from "react-native";
 import { SymbolView } from "expo-symbols";
 import Animated, {
@@ -36,6 +40,11 @@ import Animated, {
 import { haptics } from "@/src/utils/haptics";
 import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
 import { Glass } from "./Glass";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import { X } from "@hugeicons/core-free-icons";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
 
 const CANCEL_WIDTH = 66;
 const FIELD_HEIGHT = 48;
@@ -65,6 +74,16 @@ export interface IOSSearchBarProps extends Omit<TextInputProps, "style" | "value
    */
   asButton?: boolean;
   onPress?: () => void;
+  /**
+   * Margins and padding for the bar's outer row.
+   *
+   * `style` is Omitted from the inherited TextInputProps because it must not
+   * reach the TextInput — the field's own look is fixed, and letting a caller
+   * restyle it would break the Cancel-button animation that measures against
+   * it. This applies to the ROW instead, which is what callers actually want
+   * when they reach for `style`: where the bar sits on their screen.
+   */
+  style?: StyleProp<ViewStyle>;
 }
 
 export function IOSSearchBar({
@@ -77,6 +96,7 @@ export function IOSSearchBar({
   autoFocusOnMount,
   asButton,
   onPress,
+  style,
   ...inputProps
 }: IOSSearchBarProps) {
   const theme = useIOSTheme();
@@ -143,7 +163,7 @@ export function IOSSearchBar({
   // point is the live field.
   if (asButton) {
     return (
-      <View style={styles.row}>
+      <View style={[styles.row, style]}>
         <Pressable
           style={styles.fieldWrap}
           onPress={() => {
@@ -202,7 +222,7 @@ export function IOSSearchBar({
   }
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, style]}>
       <Animated.View style={[styles.fieldWrap, fieldStyle]}>
         <View style={styles.field}>
           {/* Search fields sit on the control layer, so they take glass. */}
@@ -235,14 +255,21 @@ export function IOSSearchBar({
               clearButtonMode="never"
               autoCorrect={false}
               autoCapitalize="none"
-              style={[
-                IOSFont.body,
-                styles.input,
-                { color: theme.label },
-                // Unfocused and empty, the field is only as wide as its text so
-                // the glass + placeholder can sit centred together.
-                !isActive && !value ? styles.inputCollapsed : styles.inputExpanded,
-              ]}
+              // The cast is TS's limitation, not a real one: `input`,
+              // `inputCollapsed` and `inputExpanded` hold only layout
+              // properties, so StyleSheet.create infers them as ViewStyle and
+              // refuses them here — even though TextStyle extends ViewStyle and
+              // every one of these is valid on a TextInput.
+              style={
+                [
+                  IOSFont.body,
+                  styles.input,
+                  { color: theme.label },
+                  // Unfocused and empty, the field is only as wide as its text
+                  // so the glass + placeholder can sit centred together.
+                  !isActive && !value ? styles.inputCollapsed : styles.inputExpanded,
+                ] as StyleProp<TextStyle>
+              }
               {...inputProps}
             />
 
@@ -265,9 +292,10 @@ export function IOSSearchBar({
         </View>
       </Animated.View>
 
-      <Animated.View style={[styles.cancelWrap, cancelStyle]} pointerEvents={isActive ? "auto" : "none"}>
+      <Animated.View style={[styles.cancelWrap, cancelStyle, {backgroundColor: theme.opaqueSeparator, borderWidth: 1, borderColor: theme.separator}]} pointerEvents={isActive ? "auto" : "none"}>
         <Pressable onPress={cancel} hitSlop={8} accessibilityRole="button">
-          <Text style={[IOSFont.body, { color: theme.tint }]}>Cancel</Text>
+          {/* <Text style={[IOSFont.body, { color: theme.tint }]}>Cancel</Text> */}
+          <HugeiconsIcon icon={X} size={17} color={theme.label}/>
         </Pressable>
       </Animated.View>
     </View>
@@ -276,17 +304,20 @@ export function IOSSearchBar({
 
 const styles = StyleSheet.create({
   row: {
+    flex: 1,
     flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: IOSMetrics.groupedInset,
+    // alignItems: "center",
+    justifyContent: 'space-between',
+    paddingHorizontal: IOSMetrics.groupedInset, 
   },
-  fieldWrap: { flex: 1 },
+  fieldWrap: { flex: 1, borderWidth: 1, borderColor: 'red' },
   field: {
+    flex: 1,
     height: FIELD_HEIGHT,
     borderRadius: FIELD_RADIUS,
-    overflow: "hidden",
-    justifyContent: "center",
-    padding: 10
+    // overflow: "hidden",
+    // justifyContent: "center",
+    padding: 10,
   },
   fieldInner: {
     flexDirection: "row",
@@ -300,10 +331,12 @@ const styles = StyleSheet.create({
   inputCollapsed: { flexGrow: 0, flexShrink: 1, minWidth: 60 },
   inputExpanded: { flex: 1 },
   cancelWrap: {
-    position: "absolute",
-    right: IOSMetrics.groupedInset,
-    width: CANCEL_WIDTH,
-    alignItems: "flex-end",
+    // right: IOSMetrics.groupedInset,
+    // width: CANCEL_WIDTH,
+    padding: 15,
+    alignItems: "center", justifyContent: 'center',
+    borderRadius: FIELD_RADIUS, 
+    
   },
 });
 

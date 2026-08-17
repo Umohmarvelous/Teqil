@@ -53,6 +53,8 @@ import { useMessagesStore } from "@/src/store/useMessagesStore";
 import { useRecentDriverSearches } from "@/src/hooks/useRecentDriverSearches";
 import { haptics } from "@/src/utils/haptics";
 import Avatar from "@/components/Avatar";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import { X } from "@hugeicons/core-free-icons";
 
 /** Matches the expand animation's feel: quick, decelerating, no bounce. */
 const EXPAND = { duration: 340, easing: Easing.bezier(0.2, 0.9, 0.25, 1) };
@@ -319,6 +321,7 @@ export default function DriverSearchScreen() {
       <Animated.View style={[styles.cancel, { top: barTop, height: FIELD_HEIGHT }, cancelStyle]}>
         <Pressable onPress={close} hitSlop={10} accessibilityRole="button">
           <Text style={[IOSFont.body, { color: ios.tint }]}>Cancel</Text>
+          {/* <HugeiconsIcon icon={X} size={17} color={ios.label}/> */}
         </Pressable>
       </Animated.View>
 

@@ -20,7 +20,6 @@ import ProfileTab from "./profile";
 import MessagesTab from "./messages";
 import NotificationsTab from "./notifications";
 import DiscoverTab from "./discover";
-import type { FeedItem } from "./discover";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
   HomeIcon,
@@ -43,12 +42,12 @@ import {
   type IOSTab,
   useIOSTheme,
 } from "@/components/ios";
+import HeaderActions from "@/components/HeaderActions";
 import AccountMenu from "@/components/AccountMenu";
 import { useUnreadNotificationCount } from "@/src/store/useNotificationsStore";
 import Avatar from "@/components/Avatar";
 import { useAuthStore } from "@/src/store/useStore";
 import BottomSheet from "@gorhom/bottom-sheet";
-import { CommentSheet } from "@/components/CommentSheet";
 import MainTab from "./index";
 import SidedBar from "@/components/Sidedbar";
 import FindDriverModal from "@/components/FindDriverModal";
@@ -348,25 +347,6 @@ export default function MainLayout() {
   const sideBorderColor = isDark ? Colors.overlayLight : Colors.overlayLight;
 
 
-  const [commentSheetPost, setCommentSheetPost] = useState<FeedItem | null>(
-    null,
-  );
-  const bottomSheetRef = useRef<BottomSheet>(null);
-  const onAddCommentRef = useRef<
-    ((postId: string, text: string) => void) | null
-  >(null);
-
-  const openCommentSheet = useCallback((post: FeedItem) => {
-    setCommentSheetPost(post);
-    bottomSheetRef.current?.snapToIndex(0);
-  }, []);
-
-  const handleAddComment = useCallback((postId: string, text: string) => {
-    if (onAddCommentRef.current) {
-      onAddCommentRef.current(postId, text);
-    }
-  }, []);
-
   const totalUnread = conversations.reduce(
     (s, c) => s + (c.unread_count ?? c.unreadCount ?? 0),
     0,
@@ -423,13 +403,7 @@ export default function MainLayout() {
           <MainTab insetTop={HEADER_HEIGHT} insetBottom={BOTTOM_HEIGHT} />
         </View>
         <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
-          <DiscoverTab
-            onCommentPress={openCommentSheet}
-            setCommentHandler={(handler: any) => {
-              onAddCommentRef.current = handler;
-            }}
-            scrollY={feedScrollY}
-          />
+          <DiscoverTab scrollY={feedScrollY} />
         </View>
       </Animated.ScrollView>
     );
@@ -557,39 +531,15 @@ export default function MainLayout() {
 
                 <View style={[styles.menuList, { alignItems:'center', justifyContent:'center'}]}>
 
-                  {/* Glass, not a coloured pill. */}
-                  {/* <Glass
-                    variant="regular"
-                    interactive
-                    radius={30}
-                    style={StyleSheet.absoluteFill}
-                    pointerEvents="none"
-                    fallbackIntensity={40}
-                    fallbackTint={isDark ? Colors.overlayLight : Colors.border}
-                  /> */}
-
-                  {/* Bell → the Notifications tab, badged with the same unread
-                      count the tab bar shows. A bell that isn't a button is
-                      decoration, which is all this was. */}
-                  {/* <Pressable
-                    onPress={() => handleTabPress("notifications")}
-                    hitSlop={8}
-                    style={styles.bellBtn}
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      unreadNotifications > 0
-                        ? `Notifications, ${unreadNotifications} unread`
-                        : "Notifications"
-                    }
-                  >
-                    <HugeiconsIcon
-                      icon={unreadNotifications > 0 ? Bell : BellOff}
-                      size={22}
-                      color={textColor}
-                      fill={textColor}
-                    />
-                    <IOSBadge count={unreadNotifications} />
-                  </Pressable> */}
+                  {/* Bell + overflow menu, from the one shared component.
+                      The bell switches tab here rather than pushing a screen,
+                      because Notifications is a tab in this shell. */}
+                  <HeaderActions
+                    onBellPress={() => handleTabPress("notifications")}
+                    onSearchPress={toggleSearch}
+                    tint={textColor}
+                    style={{ marginRight: 8 }}
+                  />
 
                   {/* Avatar → the account menu: other signed-in accounts, add
                       an account, appearance, support, sign out. */}
@@ -680,14 +630,6 @@ export default function MainLayout() {
 
         </View>
       </Animated.View>
-
-      <CommentSheet
-        bottomSheetRef={bottomSheetRef}
-        post={commentSheetPost}
-        isDark={isDark}
-        onClose={() => setCommentSheetPost(null)}
-        onAddComment={handleAddComment}
-      />
 
       <FindDriverModal
         visible={finderVisible}

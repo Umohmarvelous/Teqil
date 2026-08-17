@@ -72,10 +72,10 @@ import {
   BellOff, // ← new: Driver ID tab icon
 } from '@hugeicons/core-free-icons';
 import { StatusBar }  from 'expo-status-bar';
-import Swipeable      from 'react-native-gesture-handler/Swipeable';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase }   from '@/src/services/supabase';
-import { Glass, iosAlert, IOSSearchBar, NetworkStatus, useIOSTheme } from "@/components/ios";
+import { Glass, iosAlert, IOSSearchBar, NetworkStatus, SwipeableRow, useIOSTheme } from "@/components/ios";
+import { getContactPhone, formatNgPhone } from '@/src/services/contact';
 import { SymbolView } from 'expo-symbols';
 // Voice notes run on expo-audio.
 //
@@ -99,11 +99,36 @@ import {
 
 // ─── Helpers ───────── ──────────── ──────────── ─────────── ─────────── ───────────
 
-function normaliseDriverId(raw: string): string {
-  const upper = raw.trim().toUpperCase().replace(/\s+/g, '-');
-  if (upper.startsWith('DRV-')) return upper;
-  if (upper.startsWith('DRV'))  return `DRV-${upper.slice(3)}`;
-  return `DRV-${upper}`;
+/**
+ * Dials a chat contact.
+ *
+ * The number is fetched at press time rather than carried on the conversation:
+ * `get_contact_phone` re-checks that the two of you still share a conversation,
+ * that they still allow sharing, and that neither has blocked the other. A
+ * number cached at conversation-creation time would outlive all three.
+ */
+async function placeCall(userId: string | undefined, name?: string) {
+  if (!userId || userId.startsWith('invalid_')) {
+    iosAlert('No phone number', 'This contact has no number on record.');
+    return;
+  }
+  const phone = await getContactPhone(userId);
+  if (!phone) {
+    iosAlert(
+      'Number not available',
+      `${name || 'This person'} has not shared a phone number. You can still message them here.`,
+    );
+    return;
+  }
+  const url = `tel:${phone}`;
+  const ok = await Linking.canOpenURL(url).catch(() => false);
+  // The simulator has no dialler, and a device with calling disabled will refuse
+  // too. Saying so beats a button that appears to do nothing.
+  if (!ok) {
+    iosAlert('Cannot place calls', `This device cannot dial ${formatNgPhone(phone)}.`);
+    return;
+  }
+  Linking.openURL(url);
 }
 
 // ─── Contact Info Modal (unchanged) ──────────────────────────────────────────
@@ -116,11 +141,7 @@ function ContactInfoModal({
   const subTextColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
   const cardBg    = isDark ? Colors.primaryDarker : '#FFFFFF';
 
-  const call = () => {
-    const phone = conversation.participant_phone;
-    if (!phone) { iosAlert('No phone number', 'This driver has no phone number on record.'); return; }
-    Linking.openURL(`tel:${phone.replace(/\s/g, '')}`);
-  };
+  const call = () => placeCall(conversation.participant_id, conversation.participant_name);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -239,21 +260,14 @@ export function MessageBubble({
     : '';
 
   return (
-    <Swipeable
-      renderRightActions={() => (
-        <View style={S.swipeActions}>
-          <Pressable onPress={onReply}  style={[S.swipeAction, { backgroundColor: Colors.gold }]}>
-            <HugeiconsIcon icon={Reply}      size={18} color="#fff" />
-          </Pressable>
-          <Pressable onPress={onCopy}   style={[S.swipeAction, { backgroundColor: Colors.primary }]}>
-            <HugeiconsIcon icon={Copy01Icon} size={18} color="#fff" />
-          </Pressable>
-          <Pressable onPress={onDelete} style={[S.swipeAction, { backgroundColor: Colors.error }]}>
-            <HugeiconsIcon icon={Delete01Icon} size={18} color="#fff" />
-          </Pressable>
-        </View>
-      )}
-      overshootRight={false}
+    <SwipeableRow
+      actions={[
+        { key: 'reply', label: 'Reply', symbol: 'arrowshape.turn.up.left.fill', color: Colors.gold, onPress: onReply },
+        { key: 'copy',  label: 'Copy',  symbol: 'doc.on.doc.fill',              color: Colors.primary, onPress: onCopy },
+        // Destructive last, so it sits against the screen edge and a full
+        // swipe grows out of it.
+        { key: 'delete', label: 'Delete', symbol: 'trash.fill', color: Colors.error, onPress: onDelete, destructive: true },
+      ]}
     >
       <View style={[S.bubbleWrap, isMe ? S.bubbleWrapMe : S.bubbleWrapThem]}>
         <View style={[
@@ -281,7 +295,7 @@ export function MessageBubble({
           </View>
         </View>
       </View>
-    </Swipeable>
+    </SwipeableRow>
   );
 }
 
@@ -424,11 +438,7 @@ export function ChatScreen({
     } catch {}
   };
 
-  const handleCall = () => {
-    const phone = conversation.participant_phone;
-    if (!phone) { iosAlert('No phone', 'This driver has no phone number on record.'); return; }
-    Linking.openURL(`tel:${phone.replace(/\s/g, '')}`);
-  };
+  const handleCall = () => placeCall(conversation.participant_id, conversation.participant_name);
 
   const handleReply = (m: Message) => {
     if (!m.text) return;
@@ -640,7 +650,19 @@ function NewChatModal({
 
   const reset = () => { setResult(null); setStatus('idle'); setDriverError(''); };
 
-  // ── Trip-code search (original logic, unchanged) ──────────────────────────
+  // ── Driver / passenger lookup ─────────────────────────────────────────────
+  //
+  // This used to run three `select(...)` queries against `public.users` — by
+  // driver_id, by id, then a wildcard `ilike` — each of them pulling `phone`.
+  // Two things were wrong with that. It reads a column the app has no business
+  // reading in bulk (see migration_contact_phone.sql), and it only worked at all
+  // because `users` was not yet locked down; the same code returns nothing once
+  // it is.
+  //
+  // `find_user_for_chat` is the RPC that already exists for exactly this. It
+  // matches a driver ID, a username, a full name or a raw UUID in one round
+  // trip, runs SECURITY DEFINER so it works under RLS, and returns only the
+  // fields a chat header needs — no phone number.
   const handleTripSearch = async () => {
     const raw = query.trim();
     if (!raw || !user?.id) return;
@@ -649,33 +671,15 @@ function NewChatModal({
 
     let found: DriverRecord | null = null;
     try {
-      const normalised = normaliseDriverId(raw);
-      const { data: s1 } = await supabase
-        .from('users')
-        .select('id, full_name, phone, driver_id, vehicle_details, park_name, role')
-        .eq('driver_id', normalised).maybeSingle();
-      if (s1 && (!s1.role || s1.role === 'driver')) found = s1 as DriverRecord;
-
-      if (!found) {
-        const { data: s2 } = await supabase
-          .from('users')
-          .select('id, full_name, phone, driver_id, vehicle_details, park_name, role')
-          .eq('id', raw).maybeSingle();
-        if (s2) {
-          if (user.role === 'driver' || !s2.role || s2.role === 'driver') found = s2 as DriverRecord;
-        }
-      }
-
-      if (!found) {
-        const suffix = raw.replace(/^DRV-?/i, '');
-        const { data: s3 } = await supabase
-          .from('users')
-          .select('id, full_name, phone, driver_id, vehicle_details, park_name, role')
-          .ilike('driver_id', `%${suffix}%`).maybeSingle();
-        if (s3 && (!s3.role || s3.role === 'driver')) found = s3 as DriverRecord;
-      }
+      // Raw input, not `normaliseDriverId(raw)`: the RPC does its own driver-ID
+      // normalisation *and* matches usernames, so forcing a "DRV-" prefix here
+      // would turn every username lookup into a guaranteed miss.
+      const { data, error } = await supabase.rpc('find_user_for_chat', { p_handle: raw });
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row?.id) found = row as DriverRecord;
     } catch (err: any) {
-      console.warn('[Messages] trip search error:', err?.message ?? err);
+      console.warn('[Messages] chat lookup error:', err?.message ?? err);
     }
 
     if (found) { setResult(found); setStatus('found'); }
@@ -699,7 +703,9 @@ function NewChatModal({
       participant_driver_id: result.driver_id   ?? undefined,
       participant_vehicle:   result.vehicle_details ?? undefined,
       participant_park_name: result.park_name   ?? undefined,
-      participant_phone:     result.phone       ?? undefined,
+      // No phone here on purpose — the Call button resolves it on demand via
+      // `get_contact_phone`, so turning sharing off takes effect immediately
+      // rather than surviving in a cached conversation record.
       last_message:          '',
       last_message_at:       new Date().toISOString(),
       unread_count:          0,
@@ -926,12 +932,27 @@ function ConvItem({
   const isDirectChat = item.id.startsWith('direct_');
 
   return (
-    <Swipeable
-      renderRightActions={() => (
-        <Pressable style={[S.deleteSwipe, { backgroundColor: Colors.error }]} onPress={onDelete}>
-          <HugeiconsIcon icon={Delete01Icon} size={22} color="#fff" />
-        </Pressable>
-      )}
+    <SwipeableRow
+      actions={[
+        {
+          key: 'delete',
+          label: 'Delete',
+          symbol: 'trash.fill',
+          color: Colors.error,
+          destructive: true,
+          // Deleting a conversation destroys its whole history and cannot be
+          // undone, so a full swipe asks first. The old row deleted outright.
+          onPress: () =>
+            iosAlert(
+              `Delete chat with ${item.participant_name || 'this contact'}?`,
+              'The messages in this conversation will be removed from this device.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete', style: 'destructive', onPress: onDelete },
+              ],
+            ),
+        },
+      ]}
     >
       <Pressable
         style={({ pressed }) => [
@@ -973,7 +994,7 @@ function ConvItem({
           )}
         </View>
       </Pressable>
-    </Swipeable>
+    </SwipeableRow>
   );
 }
 
@@ -1072,7 +1093,6 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
         participant_name:      conv.participant_name,
         participant_role:      conv.participant_role,
         participant_driver_id: conv.participant_driver_id ?? null,
-        participant_phone:     conv.participant_phone     ?? null,
         participant_vehicle:   conv.participant_vehicle   ?? null,
         passenger_id:          user.id,
         passenger_name:        user.full_name || 'Passenger',
@@ -1118,9 +1138,9 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
       <GestureHandlerRootView style={[S.root, { backgroundColor: 'transparent', paddingTop: topPad,  }]}>
         <StatusBar style={isDark ? 'light' : 'dark'} animated />
 
-        <View style={[S.header, {borderBottomWidth: 1, borderBottomColor: border,}]}>
+        <View style={[S.header]}>
   
-          <View style={[ {backgroundColor: 'transparent', justifyContent: 'space-between', gap: 30 }]}>
+          <View style={[ {backgroundColor: 'transparent', justifyContent: 'space-between', gap: 10 }]}>
 
             <View style={[S.menuList]}>
               <Pressable style={[S.newBtn, {backgroundColor: isDark ? Colors.overlay : Colors.border}]} onPress={() => setNewChatVisible(true)}>
@@ -1310,16 +1330,16 @@ const S = StyleSheet.create({
   backdrop: { flex: 1 },
   handle:  { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(154,154,154,0.3)', alignSelf: 'center', marginBottom: 4 },
 
-  header:{ flexDirection: 'column',  justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 14 },
+  header:{ flexDirection: 'column',  justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 14, },
   headerTitle: { fontFamily: 'Poppins_700Bold', fontSize: 24 },
-  newBtn: { width: 40, height: 40, borderRadius: 50, alignItems: 'center', justifyContent: 'center',  },
+  newBtn: { width: 40, height: 40, borderRadius: 50, alignItems: 'center', justifyContent: 'center' },
 
   menuList: {
     padding: 3,
     flexDirection: "row",
     alignItems: "center", 
     justifyContent: 'space-between',
-    gap: 15,
+    gap:15,
   },
 
   menuListContent: {
@@ -1328,7 +1348,7 @@ const S = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 20,
-    paddingLeft: 12
+    paddingLeft: 12,
   },
 
   // menuListContent: {

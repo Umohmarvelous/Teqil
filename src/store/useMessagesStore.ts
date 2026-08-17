@@ -38,7 +38,6 @@ export interface Conversation {
   participant_vehicle?: string;
   participant_park_name?: string;
   participant_username?: string;
-  participant_phone?: string;
   last_message: string;
   last_message_at: string;
   unread_count: number;
@@ -82,6 +81,12 @@ interface MessagesState {
   typingUsers: Record<string, boolean>;
   realtimeSubscription: any;
   onlineUsers: Set<string>;
+  /**
+   * Which side the signed-in user is on. Recorded by `loadConversations` so
+   * that a realtime handler can reload the list without having to guess —
+   * guessing wrong shows a driver their inbox as if they were a passenger.
+   */
+  viewerRole: 'driver' | 'passenger' | null;
 
   addConversation:     (conv: Conversation) => Promise<void>;
   updateConversation:  (id: string, updates: Partial<Conversation>) => void;
@@ -152,7 +157,9 @@ function conversationForViewer(row: any, viewerId: string): Conversation {
     participant_driver_id: viewerIsParticipant ? undefined : row.participant_driver_id,
     participant_vehicle:   viewerIsParticipant ? undefined : row.participant_vehicle,
     participant_park_name: viewerIsParticipant ? undefined : row.participant_park_name,
-    participant_phone:     row.participant_phone,
+    // No phone here. A number cached on a conversation outlives the consent
+    // that produced it; the Call button asks `get_contact_phone` at press time
+    // instead. See src/services/contact.ts.
     last_message:    row.last_message    || '',
     last_message_at: row.last_message_at || new Date().toISOString(),
     unread_count:    row.unread_count    || 0,
@@ -183,6 +190,7 @@ export const useMessagesStore = create<MessagesState>()(
       typingUsers:          {},
       realtimeSubscription: null,
       onlineUsers:          new Set(),
+      viewerRole:           null,
 
       // ── All original actions — UNCHANGED ────────────────────────────────────
 
@@ -196,7 +204,6 @@ export const useMessagesStore = create<MessagesState>()(
           participant_driver_id: conv.participantDriverId  || conv.participant_driver_id,
           participant_vehicle:   conv.participantVehicle   || conv.participant_vehicle,
           participant_park_name: conv.participantParkName  || conv.participant_park_name,
-          participant_phone:     conv.participant_phone,
           last_message:          conv.lastMessage          || conv.last_message      || '',
           last_message_at:       conv.lastMessageAt        || conv.last_message_at   || new Date().toISOString(),
           unread_count:          conv.unreadCount          || conv.unread_count      || 0,
@@ -390,8 +397,20 @@ export const useMessagesStore = create<MessagesState>()(
             async (payload) => {
               const msg = normalizeMessage(payload.new);
               if (msg.sender_id === userId) return;
-              const conv = get().conversations.find((c) => c.id === msg.conversation_id);
-              if (!conv) return;
+
+              // The FIRST message of a new conversation arrives before that
+              // conversation exists locally, and the old code returned here —
+              // which is why a chat someone else started only ever appeared
+              // after a manual refresh. Pull the conversation list, then carry
+              // on and deliver the message.
+              let conv = get().conversations.find((c) => c.id === msg.conversation_id);
+              if (!conv) {
+                await get().loadConversations(userId, get().viewerRole ?? 'passenger');
+                conv = get().conversations.find((c) => c.id === msg.conversation_id);
+                // Still nothing means the row genuinely is not ours to see.
+                if (!conv) return;
+              }
+
               get().addMessageLocal(msg);
               try {
                 const N = await import('expo-notifications');
@@ -433,6 +452,7 @@ export const useMessagesStore = create<MessagesState>()(
       },
 
       loadConversations: async (userId, role) => {
+        set({ viewerRole: role });
         try {
           // RLS now restricts this to conversations the caller is in, so the
           // client-side filter is belt and braces rather than the access rule.
@@ -506,7 +526,6 @@ export const useMessagesStore = create<MessagesState>()(
           participant_role:      'driver',
           participant_driver_id: driverData?.driver_id,
           participant_photo:     driverData?.profile_photo,
-          participant_phone:     driverData?.phone,
           last_message:          '',
           last_message_at:       new Date().toISOString(),
           unread_count:          0,
@@ -519,7 +538,6 @@ export const useMessagesStore = create<MessagesState>()(
             participant_role:      'driver',
             participant_driver_id: newConv.participant_driver_id,
             participant_photo:     newConv.participant_photo,
-            participant_phone:     newConv.participant_phone,
             passenger_id:          passengerId,
             passenger_name:        passengerData?.full_name || 'Passenger',
             last_message:          '',
@@ -601,7 +619,6 @@ export const useMessagesStore = create<MessagesState>()(
           // in-chat Call button has no number for a direct chat. Exposing phone
           // numbers to anyone who can resolve a handle is a privacy decision,
           // not an oversight — it needs a deliberate change to that RPC.
-          participant_phone:     driver.phone           ?? undefined,
           last_message:          '',
           last_message_at:       new Date().toISOString(),
           unread_count:          0,

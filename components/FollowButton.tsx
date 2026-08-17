@@ -15,6 +15,7 @@ import { Text, StyleSheet, Pressable, ActivityIndicator, type ViewStyle, type St
 import { Glass, useIOSTheme, IOSAppFont } from "@/components/ios";
 import { haptics } from "@/src/utils/haptics";
 import { useFollowsStore } from "@/src/store/useFollowsStore";
+import { useFeedStore } from "@/src/store/useFeedStore";
 import { useAuthStore } from "@/src/store/useStore";
 
 export interface FollowButtonProps {
@@ -59,7 +60,13 @@ export default function FollowButton({
     <Pressable
       onPress={() => {
         haptics.tap();
-        void toggleFollow(userId);
+        // Every post already in memory by this author has to agree with the
+        // button that was just tapped. Without this, following someone from
+        // their profile leaves their posts in the timeline still offering
+        // "Follow" until the next refetch.
+        void toggleFollow(userId).then((ok) => {
+          if (ok) useFeedStore.getState().applyFollow(userId, !following);
+        });
       }}
       disabled={pending}
       style={[

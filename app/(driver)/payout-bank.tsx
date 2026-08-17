@@ -29,7 +29,7 @@ import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { resolveBankAccount } from "@/src/services/paystack";
 import { syncUserToPublicTable } from "@/src/services/auth";
 import { Glass, iosAlert } from "@/components/ios";
-import { text } from "node:stream/consumers";
+import { ALLOW_UNVERIFIED_PAYOUT_ACCOUNT } from "@/constants/devFlags";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { Tick02Icon } from "@hugeicons/core-free-icons";
 
@@ -60,8 +60,13 @@ export default function PayoutBankScreen() {
   const bg = isDark ? Colors.background : Colors.textWhite;
   const subColor = isDark ? Colors.text : Colors.textWhite;
 
+  // With the flag on, the driver types the account name themselves, so the save
+  // button waits on a typed name rather than a verified one.
   const canResolve = !!bankCode && accountNumber.trim().length === 10 && !resolving;
-  const canSave = !!resolvedName && !saving;
+  const canSave =
+    !!resolvedName.trim() &&
+    !saving &&
+    (!ALLOW_UNVERIFIED_PAYOUT_ACCOUNT || accountNumber.trim().length === 10);
 
   const handleResolve = async () => {
     setError(null);
@@ -73,7 +78,13 @@ export default function PayoutBankScreen() {
         setResolvedName(res.account_name);
       } else {
         setResolvedName("");
-        setError("Couldn't verify that account • Check the number and bank.");
+        // Two different failures deserve two different messages: a rejected
+        // account is the driver's to fix, an unconfigured server is ours.
+        setError(
+          res.reason === "unconfigured"
+            ? "Account verification is not available yet • Ask support to finish Paystack setup."
+            : "Couldn't verify that account • Check the number and bank.",
+        );
       }
     } catch {
       setError("Verification failed • Please try again.");
@@ -128,9 +139,24 @@ export default function PayoutBankScreen() {
           showsVerticalScrollIndicator={false}
         >
           <Text style={[styles.lede, { color: subColor }]}>
-            Add the bank account where you&apos;ll receive fare payments. We verify the
-            account name before saving.
+            {ALLOW_UNVERIFIED_PAYOUT_ACCOUNT
+              ? "Add the bank account where you'll receive fare payments."
+              : "Add the bank account where you'll receive fare payments. We verify the account name before saving."}
           </Text>
+
+          {/* Loud on purpose. An unverified payout account looks identical to a
+              verified one once saved, and the difference is where the money
+              goes — so the screen says so while it is true. */}
+          {ALLOW_UNVERIFIED_PAYOUT_ACCOUNT && (
+            <View style={styles.testBanner}>
+              <Ionicons name="warning" size={16} color="#7A4B00" />
+              <Text style={styles.testBannerText}>
+                TEST MODE — account name is not being verified. Payouts to a wrong number will
+                fail. Set ALLOW_UNVERIFIED_PAYOUT_ACCOUNT to false in constants/devFlags.ts before
+                release.
+              </Text>
+            </View>
+          )}
 
           <View style={[styles.card, { backgroundColor: cardBg }]}>
             <Text style={[styles.label, { color: textColor }]}>Bank</Text>
@@ -167,6 +193,23 @@ export default function PayoutBankScreen() {
 
             {error && <Text style={styles.errorText}>{error}</Text>}
 
+            {/* Test mode: the name is typed, not verified. */}
+            {ALLOW_UNVERIFIED_PAYOUT_ACCOUNT && (
+              <>
+                <Text style={[styles.label, { color: textColor }]}>Account name</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    { color: textColor, backgroundColor: isDark ? "rgba(255,255,255,0.05)" : Colors.border },
+                  ]}
+                  value={resolvedName}
+                  onChangeText={setResolvedName}
+                  placeholder="Name exactly as it appears at the bank"
+                  placeholderTextColor={isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)"}
+                  autoCapitalize="words"
+                />
+              </>
+            )}
 
             <View style={{ height: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
               <View style={{ flex: 1 }}>
@@ -179,7 +222,9 @@ export default function PayoutBankScreen() {
                   fallbackIntensity={40}
                   fallbackTint={textColor}
                 />
-                {!resolvedName ? (
+                {/* The Verify button is the whole point of the flag, so it goes
+                    away entirely rather than sitting there doing nothing. */}
+                {ALLOW_UNVERIFIED_PAYOUT_ACCOUNT ? null : !resolvedName ? (
                   <Pressable
                     style={[styles.secondaryBtn, {backgroundColor: textColor}, !canResolve && styles.btnDisabled]}
                   onPress={handleResolve}
@@ -284,6 +329,27 @@ const styles = StyleSheet.create({
   resolvedName: { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
   errorText: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "#EF4444",  marginBottom: 15, marginLeft: 4 },
   btnDisabled: { opacity: .3, backgroundColor: Colors.overlayLight },
+
+  // Fixed amber in both themes: a warning that restyles itself to blend in is
+  // not a warning.
+  testBanner: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "flex-start",
+    backgroundColor: "#FFF4D6",
+    borderColor: "#E5A100",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  testBannerText: {
+    flex: 1,
+    fontFamily: "Poppins_500Medium",
+    fontSize: 11,
+    lineHeight: 16,
+    color: "#7A4B00",
+  },
 
   saveBtn: {
     flex:1,

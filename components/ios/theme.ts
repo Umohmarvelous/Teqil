@@ -201,6 +201,27 @@ export const IOSAppFont = {
   screenTitle: { fontFamily: "Poppins_700Bold", fontSize: 24 },
   /** Button labels. */
   button: { fontFamily: "Poppins_500Medium", fontSize: 15 },
+
+  // ── The full ramp, mirroring IOSFont ──────────────────────────────────────
+  //
+  // The six entries above cover settings rows, which is all the kit needed at
+  // first. Content-dense surfaces — the feed, a thread, a post — need the whole
+  // ladder, and the named styles above don't say anything about relative size.
+  //
+  // These carry the same sizes and line heights as the matching IOSFont style,
+  // in Poppins. Line height is copied rather than left to the font because
+  // Poppins' natural leading is looser than San Francisco's, and a post body
+  // set without it drifts noticeably taller than the system equivalent.
+  title1: { fontFamily: "Poppins_700Bold", fontSize: 28, lineHeight: 34 },
+  title2: { fontFamily: "Poppins_700Bold", fontSize: 22, lineHeight: 28 },
+  title3: { fontFamily: "Poppins_600SemiBold", fontSize: 20, lineHeight: 25 },
+  headline: { fontFamily: "Poppins_600SemiBold", fontSize: 17, lineHeight: 22 },
+  body: { fontFamily: "Poppins_400Regular", fontSize: 16, lineHeight: 22 },
+  callout: { fontFamily: "Poppins_400Regular", fontSize: 15, lineHeight: 21 },
+  subheadline: { fontFamily: "Poppins_500Medium", fontSize: 14, lineHeight: 19 },
+  footnote: { fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 18 },
+  caption1: { fontFamily: "Poppins_400Regular", fontSize: 12, lineHeight: 16 },
+  caption2: { fontFamily: "Poppins_400Regular", fontSize: 11, lineHeight: 14 },
 };
 
 export type IOSAppFontStyle = keyof typeof IOSAppFont;

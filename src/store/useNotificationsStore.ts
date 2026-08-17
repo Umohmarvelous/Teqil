@@ -66,6 +66,36 @@ interface NotificationsState {
   clearAll: () => void;
   /** Fold the conversation list into the inbox. Idempotent. */
   ingestConversations: (conversations: any[]) => void;
+  /**
+   * Fold server-side social activity (likes, replies, follows) into the same
+   * inbox. Idempotent, keyed `soc:<row id>`.
+   *
+   * These rows already carry their own read state in the database, so unlike
+   * conversations the server's `read_at` wins — otherwise reading a like on one
+   * device would leave it bold on the other.
+   */
+  ingestSocial: (rows: any[]) => void;
+}
+
+/** Human sentence for one social notification row. */
+function socialLine(kind: string, actor: string, excerpt: string | null): [string, string] {
+  const snippet = excerpt ? `"${excerpt.slice(0, 80)}"` : "your post";
+  switch (kind) {
+    case "like":
+      return [`${actor} liked your post`, snippet];
+    case "reply":
+      return [`${actor} replied to you`, snippet];
+    case "repost":
+      return [`${actor} reposted you`, snippet];
+    case "quote":
+      return [`${actor} quoted your post`, snippet];
+    case "mention":
+      return [`${actor} mentioned you`, snippet];
+    case "follow":
+      return [`${actor} followed you`, "Tap to see their profile"];
+    default:
+      return [actor, snippet];
+  }
 }
 
 /** Cap on stored records. Beyond this the oldest READ ones are pruned first. */
@@ -167,6 +197,53 @@ export const useNotificationsStore = create<NotificationsState>()(
             // Preserve `read` on update: re-ingesting an already-seen
             // conversation must not mark it unread again.
             if (at >= 0) items[at] = { ...items[at], ...n, read: items[at].read };
+            else items.push(n);
+          }
+          return { items: prune(items) };
+        });
+      },
+
+      ingestSocial: (rows) => {
+        const { dismissed } = get();
+        const next: AppNotification[] = [];
+
+        for (const r of rows ?? []) {
+          if (!r?.id || !r?.created_at) continue;
+
+          const id = `soc:${r.id}`;
+          const dismissedAt = dismissed[id];
+          // Unlike a conversation, a social row never gets "newer" — it is a
+          // single event. Once dismissed it stays dismissed, permanently.
+          if (dismissedAt) continue;
+
+          const actor = r.actor_name || (r.actor_username ? `@${r.actor_username}` : "Someone");
+          const [title, body] = socialLine(r.kind, actor, r.post_excerpt);
+
+          next.push({
+            id,
+            kind: "social",
+            title,
+            body,
+            createdAt: r.created_at,
+            read: !!r.read_at,
+            route: r.post_id
+              ? `/post/${r.post_id}`
+              : r.actor_id
+                ? `/follows/${r.actor_id}`
+                : undefined,
+            photoUri: r.actor_photo ?? undefined,
+          });
+        }
+
+        if (next.length === 0) return;
+
+        set((state) => {
+          const items = [...state.items];
+          for (const n of next) {
+            const at = items.findIndex((i) => i.id === n.id);
+            // The server's read state is authoritative here — see the interface
+            // comment. Reading on one device must clear the badge on the other.
+            if (at >= 0) items[at] = { ...items[at], ...n };
             else items.push(n);
           }
           return { items: prune(items) };
