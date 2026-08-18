@@ -60,11 +60,9 @@ import {
   CarIcon,
   BuildingIcon,
   LocationIcon,
-  LogoutIcon,
   AddCircleIcon,
   Close,
   Camera01Icon,
-  QrCode01Icon,
   CheckmarkBadge01Icon,
   Trophy,
   Wallet,
@@ -77,8 +75,6 @@ import {
   Tick02FreeIcons,
   Hospital,
   Search02Icon,
-  BellOff,
-  Logout,
   Logout02Icon,
 } from "@hugeicons/core-free-icons";
 
@@ -132,7 +128,7 @@ import {
   type ProfileSearchItem,
 } from "@/src/data/profileSearchIndex";
 import { triggerSyncNow } from "@/src/services/sync";
-import { SymbolView } from "expo-symbols";
+// import { SymbolView } from "expo-symbols";
 
 // Slide-in "Copied" toast, shared via context so every copy action triggers it.
 const CopyToastContext = React.createContext<() => void>(() => {});
@@ -959,7 +955,7 @@ export default function ProfileTab() {
           </View> */}
 
 
-            <View style={[styles.menuListContent, {backgroundColor: Colors.overlay,  alignItems:'center', justifyContent:'center'}]}>
+            <View style={[styles.menuListContent, {backgroundColor: Colors.overlay,  alignItems:'center', borderWidth: 1, borderColor: ios.opaqueSeparator, justifyContent:'center'}]}>
 
                 {/* Glass, not a coloured pill. */}
                 <Glass
@@ -1201,15 +1197,15 @@ export default function ProfileTab() {
 
 
                 {user?.role === "driver" ? (
-                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderWidth: 1, borderColor: borderColor }]}>
+                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderWidth: 1, borderColor: ios.opaqueSeparator }]}>
                     <DriverDashboard />
                   </View>
                 ) : user?.role === "passenger" ? (
-                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderWidth: 1, borderColor: borderColor }]}>
+                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderWidth: 1, borderColor: ios.opaqueSeparator }]}>
                     <PassengerDashboard />
                   </View>
                 ) : (
-                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderWidth: 1, borderColor: borderColor }]}>
+                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderWidth: 1, borderColor: ios.opaqueSeparator }]}>
                     <BalanceCard coins={totalEarnedCoins} onQuickTransferPress={() => {}} />
                   </View>
                 )}
@@ -1554,7 +1550,7 @@ export default function ProfileTab() {
           }}
           query={profileQuery}
           onChangeQuery={setProfileQuery}
-          placeholder="Search settings, details and activity"
+          placeholder="Search"
           filters={filters}
           activeFilter={searchFilter}
           onChangeFilter={setSearchFilter}
@@ -1654,8 +1650,8 @@ const styles = StyleSheet.create({
     padding: 8,
     flexDirection: "row",
     alignItems: "center",
-    gap: 20,
-    paddingLeft: 12, zIndex: 20
+    gap: 22,
+    zIndex: 20
   },
 
 
@@ -1757,11 +1753,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: CARD_RADIUS,
     marginBottom: 12,
-    // shadowColor: "#000",
-    // shadowOffset: { width: 1, height: 1 },
-    // shadowOpacity: 0.04,
-    // shadowRadius: 0,
-    // elevation: 2,
+
   },
   statsCard: { marginBottom: 12 },
   statsStrip: {

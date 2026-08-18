@@ -243,19 +243,20 @@ function ResultRow({ item, onPress }: { item: IOSSearchResult; onPress: () => vo
       accessibilityRole="button"
       accessibilityLabel={item.subtitle ? `${item.title}. ${item.subtitle}` : item.title}
     >
-      <View style={styles.tile}>
+      <View style={[styles.tile]}>
         <Glass
           variant="clear"
           radius={11}
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
           fallbackIntensity={25}
-          fallbackTint={theme.tertiarySystemFill}
+          fallbackTint={theme.secondarySystemBackground}
+          // fallbackTint={theme.systemBackground}
         />
         <SymbolView
           name={(item.symbol ?? "magnifyingglass") as SymbolViewProps["name"]}
-          size={18}
-          tintColor={theme.tint}
+          size={19}
+          tintColor={theme.label}
           fallback={null}
         />
       </View>
@@ -316,7 +317,7 @@ function IdleState({
             </Text>
             {onClearRecents && (
               <Pressable onPress={onClearRecents} hitSlop={10}>
-                <Text style={[IOSAppFont.description, { color: theme.tint }]}>Clear</Text>
+                <Text style={[IOSAppFont.label, { color: theme.tint }]}>Clear all</Text>
               </Pressable>
             )}
           </View>
@@ -331,17 +332,10 @@ function IdleState({
               ]}
             >
               <View style={styles.tile}>
-                <Glass
-                  variant="clear"
-                  radius={11}
-                  style={StyleSheet.absoluteFill}
-                  pointerEvents="none"
-                  fallbackIntensity={25}
-                  fallbackTint={theme.tertiarySystemFill}
-                />
+
                 <SymbolView
                   name="clock.arrow.circlepath"
-                  size={18}
+                  size={20}
                   tintColor={theme.secondaryLabel}
                   fallback={null}
                 />
@@ -354,7 +348,8 @@ function IdleState({
         </>
       )}
 
-      {!!suggestions?.length && (
+      {/* {!!suggestions?.length && ( */}
+      {suggestions?.length && (
         <>
           <Text
             style={[

@@ -57,7 +57,7 @@ export function IOSFilterChips<T extends string = string>({
   style,
 }: IOSFilterChipsProps<T>) {
   const theme = useIOSTheme();
-  const accent = tint ?? theme.tint;
+  const accent = tint ?? theme.systemGray2;
 
   return (
     <ScrollView
@@ -79,7 +79,7 @@ export function IOSFilterChips<T extends string = string>({
               haptics.tap();
               onChange(chip.key);
             }}
-            style={styles.chip}
+            style={[styles.chip, {borderWidth: .5, borderColor: theme.opaqueSeparator}]}
             accessibilityRole="button"
             accessibilityState={{ selected: isActive }}
             accessibilityLabel={
@@ -94,7 +94,7 @@ export function IOSFilterChips<T extends string = string>({
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
               fallbackIntensity={isActive ? 60 : 24}
-              fallbackTint={isActive ? accent : theme.tertiarySystemFill}
+              fallbackTint={isActive ? accent : theme.secondarySystemBackground}
             />
 
             <Text

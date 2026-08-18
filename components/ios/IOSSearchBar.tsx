@@ -42,7 +42,7 @@ import { haptics } from "@/src/utils/haptics";
 import { useIOSTheme, IOSFont, IOSMetrics } from "./theme";
 import { Glass } from "./Glass";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { X } from "@hugeicons/core-free-icons";
+import { Search02Icon, X } from "@hugeicons/core-free-icons";
 
 
 
@@ -173,7 +173,7 @@ export function IOSSearchBar({
           accessibilityRole="search"
           accessibilityLabel={placeholder}
         >
-          <View style={styles.field}>
+          <View style={[styles.field, {}]}>
             <Glass
               variant="regular"
               radius={FIELD_RADIUS}
@@ -183,19 +183,17 @@ export function IOSSearchBar({
               fallbackTint={theme.tertiarySystemFill}
             />
             <View style={styles.fieldInner}>
-              <SymbolView
-                name="magnifyingglass"
-                size={21}
-                // tintColor={theme.secondaryLabel}
-                tintColor={theme.secondaryLabel}
-                fallback={null}
+              <HugeiconsIcon
+                icon={Search02Icon}
+                size={18}
+                color={theme.secondaryLabel}
               />
               <Text
                 numberOfLines={1}
                 style={[
                   IOSFont.body,
                   styles.buttonLabel,
-                  { color: value ? theme.label : theme.secondaryLabel ,fontWeight: '500'},
+                  { color: value ? theme.label : theme.secondaryLabel},
                 ]}
               >
                 {value || placeholder}
@@ -225,7 +223,7 @@ export function IOSSearchBar({
   return (
     <View style={[styles.row, style]}>
       <Animated.View style={[styles.fieldWrap, fieldStyle]}>
-        <View style={styles.field}>
+        <View style={[styles.field, {borderWidth: 1, borderColor: theme.opaqueSeparator}]}>
           {/* Search fields sit on the control layer, so they take glass. */}
           <Glass
             variant="regular"
@@ -237,13 +235,12 @@ export function IOSSearchBar({
           />
 
           <Animated.View style={[styles.fieldInner, contentStyle]}>
-            <SymbolView
-              name="magnifyingglass"
-              size={20}
-              tintColor={theme.secondaryLabel}
-              fallback={null}
+            <HugeiconsIcon
+              icon={Search02Icon}
+              size={18}
+              color={theme.secondaryLabel}
             />
-
+                
             <TextInput
               ref={inputRef}
               value={value}
@@ -307,12 +304,12 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: IOSMetrics.groupedInset, 
-    
   },
   fieldWrap: { flex: 1, borderRadius: FIELD_RADIUS  },
   field: {
+    // flex:1,
     height: FIELD_HEIGHT,
     borderRadius: FIELD_RADIUS,
     overflow: "hidden",
@@ -322,11 +319,11 @@ const styles = StyleSheet.create({
   fieldInner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 7,
     paddingHorizontal: 8,
     height: "100%"
   },
-  input: { padding: 0, height: "100%"  },
+  input: { flex: 1, padding: 0, height: "100%", fontWeight: '500'  },
   buttonLabel: { flex: 1 },
   inputCollapsed: { flexGrow: 0, flexShrink: 1, minWidth: 60 },
   inputExpanded: { flex: 1 },

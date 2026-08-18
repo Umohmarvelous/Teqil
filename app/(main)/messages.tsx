@@ -148,7 +148,7 @@ function ContactInfoModal({
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1, justifyContent: 'flex-end' }}>
         <Pressable style={S.backdrop} onPress={onClose} />
-        <View style={[S.infoSheet, { backgroundColor: cardBg }]}>
+        <View style={[S.infoSheet, { backgroundColor: theme.systemGray }]}>
           <View style={S.handle} />
           <View style={S.infoHeader}>
             <Text style={[S.infoTitle, { color: textColor }]}>Contact Info</Text>
@@ -156,12 +156,12 @@ function ContactInfoModal({
               <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={textColor} />
             </Pressable>
           </View>
-          <View style={S.infoAvatarRow}>
+          <View style={[S.infoAvatarRow]}>
             <Avatar name={conversation.participant_name || 'Driver'} size={72} />
             <Text style={[S.infoName, { color: textColor }]}>{conversation.participant_name}</Text>
             <Text style={[S.infoSub,  { color: Colors.primary }]}>{conversation.participant_driver_id}</Text>
             {conversation.participant_vehicle
-              ? <Text style={[S.infoSub, { color: subTextColor }]}>🚗 {conversation.participant_vehicle}</Text>
+              ? <Text style={[S.infoSub, { color: subTextColor }]}> {conversation.participant_vehicle}</Text>
               : null}
           </View>
           <View style={S.infoActions}>
@@ -339,6 +339,13 @@ export function ChatScreen({
   const border    = isDark ? 'rgba(255,255,255,0.08)' : '#E8ECF0';
   const inputBg   = isDark ? '#1C2921' : '#F0F0F0';
   const topPad    = Platform.OS === 'web' ? 67 : insets.top;
+  // Height of the floating header. The list runs under it and is pushed clear
+  // with a content inset, which is what lets the glass sample real content.
+  const chromeTop = topPad + 62;
+  // Banners float below the header rather than sitting in flow, so they do not
+  // shove the list out from under the glass. Their height is measured because
+  // it depends on how the warning text wraps.
+  const [bannerH, setBannerH] = useState(0);
 
   const messages    = allMessages[conversation.id] || [];
   const otherTyping = typingUsers[conversation.id] || false;
@@ -480,8 +487,21 @@ export function ChatScreen({
     >
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
-      {/* Header */}
-      <View style={[S.chatHeader, { backgroundColor: cardBg, borderBottomColor: border, paddingTop: topPad + 12 }]}>
+      {/* Header.
+          Glass, like every other bar in the app — this was a flat opaque strip,
+          which is why the chat screen read as belonging to a different app than
+          the one around it. The material is on an absolutely-positioned layer
+          behind the row so the row's own children keep their colours, and the
+          list scrolls UNDER it rather than being padded away from it (padding
+          the frame leaves the glass nothing to sample and it renders flat). */}
+      <View style={[S.chatHeader, { borderBottomColor: border, paddingTop: topPad + 12, height: topPad + 62 }]}>
+        <Glass
+          variant="regular"
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+          fallbackIntensity={60}
+          fallbackTint={cardBg}
+        />
         <Pressable onPress={() => { onBack(); router.back(); }} style={S.chatBack} hitSlop={8}>
           <HugeiconsIcon icon={ArrowLeft01Icon} size={25} color={textColor} />
         </Pressable>
@@ -507,6 +527,11 @@ export function ChatScreen({
         </Pressable>
       </View>
 
+      <View
+        style={[S.bannerStack, { top: chromeTop }]}
+        onLayout={(e) => setBannerH(e.nativeEvent.layout.height)}
+        pointerEvents="box-none"
+      >
       {invalidId && (
         <View style={[S.warnBanner, { backgroundColor: Colors.gold + '22' }]}>
           <Text style={[S.warnText, { color: Colors.gold }]}>
@@ -529,12 +554,13 @@ export function ChatScreen({
           </Pressable>
         </View>
       )}
+      </View>
 
       <FlatList
         ref={listRef}
         data={messages}
         keyExtractor={(m) => m.id}
-        contentContainerStyle={S.messageList}
+        contentContainerStyle={[S.messageList, { paddingTop: chromeTop + bannerH + 8 }]}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
           <MessageBubble
@@ -556,7 +582,14 @@ export function ChatScreen({
         }
       />
 
-      <View style={[S.inputBar, { backgroundColor: cardBg, borderTopColor: border, paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <View style={[S.inputBar, { borderTopColor: border, paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <Glass
+          variant="regular"
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+          fallbackIntensity={60}
+          fallbackTint={cardBg}
+        />
         <TextInput
           style={[S.textInput, { backgroundColor: inputBg, color: textColor }]}
           placeholder="Type a message…"
@@ -1138,12 +1171,10 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
       <GestureHandlerRootView style={[S.root, { backgroundColor: 'transparent', paddingTop: topPad,  }]}>
         <StatusBar style={isDark ? 'light' : 'dark'} animated />
 
-        <View style={[S.header]}>
-  
-          <View style={[ {backgroundColor: 'transparent', justifyContent: 'space-between', gap: 10 }]}>
-
-            <View style={[S.menuList]}>
-              <Pressable style={[S.newBtn, {backgroundColor: isDark ? Colors.overlay : Colors.border}]} onPress={() => setNewChatVisible(true)}>
+        <View style={S.header}>
+          <View style={S.headerInner}>
+            <View style={S.menuList}>
+              <Pressable style={S.newBtn} onPress={() => setNewChatVisible(true)}>
                 <Glass
                   variant="regular"
                   interactive
@@ -1157,27 +1188,6 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
               </Pressable>
 
               <NetworkStatus />
-
-              {/* <View style={[S.menuListContent, {backgroundColor: Colors.overlayLight,  alignItems:'center', alignSelf:'flex-end', justifyContent:'center'}]}>
-                <Glass
-                  variant="regular"
-                  interactive
-                  radius={30}
-                  style={StyleSheet.absoluteFill}
-                  pointerEvents="none"
-                  fallbackIntensity={40}
-                  fallbackTint={themes.tertiarySystemFill}
-                />
-
-                <Pressable style={{  padding: 8, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }} onPress={() => setNewChatVisible(true)}>
-                  <HugeiconsIcon icon={PlusSignIcon} size={23} color={ios.label} />
-                </Pressable>
-        
-                <View style={{  padding: 2, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
-                  <SymbolView name="person.circle.fill" size={36} tintColor={ios.label}  fallback={ios.label} />
-                </View>
-              </View> */}
-
 
               <View style={[S.menuListContent, {backgroundColor: Colors.overlay,  alignItems:'center', justifyContent:'center'}]}>
 
@@ -1330,9 +1340,10 @@ const S = StyleSheet.create({
   backdrop: { flex: 1 },
   handle:  { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(154,154,154,0.3)', alignSelf: 'center', marginBottom: 4 },
 
-  header:{ flexDirection: 'column',  justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 14, },
+  header:      { flexDirection: 'column', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 14 },
+  headerInner: { justifyContent: 'space-between', gap: 10 },
   headerTitle: { fontFamily: 'Poppins_700Bold', fontSize: 24 },
-  newBtn: { width: 40, height: 40, borderRadius: 50, alignItems: 'center', justifyContent: 'center' },
+  newBtn: { width: 40, height: 40, borderRadius: 50, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
 
   menuList: {
     padding: 3,
@@ -1465,7 +1476,11 @@ const S = StyleSheet.create({
   warnBanner: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 16, paddingVertical: 10 },
   warnText:   { fontFamily: 'Poppins_400Regular', fontSize: 12, lineHeight: 18, flex: 1 },
 
-  chatHeader:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, gap: 10, borderBottomWidth: 1 },
+  // Absolute, so messages scroll UNDERNEATH the glass. In flow it had nothing
+  // behind it to sample and the material rendered flat — the exact trap in
+  // CLAUDE.md §4 rule 3. The list is pushed clear with a content inset instead.
+  chatHeader:     { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, gap: 10, borderBottomWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
+  bannerStack:    { position: 'absolute', left: 0, right: 0, zIndex: 15 },
   chatBack:       { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   chatHeaderInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   chatHeaderName: { fontFamily: 'Poppins_600SemiBold', fontSize: 15 },
@@ -1480,7 +1495,7 @@ const S = StyleSheet.create({
   emptyChat:     { alignItems: 'center', justifyContent: 'center', gap: 12, paddingTop: 100 },
   emptyChatText: { fontFamily: 'Poppins_400Regular', fontSize: 14 },
 
-  inputBar:  { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 12, paddingTop: 8, borderTopWidth: 1 },
+  inputBar:  { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 12, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
   textInput: { flex: 1, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 10, fontFamily: 'Poppins_400Regular', fontSize: 14, maxHeight: 120, minHeight: 42 },
   sendBtn:   { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
 
