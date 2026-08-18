@@ -954,7 +954,7 @@ function ConvItem({
   isDark:    boolean;
   textColor: string;
   subTextColor:  string;
-  cardBg:    string;
+  cardBg:    any;
   border:    string;
 }) {
   const timeStr = item.last_message_at
@@ -990,7 +990,7 @@ function ConvItem({
       <Pressable
         style={({ pressed }) => [
           S.convItem,
-          { backgroundColor: cardBg, borderBottomColor: border },
+          { backgroundColor:  'transparent', borderBottomColor: border },
           pressed && { opacity: 0.85 },
         ]}
         onPress={onPress}
@@ -1168,7 +1168,7 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
 
   return (
     <>
-      <GestureHandlerRootView style={[S.root, { backgroundColor: 'transparent', paddingTop: topPad,  }]}>
+      <GestureHandlerRootView style={[S.root, { backgroundColor: theme.systemBackground, paddingTop: topPad,  }]}>
         <StatusBar style={isDark ? 'light' : 'dark'} animated />
 
         <View style={S.header}>
@@ -1267,7 +1267,7 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
               isDark={isDark}
               textColor={textColor}
               subTextColor={subTextColor}
-              cardBg={cardBg}
+              // cardBg={cardBg}
               border={border}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

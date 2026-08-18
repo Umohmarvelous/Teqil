@@ -86,7 +86,7 @@ function BackChevron({ onPress }: { onPress: () => void }) {
       <SymbolView
         name="chevron.backward"
         size={22}
-        tintColor={theme.tint}
+        tintColor={theme.label}
         resizeMode="scaleAspectFit"
         fallback={<View style={{ width: 22, height: 22 }} />}
       />
@@ -117,7 +117,7 @@ export function IOSScreen({
   // ScrollView, or a list the caller wired up.
   const collapsible = scrollable || !!externalScroll;
 
-  const background = grouped ? theme.systemGroupedBackground : theme.systemBackground;
+  const background = grouped ? theme.systemBackground : theme.systemBackground;
 
   return (
     <View style={[styles.root, { backgroundColor: background }]}>
