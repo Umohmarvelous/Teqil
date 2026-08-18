@@ -31,6 +31,7 @@ import TripListener from "@/components/TripListener";
 import { useProgramStore } from "@/src/store/useProgramStore";
 import { parseDriverQR, toDriverPayload } from "@/src/utils/qr";
 import { Glass, iosAlert } from "@/components/ios";
+import { AdFloatingButton } from "@/components/ads/AdFloatingButton";
 
 
 export interface HomeTabProps {
@@ -446,6 +447,10 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
       />
 
       <LocationPromptModal />
+
+      {/* Sits above the tab bar, below any modal. Its own idle animation keeps
+          it noticeable without a banner taking up feed space. */}
+      <AdFloatingButton bottom={112} />
     </View>
   );
 }

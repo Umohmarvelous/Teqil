@@ -175,7 +175,7 @@ export function IOSScreen({
 const PAGE_INSET = 26;
 
 const styles = StyleSheet.create({
-  root: { flex: 1, borderWidth: 1, borderColor: 'red' },
+  root: { flex: 1 },
   body: { flex: 1 },
 });
 

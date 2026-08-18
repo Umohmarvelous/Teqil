@@ -1,17 +1,19 @@
-// components/ios/IOSSearchBar.tsx
-//
-// The iOS search field, with Telegram's focus behaviour layered on top.
-//
-// Resting: a full-width translucent capsule with a centred magnifying glass and
-// placeholder — the standard UISearchBar look.
-//
-// Focused: the glass + placeholder slide left, the field shrinks to make room,
-// and a "Cancel" button slides in from the right. That left-shift is the detail
-// people recognise as "a real iOS search bar" and it's usually the first thing
-// an approximation gets wrong.
-//
-// The material is a real blur, not a flat grey, so it sits correctly over
-// scrolling content the way a system search field does.
+// // components/ios/IOSSearchBar.tsx
+// //
+// // The iOS search field, with Telegram's focus behaviour layered on top.
+// //
+// // Resting: a full-width translucent capsule with a centred magnifying glass and
+// // placeholder — the standard UISearchBar look.
+// //
+// // Focused: the glass + placeholder slide left, the field shrinks to make room,
+// // and a "Cancel" button slides in from the right. That left-shift is the detail
+// // people recognise as "a real iOS search bar" and it's usually the first thing
+// // an approximation gets wrong.
+// //
+// // The material is a real blur, not a flat grey, so it sits correctly over
+// // scrolling content the way a system search field does.
+
+
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -25,7 +27,6 @@ import {
   type StyleProp,
   type ViewStyle,
   type TextStyle,
-  Dimensions,
 } from "react-native";
 import { SymbolView } from "expo-symbols";
 import Animated, {
@@ -43,7 +44,6 @@ import { Glass } from "./Glass";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { X } from "@hugeicons/core-free-icons";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 
 const CANCEL_WIDTH = 66;
@@ -165,7 +165,7 @@ export function IOSSearchBar({
     return (
       <View style={[styles.row, style]}>
         <Pressable
-          style={styles.fieldWrap}
+          style={[styles.fieldWrap, {borderWidth: 1, borderColor: theme.separator}]}
           onPress={() => {
             haptics.tap();
             onPress?.();
@@ -186,6 +186,7 @@ export function IOSSearchBar({
               <SymbolView
                 name="magnifyingglass"
                 size={21}
+                // tintColor={theme.secondaryLabel}
                 tintColor={theme.secondaryLabel}
                 fallback={null}
               />
@@ -295,7 +296,7 @@ export function IOSSearchBar({
       <Animated.View style={[styles.cancelWrap, cancelStyle, {backgroundColor: theme.opaqueSeparator, borderWidth: 1, borderColor: theme.separator}]} pointerEvents={isActive ? "auto" : "none"}>
         <Pressable onPress={cancel} hitSlop={8} accessibilityRole="button">
           {/* <Text style={[IOSFont.body, { color: theme.tint }]}>Cancel</Text> */}
-          <HugeiconsIcon icon={X} size={17} color={theme.label}/>
+          <HugeiconsIcon icon={X} size={19} color={theme.label}/>
         </Pressable>
       </Animated.View>
     </View>
@@ -304,33 +305,33 @@ export function IOSSearchBar({
 
 const styles = StyleSheet.create({
   row: {
-    flex: 1,
     flexDirection: "row",
-    // alignItems: "center",
-    justifyContent: 'space-between',
+    alignItems: "center",
+    justifyContent: 'center',
     paddingHorizontal: IOSMetrics.groupedInset, 
+    
   },
-  fieldWrap: { flex: 1, borderWidth: 1, borderColor: 'red' },
+  fieldWrap: { flex: 1, borderRadius: FIELD_RADIUS  },
   field: {
-    flex: 1,
     height: FIELD_HEIGHT,
     borderRadius: FIELD_RADIUS,
-    // overflow: "hidden",
-    // justifyContent: "center",
+    overflow: "hidden",
+    justifyContent: "center",
     padding: 10,
   },
   fieldInner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
     paddingHorizontal: 8,
-    height: "100%",
+    height: "100%"
   },
-  input: { padding: 0, height: "100%" },
+  input: { padding: 0, height: "100%"  },
   buttonLabel: { flex: 1 },
   inputCollapsed: { flexGrow: 0, flexShrink: 1, minWidth: 60 },
   inputExpanded: { flex: 1 },
   cancelWrap: {
+    position: "relative",
     // right: IOSMetrics.groupedInset,
     // width: CANCEL_WIDTH,
     padding: 15,
@@ -341,3 +342,4 @@ const styles = StyleSheet.create({
 });
 
 export default IOSSearchBar;
+

@@ -53,7 +53,6 @@ import {
   generateInitialsAvatar,
 } from "@/src/utils/helpers";
 import { getDeviceFingerprint } from "@/src/utils/device";
-import { useCreditsStore } from "@/src/store/useCreditsStore";
 import { supabase } from "@/src/services/supabase";
 import type { UserRole } from "@/src/models/types";
 import { iosAlert } from "@/components/ios";
@@ -668,18 +667,15 @@ export default function RegisterScreen() {
         if (result?.user) {
           setUser(result.user);
           await saveBiometricCredentials(data.email.trim(), data.password);
-          
-          // Grant 10 credits
-          useCreditsStore.getState().addCredit('signup', 10, result.user.id);
         }
 
-        if (role === "driver") {
-          router.replace("/(auth)/driver-profile");
-        } else if (role === "park_owner") {
-          router.replace("/(main)");
-        } else {
-          router.replace("/(main)");
-        }
+        // Everything that used to happen inline here — the sign-up credits, the
+        // pool, the first sync — now runs on the provisioning screen, which can
+        // actually SHOW it happening. Doing it here meant a new user watched a
+        // half-populated home screen fill in and assumed the app was broken.
+        // That screen forwards to driver-profile or the tab shell when it is
+        // done, so the routing below moved there with it.
+        router.replace("/(auth)/provisioning");
       } catch (err) {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         iosAlert(t("common.error"), err instanceof Error ? err.message : "Registration failed");

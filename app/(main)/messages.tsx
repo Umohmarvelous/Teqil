@@ -1232,7 +1232,7 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
           </View>
 
 
-          <View style={S.headerSearch}>
+          <View style={[S.headerSearch]}>
             <IOSSearchBar
               asButton
               value={profileQuery}

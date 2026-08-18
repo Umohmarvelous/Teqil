@@ -161,7 +161,7 @@ export default function SearchScreen() {
           contentContainerStyle={{ paddingTop: topInset + 8, paddingBottom: insets.bottom + 24 }}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.section}>
+          <View style={[styles.section, { borderWidth: 1, borderColor: "red" }]}>
             <View style={styles.sectionHead}>
               <HugeiconsIcon icon={FireIcon} size={15} color={t.systemOrange} strokeWidth={2} />
               <Text style={[styles.sectionTitle, { color: t.tertiaryLabel }]}>TRENDING</Text>

@@ -18,6 +18,7 @@ export type SettingsSectionId =
   | "notifications"
   | "privacy"
   | "rides"
+  | "ads"
   | "data"
   | "about";
 
@@ -93,6 +94,14 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     route: "/settings/rides",
   },
   {
+    id: "ads",
+    title: "Ads & Rewards",
+    summary: "Earnings, playback, personalisation",
+    symbol: "megaphone",
+    tint: "systemOrange",
+    route: "/settings/ads",
+  },
+  {
     id: "data",
     title: "Data & Storage",
     summary: "Sync, data saver, history, cache",
@@ -126,6 +135,14 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: "delete-account", label: "Delete Account", detail: "Permanently remove your account", symbol: "trash", section: "account", keywords: ["remove", "close", "erase"] },
 
   // Appearance
+  // Ads & Rewards
+  { id: "ad-rewards", label: "Rewards Centre", detail: "Your streak, goals and earnings", symbol: "fuelpump", section: "ads", keywords: ["ads", "earn", "reward", "streak", "watch", "money", "pool", "bonus"] },
+  { id: "ad-sound", label: "Sound On By Default", detail: "Start ads unmuted", symbol: "speaker.wave.2", section: "ads", keywords: ["mute", "audio", "volume", "ads"] },
+  { id: "ad-wifi", label: "Video On Wi-Fi Only", detail: "Stop video ads using your data", symbol: "wifi", section: "ads", keywords: ["data", "airtime", "mobile", "video", "ads", "save"] },
+  { id: "ad-autoplay", label: "Autoplay The Next Ad", symbol: "forward", section: "ads", keywords: ["auto", "next", "continuous", "ads"] },
+  { id: "ad-reminder", label: "Streak Reminder", detail: "A nudge on days you have not hit your goal", symbol: "bell", section: "ads", keywords: ["streak", "remind", "daily", "notification", "ads"] },
+  { id: "ad-personalised", label: "Personalised Ads", detail: "Use your role and routes to pick ads", symbol: "person.crop.circle.badge.questionmark", section: "ads", keywords: ["privacy", "targeting", "tracking", "ads", "personal"] },
+
   { id: "theme", label: "Dark Mode", detail: "Match the system or force a theme", symbol: "moon", section: "appearance", keywords: ["light", "dark", "night", "theme", "appearance"] },
   { id: "language", label: "Language", detail: "English or Nigerian Pidgin", symbol: "globe", section: "appearance", keywords: ["pidgin", "english", "translate", "locale"] },
   { id: "tier-badge", label: "Show Credit Tier Badge", detail: "Display Bronze/Silver/Gold on your profile", symbol: "rosette", section: "appearance", keywords: ["bronze", "silver", "gold", "badge", "public"] },
