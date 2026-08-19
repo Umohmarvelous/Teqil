@@ -58,7 +58,20 @@ const ACTION_WIDTH = 78;
 /** Fraction of the panel you must pass for it to rest open. */
 const OPEN_AT = 0.4;
 /** Past this fraction of the screen, releasing commits the destructive action. */
-const COMMIT_AT = 0.45;
+const COMMIT_AT = 0.5;
+/**
+ * A fast flick can commit early — but only once the panel is fully open.
+ *
+ * The old rule was `velocityX < -1200` on its own, which meant a quick flick
+ * anywhere on a row deleted it: a user who flicked to scroll a horizontal list,
+ * or simply moved fast, lost the row. Requiring the panel to be open first means
+ * the actions were on screen and ignored, which is a real intention rather than
+ * an accident.
+ */
+const FLICK_VELOCITY = -1600;
+
+/** Resistance once past the resting-open point, so the panel feels detented. */
+const OVERDRAG_DAMPING = 0.35;
 
 const SPRING = { damping: 22, stiffness: 260, mass: 0.7 } as const;
 
@@ -102,6 +115,8 @@ export const SwipeableRow = React.forwardRef<SwipeableRowHandle, SwipeableRowPro
     const panelWidth = actions.length * ACTION_WIDTH;
     const translateX = useSharedValue(0);
     const startX = useSharedValue(0);
+    /** Whether the commit threshold is currently crossed, for the one-shot tick. */
+    const crossed = useSharedValue(false);
     const isOpen = useRef(false);
 
     const setOpen = useCallback(
@@ -150,14 +165,41 @@ export const SwipeableRow = React.forwardRef<SwipeableRowHandle, SwipeableRowPro
       })
       .onUpdate((e) => {
         const next = startX.value + e.translationX;
-        // Rightward past closed is rubber-banded to a stop: there is nothing
-        // revealed on that side, so it must not look like there could be.
-        translateX.value = next > 0 ? next * 0.15 : next;
+
+        if (next > 0) {
+          // Rightward past closed is rubber-banded to a stop: there is nothing
+          // revealed on that side, so it must not look like there could be.
+          translateX.value = next * 0.15;
+          return;
+        }
+
+        // Past the open point the drag resists. Without this the row slides 1:1
+        // all the way to the screen edge and there is no felt difference
+        // between "open the actions" and "delete this" until you let go.
+        if (next < -panelWidth) {
+          translateX.value = -panelWidth + (next + panelWidth) * OVERDRAG_DAMPING;
+        } else {
+          translateX.value = next;
+        }
+
+        // One tick as the commit threshold is crossed, so the change of meaning
+        // is felt before release rather than discovered after it.
+        if (destructive) {
+          const past = translateX.value < -SCREEN_WIDTH * COMMIT_AT;
+          if (past !== crossed.value) {
+            crossed.value = past;
+            if (past) runOnJS(haptics.press)();
+          }
+        }
       })
       .onEnd((e) => {
         const x = translateX.value;
+        crossed.value = false;
 
-        if (destructive && (x < -SCREEN_WIDTH * COMMIT_AT || e.velocityX < -1200)) {
+        // Distance alone, or a genuine flick FROM an already-open row. Velocity
+        // on its own is what made this feel careless.
+        const flicked = e.velocityX < FLICK_VELOCITY && x <= -panelWidth;
+        if (destructive && (x < -SCREEN_WIDTH * COMMIT_AT || flicked)) {
           translateX.value = withTiming(-SCREEN_WIDTH, { duration: 180 }, (done) => {
             if (done) runOnJS(commit)(destructive);
           });

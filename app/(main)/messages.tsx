@@ -1612,7 +1612,7 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
 const S = StyleSheet.create({
   root:    { flex: 1 },
   backdrop: { flex: 1 },
-  handle:  { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(154,154,154,0.3)', alignSelf: 'center', marginBottom: 4 },
+  handle:  { width: 38, height: 5, borderRadius: 3, alignSelf: 'center', marginBottom: 6, opacity: 0.35 },
 
   header:      { flexDirection: 'column', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 14 },
   headerInner: { justifyContent: 'space-between', gap: 10 },
@@ -1827,7 +1827,15 @@ const S = StyleSheet.create({
   swipeActions:   { flexDirection: 'row', alignItems: 'center' },
   swipeAction:    { width: 50, height: '100%' as any, alignItems: 'center', justifyContent: 'center' },
 
-  infoSheet:     { position: 'absolute', bottom: 0, left: 0, right: 0, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 30, paddingTop: 10, paddingBottom: 50, gap: 14 },
+  // No horizontal padding: ContactCard owns its own gutters, and adding a
+  // second 30pt here squeezed the stat row and the action buttons into a
+  // narrow column. The sheet is a container, not a layout.
+  infoSheet: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    paddingTop: 10, paddingBottom: 34,
+    maxHeight: '86%',
+  },
   infoHeader:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   infoTitle:     { fontFamily: 'Poppins_700Bold', fontSize: 18, marginTop: 20 },
   infoAvatarRow: { alignItems: 'center', marginVertical: 16, gap: 6 },

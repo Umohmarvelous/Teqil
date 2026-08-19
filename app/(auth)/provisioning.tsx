@@ -40,6 +40,7 @@ import Animated, {
   Easing,
   interpolate,
   cancelAnimation,
+  runOnJS,
 } from "react-native-reanimated";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
@@ -206,26 +207,47 @@ export default function ProvisioningScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: t.systemBackground }]}>
-      <View style={[styles.body, { paddingTop: insets.top + 64, paddingBottom: insets.bottom + 24 }]}>
+      {/* A single wash behind everything. It is the one piece of colour on the
+          screen, and it keeps a mostly-empty layout from reading as unfinished. */}
+      <View style={[styles.wash, { backgroundColor: t.tint + "0F" }]} pointerEvents="none" />
+
+      {/* Everything is vertically centred rather than pinned to the top. There
+          is no navigation and no other content, so a top-aligned column leaves
+          a large void underneath that reads as something failing to load. */}
+      <View
+        style={[
+          styles.body,
+          { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
+        ]}
+      >
         <PulsingMark tint={t.tint} finished={finished} failedCount={failed.length} />
 
-        <Text style={[styles.title, { color: t.label }]}>
-          {finished ? "You're all set" : "Setting up your account"}
-        </Text>
-        <Text style={[styles.blurb, { color: t.secondaryLabel }]}>
-          {finished
-            ? failed.length
-              ? "A couple of things will finish in the background. You can start using Emilgo now."
-              : "Everything is ready. Taking you in…"
-            : running
-              ? `${running.running}…`
-              : "This takes a few seconds. Please hold on."}
-        </Text>
+        {/* The heading and the running line CROSS-FADE as the step changes.
+            Swapping the text instantly makes five steps feel like five separate
+            screens; a fade makes it one process moving through them. */}
+        <FadeSwap value={finished ? "done" : "working"} style={styles.titleSlot}>
+          <Text style={[styles.title, { color: t.label }]}>
+            {finished ? "You're all set" : "Setting up your account"}
+          </Text>
+        </FadeSwap>
 
-        {/* ── The metric row ────────────────────────────────────────────────
-            A percentage AND a count. The percentage reads at a glance; the
-            count is what tells someone on a slow connection that it is moving
-            at all. */}
+        <FadeSwap
+          value={finished ? "done" : (running?.key ?? "idle")}
+          style={styles.blurbSlot}
+        >
+          <Text style={[styles.blurb, { color: t.secondaryLabel }]}>
+            {finished
+              ? failed.length
+                ? "A couple of things will finish in the background."
+                : "Everything is ready. Taking you in…"
+              : running
+                ? `${running.running}…`
+                : "This takes a few seconds. Please hold on."}
+          </Text>
+        </FadeSwap>
+
+        {/* A percentage AND a count. The percentage reads at a glance; the count
+            is what tells someone on a slow connection that it is moving at all. */}
         <View style={styles.metrics}>
           <Text style={[styles.percent, { color: t.tint }]}>{Math.round(progress * 100)}%</Text>
           <Text style={[styles.metricSub, { color: t.tertiaryLabel }]}>
@@ -236,25 +258,58 @@ export default function ProvisioningScreen() {
         <ProgressTrack progress={progress} tint={t.tint} track={t.tertiarySystemFill} />
 
         <View style={styles.steps}>
-          {STEPS.map((step) => (
-            <StepRow key={step.key} step={step} state={states[step.key]} />
+          {STEPS.map((step, i) => (
+            <StepRow key={step.key} step={step} state={states[step.key]} index={i} />
           ))}
         </View>
       </View>
-
-      {/* An escape hatch. Nothing here is required to use the app, and a user
-          stuck behind a hung step must never be trapped on a spinner. */}
-      {!finished && (
-        <Pressable
-          style={[styles.skip, { bottom: insets.bottom + 20 }]}
-          onPress={() => router.replace("/(main)" as never)}
-          hitSlop={12}
-        >
-          <Text style={[styles.skipText, { color: t.tertiaryLabel }]}>Skip for now</Text>
-        </Pressable>
-      )}
     </View>
   );
+}
+
+/**
+ * Cross-fades its children whenever `value` changes.
+ *
+ * Kept generic rather than hard-coded to the two call sites because the pattern
+ * — text that must not pop — recurs. Opacity is safe here: nothing inside is
+ * glass, so expo/expo#41024 does not apply.
+ */
+function FadeSwap({
+  value,
+  children,
+  style,
+}: {
+  value: string;
+  children: React.ReactNode;
+  style?: any;
+}) {
+  const opacity = useSharedValue(1);
+  const [shown, setShown] = React.useState(children);
+  const first = React.useRef(true);
+
+  React.useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    opacity.value = withTiming(0, { duration: 130 }, (done) => {
+      if (!done) return;
+      runOnJS(setShown)(children);
+      opacity.value = withTiming(1, { duration: 190 });
+    });
+    // `children` is a fresh element every render, so keying the effect on it
+    // would fade on every frame. `value` is the thing that actually changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  // Keep the displayed content current when it changes for a reason other than
+  // a swap — a count ticking inside the same step, say.
+  React.useEffect(() => {
+    if (first.current) setShown(children);
+  });
+
+  const anim = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return <Animated.View style={[style, anim]}>{shown}</Animated.View>;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -368,8 +423,31 @@ function ProgressTrack({
   );
 }
 
-function StepRow({ step, state }: { step: Step; state: StepState }) {
+function StepRow({
+  step,
+  state,
+  index,
+}: {
+  step: Step;
+  state: StepState;
+  /** Position in the list, used only to stagger the entrance. */
+  index: number;
+}) {
   const t = useIOSTheme();
+
+  // Rows fade and rise in sequence rather than all appearing at once, so the
+  // list reads as being assembled. 70ms apart is enough to perceive as a
+  // sequence, and short enough that the whole set has landed before the first
+  // step finishes.
+  const enter = useSharedValue(0);
+  React.useEffect(() => {
+    enter.value = withDelay(120 + index * 70, withTiming(1, { duration: 320 }));
+  }, [enter, index]);
+
+  const enterStyle = useAnimatedStyle(() => ({
+    opacity: enter.value,
+    transform: [{ translateY: interpolate(enter.value, [0, 1], [10, 0]) }],
+  }));
 
   const colour =
     state === "done"
@@ -396,7 +474,7 @@ function StepRow({ step, state }: { step: Step; state: StepState }) {
   }));
 
   return (
-    <View style={styles.step}>
+    <Animated.View style={[styles.step, enterStyle]}>
       <View style={[styles.stepIcon, { borderColor: colour + "44" }]}>
         {state === "running" ? (
           <Animated.View style={spinStyle}>
@@ -417,13 +495,28 @@ function StepRow({ step, state }: { step: Step; state: StepState }) {
       {state === "failed" ? (
         <Text style={[styles.stepNote, { color: t.tertiaryLabel }]}>will retry</Text>
       ) : null}
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  body: { flex: 1, paddingHorizontal: 32, alignItems: "center" },
+  // A wide, soft wash centred behind the mark.
+  wash: {
+    position: "absolute",
+    top: "12%",
+    left: "-25%",
+    right: "-25%",
+    height: 420,
+    borderRadius: 999,
+  },
+  body: {
+    flex: 1,
+    paddingHorizontal: 32,
+    alignItems: "center",
+    // The whole column is centred; see the note at the call site.
+    justifyContent: "center",
+  },
 
   markWrap: { width: 88, height: 88, alignItems: "center", justifyContent: "center" },
   halo: { ...StyleSheet.absoluteFillObject, borderRadius: 44 },
@@ -436,14 +529,12 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
 
-  title: { ...IOSAppFont.title2, marginTop: 26, textAlign: "center" },
-  blurb: {
-    ...IOSAppFont.subheadline,
-    marginTop: 8,
-    textAlign: "center",
-    lineHeight: 21,
-    minHeight: 42,
-  },
+  // Fixed-height slots. A cross-fade between two strings of different lengths
+  // would otherwise reflow everything below it mid-fade.
+  titleSlot: { marginTop: 26, height: 34, justifyContent: "center" },
+  title: { ...IOSAppFont.title2, textAlign: "center" },
+  blurbSlot: { marginTop: 6, height: 44, justifyContent: "center", alignSelf: "stretch" },
+  blurb: { ...IOSAppFont.subheadline, textAlign: "center", lineHeight: 21 },
 
   metrics: { alignItems: "center", marginTop: 26 },
   percent: { fontFamily: "Poppins_700Bold", fontSize: 44, lineHeight: 50 },
@@ -484,6 +575,4 @@ const styles = StyleSheet.create({
   stepLabel: { ...IOSAppFont.subheadline, flex: 1 },
   stepNote: { ...IOSAppFont.caption2 },
 
-  skip: { position: "absolute", alignSelf: "center", padding: 12 },
-  skipText: { ...IOSAppFont.footnote },
 });

@@ -212,17 +212,34 @@ function NotificationRow({
         )}
 
         <View style={styles.rowText}>
-          <Text numberOfLines={1} style={[IOSAppFont.label, { color: ios.label }]}>
-            {item.title}
-          </Text>
+          {/* Title and time share a line, so the time stays beside the thing it
+              dates. It used to be a third column with `alignItems: center`, so a
+              two-line body pushed the timestamp down to the middle of the row
+              where it read as belonging to neither line. */}
+          <View style={styles.rowTop}>
+            <Text
+              numberOfLines={1}
+              style={[
+                IOSAppFont.label,
+                { color: ios.label, flex: 1 },
+                !item.read && styles.titleUnread,
+              ]}
+            >
+              {item.title}
+            </Text>
+            <Text
+              style={[
+                IOSAppFont.description,
+                { color: item.read ? ios.tertiaryLabel : ios.tint },
+              ]}
+            >
+              {relativeTime(item.createdAt)}
+            </Text>
+          </View>
           <Text numberOfLines={2} style={[IOSAppFont.description, { color: ios.secondaryLabel }]}>
             {item.body}
           </Text>
         </View>
-
-        <Text style={[IOSAppFont.description, { color: ios.tertiaryLabel }]}>
-          {relativeTime(item.createdAt)}
-        </Text>
       </Pressable>
     </SwipeableRow>
   );
@@ -449,13 +466,17 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
-    alignItems: "center",
+    // Top, not centre: the avatar should sit beside the title, not float
+    // halfway down beside a two-line body.
+    alignItems: "flex-start",
     gap: 12,
     paddingLeft: 0,
     paddingRight: 20,
     paddingVertical: 14,
     minHeight: 44,
   },
+  rowTop: { flexDirection: "row", alignItems: "center", gap: 8 },
+  titleUnread: { fontFamily: "Poppins_600SemiBold" },
   // Sits above the list, inside the screen's own padding. It does not scroll
   // away: search is how you find something in a long inbox, and hiding it
   // behind a scroll-to-top means scrolling the thing you cannot navigate.

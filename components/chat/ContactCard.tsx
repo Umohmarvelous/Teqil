@@ -141,9 +141,16 @@ export function ContactCard({ person, onBlock, onReport }: ContactCardProps) {
 
   return (
     <View style={styles.root}>
+      {/* A soft band behind the top half of the avatar. It gives the card a
+          header without a photo to put there, and is what stops it reading as a
+          list of fields dropped onto a grey sheet. */}
+      <View style={[styles.hero, { backgroundColor: t.tint + "14" }]} />
+
       {/* ── Identity ──────────────────────────────────────────────────────── */}
       <View style={styles.identity}>
-        <Avatar name={name} photoUri={person.profile_photo} size={88} />
+        <View style={[styles.avatarRing, { borderColor: t.systemGroupedBackground }]}>
+          <Avatar name={name} photoUri={person.profile_photo} size={92} />
+        </View>
 
         <View style={styles.nameRow}>
           <Text style={[styles.name, { color: t.label }]} numberOfLines={1}>
@@ -173,7 +180,12 @@ export function ContactCard({ person, onBlock, onReport }: ContactCardProps) {
       </View>
 
       {/* ── Stats ─────────────────────────────────────────────────────────── */}
-      <View style={[styles.stats, { borderColor: t.separator }]}>
+      <View
+        style={[
+          styles.stats,
+          { borderColor: t.separator, backgroundColor: t.secondarySystemGroupedBackground },
+        ]}
+      >
         <Stat
           value={person.avg_rating ? person.avg_rating.toFixed(1) : "—"}
           label="Rating"
@@ -291,9 +303,14 @@ export function ContactCard({ person, onBlock, onReport }: ContactCardProps) {
 }
 
 const styles = StyleSheet.create({
-  root: { paddingTop: 8, paddingBottom: 4 },
+  root: { paddingBottom: 4 },
 
-  identity: { alignItems: "center", gap: 6, paddingHorizontal: 20 },
+  hero: { position: "absolute", top: 0, left: 0, right: 0, height: 92 },
+
+  identity: { alignItems: "center", gap: 6, paddingHorizontal: 20, paddingTop: 22 },
+  // A ring the colour of the sheet, so the avatar reads as sitting ON the band
+  // rather than being clipped by it.
+  avatarRing: { borderRadius: 999, borderWidth: 4, overflow: "hidden" },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 },
   name: { ...IOSAppFont.title3, fontFamily: "Poppins_700Bold" },
   handleRow: { flexDirection: "row", alignItems: "center", gap: 5 },
@@ -306,8 +323,8 @@ const styles = StyleSheet.create({
     marginTop: 18,
     marginHorizontal: 20,
     paddingVertical: 14,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   stat: { flex: 1, alignItems: "center", gap: 2 },
   statValueRow: { flexDirection: "row", alignItems: "center", gap: 4 },
@@ -315,7 +332,7 @@ const styles = StyleSheet.create({
   statLabel: { ...IOSAppFont.caption2, textTransform: "uppercase", letterSpacing: 0.4 },
   statDivider: { width: StyleSheet.hairlineWidth, height: 26 },
 
-  actions: { flexDirection: "row", gap: 8, paddingHorizontal: 20, marginTop: 16 },
+  actions: { flexDirection: "row", gap: 8, paddingHorizontal: 20, marginTop: 14 },
   action: { flex: 1 },
   // Glass clips, so the shadow lives outside it.
   actionShadow: { flex: 1, borderRadius: 12 },
@@ -324,8 +341,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    height: 38,
-    borderRadius: 12,
+    height: 42,
+    borderRadius: 14,
     overflow: "hidden",
   },
   actionLabel: { ...IOSAppFont.footnote, fontFamily: "Poppins_600SemiBold" },

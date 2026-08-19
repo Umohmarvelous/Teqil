@@ -343,6 +343,116 @@ Changes take effect on the next screen load — no deploy, no app update. Watch
 `ad_sessions` and `ad_events` for the real completion and click rates before
 settling on numbers.
 
+### 4.7 🔴 AdMob — WHAT YOU MUST DO FOR ADS TO SHOW
+
+The SDK is integrated, initialised at launch, preloaded, and wired into the
+rewards player. It is currently pointed at **Google's official TEST ad units**,
+which serve real test ads so the whole flow can be exercised before any account
+exists. Test ads earn **nothing**.
+
+Everything below is on you. None of it can be done from code.
+
+**Step 1 — Create an AdMob account** (~10 min, needs a Google account)
+  1. Go to https://admob.google.com and sign up.
+  2. Add your payment profile and your Nigerian bank details. Google pays by
+     wire once you pass the $100 threshold, and will not serve paid ads until a
+     payment profile exists.
+
+**Step 2 — Register the app** (~5 min)
+  3. Apps → Add app. Choose "No, it is not on a store yet" for now; register it
+     properly once it is live on the App Store and Play, because the store
+     listing is what unlocks better fill.
+  4. Do this TWICE — iOS and Android are separate apps in AdMob with separate
+     IDs. Copy both **App IDs**; they look like `ca-app-pub-1234…~5678…` (note
+     the tilde).
+
+**Step 3 — Create ad units** (~5 min)
+  5. For each app: Ad units → Add ad unit → **Rewarded**. Name it
+     `emilgo-rewarded`. Copy the **Ad unit ID** — `ca-app-pub-1234…/9876…`
+     (a slash, not a tilde). These are different from App IDs; mixing them up
+     is the single most common cause of "ads never load".
+  6. Optionally add an **Interstitial** unit the same way.
+
+**Step 4 — Put them in the app**
+  7. `app.json` → `plugins` → `react-native-google-mobile-ads`: replace
+     `androidAppId` and `iosAppId` with your two App IDs.
+  8. `.env` — these are public identifiers, so `EXPO_PUBLIC_` is correct here in
+     a way it is never correct for a secret:
+
+     ```
+     EXPO_PUBLIC_ADMOB_IOS_REWARDED=ca-app-pub-…/…
+     EXPO_PUBLIC_ADMOB_ANDROID_REWARDED=ca-app-pub-…/…
+     EXPO_PUBLIC_ADMOB_IOS_INTERSTITIAL=ca-app-pub-…/…
+     EXPO_PUBLIC_ADMOB_ANDROID_INTERSTITIAL=ca-app-pub-…/…
+     ```
+
+**Step 5 — Build a dev client. THIS IS NOT OPTIONAL.**
+  9. AdMob is a native module. **It does not exist in Expo Go**, and the app is
+     written to detect that and skip the network rather than crash — so in Expo
+     Go you will see "no ads right now" forever, no matter what you configure.
+
+     ```bash
+     npx expo prebuild --clean
+     npx eas build --profile development --platform ios
+     ```
+
+     This needs the Apple Developer Program membership already tracked in §4.1.
+
+**Step 6 — `app-ads.txt`** (skippable at first, costs you money if skipped)
+  10. AdMob → Apps → app-ads.txt. Publish the line it gives you at
+      `https://<your-domain>/app-ads.txt`. Without it many buyers will not bid,
+      and your eCPM is materially lower. It needs the domain listed on your
+      store page.
+
+**Step 7 — Wait for review.** New AdMob accounts sit in review, typically a few
+days. Until then real units return no-fill and the app falls back to the empty
+state, which is correct.
+
+**⚠️ Never tap your own live ads.** Google treats it as click fraud and bans the
+account, and there is effectively no appeal. This is why the code defaults to
+test units — see `isUsingTestUnits()` in `src/services/admob.ts`.
+
+#### What about Meta, and the others?
+
+Meta Audience Network is not usable unaided: it requires an approved Business
+account and has not accepted new publishers in many markets since 2022. The
+right way to add it — and AppLovin, Unity, and the rest — is **AdMob
+Mediation**, configured in the AdMob dashboard. It needs no second SDK and no
+code change here. Do that once AdMob itself is filling.
+
+### 4.8 Reddit in the feed (optional, free)
+
+RSS needs nothing and is already live — four Nigerian newsrooms are seeded and
+verified. Reddit is the one extra source that can be switched on for free:
+
+  1. https://www.reddit.com/prefs/apps → "create another app…"
+  2. Type: **script**. Redirect URI: `http://localhost` (unused by this flow).
+  3. Copy the client ID (under the app name) and the secret into `.env`:
+
+     ```
+     EXPO_PUBLIC_REDDIT_CLIENT_ID=…
+     EXPO_PUBLIC_REDDIT_CLIENT_SECRET=…
+     ```
+
+  4. Add subreddits as sources (admin, in SQL for now):
+
+     ```sql
+     INSERT INTO public.feed_sources (kind, name, url, category, weight)
+     VALUES ('reddit', 'r/Nigeria', 'Nigeria', 'community', 2);
+     ```
+
+The old keyless `reddit.com/r/x.json` endpoint now returns 403 to datacenter
+traffic, which is why the OAuth app is required. Without both variables the
+Reddit source is skipped silently — never faked.
+
+**Twitter/X, Instagram and Facebook cannot be added.** X has had no free read
+tier since 2023 (~$100/month minimum). Instagram and Facebook Graph return only
+media on accounts you own and have connected — there is no "posts from
+Instagram" endpoint for anyone. Scraping breaches their terms and gets the app's
+IP ranges blocked. This is a platform limitation, not missing work.
+
+---
+
 ## 5. Quick checklist
 
 Copy into an issue and work down it.
