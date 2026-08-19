@@ -32,7 +32,7 @@ export default function AchievementsCard({
       // "/achievements" is a real route (app/achievements.tsx); the `as any`
       // silences expo-router typed-routes until it regenerates on next start/build.
       onPress={() => router.push("/achievements" as any)}
-      style={[styles.card, { backgroundColor: cardBg }]}
+      style={[styles.card, { backgroundColor: 'transparent' }]}
     >
       <View style={styles.header}>
         <View style={styles.titleRow}>
@@ -74,7 +74,8 @@ export default function AchievementsCard({
 const styles = StyleSheet.create({
   card: {
     borderRadius: 30,
-    padding: 20,
+    marginTop: 35,
+    padding: 10,
     marginBottom: 10,
     gap: 16,
     shadowColor: "#000",

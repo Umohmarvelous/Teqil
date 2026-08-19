@@ -63,7 +63,21 @@
       "expo-splash-screen",
       "expo-audio",
       "expo-asset",
-      "expo-video"
+      "expo-video",
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511",
+          "userTrackingUsageDescription": "This lets EMILGO show you ads that are more relevant, which pays more into your fuel pool."
+        }
+      ],
+      [
+        "expo-tracking-transparency",
+        {
+          "userTrackingPermission": "This lets EMILGO show you ads that are more relevant, which pays more into your fuel pool."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

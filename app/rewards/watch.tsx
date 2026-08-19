@@ -64,6 +64,7 @@ import { useAdsStore } from "@/src/store/useAdsStore";
 import {
   nextAd,
   startAdSession,
+  startNetworkAdSession,
   abandonAdSession,
   suppressAd,
   reportAd,
@@ -72,6 +73,16 @@ import {
   type AdCompletion,
   type NoAdReason,
 } from "@/src/services/ads";
+import {
+  isAdMobAvailable,
+  initAdMob,
+  loadRewarded,
+  showRewarded,
+  isRewardedReady,
+  loadInterstitial,
+  showInterstitial,
+  isInterstitialReady,
+} from "@/src/services/admob";
 
 type Phase = "loading" | "playing" | "settling" | "reward" | "install" | "empty";
 
@@ -115,30 +126,109 @@ export default function WatchAdScreen() {
     } catch {}
   }, [muted, player]);
 
+  /**
+   * Hand the slot to AdMob.
+   *
+   * The network renders its own full-screen player, so this screen has nothing
+   * to draw while it runs — the phase stays "settling" and the SDK is on top.
+   *
+   * `earned` from the SDK is a CLAIM, not a payment. The session is still
+   * settled by `complete_ad_session`, which compares the database's own clock to
+   * its own `started_at`. A spoofed SDK can at most cause a session to be
+   * attempted; it cannot mint a payout.
+   *
+   * Returns true when the network filled the slot (whether or not it paid), so
+   * the caller knows not to fall through to the empty state.
+   */
+  const playNetworkAd = React.useCallback(
+    async (format: "rewarded" | "interstitial"): Promise<boolean> => {
+      if (!isAdMobAvailable()) return false;
+
+      await initAdMob();
+
+      const ready = format === "rewarded" ? isRewardedReady() : isInterstitialReady();
+      if (!ready) {
+        const loaded = format === "rewarded" ? await loadRewarded() : await loadInterstitial();
+        if (!loaded.ok) return false;
+      }
+
+      let id: string;
+      try {
+        id = await startNetworkAdSession(format);
+      } catch (e: any) {
+        console.warn("[watch] start network session:", e?.message);
+        return false;
+      }
+
+      setSessionId(id);
+      setAd(null);
+      setPhase("settling");
+
+      const shown = format === "rewarded" ? await showRewarded() : await showInterstitial();
+
+      if (!shown.ok && shown.reason === "not_loaded") {
+        abandonAdSession(id);
+        return false;
+      }
+
+      try {
+        // The store's `settle`, not the raw RPC: it also refreshes the
+        // dashboard, so the streak and ladder on the way out are current.
+        const res = await settle(id);
+        setResult(res);
+        setPhase("reward");
+      } catch (e: any) {
+        console.warn("[watch] settle network session:", e?.message);
+        setEmptyReason("no_inventory");
+        setPhase("empty");
+      }
+      return true;
+    },
+    [settle],
+  );
+
   // ── Load one ad ──────────────────────────────────────────────────────────
+  //
+  // Direct partners first, the ad network as the fallback. A partner has already
+  // paid for their impressions; AdMob takes a cut of ours. Burning owned
+  // inventory before rented inventory is worth real money and costs nothing.
   const load = React.useCallback(async () => {
     setPhase("loading");
     setElapsed(0);
     setResult(null);
 
     const res = await nextAd(adFormat);
-    if (!res.ok) {
+
+    if (res.ok) {
+      try {
+        const id = await startAdSession(res.ad.id);
+        setAd(res.ad);
+        setReward(res.reward);
+        setSessionId(id);
+        setPhase("playing");
+      } catch (e: any) {
+        iosAlert("Could not start", e?.message ?? "Please try again.");
+        router.back();
+      }
+      return;
+    }
+
+    // A daily limit or a cooldown is a rule, not an absence of stock — going to
+    // the network would be a way of paying someone to break our own rule.
+    if (res.reason !== "no_inventory") {
       setEmptyReason(res.reason);
       setPhase("empty");
       return;
     }
 
-    try {
-      const id = await startAdSession(res.ad.id);
-      setAd(res.ad);
-      setReward(res.reward);
-      setSessionId(id);
-      setPhase("playing");
-    } catch (e: any) {
-      iosAlert("Could not start", e?.message ?? "Please try again.");
-      router.back();
+    if (adFormat === "rewarded" || adFormat === "interstitial") {
+      const filled = await playNetworkAd(adFormat);
+      if (filled) return;
     }
-  }, [adFormat]);
+
+    setEmptyReason("no_inventory");
+    setPhase("empty");
+  }, [adFormat, playNetworkAd]);
 
   React.useEffect(() => {
     load();

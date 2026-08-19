@@ -284,6 +284,26 @@ export function abandonAdSession(sessionId: string) {
     .then(({ error }) => error && console.warn("[ads] abandon:", error.message));
 }
 
+/**
+ * Open a session for a network-filled slot (AdMob).
+ *
+ * Separate from `startAdSession` because there is no creative to point at — see
+ * migration_ad_network.sql. Everything downstream is identical: the same
+ * `complete_ad_session` settles it, against the same server clock.
+ */
+export async function startNetworkAdSession(
+  format: "rewarded" | "interstitial" = "rewarded",
+  durationSeconds = 30,
+): Promise<string> {
+  const { data, error } = await supabase.rpc("start_network_ad_session", {
+    p_format: format,
+    p_network: "admob",
+    p_duration: durationSeconds,
+  });
+  if (error) throw new Error(error.message);
+  return data as string;
+}
+
 export function recordAdClick(adId: string, sessionId?: string) {
   supabase
     .rpc("record_ad_click", { p_ad: adId, p_session: sessionId ?? null })

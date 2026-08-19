@@ -1491,7 +1491,7 @@ export default function ProfileTab() {
                 />
 
                 {/* Recent activity (unified history: trips · payments · rewards · ads) */}
-                <GlassCard style={styles.cardSpacing}>
+                <GlassCard style={[styles.cardSpacing, {padding: 0, margin: 0}]}>
                   <View style={styles.cardHead}>
                     <Text style={[styles.cardTitle, { color: textColor }]}>Recent activity</Text>
                     <Pressable
@@ -1722,8 +1722,8 @@ const styles = StyleSheet.create({
     // shadowRadius: 14,
     // elevation: 3,
   },
-  cardClip: { borderRadius: CARD_RADIUS, overflow: "hidden" },
-  cardInner: { padding: 22, gap: 14 },
+  cardClip: { overflow: "hidden" },
+  cardInner: { paddingVertical: 22, paddingHorizontal: 10, gap: 14 },
   cardSpacing: { marginTop: 5 },
   cardHead: {
     flexDirection: "row",
@@ -1732,7 +1732,7 @@ const styles = StyleSheet.create({
   },
   cardHeadTitle: { flexDirection: "row", alignItems: "center", gap: 10 },
   cardTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, textAlign: "left" },
-  seeAll: { fontFamily: "Poppins_500Medium", fontSize: 12, color: Colors.primary },
+  seeAll: { fontFamily: "Poppins_500Medium", fontSize: 14, color: Colors.primary },
   partnerBtn: {
     flexDirection: "row",
     alignItems: "center",

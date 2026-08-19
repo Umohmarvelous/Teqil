@@ -17,7 +17,7 @@ import { formatDate, formatDuration, formatCoins, formatNaira, coinsToNaira, } f
 import type { Trip } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { BarcodeScanIcon, Calendar, Star, Time01Icon } from "@hugeicons/core-free-icons";
+import { BarcodeScanIcon, Calendar, Star, Tick, Tick02Icon, Tick03Icon, Time01Icon } from "@hugeicons/core-free-icons";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { useActivityFeed } from "@/src/hooks/useActivityFeed";
 import ActivityFeed from "@/components/ActivityFeed";
@@ -43,42 +43,43 @@ function StatSummary({
 
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
-  const cardBg = isDark ? Colors.primaryDarker : "#FFFFFF";
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+  const cardBg = isDark ? Colors.overlay : Colors.border;
   const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
 
   return (
-    <View style={styles.summaryRow}>
+    <View style={[styles.summaryRow, { backgroundColor: 'transparent' }]}>
       <Glass
         variant="regular"
         radius={14}
         style={[styles.summaryCard, { borderColor }]}
         fallbackIntensity={35}
-        fallbackTint={cardBg}
+        // fallbackTint={'transparent'}
       >
-        <Text style={styles.summaryValue}>{totalTrips}</Text>
-        <Text style={styles.summaryLabel}>Total Trips</Text>
+        <Text style={[styles.summaryValue, {color: textColor}]}>{totalTrips}</Text>
+        <Text style={[styles.summaryLabel, {color: textColor}]}>Total Trips</Text>
       </Glass>
       <Glass
         variant="regular"
         radius={14}
         style={[styles.summaryCard, styles.summaryCardMiddle]}
         fallbackIntensity={35}
-        fallbackTint={Colors.borderLight}
+        fallbackTint={'transparent'}
       >
-        <Text style={styles.summaryValue}>{completedTrips}</Text>
-        <Text style={styles.summaryLabel}>Completed</Text>
+        <Text style={[styles.summaryValue, {color: textColor}]}>{completedTrips}</Text>
+        <Text style={[styles.summaryLabel, {color: textColor}]}>Completed</Text>
       </Glass>
       <Glass
         variant="regular"
         radius={14}
         style={styles.summaryCard}
         fallbackIntensity={35}
-        fallbackTint={Colors.borderLight}
+        fallbackTint={'transparent'}
       >
-        <Text style={[styles.summaryValue, { color: Colors.gold }]}>
+        <Text style={[styles.summaryValue, { color: textColor }]}>
           {formatNaira(Math.round(coinsToNaira(totalCoins)))}
         </Text>
-        <Text style={styles.summaryLabel}>Est. Earned</Text>
+        <Text style={[styles.summaryLabel, {color: textColor}]}>Est. Earned</Text>
       </Glass>
     </View>
   );
@@ -139,6 +140,10 @@ function FilterTabs({
 }
 
 function TripCard({ trip }: { trip: TripWithPassengerCount }) {
+  const { theme } = useSettingsStore();
+  const isDark = theme === "dark";
+  const textColor = isDark ? Colors.textWhite : Colors.text;
+
   const isActive = trip.status === "active";
 
   const durationSeconds = trip.end_time
@@ -150,32 +155,34 @@ function TripCard({ trip }: { trip: TripWithPassengerCount }) {
       variant="regular"
       style={styles.tripCard}
       fallbackIntensity={35}
-      fallbackTint={Colors.border}
+      fallbackTint={'transparent'}
     >
       {/* Header row */}
       <View style={styles.tripCardHeader}>
-        <View style={styles.tripCodeBadge}>
+        <View style={[styles.tripCodeBadge ]}>
           <Glass
             variant="clear"
             radius={8}
-            style={StyleSheet.absoluteFill}
+            // style={StyleSheet.absoluteFill}
             pointerEvents="none"
             fallbackIntensity={20}
             fallbackTint={Colors.surfaceSecondary}
           />
-          <HugeiconsIcon icon={BarcodeScanIcon} size={13} color={Colors.textSecondary} />
-          <Text style={styles.tripCodeText}>{trip.trip_code}</Text>
+          <HugeiconsIcon icon={BarcodeScanIcon} size={14} color={textColor} />
+          <Text style={[styles.tripCodeText, {color: textColor}]}>{trip.trip_code}</Text>
         </View>
         <View style={styles.statusBadge}>
           <Glass
             variant="clear"
             radius={8}
-            style={StyleSheet.absoluteFill}
+            // style={StyleSheet.absoluteFill}
             pointerEvents="none"
-            fallbackIntensity={20}
-            fallbackTint={isActive ? Colors.primaryLight : "#F0FDF4"}
+            fallbackTint={'transparent'}
           />
           {isActive && <View style={styles.liveDot} />}
+          {/* <View style={{borderWidth: 1, borderColor: Colors.primary, borderRadius: 70, padding: 1}}>
+            <HugeiconsIcon icon={Tick02Icon} size={15} color={Colors.primary} />
+          </View> */}
           <Text style={[styles.statusText, isActive ? styles.statusTextLive : styles.statusTextDone]}>
             {isActive ? "Live" : "Completed"}
           </Text>
@@ -363,7 +370,7 @@ export default function DriverHistoryScreen() {
         }
         ListHeaderComponent={
           <>
-            {nonTripActivity.length > 0 && (
+            {nonTripActivity.length < 0 && (
               <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6, gap: 8 }}>
                 <Text style={[styles.headerTitle, { color: textColor, fontSize: 15 }]}>
                   Payments &amp; rewards
@@ -418,7 +425,6 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 0,
     justifyContent: 'center',
-    backgroundColor: Colors.borderLight,
   },
   summaryCard: {
     flex: 1,
@@ -429,13 +435,11 @@ const styles = StyleSheet.create({
     // marginBottom: 10,
   },
   summaryCardMiddle: {
-    borderWidth: 1.5,
-    borderColor: Colors.error,
+    borderWidth: .5,
   },
   summaryValue: {
     fontFamily: "Poppins_700Bold",
     fontSize: 18,
-    color: Colors.text,
   },
   summaryLabel: {
     fontFamily: "Poppins_400Regular",
@@ -529,17 +533,14 @@ const styles = StyleSheet.create({
   tripCodeBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    borderRadius: 8,
     overflow: "hidden",
-    paddingHorizontal: 10,
     paddingVertical: 5,
   },
   tripCodeText: {
     fontFamily: "Poppins_700Bold",
     fontSize: 13,
-    color: Colors.text,
     letterSpacing: 1.5,
+    paddingLeft: 15
   },
   statusBadge: {
     flexDirection: "row",
@@ -553,12 +554,10 @@ const styles = StyleSheet.create({
   liveDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.primary,
   },
   statusText: {
     fontFamily: "Poppins_600SemiBold",
-    fontSize: 12,
+    fontSize: 13,
   },
   statusTextLive: { color: Colors.primary },
   statusTextDone: { color: "#16A34A" },
@@ -582,7 +581,6 @@ const styles = StyleSheet.create({
   },
   footerEarnings: {
     marginLeft: "auto" as any,
-    backgroundColor: Colors.goldLight,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
@@ -611,14 +609,12 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: Colors.primary,
-    borderWidth: 2,
-    borderColor: Colors.primaryLight,
   },
   routeLineSegment: {
-    width: 2,
+    width: 1,
     flex: 1,
     minHeight: 16,
-    backgroundColor: Colors.border,
+    backgroundColor: Colors.overlay,
     marginVertical: 3,
   },
   routeDotRed: {
@@ -626,8 +622,6 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: Colors.error,
-    borderWidth: 2,
-    borderColor: "#FEE2E2",
   },
   routeLabels: { flex: 1 },
   routeLabelRow: {

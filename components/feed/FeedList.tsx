@@ -37,13 +37,24 @@ import { useIOSTheme, IOSAppFont } from "@/components/ios/theme";
 import { PostCard } from "./PostCard";
 import { PromotedPost } from "./PromotedPost";
 import { useFeedStore, AD_INTERVAL, AD_FIRST_SLOT, type TimelineKey } from "@/src/store/useFeedStore";
+import { ExternalPostCard } from "./ExternalPostCard";
+import type { ExternalPost } from "@/src/services/externalFeed";
+
+/**
+ * Cadence for ingested articles. Offset from AD_FIRST_SLOT (4) so a promoted
+ * unit and a news card never land next to each other — two non-social rows in a
+ * row is what makes a feed stop feeling like a feed.
+ */
+const EXTERNAL_FIRST_SLOT = 2;
+const EXTERNAL_INTERVAL = 5;
 import type { FeedPost, FeedAd } from "@/src/services/feed";
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList<Row>);
 
 type Row =
   | { kind: "post"; key: string; post: FeedPost; threadLine?: boolean }
-  | { kind: "ad"; key: string; ad: FeedAd };
+  | { kind: "ad"; key: string; ad: FeedAd }
+  | { kind: "external"; key: string; item: ExternalPost };
 
 export interface FeedListProps {
   timelineKey: TimelineKey;
@@ -58,6 +69,12 @@ export interface FeedListProps {
   emptyBody?: string;
   /** Written on every scroll frame; positive means the finger moved up. */
   scrollY?: SharedValue<number>;
+  /**
+   * Ingested outside articles to interleave. Only the main timelines pass any —
+   * a thread or a profile tab is about one person and outside news would be
+   * noise there.
+   */
+  external?: ExternalPost[];
   scrollDirection?: SharedValue<number>;
   onOpenPost?: (post: FeedPost) => void;
 }
@@ -71,6 +88,7 @@ export function FeedList({
   emptyTitle = "Nothing here yet",
   emptyBody = "Posts will show up here as people share them.",
   scrollY,
+  external = [],
   scrollDirection,
   onOpenPost,
 }: FeedListProps) {
@@ -97,6 +115,7 @@ export function FeedList({
     const live = ads.filter((a) => !dismissedAds.includes(a.id));
     const out: Row[] = [];
     let adCursor = 0;
+    let extCursor = 0;
 
     ids.forEach((id, i) => {
       const post = posts[id];
@@ -115,10 +134,27 @@ export function FeedList({
         out.push({ kind: "ad", key: `ad:${ad.id}:${i}`, ad });
         adCursor += 1;
       }
+
+      // Outside articles on their own cadence, offset from the ad slots so a
+      // reader never hits an advert and a news card back to back.
+      const isNewsSlot =
+        i >= EXTERNAL_FIRST_SLOT && (i - EXTERNAL_FIRST_SLOT) % EXTERNAL_INTERVAL === 0;
+      if (isNewsSlot && extCursor < external.length) {
+        const item = external[extCursor];
+        out.push({ kind: "external", key: `ext:${item.id}:${i}`, item });
+        extCursor += 1;
+      }
     });
 
+    // A brand-new account follows nobody and has posted nothing, so the feed
+    // would be empty. The articles are real content and carry it until there
+    // are posts — far better than an empty state on first launch.
+    if (!ids.length && external.length) {
+      external.forEach((item) => out.push({ kind: "external", key: `ext:${item.id}`, item }));
+    }
+
     return out;
-  }, [ids, posts, ads, dismissedAds, detailFirstRow]);
+  }, [ids, posts, ads, dismissedAds, detailFirstRow, external]);
 
   // Built once. FlatList captures this on mount and warns if the identity
   // changes, so it must not be recreated when props do.
@@ -158,6 +194,9 @@ export function FeedList({
 
   const renderItem = React.useCallback(
     ({ item, index }: { item: Row; index: number }) => {
+      if (item.kind === "external") {
+        return <ExternalPostCard post={item.item} />;
+      }
       if (item.kind === "ad") {
         return (
           <PromotedPost

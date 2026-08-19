@@ -84,7 +84,7 @@ export default function CreditMeter({
 
       <Text style={[styles.hint, { color: subColor }]}>
         {tier.next == null
-          ? "Top tier reached — you're Gold ✨"
+          ? "Top tier reached — you're Gold"
           : `${toNext.toLocaleString("en-NG")} more credits to ${
               creditTier(tier.next).name
             }`}

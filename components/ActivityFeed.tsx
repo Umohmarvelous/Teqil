@@ -49,10 +49,10 @@ export default function ActivityFeed({
             key={a.id}
             disabled={!a.receipt}
             onPress={() => a.receipt && setReceipt(a.receipt)}
-            style={[styles.row, { backgroundColor: cardBg, borderColor }]}
+            style={[styles.row, {borderBottomColor: borderColor}]}
           >
-            <View style={[styles.iconWrap, { backgroundColor: Colors.primary + "14" }]}>
-              <Ionicons name={ICON[a.icon]} size={18} color={Colors.primary} />
+            <View style={[styles.iconWrap]}>
+              <Ionicons name={ICON[a.icon]} size={18} color={Colors.textWhite} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.title, { color: textColor }]} numberOfLines={1}>
@@ -95,8 +95,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     borderRadius: 18,
-    borderWidth: 1,
-    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'red',
+    paddingHorizontal: 0,
     paddingVertical: 12,
   } as any,
   iconWrap: {

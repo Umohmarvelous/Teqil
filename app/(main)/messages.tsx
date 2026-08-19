@@ -745,7 +745,7 @@ function NewChatModal({
   const inputBg   = isDark ? Colors.background    : '#F4F6FA';
   // const tabBg     = isDark ? '#1A1A2E' : '#F0F2F5';
   const bg        = isDark ? Colors.background : Colors.textWhite;
-  const tabBg     = isDark ? Colors.overlayLight : Colors.border;
+  const tabBg     = isDark ? Colors.textSecondary : Colors.border;
 
   useEffect(() => {
     if (!visible) {

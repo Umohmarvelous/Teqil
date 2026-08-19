@@ -20,6 +20,7 @@ import i18n from "@/src/i18n";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { supabase } from "@/src/services/supabase";
+import { initAdMob, loadRewarded } from "@/src/services/admob";
 import { syncAll, startConnectivityListener, SyncUser } from "@/src/services/sync";
 import { flushPendingRoute } from "@/src/services/locationTracking";
 import { syncUserToPublicTable } from "@/src/services/auth";
@@ -176,6 +177,17 @@ export default function RootLayout() {
   useEffect(() => {
     if (language) i18n.changeLanguage(language);
   }, [language]);
+
+  // ----- ad network -----
+  // Initialise once at launch and preload a rewarded ad, so the first tap on
+  // "Watch & earn" plays immediately instead of showing a spinner while the
+  // auction runs. No-ops entirely in Expo Go, where the native module is absent.
+  useEffect(() => {
+    (async () => {
+      const ready = await initAdMob();
+      if (ready) loadRewarded().catch(() => {});
+    })();
+  }, []);
 
   // ----- auth state subscription -----
   useEffect(() => {

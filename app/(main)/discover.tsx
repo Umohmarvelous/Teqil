@@ -42,6 +42,11 @@ import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_GAP } from "@/components/ios";
 import Avatar from "@/components/Avatar";
 import { useAuthStore } from "@/src/store/useStore";
 import { useFeedStore } from "@/src/store/useFeedStore";
+import {
+  listExternalPosts,
+  refreshExternalFeed,
+  type ExternalPost,
+} from "@/src/services/externalFeed";
 import { useFollowsStore } from "@/src/store/useFollowsStore";
 import {
   trendingHashtags,
@@ -203,6 +208,23 @@ export default function DiscoverTab({ scrollY }: DiscoverTabProps) {
     suggestedAccounts(5).then(setPeople);
   }, [user?.id]);
 
+  // Outside articles. Shown immediately from what is already stored, then
+  // refreshed in the background — a cold fetch of four newsrooms takes a couple
+  // of seconds and the feed must not wait on it.
+  const [external, setExternal] = React.useState<ExternalPost[]>([]);
+  React.useEffect(() => {
+    let alive = true;
+    listExternalPosts(20).then((rows) => alive && setExternal(rows));
+    refreshExternalFeed()
+      .then((added) => {
+        if (added > 0 && alive) listExternalPosts(20).then((r) => alive && setExternal(r));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const topInset = (Platform.OS === "web" ? 67 : insets.top) + 130;
   const bottomInset = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + insets.bottom;
 
@@ -273,6 +295,7 @@ export default function DiscoverTab({ scrollY }: DiscoverTabProps) {
         topInset={topInset}
         bottomInset={bottomInset}
         scrollY={rScrollY}
+        external={lane === "for-you" ? external : []}
         emptyTitle={lane === "following" ? "You're not following anyone yet" : "Nothing here yet"}
         emptyBody={
           lane === "following"
