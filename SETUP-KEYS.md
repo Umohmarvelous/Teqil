@@ -261,32 +261,43 @@ silently. Delete whichever is stale before it causes a confusing incident.
 
 ---
 
-### 4.4 Ad creatives — the feed AND the rewards screen have no ads until someone sells one
+### 4.4 Ad inventory — the feature is built, the shelf is empty
 
-`serve_feed_ads` runs a real auction over `public.ad_creatives`: role and state
-targeting, weighting, daily caps, and impression/click/dismiss events in
-`ad_events`. It is finished code. It returns **nothing**, because that table is
-empty, and the feed correctly renders no promoted units.
+`serve_feed_ads` and `next_ad` run a real auction over `public.ad_creatives`:
+role targeting, weighting, per-creative frequency caps, partner budgets,
+cooldowns and impression/click/dismiss events in `ad_events`. It is finished,
+applied and covered by 27 passing tests.
 
-The rewarded-ads system built on top of it (`migration_ad_rewards.sql`) reads the
-same table, filtered by a new `format` column. So **the Rewards screen shows
-"No ads right now" until `ad_creatives` has at least one row with
-`format = 'rewarded'`.** That is the correct empty state, not a bug.
+It returns **nothing**, because that table has no rows. The feed shows no
+promoted units and "Watch & earn" says there are no ads right now. Both are
+correct.
 
-This is not a key — it is a sales problem, or an ad-network integration. To put
-an ad in either slot, insert a row with an advertiser name, a headline, a
-destination URL and a weight; for a rewarded video also set `format`,
-`media_url`, `duration_seconds`, and the `app_*` columns if it promotes an app.
-Nothing was seeded with placeholder ads on purpose: a fake advertiser in a
-production feed is indistinguishable from a real one to a user, and the
-click-through would go somewhere nobody agreed to.
+Nothing was seeded on purpose: a fake advertiser in a production feed is
+indistinguishable from a real one to a user, and the click-through would go
+somewhere nobody agreed to.
 
-> **Mediation.** Long term these creatives should come from an ad network
-> (AdMob, AppLovin, Meta Audience Network) rather than a table you fill by hand.
-> The schema is deliberately shaped like one — impressions, clicks, dismisses,
-> frequency caps and eCPM-style weighting are all already recorded — so swapping
-> `next_ad` for a network SDK is a contained change. Each network needs its own
-> account and app review.
+**Two ways to fill it, and most apps run both:**
+
+**a) Direct partners.** You sell a slot; you keep all of it. Needs a sales
+motion. Enter them in-app: Settings → Ads → **Ad console**. Admin only, and the
+flag can only be granted server-side —
+
+```sql
+UPDATE public.users SET is_admin = true WHERE username = '<you>';
+```
+
+Add a partner (name, CPM in naira per 1,000 impressions, budget), then an ad
+against it. Serving stops automatically once spend reaches the budget.
+
+**b) An ad network** — Google AdMob or Meta Audience Network. Inventory fills
+instantly with no sales effort, but the network takes a cut, chooses the
+creative, and needs an approved account plus native SDK configuration (a config
+plugin and a rebuild — it will not work in Expo Go). This is the realistic
+answer at scale, and it is additive: a network ad is just another row whose
+media comes from an SDK.
+
+**⚠️ Whichever you choose, read §4.6 first.** The reward defaults pay out more
+than an ad currently earns.
 
 ### 4.5 Phone numbers — consented disclosure now, masking later
 

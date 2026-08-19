@@ -9,15 +9,24 @@
 > degrade to a mock rather than failing, so they look finished and are not —
 > payments and KYC especially.
 >
-> Updated 2026-08-19. Branch **`sdk-54-temp`**, HEAD **`35c0b3d`**, tree clean.
-> Typecheck: **0 errors**. Metro serves the real bundle: **HTTP 200, 30.3 MB dev**.
+> Updated 2026-08-19. Branch **`sdk-54-temp`**, HEAD **`47071ec`**, tree clean.
+> Typecheck: **0 errors**. Metro serves the real bundle: **HTTP 200, 30.4 MB dev**.
 > App **boots on simulator and device**.
 >
-> ⚠️ **TWO migrations are written but NOT applied** — `migration_contact_phone.sql`
-> and `migration_ad_rewards.sql`. The database has been unreachable
-> (`ETIMEDOUT` on every attempt) across two sessions. Until they are applied the
-> Call button, the phone row in Account Settings and the whole Rewards feature
-> degrade to empty states rather than crashing — see §6b.
+> **Every migration is applied.** The two-session "database outage" was never the
+> database: `.dbq.mjs` was resolving Supabase's pooler to its AAAA record, and on
+> this network that is a NAT64 address which accepts a connection and then never
+> completes, so `pg` hung until `ETIMEDOUT` instead of falling back to IPv4. One
+> `dns.setDefaultResultOrder('ipv4first')` fixed it. See Trap 0e.
+>
+> Two DB suites now live in `supabase/tests/` and both pass against the live
+> database, as a real user, under RLS, inside a rolled-back transaction:
+> `test_ad_rewards.sql` **27/27**, `test_ad_partners.sql` **13/13**.
+>
+> ⚠️ **`ad_creatives` is empty**, so "Watch & earn" reports `no_inventory` and the
+> feed shows no promoted units. That is correct behaviour, not a bug — it needs
+> an advertiser. Settings → Ads → **Ad console** (admins only) is where inventory
+> is entered.
 >
 > ⚠️ **Before launching rewards, read SETUP-KEYS §4.6.** The seeded payouts lose
 > ₦5–7 per ad watched on purpose. It is a growth subsidy, and it is one
@@ -141,8 +150,8 @@ actions in priority order.
 
 ## 6b. Migration status
 
-Applied to the live project (`orygxuxgjmhamcisjkfu`, "Teq_database") **this
-session**, each verified afterwards:
+Applied to the live project (`orygxuxgjmhamcisjkfu`, "Teq_database"), each
+verified afterwards:
 
 | Migration | Applied | What it did |
 | --- | --- | --- |
@@ -152,31 +161,37 @@ session**, each verified afterwards:
 | `migration_chat_handles.sql` | ✅ 2026-08-16 | `find_user_for_chat`, `search_users_for_chat` |
 | `migration_messaging.sql` | ✅ 2026-08-16 | Conversation/message RLS + the correct schema |
 | `migration_social_feed.sql` | ✅ 2026-08-17 | The whole feed: 12 tables, 39 functions, `post-media` bucket + policies |
-| `migration_contact_phone.sql` | ❌ **NOT APPLIED** | `share_phone` column, `get_contact_phone`, `set_my_phone`, `get_my_phone`, E.164 normalisation |
-| `migration_ad_rewards.sql` | ❌ **NOT APPLIED** | `ad_reward_config`, `ad_sessions`, `ad_daily_progress`, `ad_streaks`, `ad_preferences`, `ad_suppressions`, `ad_reports`; extends `ad_creatives` with format/duration/app-install columns |
+| `migration_contact_phone.sql` | ✅ 2026-08-19 | `share_phone`, `get_contact_phone`, `set_my_phone`, `get_my_phone`, E.164 normalisation |
+| `migration_ad_rewards.sql` | ✅ 2026-08-19 | 7 tables, 16 functions; extends `ad_creatives` with format/duration/app-install columns |
+| `migration_ad_partners.sql` | ✅ 2026-08-19 | `ad_partners`, `is_admin`, console RPCs, budget enforcement in `next_ad` |
+| `migration_fix_users_rls_recursion.sql` | ✅ 2026-08-19 | First half of the RLS recursion fix (`users` → `users`) |
+| `migration_fix_rls_recursion.sql` | ✅ 2026-08-19 | The rest: `users`/`passengers`/`trips` cycle broken with SECURITY DEFINER helpers |
 
 All are **idempotent** — re-running is safe. The older migrations in that folder
-predate this session; their status is unknown, so verify rather than assume.
-
-To apply one by hand, the Supabase MCP (`apply_migration`) works, or connect
-directly: `DATABASE_URL` on **port 5432** (session mode). Port 6543 is the
-transaction pooler and is a poor fit for multi-statement DDL.
-
-**Two are outstanding.** Apply them in this order — the ads migration ALTERs
-`ad_creatives`, which `migration_social_feed.sql` created:
+predate these sessions; their status is unknown, so verify rather than assume.
 
 ```bash
-node ./.dbq.mjs -f supabase/migrations/migration_contact_phone.sql
-node ./.dbq.mjs -f supabase/migrations/migration_ad_rewards.sql
+node ./.dbq.mjs -f supabase/migrations/<file>.sql
 ```
 
-Neither has ever run, so neither is verified. Both are idempotent and both
-should be followed by an e2e check under RLS (see §8 for the harness shape).
+### Verification
 
-Until it lands, `get_contact_phone` does not exist, so `getContactPhone()`
-logs a warning and returns null; the Call button says the number is not
-available and the Account Settings phone row shows the placeholder. Nothing
-crashes — but nobody can call anybody.
+Two suites, both run as a REAL user (`request.jwt.claims` + `SET LOCAL ROLE
+authenticated`) inside a transaction that is rolled back, so they are safe
+against the live database:
+
+```bash
+node ./.dbq.mjs -f supabase/tests/test_ad_rewards.sql    # 27/27
+node ./.dbq.mjs -f supabase/tests/test_ad_partners.sql   # 13/13
+```
+
+**Running a test as `postgres` proves nothing** — a superuser bypasses RLS, so
+every policy passes trivially. That is why both suites impersonate.
+
+Two of `test_ad_rewards`'s checks failed on the first run and both were the
+test's fault, not the schema's: they asserted on `ad_events` and `ad_reports`
+while impersonating the user, and neither table grants a user SELECT —
+correctly, since one is the billing log and the other a moderation queue.
 
 ---
 
@@ -184,44 +199,46 @@ crashes — but nobody can call anybody.
 
 Do these top-down. Each is independent unless stated.
 
-1. **Apply the two outstanding migrations** (§6b), contact_phone first, then
-   ad_rewards. Everything about calling a contact AND the entire rewards feature
-   is written and typechecked and does nothing until they land. They were not
-   applied only because the database has been unreachable — `ETIMEDOUT` on every
-   attempt across two sessions. Neither has ever run, so verify rather than
-   assume once they do.
-
-1b. **Seed at least one rewarded creative**, or the Rewards screen correctly but
-   unhelpfully shows "No ads right now":
+1. **Add real ad inventory.** Everything else about rewards is built, applied
+   and tested; `ad_creatives` is simply empty, so "Watch & earn" reports
+   `no_inventory`. Settings → Ads → **Ad console** (admins only). Grant yourself
+   the flag first — it cannot be done from a client, by design:
 
    ```sql
-   INSERT INTO public.ad_creatives
-     (advertiser_name, headline, body, cta_url, format, duration_seconds,
-      media_url, media_type, category, skip_after_seconds)
-   VALUES
-     ('<real advertiser>', '<headline>', '<body>', '<destination>',
-      'rewarded', 15, '<video or image url>', 'video', 'finance', 5);
+   UPDATE public.users SET is_admin = true WHERE username = '<you>';
    ```
 
-   Nothing was seeded automatically — see the note in SETUP-KEYS §4.4 on why a
-   fake advertiser must never ship.
+   Add a partner (name, CPM, budget), then an ad against it. Nothing was seeded:
+   a fake advertiser in a production feed is indistinguishable from a real one
+   to a user, and the click would go somewhere nobody agreed to.
+
 2. **Verify chat on a device between two real accounts.** The database and RLS
-   are proven (§8), the React layer is not. Sign in as a passenger on one
-   device, a driver on another, search the driver by `@username`, send both
-   ways, send a voice note, then tap Call. This is the highest-value 15 minutes
+   are proven, the React layer is not. Passenger on one device, driver on
+   another: search by `@username`, send both ways, send a voice note, reply by
+   swiping a bubble, then tap Call and WhatsApp. The highest-value 15 minutes
    available.
+
 3. **Verify the feed on a device with two real accounts.** Post with an image,
-   reply from the other account, check the reply count moves on the first
-   device without a refresh, like from the thread and confirm the timeline row
-   agrees. 28 of 29 database checks pass; none of them exercise React.
-4. **Re-create the feed e2e harness.** It lived in a scratchpad and did not
-   survive the session. Worth rebuilding under `supabase/tests/` so it is not
-   lost a third time — it is the only thing that proves RLS is right, and a
-   test run as `postgres` proves nothing because superuser bypasses RLS.
-5. **Per-contact conversation records in Activity** — one entry per person
+   reply from the other account, check the reply count moves without a refresh,
+   like from the thread and confirm the timeline row agrees.
+
+4. **Re-create the feed e2e harness** under `supabase/tests/`, next to the two
+   that now live there. It was lost to a scratchpad twice. It is the only thing
+   that proves the feed's RLS, and a run as `postgres` proves nothing.
+
+5. **Investigate the 26 auth users vs 9 profile rows gap.** Only 9 of 26
+   `auth.users` have a `public.users` row, so 17 accounts cannot be found by
+   chat search, cannot be followed and return false from `is_admin()`. Likely
+   the signup trigger — `migration_fix_signup_trigger.sql` exists but its
+   effect is unverified. Noticed while writing the admin test, which failed
+   until it selected a user with an actual profile.
+
+6. **Per-contact conversation records in Activity** — one entry per person
    chatted with, not per message.
-6. **Auth gating**, then the **offline/error-control audit**.
-7. **Phase 8** — watermark overlay + shareable profile deep link.
+
+7. **Auth gating**, then the **offline/error-control audit**.
+
+8. **Phase 8** — watermark overlay + shareable profile deep link.
 
 ### Before any release
 
@@ -635,6 +652,49 @@ This was clarified with the user and is important:
 ---
 
 ## 5. Traps that will cost you time
+
+0e. **`ETIMEDOUT` connecting to Supabase from Node, while the REST API works
+   fine.** It is IPv6, not an outage. Supabase's pooler publishes both A and
+   AAAA records; on a network without real IPv6 transit the AAAA is a NAT64
+   address (`64:ff9b::…`) that ACCEPTS the connection and then never completes,
+   so `pg` hangs to its timeout rather than falling back. This cost two sessions
+   before anyone checked the ports directly.
+
+   Diagnose in five seconds — if `nc` succeeds while Node times out, it is this:
+
+   ```bash
+   nc -z -G 6 -w 6 aws-1-us-west-1.pooler.supabase.com 5432   # OPEN
+   curl -s -o /dev/null -w '%{http_code}\n' https://<ref>.supabase.co/rest/v1/
+   ```
+
+   Fixed for good in `.dbq.mjs` with `dns.setDefaultResultOrder('ipv4first')`.
+   Any new Node script that talks to this database needs the same line.
+
+0f. **RLS recursion is silent until it is not.** Five policies across `users`,
+   `passengers` and `trips` each read another of those tables from inside a
+   policy ON one of them. Postgres detects the cycle and raises `infinite
+   recursion detected in policy for relation "…"` — it does not hang, so it
+   looks like an unrelated bug at the call site.
+
+   It also *masks* other bugs. A test asserting "a user cannot self-grant admin"
+   passed for two runs because the UPDATE was failing on the recursion, not on
+   the guard meant to stop it. **Read the failure reason, not just the tick.**
+
+   The remedy is always the same: move the cross-table lookup into a
+   `SECURITY DEFINER` function so the policy stops re-entering itself. Check for
+   new ones with:
+
+   ```sql
+   SELECT c.relname, p.polname FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid
+    WHERE pg_get_expr(p.polqual, p.polrelid) ~ ('FROM ' || c.relname);
+   ```
+
+0g. **A `SECURITY DEFINER` trigger cannot tell who called it.** `current_user`
+   inside one is the *owner*, never `authenticated`, so a guard written as
+   DEFINER never fires. The `is_admin` guard had exactly this hole and any user
+   could PATCH themselves to admin. Guards that inspect the caller must be
+   `SECURITY INVOKER`.
+
 
 0d. **`Unable to resolve .../metro-config/node_modules/metro-runtime/src/modules/empty-module.js`
    at bundle time.** The path in the error does not exist and never will —

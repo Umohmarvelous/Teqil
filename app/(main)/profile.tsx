@@ -1006,10 +1006,17 @@ export default function ProfileTab() {
           scrollY={scrollY}
           stripInset={10}
           contentContainerStyle={{ paddingBottom: bottomInset + 32 }}
-      
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              progressViewOffset={barHeight}
+              tintColor={Colors.primary}
+            />
+          }
           header={
             <View style={[styles.hero, 
-            {backgroundColor: ios.secondarySystemFill, borderWidth: .5, borderColor: ios.opaqueSeparator, borderRadius: CARD_RADIUS, marginHorizontal: 10, marginBottom: 6 }
+            {backgroundColor: ios.tertiarySystemFill, borderWidth: .5, borderColor: ios.opaqueSeparator, borderRadius: CARD_RADIUS, marginHorizontal: 10, marginBottom: 6 }
 
             ]}>
               <View style={[styles.heroRow, { }]}>
@@ -1185,15 +1192,15 @@ export default function ProfileTab() {
 
 
                 {user?.role === "driver" ? (
-                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderWidth: 1, borderColor: ios.opaqueSeparator }]}>
+                  <View style={[styles.coinbalanceSection, { backgroundColor: ios.tertiarySystemFill, borderWidth: .5, borderColor: ios.opaqueSeparator }]}>
                     <DriverDashboard />
                   </View>
                 ) : user?.role === "passenger" ? (
-                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderWidth: 1, borderColor: ios.opaqueSeparator }]}>
+                  <View style={[styles.coinbalanceSection, { backgroundColor: ios.tertiarySystemFill, borderWidth: .5, borderColor: ios.opaqueSeparator }]}>
                     <PassengerDashboard />
                   </View>
                 ) : (
-                  <View style={[styles.coinbalanceSection, { backgroundColor: cardBg, borderWidth: 1, borderColor: ios.opaqueSeparator }]}>
+                  <View style={[styles.coinbalanceSection, { backgroundColor: ios.tertiarySystemFill, borderWidth: .5, borderColor: ios.opaqueSeparator }]}>
                     <BalanceCard coins={totalEarnedCoins} onQuickTransferPress={() => {}} />
                   </View>
                 )}
