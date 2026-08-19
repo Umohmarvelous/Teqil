@@ -358,87 +358,109 @@ export default function NotificationsScreen() {
   }, [unread, markAllRead, clearAll]);
 
   return (
-    <IOSScreen
-      title="Notifications"
-      subtitle={unread > 0 ? `${unread} unread` : undefined}
-      scrollable={false}
-      scroll={scroll}
-      right={
-        notifications.length > 0 ? (
-          <Pressable onPress={showActions} hitSlop={12} accessibilityRole="button" accessibilityLabel="Notification options">
-            {/* <SymbolView
-              name="ellipsis.circle"
-              size={32}
-              tintColor={ios.label}
-              fallback={<Text style={{ color: ios.label }}>•••</Text>}
-            /> */}
-            <HugeiconsIcon icon={MoreHorizontalCircleIcon} size={20} color={ios.label} />
-          </Pressable>
-        ) : undefined
-      }
-    >
-      {/* The bar is a button; the only real field lives in the overlay. Two
-          live inputs across a modal boundary fight over focus. */}
-      <ScreenSearchBar
-        search={search}
-        placeholder="Search notifications"
-        style={styles.searchBar}
-      />
-      <ScreenSearch
-        search={search}
-        placeholder="Search notifications"
-        emptyHint="Search by who sent it, what it says, or how long ago."
-      />
+    <View>
 
-      <AnimatedSectionList
-        sections={sections}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <NotificationRow
-            item={item}
-            ios={ios}
-            registerRow={registerRow}
-            onPress={() => open(item)}
-            onDelete={() => remove(item.id)}
-            onToggleRead={() => (item.read ? markUnread(item.id) : markRead(item.id))}
+      <IOSScreen
+        title="Notifications"
+        subtitle={unread > 0 ? `${unread} unread` : undefined}
+        scrollable={false}
+        scroll={scroll}
+        right={
+          notifications.length > 0 ? (
+            <Pressable onPress={showActions} hitSlop={12} accessibilityRole="button" accessibilityLabel="Notification options">
+              {/* <SymbolView
+                name="ellipsis.circle"
+                size={32}
+                tintColor={ios.label}
+                fallback={<Text style={{ color: ios.label }}>•••</Text>}
+              /> */}
+              <HugeiconsIcon icon={MoreHorizontalCircleIcon} size={20} color={ios.label} />
+            </Pressable>
+          ) : (
+              undefined
+          )
+        }
+      >
+
+        <>
+          <ScreenSearchBar
+            search={search}
+            placeholder="Search notifications"
+            style={styles.searchBar}
           />
-        )}
-        renderSectionHeader={({ section }) => (
-          <View style={styles.sectionHeader}>
-            <Glass
-              variant="regular"
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-              fallbackIntensity={70}
-              fallbackTint={ios.systemGroupedBackground}
+          <ScreenSearch
+            search={search}
+            placeholder="Search notifications"
+            emptyHint="Search by who sent it, what it says, or how long ago."
+          />
+        </>
+
+        
+        <AnimatedSectionList
+          sections={sections}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <>
+              <NotificationRow
+                item={item}
+                ios={ios}
+                registerRow={registerRow}
+                onPress={() => open(item)}
+                onDelete={() => remove(item.id)}
+                onToggleRead={() => (item.read ? markUnread(item.id) : markRead(item.id))}
+              />
+            </>
+          )}
+          renderSectionHeader={({ section }) => (
+            <View style={[styles.sectionHeader]}>
+              <Glass
+                variant="regular"
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+                fallbackIntensity={70}
+                fallbackTint={ios.systemGroupedBackground}
+              />
+              
+              <Text style={[IOSAppFont.sectionTitle, { color: ios.secondaryLabel }]}>
+                {section.title.toUpperCase()}
+              </Text>
+
+
+
+              {/* The bar is a button; the only real field lives in the overlay. Two
+              live inputs across a modal boundary fight over focus. */}
+              {/* <View style={{borderWidth: 1, borderColor: 'red',}}> */}
+                
+              {/* </View> */}
+            </View>
+          )}
+          stickySectionHeadersEnabled
+          showsVerticalScrollIndicator={false}
+          onScrollBeginDrag={closeAllRows}
+          {...scroll.scrollProps}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              progressViewOffset={scroll.contentInset}
+              tintColor={Colors.primary}
             />
-            <Text style={[IOSAppFont.sectionTitle, { color: ios.secondaryLabel }]}>
-              {section.title.toUpperCase()}
-            </Text>
-          </View>
-        )}
-        stickySectionHeadersEnabled
-        showsVerticalScrollIndicator={false}
-        onScrollBeginDrag={closeAllRows}
-        {...scroll.scrollProps}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            progressViewOffset={scroll.contentInset}
-            tintColor={Colors.primary}
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <SymbolView name="bell.slash" size={54} tintColor={ios.tertiaryLabel} fallback={null} />
-            <Text style={[IOSAppFont.label, { color: ios.secondaryLabel }]}>
-              No Recent Notification
-            </Text>
-          </View>
-        }
-      />
-    </IOSScreen>
+          }
+          
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              
+              <SymbolView name="bell.slash" size={54} tintColor={ios.tertiaryLabel} fallback={null} />
+              <Text style={[IOSAppFont.label, { color: ios.secondaryLabel }]}>
+                No Recent Notification
+              </Text>
+            </View>
+          }
+        />
+
+        
+      </IOSScreen>
+    </View>
   );
 }
 

@@ -261,18 +261,32 @@ silently. Delete whichever is stale before it causes a confusing incident.
 
 ---
 
-### 4.4 Ad creatives — the feed has no ads until someone sells one
+### 4.4 Ad creatives — the feed AND the rewards screen have no ads until someone sells one
 
 `serve_feed_ads` runs a real auction over `public.ad_creatives`: role and state
 targeting, weighting, daily caps, and impression/click/dismiss events in
 `ad_events`. It is finished code. It returns **nothing**, because that table is
 empty, and the feed correctly renders no promoted units.
 
-This is not a key — it is a sales problem. To put an ad in the feed, insert a row
-with an advertiser name, a headline, a destination URL and a weight. Nothing was
-seeded with placeholder ads on purpose: a fake advertiser in a production feed is
-indistinguishable from a real one to a user, and the click-through would go
-somewhere nobody agreed to.
+The rewarded-ads system built on top of it (`migration_ad_rewards.sql`) reads the
+same table, filtered by a new `format` column. So **the Rewards screen shows
+"No ads right now" until `ad_creatives` has at least one row with
+`format = 'rewarded'`.** That is the correct empty state, not a bug.
+
+This is not a key — it is a sales problem, or an ad-network integration. To put
+an ad in either slot, insert a row with an advertiser name, a headline, a
+destination URL and a weight; for a rewarded video also set `format`,
+`media_url`, `duration_seconds`, and the `app_*` columns if it promotes an app.
+Nothing was seeded with placeholder ads on purpose: a fake advertiser in a
+production feed is indistinguishable from a real one to a user, and the
+click-through would go somewhere nobody agreed to.
+
+> **Mediation.** Long term these creatives should come from an ad network
+> (AdMob, AppLovin, Meta Audience Network) rather than a table you fill by hand.
+> The schema is deliberately shaped like one — impressions, clicks, dismisses,
+> frequency caps and eCPM-style weighting are all already recorded — so swapping
+> `next_ad` for a network SDK is a contained change. Each network needs its own
+> account and app review.
 
 ### 4.5 Phone numbers — consented disclosure now, masking later
 
@@ -286,6 +300,37 @@ telco account, a provisioned pool of numbers and per-minute billing, so it is a
 business decision rather than a code one. Until then a driver's real number is
 disclosed to passengers they are chatting with, which they consent to via the
 switch in Account Settings → Phone number.
+
+### 4.6 ⚠️ Rewarded-ad payouts are a growth subsidy, not a revenue share
+
+**Read this before launching the rewards feature.** Rewarded-video eCPM in
+Nigeria runs about **$0.50–$2.00 per 1,000 impressions** — at ₦1,500/$ that is
+**₦0.75–₦3.00 of gross revenue per ad watched.**
+
+The seeded defaults pay **₦8.00 per rewarded ad** plus a daily ladder worth
+₦110 for a full clear. At those numbers every ad watched **costs ₦5–7 more than
+it earns**, and 10,000 daily active users clearing the quota burns roughly
+**₦2–3.5 million per month**.
+
+That may well be the right call for launch — paying users to form a habit is a
+normal acquisition cost, and it is cheaper than most referral schemes. But it
+must be a decision, not an accident.
+
+Nothing in the app hard-codes a reward. Every value is one row:
+
+```sql
+SELECT * FROM public.ad_reward_config;
+
+UPDATE public.ad_reward_config
+   SET rewarded_credits = 2.00,          -- at/below real eCPM
+       daily_milestones = '[{"at":1,"naira":2,"label":"First watch"},
+                            {"at":5,"naira":10,"label":"Daily goal"}]'::JSONB,
+       max_ads_per_day  = 12;
+```
+
+Changes take effect on the next screen load — no deploy, no app update. Watch
+`ad_sessions` and `ad_events` for the real completion and click rates before
+settling on numbers.
 
 ## 5. Quick checklist
 
@@ -310,7 +355,11 @@ Copy into an issue and work down it.
 - [ ] De-duplicate `DATABASE_URL`
 - [ ] Decide on WhatsApp: deep link (free) vs Business Platform (metered)
 - [ ] Turn on **leaked-password protection** in Supabase → Auth (one toggle)
-- [ ] Insert real `ad_creatives` rows, or accept a feed with no ads (§4.4)
+- [ ] Insert real `ad_creatives` rows, or accept a feed and rewards screen with
+      no ads (§4.4)
+- [ ] **Decide the rewarded-ad payout rate before launch** — the defaults lose
+      ₦5–7 per ad on purpose (§4.6)
+- [ ] Apply `supabase/migrations/migration_ad_rewards.sql`
 - [ ] Decide on number masking vs consented disclosure (§4.5)
 - [ ] Harden the ~20 pre-existing functions with a mutable `search_path`, and the
       `SECURITY DEFINER` view `v_active_park_trips` — run Supabase's advisor and

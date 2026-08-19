@@ -74,7 +74,7 @@ import {
 import { StatusBar }  from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase }   from '@/src/services/supabase';
-import { Glass, iosAlert, IOSSearchBar, NetworkStatus, SwipeableRow, useIOSTheme } from "@/components/ios";
+import { Glass, iosAlert, IOSBadge, IOSSearchBar, NetworkStatus, SwipeableRow, useIOSTheme } from "@/components/ios";
 import { getContactPhone, formatNgPhone } from '@/src/services/contact';
 import { SymbolView } from 'expo-symbols';
 // Voice notes run on expo-audio.
@@ -136,10 +136,10 @@ async function placeCall(userId: string | undefined, name?: string) {
 function ContactInfoModal({
   visible, onClose, conversation, isDark,
 }: { visible: boolean; onClose: () => void; conversation: Conversation | null; isDark: boolean }) {
+  const ios = useIOSTheme();
   if (!conversation) return null;
   const textColor = isDark ? Colors.textWhite    : Colors.text;
   const subTextColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const cardBg    = isDark ? Colors.primaryDarker : '#FFFFFF';
 
   const call = () => placeCall(conversation.participant_id, conversation.participant_name);
 
@@ -148,7 +148,7 @@ function ContactInfoModal({
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1, justifyContent: 'flex-end' }}>
         <Pressable style={S.backdrop} onPress={onClose} />
-        <View style={[S.infoSheet, { backgroundColor: theme.systemGray }]}>
+        <View style={[S.infoSheet, { backgroundColor: ios.secondarySystemBackground }]}>
           <View style={S.handle} />
           <View style={S.infoHeader}>
             <Text style={[S.infoTitle, { color: textColor }]}>Contact Info</Text>
@@ -946,7 +946,7 @@ function NewChatModal({
 // ─── Conversation List Item ───────────────────────────────────────────────────
 
 function ConvItem({
-  item, onPress, onDelete, isDark, textColor, subTextColor, cardBg, border,
+  item, onPress, onDelete, isDark, textColor, subTextColor, border,
 }: {
   item:      Conversation;
   onPress:   () => void;
@@ -954,7 +954,6 @@ function ConvItem({
   isDark:    boolean;
   textColor: string;
   subTextColor:  string;
-  cardBg:    any;
   border:    string;
 }) {
   const timeStr = item.last_message_at
@@ -963,6 +962,8 @@ function ConvItem({
 
   // Direct chats get a person icon; trip-based chats keep the default
   const isDirectChat = item.id.startsWith('direct_');
+  const unread = item.unread_count ?? 0;
+  const ios = useIOSTheme();
 
   return (
     <SwipeableRow
@@ -1003,24 +1004,36 @@ function ConvItem({
               <HugeiconsIcon icon={UserIcon} size={9} color="#fff" />
             </View>
           )}
-          {(item.unread_count ?? 0) > 0 && <View style={S.onlineDot} />}
+          {/* The green dot here was driven by `unread_count`, so it claimed the
+              person was ONLINE whenever they had sent something unread. It said
+              nothing true and duplicated the badge below, so it is gone. */}
         </View>
         <View style={S.convText}>
           <View style={S.convTopRow}>
-            <Text style={[S.convName, { color: textColor }]} numberOfLines={1}>
+            <Text
+              style={[S.convName, { color: textColor }, unread > 0 && S.convNameUnread]}
+              numberOfLines={1}
+            >
               {item.participant_name}
             </Text>
-            <Text style={[S.convTime, { color: subTextColor }]}>{timeStr}</Text>
+            <Text style={[S.convTime, { color: unread > 0 ? Colors.primary : subTextColor }]}>
+              {timeStr}
+            </Text>
           </View>
           <View style={S.convBottomRow}>
-            <Text style={[S.convLast, { color: subTextColor }]} numberOfLines={1}>
+            <Text
+              style={[
+                S.convLast,
+                { color: unread > 0 ? textColor : subTextColor },
+                unread > 0 && S.convLastUnread,
+              ]}
+              numberOfLines={1}
+            >
               {item.last_message || (isDirectChat ? 'Direct message' : 'Tap to start chatting')}
             </Text>
-            {(item.unread_count ?? 0) > 0 && (
-              <View style={S.badge}>
-                <Text style={S.badgeText}>{(item.unread_count ?? 0) > 9 ? '9+' : item.unread_count}</Text>
-              </View>
-            )}
+            {/* The kit's badge, which caps at 99+. The hand-rolled one capped at
+                "9+", so a busy chat looked identical at 10 messages and at 400. */}
+            <IOSBadge count={unread} />
           </View>
           {item.participant_driver_id && (
             <Text style={[S.convDriverId, { color: Colors.primary + 'AA' }]}>{item.participant_driver_id}</Text>
@@ -1050,7 +1063,6 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
   const { conversations, addConversation, deleteConversation, subscribeToRealtime } = useMessagesStore();
   
   
-  const themes = useIOSTheme();
   const ios = useIOSTheme();
 
 
@@ -1080,7 +1092,6 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
   // const bg        = isDark ? Colors.background : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite     : Colors.text;
   const subTextColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const cardBg    = isDark ? Colors.primaryDarker : '#FFFFFF';
   const border    = isDark ? 'rgba(255,255,255,0.08)' : '#E8ECF0';
   const topPad    = Platform.OS === 'web' ? 67 : insets.top;
 
@@ -1168,7 +1179,7 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
 
   return (
     <>
-      <GestureHandlerRootView style={[S.root, { backgroundColor: theme.systemBackground, paddingTop: topPad,  }]}>
+      <GestureHandlerRootView style={[S.root, { backgroundColor: ios.systemBackground, paddingTop: topPad }]}>
         <StatusBar style={isDark ? 'light' : 'dark'} animated />
 
         <View style={S.header}>
@@ -1267,7 +1278,6 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
               isDark={isDark}
               textColor={textColor}
               subTextColor={subTextColor}
-              // cardBg={cardBg}
               border={border}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1383,18 +1393,17 @@ const S = StyleSheet.create({
   convItem:     { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth },
   convText:     { flex: 1, gap: 2 },
   convTopRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  convName:     { fontFamily: 'Poppins_600SemiBold', fontSize: 15, flex: 1 },
+  convName:       { fontFamily: 'Poppins_600SemiBold', fontSize: 15, flex: 1 },
+  convNameUnread: { fontFamily: 'Poppins_700Bold' },
+  convLastUnread: { fontFamily: 'Poppins_500Medium' },
   convTime:     { fontFamily: 'Poppins_400Regular', fontSize: 11 },
   convBottomRow:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   convLast:     { fontFamily: 'Poppins_400Regular', fontSize: 13, flex: 1 },
   convDriverId: { fontFamily: 'Poppins_400Regular', fontSize: 11, marginTop: 1 },
 
-  onlineDot: { position: 'absolute', top: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.primary, borderWidth: 2, borderColor: '#fff' },
   // Small badge overlaid on avatar for direct conversations
   directBadge: { position: 'absolute', bottom: 0, right: 0, width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
 
-  badge:     { backgroundColor: Colors.primary, borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 6 },
-  badgeText: { fontFamily: 'Poppins_700Bold', fontSize: 10, color: '#fff' },
   deleteSwipe: { width: 70, alignItems: 'center', justifyContent: 'center' },
 
   // empty:        { alignItems: 'center', paddingHorizontal: 40, gap: 12, margin: 'auto' },

@@ -27,12 +27,10 @@ import {
   MessageIcon,
   Message01Icon,
   Bell,
-  BellOff,
   Menu03Icon,
 } from "@hugeicons/core-free-icons";
 import {
   Glass,
-  IOSBadge,
   IOSSegmentedTabs,
   IOSTabBar,
   NetworkStatus,
@@ -47,7 +45,7 @@ import AccountMenu from "@/components/AccountMenu";
 import { useUnreadNotificationCount } from "@/src/store/useNotificationsStore";
 import Avatar from "@/components/Avatar";
 import { useAuthStore } from "@/src/store/useStore";
-import BottomSheet from "@gorhom/bottom-sheet";
+// import BottomSheet from "@gorhom/bottom-sheet";
 import MainTab from "./index";
 import SidedBar from "@/components/Sidedbar";
 import FindDriverModal from "@/components/FindDriverModal";
@@ -341,7 +339,6 @@ export default function MainLayout() {
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.textWhite;
-  const tabBarBg = isDark ? Colors.background : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   // const borderColor = isDark ? "rgba(255,255,255,0.07)" : "#E5E8EC";
   const sideBorderColor = isDark ? Colors.overlayLight : Colors.overlayLight;

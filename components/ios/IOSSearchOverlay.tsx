@@ -348,8 +348,7 @@ function IdleState({
         </>
       )}
 
-      {/* {!!suggestions?.length && ( */}
-      {suggestions?.length && (
+      {/* {!!suggestions?.length && (
         <>
           <Text
             style={[
@@ -382,7 +381,7 @@ function IdleState({
             ))}
           </View>
         </>
-      )}
+      )} */}
     </View>
   );
 }

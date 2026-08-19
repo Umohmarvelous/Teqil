@@ -23,6 +23,7 @@ import React from "react";
 import {
   View,
   Pressable,
+  Platform,
   StyleSheet,
   type ViewStyle,
   type StyleProp,
@@ -40,6 +41,8 @@ import {
   type CollapsibleScroll,
 } from "./CollapsibleHeader";
 import { useTabBarInset } from "./IOSTabBar";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 
 export interface IOSScreenProps {
   title: string;
@@ -112,6 +115,9 @@ export function IOSScreen({
   const internalScroll = useCollapsibleScroll();
   const bottomInset = useTabBarInset();
 
+  const insets = useSafeAreaInsets();
+  const topPadding = Platform.OS === "web" ? 67 : insets.top;
+
   const scroll = externalScroll ?? internalScroll;
   // Collapse only when something genuinely drives the offset: our own
   // ScrollView, or a list the caller wired up.
@@ -120,9 +126,11 @@ export function IOSScreen({
   const background = grouped ? theme.systemBackground : theme.systemBackground;
 
   return (
-    <View style={[styles.root, { backgroundColor: background }]}>
+    <View style={[styles.root, { backgroundColor: background },
+      // { paddingTop: topPadding + 10 }
+    ]}>
       {/* Status bar text flips with the palette, never hard-coded. */}
-      <StatusBar style={theme.scheme === "dark" ? "light" : "dark"} />
+      <StatusBar style={theme.scheme === "dark" ? "light" : "dark"} animated />
 
       <CollapsibleHeader
         title={title}
@@ -144,6 +152,7 @@ export function IOSScreen({
           contentContainerStyle={[
             {
               paddingTop: scroll.contentInset,
+              
               paddingBottom: (tabBarInset ? bottomInset : 0) + 32,
               // The page owns its gutter; sections own their vertical rhythm.
               paddingHorizontal: PAGE_INSET,
