@@ -874,13 +874,13 @@ export default function ProfileTab() {
 
   const barHeight = insets.top + BAR_ROW_HEIGHT;
   const displayName = user?.full_name || "No user";
-  const handle = user?.username ? `@${user.username}` : user?.driver_id ?? "";
-  const roleLabel =
-    user?.role === "driver"
-      ? "Driver"
-      : user?.role === "park_owner"
-        ? "Park Owner"
-        : "Passenger";
+  // const handle = user?.username ? `@${user.username}` : user?.driver_id ?? "";
+  // const roleLabel =
+  //   user?.role === "driver"
+  //     ? "Driver"
+  //     : user?.role === "park_owner"
+  //       ? "Park Owner"
+  //       : "Passenger";
 
   const renderBar = useCallback(
     (collapsed: boolean) => (
@@ -898,7 +898,7 @@ export default function ProfileTab() {
           androidTint={isDark ? "rgba(7,7,7,0.9)" : "rgba(255,255,255,0.92)"}
         />
 
-        <View style={styles.barRow} pointerEvents="box-none">
+        <View style={[styles.barRow]} pointerEvents="box-none">
           {/* The avatar docks here, but it is drawn by TravellingAvatar outside
               this bar — a child of the bar would be clipped by it at rest, and
               at rest the avatar is a whole hero below. This only holds its
@@ -906,7 +906,7 @@ export default function ProfileTab() {
           <View style={styles.barLeft} pointerEvents="none" />
           {/* Same centre slot as every other screen: the connection takes it
               over the moment it degrades, and hands it back on recovery. */}
-          <View style={styles.barCentre} pointerEvents="none">
+          <View style={[styles.barCentre]} pointerEvents="none">
             <NetworkStatus>
               <BarFade visible={collapsed}>
                 <Text
@@ -989,7 +989,7 @@ export default function ProfileTab() {
   return (
     <CopyToastContext.Provider value={showCopied}>
       <KeyboardAvoidingView
-        style={{ flex: 1, backgroundColor: bg }}
+        style={{ flex: 1, backgroundColor: bg,  }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
       >
@@ -1004,7 +1004,7 @@ export default function ProfileTab() {
           barHeight={barHeight}
           renderBar={renderBar}
           scrollY={scrollY}
-          stripInset={16}
+          stripInset={10}
           contentContainerStyle={{ paddingBottom: bottomInset + 32 }}
           refreshControl={
             <RefreshControl

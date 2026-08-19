@@ -177,14 +177,14 @@ export function IOSListRow({
           accessibilityState={{ disabled: !!disabled }}
           style={({ pressed }) => [
             styles.row,
-            // highlighted && { backgroundColor: theme.tint + "26" },
+            highlighted && { backgroundColor: theme.tint + "26" },
             pressed && { backgroundColor: theme.systemFill },
           ]}
         >
           {body}
         </Pressable>
       ) : (
-        <View style={[styles.row,]}>
+        <View style={[styles.row, highlighted && { backgroundColor: theme.tint + "26" }]}>
           {body}
         </View>
       )}
@@ -243,16 +243,17 @@ export function IOSListSection({
       ) : null}
 
       {opaque ? (
-        <View style={[styles.group, { backgroundColor: 'transparent'}]}>
+        <View style={[styles.group, { backgroundColor: theme.systemBackground}]}>
           {body}
         </View>
       ) : (
         <Glass
-          variant="regular"
+          // variant="regular"
+          variant="none"
           // radius={CARD_RADIUS}
           style={styles.group}
           // fallbackIntensity={40}
-          fallbackTint={'transparent'}
+          fallbackTint={theme.systemBackground}
         >
           {body}
         </Glass>
