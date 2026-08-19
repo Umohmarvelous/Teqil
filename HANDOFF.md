@@ -651,6 +651,65 @@ This was clarified with the user and is important:
 
 ---
 
+## 4c. The fuel-pool drain (found and closed 2026-08-19)
+
+Supabase's own advisor flagged 27 `SECURITY DEFINER` functions as executable by
+`anon`. Most were harmless trigger functions. One was not.
+
+```sql
+redeem_fuel(p_driver_id UUID, p_amount NUMERIC, p_trip_id TEXT)
+```
+
+It was `SECURITY DEFINER`, took the driver's id as an **argument**, never called
+`auth.uid()`, and `anon` could execute it. The anon key ships inside the app
+bundle - it is public by design - so this was enough, with no account:
+
+```
+POST /rest/v1/rpc/redeem_fuel
+{ "p_driver_id": "<any uuid>", "p_amount": 500000, "p_trip_id": "<random>" }
+```
+
+The only guard was a dedupe key built from `p_trip_id`, which varying the trip
+id defeats. The advisory lock and the balance check stopped an *overdraw*, not a
+*theft*: the pool would drain to zero looking entirely legitimate.
+
+`claim_free_ride(p_offer_id, p_passenger_id)` had the identical shape - claim a
+ride as anybody, unauthenticated. `resolve_barter_violation` let anyone settle a
+moderation dispute.
+
+**The rule, now enforced:** a `SECURITY DEFINER` function must never take the
+acting user's identity as an argument. An argument is a *claim by the caller*;
+`auth.uid()` is a *fact from the verified JWT*. Where a signature had to stay for
+compatibility, the parameter is checked against `auth.uid()` rather than trusted.
+
+Fixed in `migration_harden_legacy_rpcs.sql`, proved by
+`supabase/tests/test_legacy_rpc_hardening.sql` (8/8). After it:
+
+| | before | after |
+| --- | --- | --- |
+| anon-executable `SECURITY DEFINER` functions | 27 | **1** |
+| functions without a pinned `search_path` | 18 | **0** |
+
+The remaining one is `get_user_by_username`, which is deliberate: username login
+must resolve a handle to an email before a session exists.
+
+### Still open, deliberately
+
+- **`get_user_by_username` leaks emails.** It returns an email for any username
+  handed to it, so usernames can be walked to harvest addresses. Fixing it means
+  moving username login behind an edge function that returns a *session* rather
+  than an email - a change to the auth flow, not something to fold into a
+  security patch. Privacy leak, not privilege escalation.
+- **`v_active_park_trips` is a `SECURITY DEFINER` view** (advisor ERROR,
+  pre-existing). Converting it needs the park-owner access rules rewritten as
+  policies first.
+- **`auth_leaked_password_protection` is off.** One toggle in Supabase - Auth.
+
+**Run `get_advisors` after every migration.** This was found by doing exactly
+that, after unrelated work, and it had been live the whole time.
+
+---
+
 ## 5. Traps that will cost you time
 
 0e. **`ETIMEDOUT` connecting to Supabase from Node, while the REST API works
