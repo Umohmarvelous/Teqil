@@ -358,8 +358,14 @@ export default function MainLayout() {
     setFinderVisible(true);
   };
 
-  const HEADER_HEIGHT = topPadding + 130;
-  // const HEADER_HEIGHT = topPadding + 110;
+  // Measured, not guessed. The old constant was `topPadding + 130` while the
+  // bar actually renders around `topPadding + 66`, so every home screen carried
+  // ~64pt of dead space under the header — and any change to the bar's contents
+  // silently made the gap wrong again. `onLayout` reports the real height, and
+  // the initial value is only what is used for the single frame before the
+  // first layout lands.
+  const [measuredHeader, setMeasuredHeader] = useState(0);
+  const HEADER_HEIGHT = measuredHeader || topPadding + 78;
   // Content padding so the last row clears the translucent bar it scrolls under.
   // The bar now floats clear of the screen edge, so content must clear the gap too.
   const BOTTOM_HEIGHT = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + insets.bottom;
@@ -486,10 +492,16 @@ export default function MainLayout() {
                 fallbackTint={isDark ? Colors.overlay : 'transparent'}
               />
               <View
+                onLayout={(e) => {
+                  const h = Math.round(e.nativeEvent.layout.height);
+                  // Guard the set: onLayout fires on every re-render and an
+                  // unconditional setState here is an infinite loop.
+                  setMeasuredHeader((prev) => (Math.abs(prev - h) > 1 ? h : prev));
+                }}
                 style={[
                   styles.header,
                   {
-                    paddingTop: topPadding + 0,
+                    paddingTop: topPadding,
                   },
                 ]}
               >

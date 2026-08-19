@@ -3,10 +3,7 @@
 // components/QuickTransferModal.tsx
 import React, { useEffect, useRef } from "react";
 import {
-  View,
   StyleSheet,
-  Pressable,
-  Modal,
   Animated,
 } from "react-native";
 import { FB } from "@/constants/fbPalette";

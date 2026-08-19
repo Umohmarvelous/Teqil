@@ -138,6 +138,19 @@ export function SwipeableTabs<T extends string = string>({
 }: SwipeableTabsProps<T>) {
   const theme = useIOSTheme();
 
+  // The pinned strip is drawn OVER the scrollable, so a RefreshControl at y=0
+  // spins underneath it. `barHeight` is exactly how far down it has to start to
+  // clear the bar. A caller that sets its own offset still wins.
+  const refreshControlWithOffset = React.useMemo(
+    () =>
+      refreshControl
+        ? React.cloneElement(refreshControl, {
+            progressViewOffset: refreshControl.props.progressViewOffset ?? barHeight,
+          })
+        : undefined,
+    [refreshControl, barHeight],
+  );
+
   const internalScrollY = useSharedValue(0);
   const scrollY = externalScrollY ?? internalScrollY;
 
@@ -228,7 +241,7 @@ export function SwipeableTabs<T extends string = string>({
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         scrollEventThrottle={16}
-        refreshControl={refreshControl}
+        refreshControl={refreshControlWithOffset}
         {...scrollProps}
         onScroll={onScroll}
         contentContainerStyle={[{ paddingTop: barHeight }, contentContainerStyle]}

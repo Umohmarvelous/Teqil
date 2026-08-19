@@ -198,6 +198,8 @@ export default function PassengerHistoryScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
+            // Without this the spinner draws behind the translucent header.
+            progressViewOffset={scroll.refreshOffset}
             tintColor={Colors.primary}
           />
         }

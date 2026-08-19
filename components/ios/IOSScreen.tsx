@@ -125,6 +125,21 @@ export function IOSScreen({
 
   const background = grouped ? theme.systemBackground : theme.systemBackground;
 
+  // A RefreshControl draws its spinner at y=0 of the scrollable, which on every
+  // screen in this app is UNDERNEATH the translucent header. Callers kept
+  // forgetting `progressViewOffset`, so the pull worked and looked broken.
+  // Injecting it here means no screen has to remember — and an explicit offset
+  // passed by a caller still wins.
+  const refreshControlWithOffset = React.useMemo(
+    () =>
+      refreshControl
+        ? React.cloneElement(refreshControl, {
+            progressViewOffset: refreshControl.props.progressViewOffset ?? scroll.refreshOffset,
+          })
+        : undefined,
+    [refreshControl, scroll.refreshOffset],
+  );
+
   return (
     <View style={[styles.root, { backgroundColor: background },
       // { paddingTop: topPadding + 10 }
@@ -146,13 +161,14 @@ export function IOSScreen({
           onScroll={scroll.onScroll}
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
-          refreshControl={refreshControl}
+          refreshControl={refreshControlWithOffset}
           // Large-title screens keep the indicator clear of the header.
           scrollIndicatorInsets={{ top: scroll.contentInset }}
           contentContainerStyle={[
             {
-              paddingTop: scroll.contentInset,
-              
+              // contentTop, not contentInset: the gap is what stops the first
+              // card sitting flush against the title.
+              paddingTop: scroll.contentTop,
               paddingBottom: (tabBarInset ? bottomInset : 0) + 32,
               // The page owns its gutter; sections own their vertical rhythm.
               paddingHorizontal: PAGE_INSET,
@@ -172,7 +188,7 @@ export function IOSScreen({
         //
         // Only a static screen, where nothing scrolls under the header at all,
         // needs the frame padding.
-        <View style={[styles.body, externalScroll ? null : { paddingTop: scroll.contentInset }]}>
+        <View style={[styles.body, externalScroll ? null : { paddingTop: scroll.contentTop }]}>
           {children}
         </View>
       )}

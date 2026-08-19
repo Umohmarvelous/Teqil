@@ -21,7 +21,10 @@
         "NSLocationWhenInUseUsageDescription": "Teqil needs your location to track trips and show your position on the map.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Teqil needs your location to track trips in the background.",
         "NSCameraUsageDescription": "Teqil needs camera access to take your profile photo.",
-        "NSPhotoLibraryUsageDescription": "Teqil needs photo library access to select your profile photo."
+        "NSPhotoLibraryUsageDescription": "Teqil needs photo library access to select your profile photo.",
+        "LSApplicationQueriesSchemes": [
+          "whatsapp"
+        ]
       }
     },
     "android": {

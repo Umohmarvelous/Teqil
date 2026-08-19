@@ -358,103 +358,91 @@ export default function NotificationsScreen() {
   }, [unread, markAllRead, clearAll]);
 
   return (
-    <View
-      // style={{ borderWidth: 1, borderColor: 'red', flex: 1, paddingTop: 100 }}
+    <IOSScreen
+      title="Notifications"
+      subtitle={unread > 0 ? `${unread} unread` : undefined}
+      scrollable={false}
+      scroll={scroll}
+      right={
+        notifications.length > 0 ? (
+          <Pressable
+            onPress={showActions}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Notification options"
+          >
+            <HugeiconsIcon icon={MoreHorizontalCircleIcon} size={20} color={ios.label} />
+          </Pressable>
+        ) : undefined
+      }
     >
 
-      <IOSScreen
-        title="Notifications"
-        subtitle={unread > 0 ? `${unread} unread` : undefined}
-        scrollable={false}
-        scroll={scroll}
-        right={
-          notifications.length > 0 ? (
-            <Pressable onPress={showActions} hitSlop={12} accessibilityRole="button" accessibilityLabel="Notification options">
-              {/* <SymbolView
-                name="ellipsis.circle"
-                size={32}
-                tintColor={ios.label}
-                fallback={<Text style={{ color: ios.label }}>•••</Text>}
-              /> */}
-              <HugeiconsIcon icon={MoreHorizontalCircleIcon} size={20} color={ios.label} />
-            </Pressable>
-          ) : (
-              undefined
-          )
-        }
-      >
+      {/* The overlay is a modal, so it can live anywhere in the tree. The BAR
+          cannot: as a sibling of the list it rendered at frame y=0, which on a
+          translucent-header screen is underneath the header. It belongs in the
+          list header, where the list's own top inset carries it clear. */}
+      <ScreenSearch
+        search={search}
+        placeholder="Search notifications"
+        emptyHint="Search by who sent it, what it says, or how long ago."
+      />
 
-        <>
+      <AnimatedSectionList
+        ListHeaderComponent={
           <ScreenSearchBar
             search={search}
             placeholder="Search notifications"
             style={styles.searchBar}
           />
-          <ScreenSearch
-            search={search}
-            placeholder="Search notifications"
-            emptyHint="Search by who sent it, what it says, or how long ago."
+        }
+        sections={sections}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <NotificationRow
+            item={item}
+            ios={ios}
+            registerRow={registerRow}
+            onPress={() => open(item)}
+            onDelete={() => remove(item.id)}
+            onToggleRead={() => (item.read ? markUnread(item.id) : markRead(item.id))}
           />
-        </>
-
-        
-        <AnimatedSectionList
-          sections={sections}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <>
-              <NotificationRow
-                item={item}
-                ios={ios}
-                registerRow={registerRow}
-                onPress={() => open(item)}
-                onDelete={() => remove(item.id)}
-                onToggleRead={() => (item.read ? markUnread(item.id) : markRead(item.id))}
-              />
-            </>
-          )}
-          renderSectionHeader={({ section }) => (
-            <View style={[styles.sectionHeader]}>
-              <Glass
-                variant="regular"
-                style={StyleSheet.absoluteFill}
-                pointerEvents="none"
-                fallbackIntensity={70}
-                fallbackTint={ios.systemGroupedBackground}
-              />
-              
-              <Text style={[IOSAppFont.sectionTitle, { color: ios.secondaryLabel }]}>
-                {section.title.toUpperCase()}
-              </Text>
-            </View>
-          )}
-          stickySectionHeadersEnabled
-          showsVerticalScrollIndicator={false}
-          onScrollBeginDrag={closeAllRows}
-          {...scroll.scrollProps}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              progressViewOffset={scroll.contentInset}
-              tintColor={Colors.primary}
+        )}
+        renderSectionHeader={({ section }) => (
+          <View style={styles.sectionHeader}>
+            <Glass
+              variant="regular"
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+              fallbackIntensity={70}
+              fallbackTint={ios.systemGroupedBackground}
             />
-          }
-          
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              
-              <SymbolView name="bell.slash" size={54} tintColor={ios.tertiaryLabel} fallback={null} />
-              <Text style={[IOSAppFont.label, { color: ios.secondaryLabel }]}>
-                No Recent Notification
-              </Text>
-            </View>
-          }
-        />
-
-        
-      </IOSScreen>
-    </View>
+            <Text style={[IOSAppFont.sectionTitle, { color: ios.secondaryLabel }]}>
+              {section.title.toUpperCase()}
+            </Text>
+          </View>
+        )}
+        stickySectionHeadersEnabled
+        showsVerticalScrollIndicator={false}
+        onScrollBeginDrag={closeAllRows}
+        {...scroll.scrollProps}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            progressViewOffset={scroll.refreshOffset}
+            tintColor={ios.tint}
+          />
+        }
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <SymbolView name="bell.slash" size={54} tintColor={ios.tertiaryLabel} fallback={null} />
+            <Text style={[IOSAppFont.label, { color: ios.secondaryLabel }]}>
+              No Recent Notification
+            </Text>
+          </View>
+        }
+      />
+    </IOSScreen>
   );
 }
 
@@ -471,7 +459,7 @@ const styles = StyleSheet.create({
   // Sits above the list, inside the screen's own padding. It does not scroll
   // away: search is how you find something in a long inbox, and hiding it
   // behind a scroll-to-top means scrolling the thing you cannot navigate.
-  searchBar: { paddingHorizontal: 16, paddingBottom: 8 },
+  searchBar: { paddingHorizontal: 16, paddingBottom: 12 },
   unreadSlot: { width: 22, alignItems: "center" },
   unreadDot: { width: 8, height: 8, borderRadius: 4 },
   iconTile: {

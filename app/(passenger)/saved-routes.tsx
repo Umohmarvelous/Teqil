@@ -230,6 +230,8 @@ export default function SavedRoutesScreen() {
             <RefreshControl
               refreshing={loading}
               onRefresh={refresh}
+              // Without this the spinner draws behind the translucent header.
+              progressViewOffset={scroll.refreshOffset}
               tintColor={Colors.primary}
               colors={[Colors.primary]}
             />

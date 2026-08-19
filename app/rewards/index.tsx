@@ -118,7 +118,14 @@ export default function RewardsScreen() {
         contentContainerStyle={{ paddingTop: insets.top + 56, paddingBottom: insets.bottom + 32 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.tint} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            // Matches the floating header's height, so the spinner appears
+            // below the bar rather than behind it.
+            progressViewOffset={insets.top + 56}
+            tintColor={t.tint}
+          />
         }
       >
         {/* ── Hero ─────────────────────────────────────────────────────────── */}

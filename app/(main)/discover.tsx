@@ -35,7 +35,7 @@ import { useSharedValue, useAnimatedReaction, runOnJS } from "react-native-reani
 import * as Haptics from "expo-haptics";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { PenTool01Icon, FireIcon, UserAdd01Icon } from "@hugeicons/core-free-icons";
-import { Glass, IOSSegmentedTabs, useIOSTheme, type IOSSegment } from "@/components/ios";
+import { Glass, IOSTitleDropdown, useIOSTheme, type IOSTitleDropdownOption } from "@/components/ios";
 import { IOSAppFont } from "@/components/ios/theme";
 import { FeedList } from "@/components/feed";
 import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_GAP } from "@/components/ios";
@@ -52,9 +52,9 @@ import {
 
 type Lane = "for-you" | "following";
 
-const LANES: IOSSegment<Lane>[] = [
-  { key: "for-you", label: "For you" },
-  { key: "following", label: "Following" },
+const LANES: IOSTitleDropdownOption<Lane>[] = [
+  { key: "for-you", label: "For you", detail: "Ranked across Emilgo", symbol: "sparkles" },
+  { key: "following", label: "Following", detail: "Only people you follow", symbol: "person.2.fill" },
 ];
 
 // ─── Trending rail ───────────────────────────────────────────────────────────
@@ -221,15 +221,16 @@ export default function DiscoverTab({ scrollY }: DiscoverTabProps) {
   const header = React.useMemo(
     () => (
       <View>
+        {/* The lane name IS the title, Instagram-style. It reads as a heading
+            at rest and only becomes a control when tapped, which is the right
+            weight for something changed a few times a day rather than
+            constantly. */}
         <View style={[styles.laneWrap, { borderBottomColor: t.separator }]}>
-          <IOSSegmentedTabs<Lane>
-            segments={LANES}
+          <IOSTitleDropdown<Lane>
+            options={LANES}
             active={lane}
-            onChange={(k) => {
-              Haptics.selectionAsync();
-              setLane(k);
-            }}
-            variant="capsule"
+            onChange={setLane}
+            overline="Emilgo"
           />
         </View>
 
@@ -309,7 +310,7 @@ export default function DiscoverTab({ scrollY }: DiscoverTabProps) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
 
-  laneWrap: { paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
+  laneWrap: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth },
 
   composerRow: {
     flexDirection: "row",

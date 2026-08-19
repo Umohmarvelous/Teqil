@@ -586,7 +586,7 @@ export default function QRScannerModal({
         </View>
 
         {/* WhatsApp Style Instruction Modal overlaying the camera */}
-        {showInstruction && (
+        {!showInstruction && (
           <Modal transparent animationType="fade" visible={showInstruction}>
             <View style={instStyles.overlay}>
               <View style={instStyles.card}>

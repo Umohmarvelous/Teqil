@@ -211,17 +211,9 @@ function GlassCard({
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
   return (
-    <View style={[styles.cardShadow, style, {borderWidth: 1, borderColor: borderColor}]}>
+    <View style={[styles.cardShadow, style, ]}>
       <View style={styles.cardClip}>
-        <Glass
-          variant="regular"
-          radius={CARD_RADIUS}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-          fallbackIntensity={45}
-          fallbackTint={dark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.92)"}
-          androidTint={dark ? "rgba(28,28,30,0.92)" : "rgba(255,255,255,0.96)"}
-        />
+
         <View style={padded ? styles.cardInner : undefined}>{children}</View>
       </View>
     </View>

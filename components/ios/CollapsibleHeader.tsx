@@ -47,6 +47,19 @@ import { NetworkStatus, useConnectionQuality } from "./NetworkStatus";
 
 /** Height of the compact bar, excluding the status bar. */
 export const NAV_BAR_HEIGHT = 44;
+/**
+ * Breathing room between the bottom of the header and the first row of content.
+ *
+ * Without it `contentInset` puts the first card flush against the nav bar, so a
+ * screen at rest looks like the content is stuck to the title. iOS's own list
+ * screens leave roughly this much; matching it is what makes a migrated screen
+ * stop looking cramped.
+ *
+ * It is deliberately NOT folded into `contentInset`, because that number is
+ * also the scroll-indicator inset and the pull-to-refresh offset, and both of
+ * those must line up with the ACTUAL bar, not with the bar plus a gap.
+ */
+export const HEADER_CONTENT_GAP = 16;
 /** Extra height the large title occupies below the compact bar. */
 export const LARGE_TITLE_HEIGHT = 52;
 /** Scroll distance over which the collapse completes. */
@@ -58,8 +71,24 @@ export interface CollapsibleScroll {
   value: SharedValue<number>;
   /** Spread onto the animated scrollable. */
   onScroll: ReturnType<typeof useAnimatedScrollHandler>;
-  /** Top padding the scrollable needs so content starts below the header. */
+  /**
+   * Height of the header itself. Use for scroll-indicator insets and for a
+   * RefreshControl's `progressViewOffset` — anything that must align with the
+   * bar rather than with the content.
+   */
   contentInset: number;
+  /**
+   * Top padding for content: the header plus `HEADER_CONTENT_GAP`. This is what
+   * a `contentContainerStyle` wants; `scrollProps` already applies it.
+   */
+  contentTop: number;
+  /**
+   * Pass to `<RefreshControl progressViewOffset={…} />`. Without it the spinner
+   * is drawn at y=0, which on a translucent-header screen means underneath the
+   * header where nobody can see it — the refresh looks broken even though it is
+   * working.
+   */
+  refreshOffset: number;
   /** Bottom padding so the last row clears the floating tab bar. */
   bottomInset: number;
   /**
@@ -107,6 +136,7 @@ export function useCollapsibleScroll(
   });
 
   const contentInset = insets.top + NAV_BAR_HEIGHT + LARGE_TITLE_HEIGHT;
+  const contentTop = contentInset + HEADER_CONTENT_GAP;
   const bottomInset =
     (tabBar ? TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_GAP + insets.bottom : insets.bottom) + extraBottom;
 
@@ -114,11 +144,14 @@ export function useCollapsibleScroll(
     value: scrollY,
     onScroll,
     contentInset,
+    contentTop,
+    refreshOffset: contentInset,
     bottomInset,
     scrollProps: {
       onScroll,
       scrollEventThrottle: 16,
-      contentContainerStyle: { paddingTop: contentInset, paddingBottom: bottomInset },
+      // Content gets the gap; the indicator does not — it should track the bar.
+      contentContainerStyle: { paddingTop: contentTop, paddingBottom: bottomInset },
       scrollIndicatorInsets: { top: contentInset, bottom: bottomInset },
     },
   };

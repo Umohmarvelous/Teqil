@@ -237,7 +237,13 @@ export default function RouteHistoryScreen() {
           showsVerticalScrollIndicator={false}
           {...scroll.scrollProps}
           refreshControl={
-            <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={ios.secondaryLabel} />
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={refresh}
+              // Without this the spinner draws behind the translucent header.
+              progressViewOffset={scroll.refreshOffset}
+              tintColor={ios.secondaryLabel}
+            />
           }
           renderItem={({ item }) => (
             <HistoryCard entry={item} onDelete={confirmDelete} ios={ios} />

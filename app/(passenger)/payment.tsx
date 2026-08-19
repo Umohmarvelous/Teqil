@@ -101,6 +101,7 @@ export default function PaymentScreen() {
   const cardBg = isDark ? Colors.overlayLight : Colors.textWhite;
   const bg = isDark ? Colors.background : Colors.border;
   const subColor = Colors.textSecondary;
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
   useEffect(() => {
     let cancelled = false;
@@ -366,7 +367,7 @@ export default function PaymentScreen() {
           </View>
 
           {/* Bank details are used, never shown */}
-          <View style={[styles.secureRow]}>
+          <View style={[styles.secureRow, ]}>
             <Ionicons name="lock-closed" size={16} color={Colors.primary} />
             <Text style={[styles.secureText, { color: subColor }]}>
               {hasPayout
@@ -376,7 +377,7 @@ export default function PaymentScreen() {
           </View>
 
             <Text style={[styles.label, { color: textColor }]}>Fare amount</Text>
-          <View style={[styles.amountBoxContainer, { backgroundColor: cardBg }]}>
+          <View style={[styles.amountBoxContainer, { backgroundColor: cardBg, borderWidth: 1, borderColor: borderColor }]}>
   
             {/* Amount input */}
             <View style={[styles.amountBox ]}>

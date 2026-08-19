@@ -295,6 +295,9 @@ export default function ParkOwnerDashboard() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
+            // Clears the notch; this screen's hero starts at y=0 so there is no
+            // header height to add.
+            progressViewOffset={insets.top}
             tintColor={FB.green}
           />
         }

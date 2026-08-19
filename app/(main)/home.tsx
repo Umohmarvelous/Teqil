@@ -216,7 +216,10 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insetTop + 25, paddingBottom: insetBottom + 12 },
+          // insetTop is now the header's MEASURED height, so this only needs a
+          // small breathing gap on top of it — the old +25 sat on top of a
+          // header constant that already over-reserved by ~64pt.
+          { paddingTop: insetTop + 8, paddingBottom: insetBottom + 12 },
         ]}
         showsVerticalScrollIndicator={false}
         scrollIndicatorInsets={{ top: insetTop, bottom: insetBottom }}

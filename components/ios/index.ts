@@ -68,6 +68,7 @@ export {
   useCollapsibleScroll,
   NAV_BAR_HEIGHT,
   LARGE_TITLE_HEIGHT,
+  HEADER_CONTENT_GAP,
   type CollapsibleHeaderProps,
   type CollapsibleScroll,
 } from "./CollapsibleHeader";
@@ -93,3 +94,8 @@ export {
   type SwipeAction,
 } from "./SwipeableRow";
 export { IOSBadge, type IOSBadgeProps } from "./IOSBadge";
+export {
+  IOSTitleDropdown,
+  type IOSTitleDropdownProps,
+  type IOSTitleDropdownOption,
+} from "./IOSTitleDropdown";
