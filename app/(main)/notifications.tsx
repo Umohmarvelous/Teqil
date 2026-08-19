@@ -358,7 +358,9 @@ export default function NotificationsScreen() {
   }, [unread, markAllRead, clearAll]);
 
   return (
-    <View>
+    <View
+      // style={{ borderWidth: 1, borderColor: 'red', flex: 1, paddingTop: 100 }}
+    >
 
       <IOSScreen
         title="Notifications"
@@ -424,14 +426,6 @@ export default function NotificationsScreen() {
               <Text style={[IOSAppFont.sectionTitle, { color: ios.secondaryLabel }]}>
                 {section.title.toUpperCase()}
               </Text>
-
-
-
-              {/* The bar is a button; the only real field lives in the overlay. Two
-              live inputs across a modal boundary fight over focus. */}
-              {/* <View style={{borderWidth: 1, borderColor: 'red',}}> */}
-                
-              {/* </View> */}
             </View>
           )}
           stickySectionHeadersEnabled

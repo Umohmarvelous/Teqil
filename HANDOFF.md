@@ -9,14 +9,19 @@
 > degrade to a mock rather than failing, so they look finished and are not —
 > payments and KYC especially.
 >
-> Updated 2026-08-18. Branch **`sdk-54-temp`**, HEAD **`5ff891c`**, tree clean.
-> Typecheck: **0 errors**. Metro serves the real bundle: **HTTP 200, 30.0 MB dev**.
+> Updated 2026-08-19. Branch **`sdk-54-temp`**, HEAD **`35c0b3d`**, tree clean.
+> Typecheck: **0 errors**. Metro serves the real bundle: **HTTP 200, 30.3 MB dev**.
 > App **boots on simulator and device**.
 >
-> ⚠️ **`migration_contact_phone.sql` is written but NOT applied.** The database
-> was unreachable for the whole of the 2026-08-18 session. Until it is applied,
-> the Call button in chat and the phone row in Account Settings both fail
-> softly — see §6b.
+> ⚠️ **TWO migrations are written but NOT applied** — `migration_contact_phone.sql`
+> and `migration_ad_rewards.sql`. The database has been unreachable
+> (`ETIMEDOUT` on every attempt) across two sessions. Until they are applied the
+> Call button, the phone row in Account Settings and the whole Rewards feature
+> degrade to empty states rather than crashing — see §6b.
+>
+> ⚠️ **Before launching rewards, read SETUP-KEYS §4.6.** The seeded payouts lose
+> ₦5–7 per ad watched on purpose. It is a growth subsidy, and it is one
+> `UPDATE` away from being anything else.
 
 ---
 
@@ -77,24 +82,38 @@ actions in priority order.
 | 44 | Payout bypass flag for scan-to-pay testing | `constants/devFlags.ts`; fake bank names deleted |
 | 45 | Realtime delivers the FIRST message of a new chat | It used to drop it, so a new chat needed a refresh |
 | 46 | Driver inbox shows real conversations | It listed only park broadcasts while promising chats |
+| 47 | **Post-registration provisioning screen** | `app/(auth)/provisioning.tsx`. Five REAL steps that can each fail, not a fake bar; register.tsx forwards here |
+| 48 | **Rewarded-ads system — schema** | `migration_ad_rewards.sql`. Daily milestone ladder, streak w/ monthly freezes, per-creative frequency caps, server-clock anti-fraud |
+| 49 | Ads service + store | `src/services/ads.ts`, `src/store/useAdsStore.ts`. Credits the fuel pool via the long-stubbed `addAdRevenue`, deduped on session id |
+| 50 | Rewards hub | `app/rewards/index.tsx` — streak, ladder, 7-day chart, full history incl. watches that earned nothing and why |
+| 51 | Ad player | `app/rewards/watch.tsx` — countdown, forfeit warning naming the amount, reaction/report, reward breakdown, install post-roll |
+| 52 | Ad components | `AdMilestoneTrack`, `AdTrackerSheet`, `AdInstallCard` — modelled on the TeraBox / OKash references |
+| 53 | Animated floating ad button | `AdFloatingButton` on Home. Idle float + periodic attention beat; goes quiet at the daily cap. Transform-only (glass) |
+| 54 | Ads settings | `app/settings/ads.tsx` + a new `ads` section in the settings index and search |
+| 55 | Chat screen on the glass kit | Header floats so messages scroll under it; composer glassed; unread rows read as unread; misleading "online" dot removed |
 
 ### Not started
 
 | # | Task | Blocked by |
 | --- | --- | --- |
-| 47 | **Apply `migration_contact_phone.sql`** | The database was unreachable all session. Highest priority — see §7 |
-| 48 | **Verify chat on device between two real accounts** | Nothing. DB is proven, the React layer is not |
-| 49 | **Verify the feed on device with two real accounts** | Nothing. Same gap: 28/29 DB checks pass, the UI is untested against real traffic |
-| 50 | Per-contact conversation records in Activity | Depends on the chat list settling |
-| 51 | Messages — WhatsApp linking + two-way sync | **Meta Business API + hosted webhook.** Not possible in app code alone — SETUP-KEYS §4.2 |
-| 52 | Same header controls in `messages.tsx` and `profile.tsx` | Nothing; `AccountMenu` is ready to drop in |
-| 53 | Auth gating — no feature usable unless authenticated | Nothing |
-| 54 | Offline-first audit across every feature | Nothing |
-| 55 | Error-control components (boundaries, retry, failure states) | Nothing |
-| 56 | **Phase 8** — watermark overlay + shareable profile deep link | Rating modal already ships |
-| 57 | Verify account switching against two real accounts | Needs two test accounts on one device |
-| 58 | Ad creatives — there are none | An advertiser and a creative. `serve_feed_ads` returns nothing until `ad_creatives` has rows; the feed simply shows no promoted units, which is correct |
-| 59 | Number masking instead of raw phone disclosure | A telco account + per-minute billing. SETUP-KEYS |
+| 56 | **Apply BOTH outstanding migrations** (`contact_phone`, `ad_rewards`) | The database has been unreachable for two sessions. Highest priority — see §7 |
+| 57 | **Verify chat on device between two real accounts** | Nothing. DB is proven, the React layer is not |
+| 58 | **Verify the feed on device with two real accounts** | Nothing. Same gap: 28/29 DB checks pass, the UI is untested against real traffic |
+| 59 | Per-contact conversation records in Activity | Depends on the chat list settling |
+| 60 | Messages — WhatsApp linking + two-way sync | **Meta Business API + hosted webhook.** Not possible in app code alone — SETUP-KEYS §4.2 |
+| 61 | Same header controls in `messages.tsx` and `profile.tsx` | Nothing; `AccountMenu` is ready to drop in |
+| 62 | Auth gating — no feature usable unless authenticated | Nothing |
+| 63 | Offline-first audit across every feature | Nothing |
+| 64 | Error-control components (boundaries, retry, failure states) | Nothing |
+| 65 | **Phase 8** — watermark overlay + shareable profile deep link | Rating modal already ships |
+| 66 | Verify account switching against two real accounts | Needs two test accounts on one device |
+| 67 | Ad creatives — there are none | An advertiser and a creative. `serve_feed_ads` returns nothing until `ad_creatives` has rows; the feed simply shows no promoted units, which is correct |
+| 68 | **Verify the rewards flow end to end on device** | Needs the migration applied AND at least one `format='rewarded'` creative in `ad_creatives` |
+| 69 | Streak reminder notifications are a preference with no sender | `reminder_enabled`/`reminder_hour` are stored and honoured by nothing yet — needs a scheduled job or a local notification on app open |
+| 70 | `wifi_only_video` is stored but not enforced in the player | The player does not yet check connection type before starting a video ad |
+| 71 | `autoplay_next` is stored but not wired | The player's "Watch another" is manual only |
+| 72 | Ad mediation (AdMob / AppLovin / Meta) instead of a hand-filled table | An account and app review per network — SETUP-KEYS §4.4 |
+| 73 | Number masking instead of raw phone disclosure | A telco account + per-minute billing. SETUP-KEYS |
 
 ### Carrying debt
 
@@ -134,6 +153,7 @@ session**, each verified afterwards:
 | `migration_messaging.sql` | ✅ 2026-08-16 | Conversation/message RLS + the correct schema |
 | `migration_social_feed.sql` | ✅ 2026-08-17 | The whole feed: 12 tables, 39 functions, `post-media` bucket + policies |
 | `migration_contact_phone.sql` | ❌ **NOT APPLIED** | `share_phone` column, `get_contact_phone`, `set_my_phone`, `get_my_phone`, E.164 normalisation |
+| `migration_ad_rewards.sql` | ❌ **NOT APPLIED** | `ad_reward_config`, `ad_sessions`, `ad_daily_progress`, `ad_streaks`, `ad_preferences`, `ad_suppressions`, `ad_reports`; extends `ad_creatives` with format/duration/app-install columns |
 
 All are **idempotent** — re-running is safe. The older migrations in that folder
 predate this session; their status is unknown, so verify rather than assume.
@@ -142,11 +162,16 @@ To apply one by hand, the Supabase MCP (`apply_migration`) works, or connect
 directly: `DATABASE_URL` on **port 5432** (session mode). Port 6543 is the
 transaction pooler and is a poor fit for multi-statement DDL.
 
-**`migration_contact_phone.sql` is the one outstanding.** Apply it with:
+**Two are outstanding.** Apply them in this order — the ads migration ALTERs
+`ad_creatives`, which `migration_social_feed.sql` created:
 
 ```bash
 node ./.dbq.mjs -f supabase/migrations/migration_contact_phone.sql
+node ./.dbq.mjs -f supabase/migrations/migration_ad_rewards.sql
 ```
+
+Neither has ever run, so neither is verified. Both are idempotent and both
+should be followed by an e2e check under RLS (see §8 for the harness shape).
 
 Until it lands, `get_contact_phone` does not exist, so `getContactPhone()`
 logs a warning and returns null; the Call button says the number is not
@@ -159,9 +184,27 @@ crashes — but nobody can call anybody.
 
 Do these top-down. Each is independent unless stated.
 
-1. **Apply `migration_contact_phone.sql`.** One command (§6b). Everything about
-   calling a contact is written and typechecked and does nothing until this
-   lands. It was not applied only because the database was unreachable.
+1. **Apply the two outstanding migrations** (§6b), contact_phone first, then
+   ad_rewards. Everything about calling a contact AND the entire rewards feature
+   is written and typechecked and does nothing until they land. They were not
+   applied only because the database has been unreachable — `ETIMEDOUT` on every
+   attempt across two sessions. Neither has ever run, so verify rather than
+   assume once they do.
+
+1b. **Seed at least one rewarded creative**, or the Rewards screen correctly but
+   unhelpfully shows "No ads right now":
+
+   ```sql
+   INSERT INTO public.ad_creatives
+     (advertiser_name, headline, body, cta_url, format, duration_seconds,
+      media_url, media_type, category, skip_after_seconds)
+   VALUES
+     ('<real advertiser>', '<headline>', '<body>', '<destination>',
+      'rewarded', 15, '<video or image url>', 'video', 'finance', 5);
+   ```
+
+   Nothing was seeded automatically — see the note in SETUP-KEYS §4.4 on why a
+   fake advertiser must never ship.
 2. **Verify chat on a device between two real accounts.** The database and RLS
    are proven (§8), the React layer is not. Sign in as a passenger on one
    device, a driver on another, search the driver by `@username`, send both
