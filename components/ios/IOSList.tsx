@@ -85,60 +85,84 @@ export function IOSListRow({
   const hasTile = !!symbol || !!icon;
 
   const body = (
-    <View style={styles.rowInner}>
-      {hasTile && (
-        <View style={styles.iconTile}>
-          {/* Glass tile, not a coloured block. */}
-          {/* <Glass
-            variant="clear"
-            radius={10}
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-            fallbackIntensity={30}
-            fallbackTint={theme.tertiarySystemFill}
-          /> */}
-          {icon ??
-            (symbol ? (
-              <>
-                <SymbolView name={symbol} size={24} tintColor={glyphColor} fallback={null} />
-                {/* <HugeiconsIcon icon={symbol as any}  size={22}  fallback={null}  /> */}
-              </>
-            ) : null)}
-        </View>
-      )}
+    <View >
 
-      <View style={styles.rowText}>
-        <Text
-          numberOfLines={1}
-          style={[IOSAppFont.label, { color: labelColor, opacity: disabled ? 0.4 : 1 }]}
-        >
-          {label}
-        </Text>
-        {detail ? (
-          <Text numberOfLines={3} style={[IOSAppFont.description, { color: theme.secondaryLabel }]}>
-            {detail}
+      {/* <Text
+        numberOfLines={1}
+        style={[IOSAppFont.label, { color: labelColor, opacity: disabled ? 0.4 : 1 }]}
+      >
+        {label}
+      </Text> */}
+        
+      <View style={[styles.rowInner,
+        // { borderWidth: .5, borderColor: theme.opaqueSeparator, backgroundColor: theme.secondarySystemBackground, borderRadius: CARD_RADIUS }
+      ]}>
+        {/* <Glass
+          variant="clear"
+          radius={30}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+          fallbackIntensity={30}
+          fallbackTint={theme.secondarySystemBackground}
+        /> */}
+        {hasTile && (
+          <View style={styles.iconTile}>
+            {/* Glass tile, not a coloured block. */}
+            {/* <Glass
+              variant="clear"
+              radius={10}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+              fallbackIntensity={30}
+              fallbackTint={theme.tertiarySystemFill}
+            /> */}
+            {icon ??
+              (symbol ? (
+                <>
+                  <SymbolView name={symbol} size={24} tintColor={glyphColor} fallback={null} />
+                {/* <HugeiconsIcon icon={symbol as any}  size={22}  /> */}                
+                </>
+              ) : null)}
+          </View>
+        )}
+
+
+
+        <View style={styles.rowText}>
+          <Text
+            numberOfLines={1}
+            style={[IOSAppFont.label, { color: labelColor, opacity: disabled ? 0.4 : 1 }]}
+          >
+            {label}
           </Text>
-        ) : null}
-      </View>
 
-      {accessory.type === "switch" && (
-        <IOSToggle
-          value={accessory.value}
-          onValueChange={accessory.onValueChange}
-          disabled={disabled}
-          accessibilityLabel={label}
-        />
-      )}
-      {accessory.type === "detail" && (
-        <Text style={[IOSAppFont.value, { color: theme.secondaryLabel }]}>{accessory.text}</Text>
-      )}
-      {accessory.type === "checkmark" && accessory.checked && (
-        <SymbolView name="checkmark" size={16} tintColor={theme.tint} fallback={null} />
-      )}
-      {accessory.type === "disclosure" && (
-        <SymbolView name="chevron.right" size={14} tintColor={theme.tertiaryLabel} fallback={null} />
-      )}
+          {detail ? (
+            <Text numberOfLines={3} style={[IOSAppFont.description, { color: theme.secondaryLabel }]}>
+              {detail}
+            </Text>
+          ) : null}
+        </View>
+
+        {accessory.type === "switch" && (
+          <IOSToggle
+            value={accessory.value}
+            onValueChange={accessory.onValueChange}
+            disabled={disabled}
+            accessibilityLabel={label}
+          />
+        )}
+        {accessory.type === "detail" && (
+          <Text style={[IOSAppFont.value, { color: theme.secondaryLabel }]}>{accessory.text}</Text>
+        )}
+        {accessory.type === "checkmark" && accessory.checked && (
+          <SymbolView name="checkmark" size={16} tintColor={theme.tint} fallback={null} />
+        )}
+        {accessory.type === "disclosure" && (
+          <SymbolView name="chevron.right" size={14} tintColor={theme.tertiaryLabel} fallback={null} />
+        )}
+      </View>
     </View>
+    
   );
 
   return (
@@ -153,14 +177,14 @@ export function IOSListRow({
           accessibilityState={{ disabled: !!disabled }}
           style={({ pressed }) => [
             styles.row,
-            highlighted && { backgroundColor: theme.tint + "26" },
+            // highlighted && { backgroundColor: theme.tint + "26" },
             pressed && { backgroundColor: theme.systemFill },
           ]}
         >
           {body}
         </Pressable>
       ) : (
-        <View style={[styles.row, highlighted && { backgroundColor: theme.tint + "26" }]}>
+        <View style={[styles.row,]}>
           {body}
         </View>
       )}
@@ -219,16 +243,16 @@ export function IOSListSection({
       ) : null}
 
       {opaque ? (
-        <View style={[styles.group, { backgroundColor: theme.secondarySystemGroupedBackground }]}>
+        <View style={[styles.group, { backgroundColor: 'transparent'}]}>
           {body}
         </View>
       ) : (
         <Glass
           variant="regular"
-          radius={CARD_RADIUS}
+          // radius={CARD_RADIUS}
           style={styles.group}
-          fallbackIntensity={40}
-          fallbackTint={theme.secondarySystemGroupedBackground}
+          // fallbackIntensity={40}
+          fallbackTint={'transparent'}
         >
           {body}
         </Glass>
@@ -247,17 +271,17 @@ export function IOSListSection({
 const CARD_RADIUS = 30;
 
 const styles = StyleSheet.create({
-  section: { marginBottom: 23 },
+  section: { marginVertical: 23 },
   header: { paddingHorizontal: 4, marginVertical: 12 },
   footer: { marginHorizontal: 4, marginTop: 10 },
-  group: { borderRadius: CARD_RADIUS, overflow: "hidden" },
+  group: { overflow: "hidden" },
   row: { minHeight: IOSMetrics.minTouchTarget, justifyContent: "center" },
   rowInner: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 22,
-    gap: 15,
+    gap: 15, 
   },
   iconTile: {
     // width: 34,

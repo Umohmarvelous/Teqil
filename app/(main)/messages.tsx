@@ -68,6 +68,7 @@ import {
   UserIcon,        // ← new: used for direct-chat list items
   Car01Icon,       // ← new: used for trip-based list items
   IdentityCardIcon, // ← new: Driver ID tab icon
+  Cancel01Icon,
   Chat, // ← new: Driver ID tab icon
   BellOff, // ← new: Driver ID tab icon
 } from '@hugeicons/core-free-icons';
@@ -75,6 +76,16 @@ import { StatusBar }  from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase }   from '@/src/services/supabase';
 import { Glass, iosAlert, IOSBadge, IOSSearchBar, NetworkStatus, SwipeableRow, useIOSTheme } from "@/components/ios";
+import * as Clipboard from "expo-clipboard";
+import ChatDoodle from "@/components/chat/ChatDoodle";
+import ContactCard from "@/components/chat/ContactCard";
+import {
+  ChatBubble,
+  DateSeparator,
+  shouldGroup,
+  sameDay,
+  type ChatBubbleMessage,
+} from "@/components/chat/ChatBubble";
 import { getContactPhone, formatNgPhone } from '@/src/services/contact';
 import { SymbolView } from 'expo-symbols';
 // Voice notes run on expo-audio.
@@ -134,48 +145,34 @@ async function placeCall(userId: string | undefined, name?: string) {
 // ─── Contact Info Modal (unchanged) ──────────────────────────────────────────
 
 function ContactInfoModal({
-  visible, onClose, conversation, isDark,
-}: { visible: boolean; onClose: () => void; conversation: Conversation | null; isDark: boolean }) {
+  visible, onClose, conversation,
+}: { visible: boolean; onClose: () => void; conversation: Conversation | null }) {
   const ios = useIOSTheme();
   if (!conversation) return null;
-  const textColor = isDark ? Colors.textWhite    : Colors.text;
-  const subTextColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
 
-  const call = () => placeCall(conversation.participant_id, conversation.participant_name);
-
+  // The card owns the layout AND the phone lookup; this is only the sheet that
+  // presents it. The old inline version duplicated an avatar, a name and a Call
+  // button that dialled a number the app was no longer allowed to cache.
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, justifyContent: 'flex-end' }}>
+      <View style={{ flex: 1, justifyContent: 'flex-end' }}>
         <Pressable style={S.backdrop} onPress={onClose} />
-        <View style={[S.infoSheet, { backgroundColor: ios.secondarySystemBackground }]}>
-          <View style={S.handle} />
-          <View style={S.infoHeader}>
-            <Text style={[S.infoTitle, { color: textColor }]}>Contact Info</Text>
-            <Pressable onPress={onClose} hitSlop={8}>
-              <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={textColor} />
-            </Pressable>
-          </View>
-          <View style={[S.infoAvatarRow]}>
-            <Avatar name={conversation.participant_name || 'Driver'} size={72} />
-            <Text style={[S.infoName, { color: textColor }]}>{conversation.participant_name}</Text>
-            <Text style={[S.infoSub,  { color: Colors.primary }]}>{conversation.participant_driver_id}</Text>
-            {conversation.participant_vehicle
-              ? <Text style={[S.infoSub, { color: subTextColor }]}> {conversation.participant_vehicle}</Text>
-              : null}
-          </View>
-          <View style={S.infoActions}>
-            <Pressable style={[S.infoActionBtn, { backgroundColor: Colors.primary }]} onPress={call}>
-              <HugeiconsIcon icon={CallIcon} size={20} color="#fff" />
-              <Text style={S.infoActionText}>Call</Text>
-            </Pressable>
-            <Pressable style={[S.infoActionBtn, { backgroundColor: Colors.primaryDarker }]} onPress={onClose}>
-              <HugeiconsIcon icon={Message02Icon} size={20} color="#fff" />
-              <Text style={S.infoActionText}>Message</Text>
-            </Pressable>
-          </View>
+        <View style={[S.infoSheet, { backgroundColor: ios.systemGroupedBackground }]}>
+          <View style={[S.handle, { backgroundColor: ios.tertiaryLabel }]} />
+          <ContactCard
+            person={{
+              id: conversation.participant_id,
+              full_name: conversation.participant_name,
+              username: conversation.participant_username,
+              profile_photo: conversation.participant_photo,
+              role: conversation.participant_role,
+              driver_id: conversation.participant_driver_id,
+              vehicle_details: conversation.participant_vehicle,
+              park_name: conversation.participant_park_name,
+            }}
+          />
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
@@ -248,54 +245,31 @@ function VoiceNote({ uri, isMe, textColor }: { uri: string; isMe: boolean; textC
 
 // ─── Message Bubble (named export for direct-chat route) ──────────────────────
 
+/**
+ * Kept as a named export because `direct-chat/[conversationId].tsx` imports it.
+ *
+ * The bubble itself now lives in `components/chat/ChatBubble.tsx` — grouping,
+ * tails, date separators and inline meta are all shape decisions that belong
+ * with the other chat components, not buried in a 1,500-line screen. This is
+ * the adapter that keeps the old call sites working.
+ */
 export function MessageBubble({
-  message, isMe, onReply, onDelete, onCopy, isDark, textColor, subTextColor,
+  message, isMe, onReply, onDelete, onCopy,
 }: {
   message: Message; isMe: boolean;
   onReply: () => void; onDelete: () => void; onCopy: () => void;
-  isDark: boolean; textColor: string; subTextColor: string;
+  // Accepted and ignored: the bubble reads the iOS palette itself now.
+  isDark?: boolean; textColor?: string; subTextColor?: string;
 }) {
-  const timeStr = message.created_at
-    ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : '';
-
   return (
-    <SwipeableRow
-      actions={[
-        { key: 'reply', label: 'Reply', symbol: 'arrowshape.turn.up.left.fill', color: Colors.gold, onPress: onReply },
-        { key: 'copy',  label: 'Copy',  symbol: 'doc.on.doc.fill',              color: Colors.primary, onPress: onCopy },
-        // Destructive last, so it sits against the screen edge and a full
-        // swipe grows out of it.
-        { key: 'delete', label: 'Delete', symbol: 'trash.fill', color: Colors.error, onPress: onDelete, destructive: true },
-      ]}
-    >
-      <View style={[S.bubbleWrap, isMe ? S.bubbleWrapMe : S.bubbleWrapThem]}>
-        <View style={[
-          S.bubble,
-          isMe ? S.bubbleMe : [S.bubbleThem, { backgroundColor: isDark ? '#1E2820' : '#F0F0F0' }],
-        ]}>
-          {message.audio_uri ? (
-            <VoiceNote uri={message.audio_uri} isMe={isMe} textColor={textColor} />
-          ) : (
-            <Text style={[S.bubbleText, { color: isMe ? '#fff' : textColor }]}>
-              {message.text}
-            </Text>
-          )}
-          <View style={S.bubbleMeta}>
-            <Text style={[S.bubbleTime, { color: isMe ? 'rgba(255,255,255,0.55)' : subTextColor }]}>
-              {timeStr}
-            </Text>
-            {isMe && (
-              <HugeiconsIcon
-                icon={message.status === 'read' ? TaskDone01Icon : Checkmark}
-                size={13}
-                color={message.status === 'read' ? '#34B7F1' : 'rgba(255,255,255,0.45)'}
-              />
-            )}
-          </View>
-        </View>
-      </View>
-    </SwipeableRow>
+    <ChatBubble
+      message={message as ChatBubbleMessage}
+      isMe={isMe}
+      onReply={onReply}
+      onDelete={onDelete}
+      onCopy={onCopy}
+      renderAudio={(uri, mine, tint) => <VoiceNote uri={uri} isMe={mine} textColor={tint} />}
+    />
   );
 }
 
@@ -316,6 +290,11 @@ export function ChatScreen({
   const [sending,     setSending]     = useState(false);
   const [infoVisible, setInfoVisible] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  // What the composer is replying to. Held as state rather than pasted into the
+  // text field: the old version prefixed the draft with "↩ Name: quoted text",
+  // which the recipient then received as literal characters and which the
+  // sender had to delete by hand to cancel.
+  const [replyTo,     setReplyTo]     = useState<Message | null>(null);
 
   // expo-audio is hook-based, so the recorder is created here rather than
   // inside the press handler the way the old imperative expo-av API allowed.
@@ -323,6 +302,7 @@ export function ChatScreen({
   const recorderState = useAudioRecorderState(recorder, 250);
 
   const listRef      = useRef<FlatList>(null);
+  const inputRef     = useRef<TextInput>(null);
   const typingTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets       = useSafeAreaInsets();
 
@@ -332,12 +312,15 @@ export function ChatScreen({
   useEffect(() => { markReadRef.current  = markRead; });
 
 
-  const bg        = isDark ? Colors.background   : Colors.textWhite;
-  const textColor = isDark ? Colors.textWhite     : Colors.text;
-  const subTextColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const cardBg    = isDark ? Colors.primaryDarker : '#FFFFFF';
-  const border    = isDark ? 'rgba(255,255,255,0.08)' : '#E8ECF0';
-  const inputBg   = isDark ? '#1C2921' : '#F0F0F0';
+  // One palette, from the theme. This screen used to derive six colours from an
+  // `isDark` boolean with hard-coded hexes, which is why it drifted away from
+  // the rest of the app every time the theme changed.
+  const ios       = useIOSTheme();
+  const textColor = ios.label;
+  const subTextColor = ios.secondaryLabel;
+  const cardBg    = ios.secondarySystemBackground;
+  const border    = ios.separator;
+  const inputBg   = ios.tertiarySystemFill;
   const topPad    = Platform.OS === 'web' ? 67 : insets.top;
   // Height of the floating header. The list runs under it and is pushed clear
   // with a content inset, which is what lets the glass sample real content.
@@ -377,6 +360,11 @@ export function ChatScreen({
     setSending(true);
     setText('');
     setTyping(conversation.id, false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    const quoted = replyTo;
+    setReplyTo(null);
+
     await addMessage({
       id:              generateId(),
       conversation_id: conversation.id,
@@ -387,6 +375,13 @@ export function ChatScreen({
       created_at:      new Date().toISOString(),
       read:            false,
       status:          'sent',
+      reply_to:        quoted
+        ? {
+            id:      quoted.id,
+            author:  quoted.sender_id === user.id ? 'You' : quoted.sender_name || 'User',
+            preview: quoted.text || 'Voice message',
+          }
+        : null,
     });
     setSending(false);
   };
@@ -448,14 +443,19 @@ export function ChatScreen({
   const handleCall = () => placeCall(conversation.participant_id, conversation.participant_name);
 
   const handleReply = (m: Message) => {
-    if (!m.text) return;
-    setText(`↩ ${m.sender_name || 'User'}: ${m.text}\n`);
+    // Voice notes are repliable too — the quote just reads "Voice message".
+    setReplyTo(m);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    inputRef.current?.focus();
   };
 
-  const handleCopy = (m: Message) => {
+  const handleCopy = async (m: Message) => {
     if (!m.text) return;
-    if (Platform.OS === 'web' && navigator?.clipboard) navigator.clipboard.writeText(m.text);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // This used to be guarded by `Platform.OS === 'web'` and used
+    // navigator.clipboard, so Copy did nothing at all on a phone — which is
+    // every device this app actually ships to.
+    await Clipboard.setStringAsync(m.text);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   const InputRight = () =>
@@ -482,10 +482,14 @@ export function ChatScreen({
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: bg }}
+      style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <StatusBar style={ios.scheme === 'dark' ? 'light' : 'dark'} />
+
+      {/* The wallpaper is the bottom layer, sized to the WINDOW rather than to
+          this container, so the keyboard opening does not re-tile it. */}
+      <ChatDoodle />
 
       {/* Header.
           Glass, like every other bar in the app — this was a flat opaque strip,
@@ -502,28 +506,54 @@ export function ChatScreen({
           fallbackIntensity={60}
           fallbackTint={cardBg}
         />
-        <Pressable onPress={() => { onBack(); router.back(); }} style={S.chatBack} hitSlop={8}>
+        <Pressable
+          onPress={() => { Haptics.selectionAsync(); onBack(); router.back(); }}
+          style={S.chatBack}
+          hitSlop={8}
+          accessibilityLabel="Back"
+        >
           <HugeiconsIcon icon={ArrowLeft01Icon} size={25} color={textColor} />
         </Pressable>
-        <Pressable style={S.chatHeaderInfo} onPress={() => setInfoVisible(true)}>
-          <Avatar name={conversation.participant_name || 'Driver'} size={38} />
+
+        {/* The whole identity block opens the contact sheet, which is how every
+            messenger behaves and what a user tries first. */}
+        <Pressable
+          style={S.chatHeaderInfo}
+          onPress={() => { Haptics.selectionAsync(); setInfoVisible(true); }}
+          accessibilityLabel={`${conversation.participant_name}, open contact info`}
+        >
+          <Avatar
+            name={conversation.participant_name || 'Driver'}
+            photoUri={conversation.participant_photo}
+            size={38}
+          />
           <View style={{ flex: 1 }}>
             <Text style={[S.chatHeaderName, { color: textColor }]} numberOfLines={1}>
               {conversation.participant_name}
             </Text>
-            {otherTyping
-              ? <Text style={{ fontFamily: 'Poppins_400Regular', fontSize: 11, fontStyle: 'italic', color: Colors.primary }}>typing…</Text>
-              : <Text style={[S.chatHeaderSub, { color: Colors.primary }]} numberOfLines={1}>
-                  {conversation.participant_driver_id || 'Direct message'}
-                </Text>
-            }
+            {otherTyping ? (
+              <Text style={[S.chatHeaderSub, { color: ios.tint, fontStyle: 'italic' }]}>
+                typing…
+              </Text>
+            ) : (
+              <Text style={[S.chatHeaderSub, { color: subTextColor }]} numberOfLines={1}>
+                {conversation.participant_username
+                  ? `@${conversation.participant_username}`
+                  : conversation.participant_driver_id || 'Tap for contact info'}
+              </Text>
+            )}
           </View>
         </Pressable>
-        <Pressable onPress={handleCall} style={S.chatCallBtn} hitSlop={8}>
-          <HugeiconsIcon icon={CallIcon} size={22} color={Colors.primary} />
+
+        <Pressable onPress={handleCall} style={S.chatCallBtn} hitSlop={8} accessibilityLabel="Call">
+          <HugeiconsIcon icon={CallIcon} size={21} color={ios.tint} />
         </Pressable>
-        <Pressable onPress={() => setInfoVisible(true)} hitSlop={8}>
-          <HugeiconsIcon icon={MoreVerticalIcon} size={24} color={textColor} />
+        <Pressable
+          onPress={() => { Haptics.selectionAsync(); setInfoVisible(true); }}
+          hitSlop={8}
+          accessibilityLabel="More"
+        >
+          <HugeiconsIcon icon={MoreVerticalIcon} size={22} color={textColor} />
         </Pressable>
       </View>
 
@@ -562,22 +592,41 @@ export function ChatScreen({
         keyExtractor={(m) => m.id}
         contentContainerStyle={[S.messageList, { paddingTop: chromeTop + bannerH + 8 }]}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <MessageBubble
-            message={item}
-            isMe={item.sender_id === user?.id}
-            onReply={() => handleReply(item)}
-            onDelete={() => deleteMessage(conversation.id, item.id)}
-            onCopy={() => handleCopy(item)}
-            isDark={isDark}
-            textColor={textColor}
-            subTextColor={subTextColor}
-          />
-        )}
+        renderItem={({ item, index }) => {
+          const prev = messages[index - 1];
+          const next = messages[index + 1];
+          const newDay = !prev || !sameDay(prev.created_at, item.created_at);
+          return (
+            <>
+              {newDay ? <DateSeparator iso={item.created_at} /> : null}
+              <ChatBubble
+                message={item as ChatBubbleMessage}
+                isMe={item.sender_id === user?.id}
+                // A new day always starts a fresh block, whatever the clock gap.
+                grouped={!newDay && shouldGroup(prev as ChatBubbleMessage, item as ChatBubbleMessage)}
+                hasFollower={
+                  !!next &&
+                  sameDay(item.created_at, next.created_at) &&
+                  shouldGroup(item as ChatBubbleMessage, next as ChatBubbleMessage)
+                }
+                onReply={() => handleReply(item)}
+                onDelete={() => deleteMessage(conversation.id, item.id)}
+                onCopy={() => handleCopy(item)}
+                renderAudio={(uri, mine, tint) => (
+                  <VoiceNote uri={uri} isMe={mine} textColor={tint} />
+                )}
+              />
+            </>
+          );
+        }}
         ListEmptyComponent={
           <View style={S.emptyChat}>
-            <HugeiconsIcon icon={Message02Icon} size={44} color={subTextColor} />
-            <Text style={[S.emptyChatText, { color: subTextColor }]}>No messages yet. Say hello!</Text>
+            <View style={[S.emptyChatCard, { backgroundColor: ios.secondarySystemGroupedBackground }]}>
+              <HugeiconsIcon icon={Message02Icon} size={30} color={ios.tint} />
+              <Text style={[S.emptyChatText, { color: subTextColor }]}>
+                No messages yet. Say hello to {conversation.participant_name || 'them'}.
+              </Text>
+            </View>
           </View>
         }
       />
@@ -590,23 +639,47 @@ export function ChatScreen({
           fallbackIntensity={60}
           fallbackTint={cardBg}
         />
-        <TextInput
-          style={[S.textInput, { backgroundColor: inputBg, color: textColor }]}
-          placeholder="Type a message…"
-          placeholderTextColor={subTextColor}
-          value={text}
-          onChangeText={handleTyping}
-          multiline
-          maxLength={2000}
-        />
-        <InputRight />
+
+        {/* What you are replying to, with an explicit way out. */}
+        {replyTo ? (
+          <View style={[S.replyPreview, { backgroundColor: ios.tertiarySystemFill, borderLeftColor: ios.tint }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[S.replyPreviewAuthor, { color: ios.tint }]} numberOfLines={1}>
+                {replyTo.sender_id === user?.id ? 'You' : replyTo.sender_name || 'User'}
+              </Text>
+              <Text style={[S.replyPreviewText, { color: subTextColor }]} numberOfLines={1}>
+                {replyTo.text || 'Voice message'}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => { Haptics.selectionAsync(); setReplyTo(null); }}
+              hitSlop={10}
+              accessibilityLabel="Cancel reply"
+            >
+              <HugeiconsIcon icon={Cancel01Icon} size={17} color={subTextColor} />
+            </Pressable>
+          </View>
+        ) : null}
+
+        <View style={S.inputRow}>
+          <TextInput
+            ref={inputRef}
+            style={[S.textInput, { backgroundColor: inputBg, color: textColor }]}
+            placeholder="Type a message…"
+            placeholderTextColor={ios.tertiaryLabel}
+            value={text}
+            onChangeText={handleTyping}
+            multiline
+            maxLength={2000}
+          />
+          <InputRight />
+        </View>
       </View>
 
       <ContactInfoModal
         visible={infoVisible}
         onClose={() => setInfoVisible(false)}
         conversation={conversation}
-        isDark={isDark}
       />
     </KeyboardAvoidingView>
   );
@@ -945,25 +1018,134 @@ function NewChatModal({
 
 // ─── Conversation List Item ───────────────────────────────────────────────────
 
-function ConvItem({
-  item, onPress, onDelete, isDark, textColor, subTextColor, border,
+/**
+ * People matching the search who are NOT already in the chat list.
+ *
+ * WhatsApp's search does exactly this: your own chats first, then everyone else
+ * who could be one. Without the second section a search for a driver you have
+ * never messaged returns "no results" even though they are right there in the
+ * database — which is what made the old search feel broken.
+ */
+function NewContactResults({
+  hits,
+  searching,
+  query,
+  onPick,
 }: {
-  item:      Conversation;
-  onPress:   () => void;
-  onDelete:  () => void;
-  isDark:    boolean;
-  textColor: string;
-  subTextColor:  string;
-  border:    string;
+  hits: ChatCandidate[];
+  searching: boolean;
+  query: string;
+  onPick: (c: ChatCandidate) => void;
 }) {
-  const timeStr = item.last_message_at
-    ? new Date(item.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : '';
+  const t = useIOSTheme();
+
+  if (searching && !hits.length) {
+    return (
+      <View style={S.newSectionSpinner}>
+        <ActivityIndicator color={t.tint} />
+      </View>
+    );
+  }
+  if (!hits.length) {
+    return (
+      <View style={S.newSectionEmpty}>
+        <Text style={[S.newSectionEmptyText, { color: t.tertiaryLabel }]}>
+          Nobody found for “{query}”. Try a full @username or a driver ID.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View>
+      <Text style={[S.newSectionTitle, { color: t.tertiaryLabel }]}>START A NEW CHAT</Text>
+      {hits.map((c) => (
+        <Pressable
+          key={c.id}
+          onPress={() => onPick(c)}
+          style={({ pressed }) => [
+            S.newContactRow,
+            { borderBottomColor: t.separator },
+            pressed && { backgroundColor: t.tertiarySystemFill },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={`Message ${c.full_name || c.username}`}
+        >
+          <Avatar name={c.full_name || c.username || 'User'} photoUri={c.profile_photo} size={44} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[S.newContactName, { color: t.label }]} numberOfLines={1}>
+              {c.full_name || c.username}
+            </Text>
+            <Text style={[S.newContactMeta, { color: t.tertiaryLabel }]} numberOfLines={1}>
+              {[c.username ? `@${c.username}` : null, c.driver_id, c.vehicle_details]
+                .filter(Boolean)
+                .join(' · ')}
+            </Text>
+          </View>
+          {c.avg_rating ? (
+            <Text style={[S.newContactRating, { color: t.secondaryLabel }]}>
+              ★ {c.avg_rating.toFixed(1)}
+            </Text>
+          ) : null}
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+/** Bold just the part of `text` that matched, WhatsApp-style. */
+function Highlight({
+  text, query, style, highlightColour, ...rest
+}: {
+  text: string;
+  query: string;
+  style?: any;
+  highlightColour: string;
+} & React.ComponentProps<typeof Text>) {
+  const i = query ? text.toLowerCase().indexOf(query.toLowerCase()) : -1;
+  if (i < 0) return <Text style={style} {...rest}>{text}</Text>;
+  return (
+    <Text style={style} {...rest}>
+      {text.slice(0, i)}
+      <Text style={{ color: highlightColour, fontFamily: 'Poppins_700Bold' }}>
+        {text.slice(i, i + query.length)}
+      </Text>
+      {text.slice(i + query.length)}
+    </Text>
+  );
+}
+
+function ConvItem({
+  item, onPress, onDelete, query = '',
+}: {
+  item:     Conversation;
+  onPress:  () => void;
+  onDelete: () => void;
+  /** Current search term, so the matched span can be highlighted. */
+  query?:   string;
+}) {
+  const ios = useIOSTheme();
+
+  // WhatsApp's rule: a time for today, "Yesterday", a weekday inside a week,
+  // then a date. A bare clock time on a three-week-old chat is meaningless.
+  const timeStr = (() => {
+    if (!item.last_message_at) return '';
+    const d = new Date(item.last_message_at);
+    const now = new Date();
+    const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const days = Math.round((startOf(now) - startOf(d)) / 86_400_000);
+    if (days === 0) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (days === 1) return 'Yesterday';
+    if (days < 7) return d.toLocaleDateString([], { weekday: 'short' });
+    return d.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' });
+  })();
 
   // Direct chats get a person icon; trip-based chats keep the default
   const isDirectChat = item.id.startsWith('direct_');
   const unread = item.unread_count ?? 0;
-  const ios = useIOSTheme();
+  const textColor = ios.label;
+  const subTextColor = ios.secondaryLabel;
+  const border = ios.separator;
 
   return (
     <SwipeableRow
@@ -972,7 +1154,7 @@ function ConvItem({
           key: 'delete',
           label: 'Delete',
           symbol: 'trash.fill',
-          color: Colors.error,
+          color: ios.systemRed,
           destructive: true,
           // Deleting a conversation destroys its whole history and cannot be
           // undone, so a full swipe asks first. The old row deleted outright.
@@ -997,10 +1179,14 @@ function ConvItem({
         onPress={onPress}
       >
         <View style={{ position: 'relative' }}>
-          <Avatar name={item.participant_name || 'Driver'} size={50} />
+          <Avatar
+            name={item.participant_name || 'Driver'}
+            photoUri={item.participant_photo}
+            size={50}
+          />
           {/* Direct-chat badge */}
           {isDirectChat && (
-            <View style={[S.directBadge, { backgroundColor: Colors.primary }]}>
+            <View style={[S.directBadge, { backgroundColor: ios.tint, borderColor: ios.systemBackground }]}>
               <HugeiconsIcon icon={UserIcon} size={9} color="#fff" />
             </View>
           )}
@@ -1010,13 +1196,14 @@ function ConvItem({
         </View>
         <View style={S.convText}>
           <View style={S.convTopRow}>
-            <Text
+            <Highlight
+              text={item.participant_name || 'Driver'}
+              query={query}
+              highlightColour={ios.tint}
               style={[S.convName, { color: textColor }, unread > 0 && S.convNameUnread]}
               numberOfLines={1}
-            >
-              {item.participant_name}
-            </Text>
-            <Text style={[S.convTime, { color: unread > 0 ? Colors.primary : subTextColor }]}>
+            />
+            <Text style={[S.convTime, { color: unread > 0 ? ios.tint : subTextColor }]}>
               {timeStr}
             </Text>
           </View>
@@ -1035,9 +1222,19 @@ function ConvItem({
                 "9+", so a busy chat looked identical at 10 messages and at 400. */}
             <IOSBadge count={unread} />
           </View>
-          {item.participant_driver_id && (
-            <Text style={[S.convDriverId, { color: Colors.primary + 'AA' }]}>{item.participant_driver_id}</Text>
-          )}
+          {item.participant_username || item.participant_driver_id ? (
+            <Highlight
+              text={
+                item.participant_username
+                  ? `@${item.participant_username}`
+                  : item.participant_driver_id!
+              }
+              query={query}
+              highlightColour={ios.tint}
+              style={[S.convDriverId, { color: ios.tertiaryLabel }]}
+              numberOfLines={1}
+            />
+          ) : null}
         </View>
       </Pressable>
     </SwipeableRow>
@@ -1060,18 +1257,28 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
   const insets = useSafeAreaInsets();
   const { theme }  = useSettingsStore() ;
   const { user }   = useAuthStore();
-  const { conversations, addConversation, deleteConversation, subscribeToRealtime } = useMessagesStore();
+  const {
+    conversations, addConversation, deleteConversation, subscribeToRealtime,
+    searchUsersForChat, startDirectChat,
+  } = useMessagesStore();
   
   
   const ios = useIOSTheme();
 
 
-  const [profileQuery, setProfileQuery] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
+  // Live contact search. The bar used to be `asButton` and opened an overlay
+  // that was commented out, so tapping Search did nothing at all.
+  const [query, setQuery] = useState("");
+  // Debounced copy of `query`, used only for the REMOTE lookup — filtering the
+  // local list is instant and should not wait 300ms.
+  const [remoteQuery, setRemoteQuery] = useState("");
+  const [remoteHits, setRemoteHits] = useState<ChatCandidate[]>([]);
+  const [remoteSearching, setRemoteSearching] = useState(false);
 
-
-
-  const openSearch = useCallback(() => setSearchOpen(true), []);
+  useEffect(() => {
+    const h = setTimeout(() => setRemoteQuery(query.trim()), 300);
+    return () => clearTimeout(h);
+  }, [query]);
 
 
   const [activeConv,      setActiveConv]      = useState<Conversation | null>(null);
@@ -1121,6 +1328,48 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
     });
   }, [conversations, user]);
 
+  // Local filter: instant, over what is already on screen.
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return visible;
+    const needle = q.replace(/^@/, '');
+    return visible.filter((c) =>
+      [
+        c.participant_name,
+        c.participant_username,
+        c.participant_driver_id,
+        c.last_message,
+        c.trip_code,
+      ]
+        .filter(Boolean)
+        .some((f) => String(f).toLowerCase().includes(needle)),
+    );
+  }, [visible, query]);
+
+  // Remote lookup: people you have NOT chatted with yet. This is what makes the
+  // search bar answer "who can I message?" rather than only "which of my
+  // existing chats mentions this word?".
+  useEffect(() => {
+    const q = remoteQuery.replace(/^@/, '');
+    if (q.length < 2) {
+      setRemoteHits([]);
+      return;
+    }
+    let alive = true;
+    setRemoteSearching(true);
+    searchUsersForChat(q)
+      .then((rows) => {
+        if (!alive) return;
+        // Anyone already in the list above would be a duplicate row.
+        const known = new Set(visible.map((c) => c.participant_id));
+        setRemoteHits(rows.filter((r) => r.id !== user?.id && !known.has(r.id)));
+      })
+      .finally(() => alive && setRemoteSearching(false));
+    return () => {
+      alive = false;
+    };
+  }, [remoteQuery, searchUsersForChat, visible, user?.id]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await new Promise((r) => setTimeout(r, 700));
@@ -1147,6 +1396,34 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
     }
     setActiveConv(conv);
   };
+
+  /**
+   * Open (or create) a chat with someone found by the search bar.
+   *
+   * `startDirectChat` is idempotent on the conversation id, so tapping the same
+   * person twice reopens the existing thread rather than making a second one.
+   */
+  const openWithCandidate = useCallback(
+    async (c: ChatCandidate) => {
+      if (!user?.id) return;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      try {
+        const conv = await startDirectChat(user.id, c.id);
+        setQuery('');
+        router.push({
+          pathname: '/direct-chat/[conversationId]',
+          params: {
+            conversationId: conv.id,
+            driverName:     conv.participant_name,
+            driverId:       conv.participant_driver_id ?? '',
+          },
+        });
+      } catch (e: any) {
+        iosAlert("Couldn't open chat", e?.message ?? 'Please try again.');
+      }
+    },
+    [user?.id, startDirectChat],
+  );
 
   const confirmDelete = (id: string) => {
     iosAlert('Delete conversation', 'This cannot be undone.', [
@@ -1255,18 +1532,29 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
 
           <View style={[S.headerSearch]}>
             <IOSSearchBar
-              asButton
-              value={profileQuery}
-              onChangeText={setProfileQuery}
-              onPress={openSearch}
-              placeholder="Search"
+              value={query}
+              onChangeText={setQuery}
+              onCancel={() => setQuery('')}
+              placeholder="Search chats, names or @username"
             />
           </View>
         </View>
 
         <FlatList
-          data={visible}
+          data={filtered}
           keyExtractor={(c) => c.id}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          ListFooterComponent={
+            query.trim().length >= 2 ? (
+              <NewContactResults
+                hits={remoteHits}
+                searching={remoteSearching}
+                query={query.trim()}
+                onPick={openWithCandidate}
+              />
+            ) : null
+          }
           contentContainerStyle={{ flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -1275,10 +1563,7 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
           renderItem={({ item }) => (
             <ConvItem
               item={item}
-              isDark={isDark}
-              textColor={textColor}
-              subTextColor={subTextColor}
-              border={border}
+              query={query.trim()}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 // Direct chats navigate to the dedicated route so bottom tabs stay hidden
@@ -1312,27 +1597,6 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
       </GestureHandlerRootView>
 
 
-      {/* Search: one field, the whole screen's contents behind it. */}
-      {/* <IOSSearchOverlay
-          visible={searchOpen}
-          onClose={() => {
-            rememberQuery(profileQuery);
-            setSearchOpen(false);
-          }}
-          query={profileQuery}
-          onChangeQuery={setProfileQuery}
-          placeholder="Search settings, details and activity"
-          filters={filters}
-          activeFilter={searchFilter}
-          onChangeFilter={setSearchFilter}
-          results={results}
-          recents={recents}
-          onSelectRecent={setProfileQuery}
-          onClearRecents={clearRecents}
-          suggestions={SEARCH_SUGGESTIONS}
-          emptyHint="Try a setting, a field on your profile, or somewhere you've travelled."
-      />
-         */}
       <NewChatModal
         visible={newChatVisible}
         onClose={() => setNewChatVisible(false)}
@@ -1395,6 +1659,44 @@ const S = StyleSheet.create({
   convTopRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   convName:       { fontFamily: 'Poppins_600SemiBold', fontSize: 15, flex: 1 },
   convNameUnread: { fontFamily: 'Poppins_700Bold' },
+
+  newSectionTitle: {
+    fontFamily: 'Poppins_600SemiBold', fontSize: 11, letterSpacing: 0.6,
+    paddingHorizontal: 20, paddingTop: 18, paddingBottom: 6,
+  },
+  newSectionSpinner: { paddingVertical: 22, alignItems: 'center' },
+  newSectionEmpty:   { paddingVertical: 22, paddingHorizontal: 32 },
+  newSectionEmptyText: { fontFamily: 'Poppins_400Regular', fontSize: 13, textAlign: 'center', lineHeight: 19 },
+  newContactRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 20, paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  newContactName:   { fontFamily: 'Poppins_600SemiBold', fontSize: 15 },
+  newContactMeta:   { fontFamily: 'Poppins_400Regular', fontSize: 12 },
+  newContactRating: { fontFamily: 'Poppins_500Medium', fontSize: 12 },
+
+  inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  replyPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderLeftWidth: 3,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginBottom: 8,
+  },
+  replyPreviewAuthor: { fontFamily: 'Poppins_600SemiBold', fontSize: 12 },
+  replyPreviewText:   { fontFamily: 'Poppins_400Regular', fontSize: 12 },
+  emptyChatCard: {
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 22,
+    paddingVertical: 20,
+    borderRadius: 16,
+    maxWidth: 300,
+  },
   convLastUnread: { fontFamily: 'Poppins_500Medium' },
   convTime:     { fontFamily: 'Poppins_400Regular', fontSize: 11 },
   convBottomRow:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

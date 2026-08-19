@@ -26,6 +26,14 @@ export interface Message {
   created_at: string;
   read: boolean;
   status?: 'sent' | 'delivered' | 'read';
+  /**
+   * The message this one answers, denormalised at send time.
+   *
+   * Storing the author and a preview rather than only an id is deliberate: a
+   * quote must still render when the original has been deleted, and it must
+   * render without a second lookup while scrolling.
+   */
+  reply_to?: { id: string; author: string; preview: string } | null;
 }
 
 export interface Conversation {
@@ -169,6 +177,7 @@ function conversationForViewer(row: any, viewerId: string): Conversation {
 
 function normalizeMessage(msg: any): Message {
   return {
+    reply_to:        msg.reply_to ?? null,
     id:              msg.id,
     conversation_id: msg.conversation_id || msg.conversationId,
     sender_id:       msg.sender_id       || msg.senderId,

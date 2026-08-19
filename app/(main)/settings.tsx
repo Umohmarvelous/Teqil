@@ -65,37 +65,40 @@ function ResultRow({
   onPress: () => void;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.resultRow,
-        { backgroundColor: pressed ? ios.systemFill : "transparent" },
-      ]}
-      accessibilityRole="button"
-    >
-      <View style={styles.resultIcon}>
-        <Glass
-          variant="regular"
-          radius={10}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-          fallbackIntensity={30}
-          fallbackTint={ios.tertiarySystemFill}
-        />
-        <SymbolView name={result.symbol as never} size={17} tintColor={ios.label} fallback={null} />
-      </View>
+    <View>
+          
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.resultRow,
+          { backgroundColor: pressed ? ios.systemFill : "transparent" },
+        ]}
+        accessibilityRole="button"
+      >
+        <View style={styles.resultIcon}>
+          <Glass
+            variant="regular"
+            radius={10}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+            fallbackIntensity={30}
+            fallbackTint={ios.tertiarySystemFill}
+          />
+          <SymbolView name={result.symbol as never} size={17} tintColor={ios.label} fallback={null} />
+        </View>
 
-      <View style={{ flex: 1 }}>
-        <Text numberOfLines={1} style={[IOSAppFont.label, { color: ios.label }]}>
-          {result.label}
-        </Text>
-        <Text numberOfLines={1} style={[IOSAppFont.description, { color: ios.secondaryLabel }]}>
-          {result.detail ? `${result.section_title} · ${result.detail}` : result.section_title}
-        </Text>
-      </View>
+        <View style={{ flex: 1 }}>
+          <Text numberOfLines={1} style={[IOSAppFont.label, { color: ios.label }]}>
+            {result.label}
+          </Text>
+          <Text numberOfLines={1} style={[IOSAppFont.description, { color: ios.secondaryLabel }]}>
+            {result.detail ? `${result.section_title} · ${result.detail}` : result.section_title}
+          </Text>
+        </View>
 
-      <SymbolView name="chevron.right" size={13} tintColor={ios.tertiaryLabel} fallback={null} />
-    </Pressable>
+        <SymbolView name="chevron.right" size={13} tintColor={ios.tertiaryLabel} fallback={null} />
+      </Pressable>
+    </View>
   );
 }
 
