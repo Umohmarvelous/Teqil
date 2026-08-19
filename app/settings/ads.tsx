@@ -28,10 +28,18 @@ import { haptics } from "@/src/utils/haptics";
 import { useHighlight } from "@/src/hooks/useHighlight";
 import { useAdsStore } from "@/src/store/useAdsStore";
 import { listAdCategories, formatNaira } from "@/src/services/ads";
+import { amIAdmin } from "@/src/services/adAdmin";
 
 const HOURS = [7, 9, 12, 15, 18, 19, 21];
 
 export default function AdSettings() {
+  // Cheap and cached by the server; the row simply does not render until it
+  // answers, which is the right default for a privileged entry point.
+  const [isAdmin, setIsAdmin] = React.useState(false);
+  React.useEffect(() => {
+    amIAdmin().then(setIsAdmin);
+  }, []);
+
   const { highlight } = useLocalSearchParams<{ highlight?: string }>();
   const flash = useHighlight(highlight);
   const t = useIOSTheme();
@@ -94,6 +102,19 @@ export default function AdSettings() {
           onPress={() => router.push("/rewards" as never)}
           {...flash("ad-rewards")}
         />
+
+        {/* Only administrators see this. The route re-checks, and every RPC
+            behind it re-checks in the database, so hiding the row is a
+            courtesy rather than the security boundary. */}
+        {isAdmin ? (
+          <IOSListRow
+            symbol="megaphone.fill"
+            label="Ad console"
+            detail="Manage partners and creatives"
+            accessory={{ type: "disclosure" }}
+            onPress={() => router.push("/admin/ads" as never)}
+          />
+        ) : null}
       </IOSListSection>
 
       {/* ── Playback ──────────────────────────────────────────────────────── */}

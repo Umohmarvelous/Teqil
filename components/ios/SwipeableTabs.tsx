@@ -235,7 +235,7 @@ export function SwipeableTabs<T extends string = string>({
     });
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, {}]}>
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"

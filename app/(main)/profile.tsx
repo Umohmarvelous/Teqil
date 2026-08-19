@@ -1006,16 +1006,12 @@ export default function ProfileTab() {
           scrollY={scrollY}
           stripInset={10}
           contentContainerStyle={{ paddingBottom: bottomInset + 32 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              progressViewOffset={barHeight}
-              tintColor={Colors.primary}
-            />
-          }
+      
           header={
-            <View style={styles.hero}>
+            <View style={[styles.hero, 
+            {backgroundColor: ios.secondarySystemFill, borderWidth: .5, borderColor: ios.opaqueSeparator, borderRadius: CARD_RADIUS, marginHorizontal: 10, marginBottom: 6 }
+
+            ]}>
               <View style={[styles.heroRow, { }]}>
                 {/* The avatar is drawn by TravellingAvatar, outside the scroll.
                     This reserves exactly its footprint so the text sits where it
