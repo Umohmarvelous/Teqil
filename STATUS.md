@@ -125,47 +125,45 @@ Daily cap per referrer.
 
 ## ❌ Not done — build these first, in this order
 
-### 1. The chat tab. **Start here.**
+### 1. ~~The chat tab~~ — DONE, commit `24acca1`
 
-**The finding that explains everything you complained about:**
+**What was actually wrong:** the app had two chat screens and nobody knew.
 
-`app/direct-chat/[conversationId].tsx` is **NOT dead code — delete nothing.**
-It is the live route. Nine call sites push to it: `find-driver.tsx`,
-`driver-search.tsx`, `(passenger)/find-driver.tsx`, `(driver)/messages.tsx`,
-`nearby.tsx` ×2, `(main)/messages.tsx` ×3, and `useNotificationsStore`.
+`app/direct-chat/[conversationId].tsx` is the route nine screens push to —
+it opens every time you tap a conversation. It imported nothing from
+`messages.tsx`, and had its own standalone copy built on a MessageBubble
+last touched **28 May**. Meanwhile `messages.tsx` exported `ChatScreen`
+and `MessageBubble` with a comment at the top of the file saying
+direct-chat imports them to avoid duplication. It never did.
 
-But it does **not import anything from `messages.tsx`**. It has its own
-standalone implementation, using `components/MessageBubble.tsx` — a 2 KB file
-last touched **28 May**, the oldest thing in the chat stack.
+So every improvement went into the screen almost nobody opened. That is the
+whole explanation for the missing wallpaper and the apparent second chat
+screen — the wrong one was being edited.
 
-Meanwhile `messages.tsx` exports `ChatScreen` (line 278) and `MessageBubble`
-(line 256), with comments claiming direct-chat imports them. It doesn't. The
-wiring drifted at some point and nobody noticed.
+Fixed:
+- `components/chat/ChatScreen.tsx` holds the single implementation.
+- `messages.tsx` renders it and is **577 lines lighter** — conversation
+  list and new-message sheet only.
+- `direct-chat/[conversationId].tsx` is a route: store first, fetch if
+  cold, params as a last resort so the header name is right on frame one.
+- Swipe in from the left edge to close, with `activeOffsetX` /
+  `failOffsetY` so it never steals a vertical scroll from the list.
+- New-message sheet is an `IOSSheet` — drags between detents, flicks away.
+  Search docked at the **bottom**, results at the **top**.
+- Deleted `components/MessageBubble.tsx`, `src/hooks/useChatManager.ts`
+  and `src/types/chat.ts` — a second chat data layer, provably
+  unreferenced. Leaving a spare one is how this happens twice.
 
-**So: `ChatDoodle`, `ChatBubble` and `ContactCard` all went into
-`messages.tsx`. The screen you actually open goes to the stale May 28 one.**
-That is why the doodle "disappeared" and why it looks like a second chat
-screen appeared. Not a new screen — the wrong one was being edited.
+**Still to verify on device:** the "all red" contact card. It is almost
+certainly the banner stack at `app/(main)/messages.tsx` — `Colors.error`
+is literally `firebrick` on the recording banner, and the gold "⚠ Invalid
+driver_id" banner fires whenever a lookup fails. `ContactCard.tsx`'s only
+red is `t.systemRed` on the Block row, which is correct iOS convention.
+Open a chat and look before changing anything.
 
-The fix (do not shortcut it):
-1. Rebuild `direct-chat/[conversationId].tsx` **in place** as the real chat
-   screen: `ChatDoodle` background, `ChatBubble` + `DateSeparator` +
-   grouping, `ContactCard` in the header sheet.
-2. Strip the inline `ChatScreen` out of `messages.tsx`. It becomes the
-   conversation list + new-message sheet, nothing else.
-3. Delete `components/MessageBubble.tsx` once nothing imports it.
-4. Swipe-from-left-edge to close the chat.
-5. New-message sheet → `components/ios/IOSSheet.tsx` (swipe up/down), search
-   field at the **bottom**, results at the **top**.
-
-Already done: the "Trip Code" tab is gone; username is the only way in.
-
-**The "all red" contact card** is almost certainly not the card. It is the
-banner stack above it at `app/(main)/messages.tsx:565` — `Colors.error`
-(`firebrick`) on the recording banner, and `Colors.gold` on the "⚠ Invalid
-driver_id" banner, which fires whenever a lookup fails. Check that before
-touching `ContactCard.tsx`; its only red is `t.systemRed` on the Block row,
-which is correct iOS convention.
+**Still not done:** the extra chat features (starred messages, media
+gallery, mute, wallpaper picker, forward, edit/delete-for-everyone, etc).
+The foundation is now one screen, so they land once instead of twice.
 
 ### 2. Referral UI
 The data layer is done and tested. Still needed: the invite screen (code,
