@@ -9,8 +9,14 @@
 // screen simply appearing over it — done by hand because React Navigation has no
 // built-in shared-element transition.
 //
-// Search is by driver badge ID (the same lookup the old modal used), with
-// filter + sort controls and recent searches alongside it.
+// Search is by USERNAME only. Badge IDs were removed from every typed search
+// path (migration_user_privacy.sql): an ID is printed on a QR sticker and
+// issued in a guessable pattern, so a searchable ID field is an index of every
+// driver on the platform. A username is chosen, public by intent, and can be
+// changed. Suggestions stream in as you type; the exact lookup still runs on
+// submit, because a prefix search that happens to return one row is not the
+// same as a match and silently opening a chat with "whoever ranked first" is
+// how you message the wrong person.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -60,17 +66,30 @@ import { X } from "@hugeicons/core-free-icons";
 const EXPAND = { duration: 340, easing: Easing.bezier(0.2, 0.9, 0.25, 1) };
 const FIELD_HEIGHT = 38;
 
+/** Long enough that a word is one query, short enough to feel live. */
+const SUGGEST_DEBOUNCE_MS = 300;
+
 type SortKey = "relevance" | "name" | "recent";
 type FilterKey = "all" | "online" | "same-park";
 
 interface DriverPreview {
   id: string;
   full_name?: string;
+  username?: string;
   driver_id?: string;
   vehicle_details?: string;
   park_name?: string;
   profile_photo?: string;
   conversationId: string;
+}
+
+interface Suggestion {
+  id: string;
+  full_name: string | null;
+  username: string | null;
+  role: string | null;
+  profile_photo: string | null;
+  vehicle_details: string | null;
 }
 
 // ─── Chips ───────────────────────────────────────────────────────────────────
@@ -135,6 +154,7 @@ export default function DriverSearchScreen() {
 
   const user = useAuthStore((s) => s.user);
   const fetchConversationByDriverId = useMessagesStore((s) => s.fetchConversationByDriverId);
+  const searchUsersForChat = useMessagesStore((s) => s.searchUsersForChat);
   const { recents, remember, clear } = useRecentDriverSearches();
 
   const [query, setQuery] = useState("");
@@ -142,6 +162,7 @@ export default function DriverSearchScreen() {
   const [preview, setPreview] = useState<DriverPreview | null>(null);
   const [error, setError] = useState("");
   const [sort, setSort] = useState<SortKey>("relevance");
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [filter, setFilter] = useState<FilterKey>("all");
 
   const inputRef = React.useRef<TextInput>(null);
@@ -220,6 +241,7 @@ export default function DriverSearchScreen() {
         setPreview({
           id: driverUser.id,
           full_name: driverUser.full_name ?? undefined,
+          username: (driverUser as any).username ?? undefined,
           driver_id: driverUser.driver_id ?? undefined,
           vehicle_details: (driverUser as any).vehicle_details,
           park_name: (driverUser as any).park_name,
@@ -229,7 +251,7 @@ export default function DriverSearchScreen() {
         remember(q);
         haptics.success();
       } catch (err: any) {
-        setError(err?.message ?? "Driver not found. Check the ID and try again.");
+        setError(err?.message ?? "No account with that username. Check the spelling and try again.");
         haptics.error();
       } finally {
         setLoading(false);
@@ -237,6 +259,32 @@ export default function DriverSearchScreen() {
     },
     [query, user?.id, fetchConversationByDriverId, remember],
   );
+
+  // ── Live suggestions ──────────────────────────────────────────────────────
+  // Cancelling the timer on every keystroke means only the last pause in
+  // typing reaches the database. `alive` covers the other race: a slow
+  // response for "da" must not overwrite a fast one for "dani".
+  useEffect(() => {
+    const handle = query.trim().replace(/^@/, "");
+    if (handle.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    let alive = true;
+    const t = setTimeout(() => {
+      searchUsersForChat(handle)
+        .then((rows) => {
+          if (alive) setSuggestions(rows as unknown as Suggestion[]);
+        })
+        .catch(() => {
+          if (alive) setSuggestions([]);
+        });
+    }, SUGGEST_DEBOUNCE_MS);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [query, searchUsersForChat]);
 
   const openChat = useCallback(() => {
     if (!preview) return;
@@ -295,10 +343,10 @@ export default function DriverSearchScreen() {
                 ref={inputRef}
                 value={query}
                 onChangeText={setQuery}
-                placeholder="Driver ID, e.g. EMG-4821"
+                placeholder="Username, e.g. @danieloky"
                 placeholderTextColor={ios.secondaryLabel}
                 style={[IOSFont.body, styles.input, { color: ios.label }]}
-                autoCapitalize="characters"
+                autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="search"
                 onSubmitEditing={() => runSearch()}
@@ -405,8 +453,64 @@ export default function DriverSearchScreen() {
             </View>
           )}
 
+          {/* Live suggestions — shown while typing, before anything is submitted. */}
+          {!preview && !loading && suggestions.length > 0 && (
+            <View
+              style={[
+                styles.recentsCard,
+                { backgroundColor: ios.secondarySystemGroupedBackground },
+              ]}
+            >
+              {suggestions.map((sg, i) => (
+                <Pressable
+                  key={sg.id}
+                  onPress={() => {
+                    const handle = sg.username ?? "";
+                    setQuery(handle);
+                    runSearch(handle);
+                  }}
+                  style={({ pressed }) => [
+                    styles.recentRow,
+                    pressed && { backgroundColor: ios.systemFill },
+                  ]}
+                >
+                  {i > 0 && (
+                    <View
+                      style={[styles.sep, { backgroundColor: ios.separator }]}
+                      pointerEvents="none"
+                    />
+                  )}
+                  <Avatar
+                    name={sg.full_name ?? sg.username ?? "?"}
+                    photoUri={sg.profile_photo ?? undefined}
+                    size={32}
+                  />
+                  <View style={{ flex: 1, gap: 1 }}>
+                    <Text style={[IOSFont.subheadline, { color: ios.label }]} numberOfLines={1}>
+                      @{sg.username}
+                    </Text>
+                    <Text
+                      style={[IOSFont.caption1, { color: ios.secondaryLabel }]}
+                      numberOfLines={1}
+                    >
+                      {[sg.full_name, sg.role === "driver" ? sg.vehicle_details : null]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </Text>
+                  </View>
+                  <SymbolView
+                    name="chevron.right"
+                    size={12}
+                    tintColor={ios.tertiaryLabel}
+                    fallback={null}
+                  />
+                </Pressable>
+              ))}
+            </View>
+          )}
+
           {/* Recents — the empty state that isn't empty. */}
-          {!preview && !loading && !error && (
+          {!preview && !loading && !error && suggestions.length === 0 && (
             <View style={styles.recents}>
               <View style={styles.recentsHead}>
                 <Text style={[IOSFont.footnote, { color: ios.secondaryLabel, letterSpacing: 0.5 }]}>
@@ -428,7 +532,7 @@ export default function DriverSearchScreen() {
                     fallback={null}
                   />
                   <Text style={[IOSFont.headline, { color: ios.label, marginTop: 10 }]}>
-                    Find a driver
+                    Find someone by username
                   </Text>
                   <Text
                     style={[
@@ -436,7 +540,8 @@ export default function DriverSearchScreen() {
                       { color: ios.secondaryLabel, textAlign: "center", marginTop: 4 },
                     ]}
                   >
-                    Enter the badge ID shown on the driver&apos;s QR code or vehicle.
+                    Type a username to see suggestions. Scanning a QR code still
+                    works for drivers you meet in person.
                   </Text>
                 </View>
               ) : (

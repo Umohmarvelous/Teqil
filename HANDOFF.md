@@ -690,16 +690,11 @@ Fixed in `migration_harden_legacy_rpcs.sql`, proved by
 | anon-executable `SECURITY DEFINER` functions | 27 | **1** |
 | functions without a pinned `search_path` | 18 | **0** |
 
-The remaining one is `get_user_by_username`, which is deliberate: username login
-must resolve a handle to an email before a session exists.
+The remaining one was `get_user_by_username`. That has since been closed too -
+see 4d.
 
 ### Still open, deliberately
 
-- **`get_user_by_username` leaks emails.** It returns an email for any username
-  handed to it, so usernames can be walked to harvest addresses. Fixing it means
-  moving username login behind an edge function that returns a *session* rather
-  than an email - a change to the auth flow, not something to fold into a
-  security patch. Privacy leak, not privilege escalation.
 - **`v_active_park_trips` is a `SECURITY DEFINER` view** (advisor ERROR,
   pre-existing). Converting it needs the park-owner access rules rewritten as
   policies first.
@@ -707,6 +702,93 @@ must resolve a handle to an email before a session exists.
 
 **Run `get_advisors` after every migration.** This was found by doing exactly
 that, after unrelated work, and it had been live the whole time.
+
+---
+
+## 4d. The user directory (found and closed 2026-08-20)
+
+Asked to "fix `get_user_by_username`", which leaked one email per lookup. While
+reading the policies around it, the actual problem turned up one level up:
+
+```sql
+CREATE POLICY "Users are publicly readable" ON public.users
+  FOR SELECT USING (true);
+```
+
+No role restriction, so it applied to `PUBLIC` - which `anon` inherits. The anon
+key ships in the app bundle, so this was the whole exploit:
+
+```
+GET /rest/v1/users?select=*
+```
+
+Verified against the live database before writing the fix: **9 rows, 9 emails,
+9 phone numbers**, plus `kyc_status`, `is_admin`, and - as soon as any driver
+filled one in - `payout_bank_code`, `payout_account_number`, `nin_hash`,
+`bvn_hash`. Narrowing the RPC while that policy stood would have changed
+nothing; it was a side door next to an open front door.
+
+**Fixed in `migration_user_privacy.sql`:**
+
+| | before | after |
+| --- | --- | --- |
+| rows of `public.users` readable by `anon` | **all of them** | 0 (`permission denied`) |
+| ways to get an email out of a handle | `get_user_by_username`, anon-callable | none - it is `service_role` only |
+| columns a signed-in user can read on someone else | every one | the display-safe list in `get_public_profiles` |
+| anon-executable `SECURITY DEFINER` functions | 1 (`get_user_by_username`, returns an email) | 1 (`username_available`, returns a boolean) |
+
+Cross-user reads that the dropped policy had been silently permitting are now
+RPCs whose **select list is the access control**: `get_public_profiles`,
+`get_driver_public`, `get_park_owner_id`. Call sites repointed in
+`useMessagesStore`, `(passenger)/verify-driver`, `(passenger)/payment` and
+`services/sync`. The direct-table fallbacks were deleted rather than kept - a
+fallback that reads `users` would have to re-open the table to work, which is
+how it became public in the first place.
+
+### Login without an email on the device
+
+GoTrue can only authenticate an email or a phone; there is no username grant. So
+the resolution moved server-side:
+
+- **`supabase/functions/username-login`** (`verify_jwt: false`) - takes
+  `{ username, password }`, resolves the handle with the service-role key, calls
+  `signInWithPassword` through the anon client so GoTrue's own rate limiting and
+  audit log still apply, and returns a **session**. The client installs it with
+  `setSession`. The email never reaches the device.
+- **`supabase/functions/username-reset`** - same idea for forgot-password.
+  Always returns `{ ok: true }`, so it cannot be used to test whether an account
+  exists.
+- **`username_available(text)`** - the one thing signup genuinely needs before a
+  session exists. Returns a boolean. Anon-callable by design.
+
+Both functions answer "no such username" and "wrong password" with the same
+status and the same sentence. Verified by curl: both return
+`400 {"error":"Wrong username or password."}`.
+
+`checkUsernameExists()` is gone. A stub remains that **throws** rather than
+returning, so any missed import fails loudly instead of type-checking.
+
+### Search is username-only
+
+The other half of the same request. `find_user_for_chat` and
+`search_users_for_chat` no longer match `driver_id` or `full_name` - a badge ID
+is printed on a QR sticker and generated *from* the username, so a searchable ID
+field is an index of every driver; a legal name is worse, because nobody chooses
+it and nobody can change it to stop being found. `search_drivers` was dropped
+outright rather than left as a second door.
+
+Scanning a QR still resolves a badge ID via `get_driver_public`. A scan means
+you are standing in front of the person; that is not a search.
+
+**A test trap worth remembering:** the obvious assertion - "searching a badge ID
+returns nothing" - is wrong here. Badge IDs are generated from usernames
+(`generateDriverIdFromUsername`), so the sample account's id `daniel` is a prefix
+of its handle `danieloky`, and a correct username-only search still returns it.
+`test_user_privacy.sql` asserts the property instead: *every row a search returns
+must have a username starting with the query*. That holds whatever the data
+looks like.
+
+Proved by `supabase/tests/test_user_privacy.sql` (17/17).
 
 ---
 

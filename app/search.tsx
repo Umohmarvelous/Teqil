@@ -71,9 +71,9 @@ export default function SearchScreen() {
     return () => clearTimeout(h);
   }, [raw]);
 
-  // People come from the chat handle search, which already knows how to match a
-  // username, a full name or a driver ID — the same three things someone types
-  // into a search box when looking for a person.
+  // People come from the chat handle search, which matches a username prefix
+  // and nothing else. Full names and badge IDs were removed from every typed
+  // search path — see migration_user_privacy.sql for the reasoning.
   React.useEffect(() => {
     if (query.length < 2) {
       setPeople([]);

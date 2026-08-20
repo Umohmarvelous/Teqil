@@ -256,14 +256,12 @@ async function pullBroadcasts(parkName?: string): Promise<void> {
   try {
     // Broadcasts are keyed by park. We pull by matching park_id to users with
     // that park name (approximation until a parks table is populated).
-    const { data: ownerRows } = await supabase
-      .from("users")
-      .select("id")
-      .eq("park_name", parkName)
-      .eq("role", "park_owner")
-      .limit(1);
-
-    const parkOwnerId = ownerRows?.[0]?.id;
+    // Reading another account's row directly stopped working when the blanket
+    // "users are publicly readable" policy was dropped; this resolves the same
+    // thing through a definer function that returns an id and nothing else.
+    const { data: parkOwnerId } = await supabase.rpc("get_park_owner_id", {
+      p_park_name: parkName,
+    });
     if (!parkOwnerId) return;
 
     const { data, error } = await supabase

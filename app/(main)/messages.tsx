@@ -4,7 +4,7 @@
 //   1. ChatScreen and MessageBubble are now named exports so direct-chat/[conversationId].tsx
 //      can import ChatScreen without duplicating it.
 //   2. NewChatModal: replaced the single search flow with two tabs —
-//      "Trip Code" (existing) and "Driver ID" (new).  Driver ID tab calls
+//      "Trip Code" (existing) and "Username" (new).  The Username tab calls
 //      fetchConversationByDriverId then navigates to direct-chat/[conversationId].
 //   3. ConvItem: direct conversations show a UserIcon instead of a car.
 //   4. ConvList filter: includes direct conversations for the current user.
@@ -766,9 +766,9 @@ function NewChatModal({
   // it is.
   //
   // `find_user_for_chat` is the RPC that already exists for exactly this. It
-  // matches a driver ID, a username, a full name or a raw UUID in one round
-  // trip, runs SECURITY DEFINER so it works under RLS, and returns only the
-  // fields a chat header needs — no phone number.
+  // resolves a USERNAME — and, since migration_user_privacy.sql, only a
+  // username — runs SECURITY DEFINER so it works under RLS, and returns only
+  // the fields a chat header needs: no phone number, no email.
   const handleTripSearch = async () => {
     const raw = query.trim();
     if (!raw || !user?.id) return;
@@ -777,9 +777,9 @@ function NewChatModal({
 
     let found: DriverRecord | null = null;
     try {
-      // Raw input, not `normaliseDriverId(raw)`: the RPC does its own driver-ID
-      // normalisation *and* matches usernames, so forcing a "DRV-" prefix here
-      // would turn every username lookup into a guaranteed miss.
+      // Raw input, not `normaliseDriverId(raw)`: the RPC takes a bare handle and
+      // strips a leading "@" itself, so forcing a "DRV-" prefix here would turn
+      // every lookup into a guaranteed miss.
       const { data, error } = await supabase.rpc('find_user_for_chat', { p_handle: raw });
       if (error) throw error;
       const row = Array.isArray(data) ? data[0] : data;
@@ -877,14 +877,14 @@ function NewChatModal({
               onPress={() => { setTab('driver'); reset(); setQuery(''); }}
             >
               <HugeiconsIcon icon={IdentityCardIcon} size={14} color={tab === 'driver' ? Colors.primary : subTextColor} />
-              <Text style={[S.tabBtnText, { color: tab === 'driver' ? Colors.primary : subTextColor }]}>Username or ID</Text>
+              <Text style={[S.tabBtnText, { color: tab === 'driver' ? Colors.primary : subTextColor }]}>Username</Text>
             </Pressable>
           </View>
 
           <Text style={[S.newSub, { color: subTextColor }]}>
             {tab === 'trip'
-              ? user?.role === 'driver' ? 'Enter a passengers user ID to start chatting' : 'Enter the drivers ID (e.g. DRV-A3X9KL) or their user ID'
-              : 'Type a username like @ada, or a badge ID like DRV-A1B2C3'}
+              ? 'Enter the trip code shown on the trip you shared'
+              : 'Type a username like @danieloky — suggestions appear as you type'}
           </Text>
 
           {/* ── Input ── */}
@@ -892,7 +892,7 @@ function NewChatModal({
             <HugeiconsIcon icon={Search01Icon} size={18} color={subTextColor} />
             <TextInput
               style={[S.newInput, { color: textColor }]}
-              placeholder={tab === 'trip' ? 'DRV-A3X9KL or user ID' : '@username or DRV-A1B2C3'}
+              placeholder={tab === 'trip' ? 'Trip code' : '@username'}
               placeholderTextColor={subTextColor}
               value={query}
               onChangeText={(v) => { setQuery(v); reset(); }}
@@ -1050,7 +1050,8 @@ function NewContactResults({
     return (
       <View style={S.newSectionEmpty}>
         <Text style={[S.newSectionEmptyText, { color: t.tertiaryLabel }]}>
-          Nobody found for “{query}”. Try a full @username or a driver ID.
+          No username starts with “{query.replace(/^@/, '')}”. Handles are matched
+          from the start, so check the spelling.
         </Text>
       </View>
     );

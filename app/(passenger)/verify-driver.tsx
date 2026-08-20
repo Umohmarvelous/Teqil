@@ -67,16 +67,14 @@ export default function VerifyDriverScreen() {
         const targetId = driver_id || (driver_payload ? JSON.parse(driver_payload).driver_id : null);
         if (!targetId) return;
 
-        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(targetId);
-        
-        let query = supabase.from('users').select('*');
-        if (isUUID) {
-          query = query.eq('id', targetId);
-        } else {
-          query = query.eq('driver_id', targetId);
-        }
-        
-        const { data, error } = await query.single();
+        // `select('*')` on someone else's row used to work because of a
+        // blanket public-read policy on `users`; that policy leaked every
+        // email, phone and payout column in the table and is gone. This RPC
+        // resolves a scanned badge id or uuid to display-safe fields only.
+        const { data: rows, error } = await supabase.rpc('get_driver_public', {
+          p_driver_id: targetId,
+        });
+        const data = Array.isArray(rows) ? rows[0] : rows;
           
         if (error || !data) {
           if (!driver_payload) {

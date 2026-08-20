@@ -369,49 +369,41 @@ async function hashPassword(password: string, email: string): Promise<string> {
   }
 }
 
-// ─── Resolve Username ─────────────────────────────────────────────────────────
-export async function checkUsernameExists(
-  username: string
-): Promise<{ email: string; device_fingerprint: string | null } | null> {
-  const uname = username.trim().toLowerCase();
-  if (!uname) return null;
+// ─── Username → account, without the account's email ──────────────────────────
+//
+// `checkUsernameExists` used to return the EMAIL behind any username to any
+// caller, signed in or not, so that login could hand it to
+// `signInWithPassword`. That made every handle a lookup key for an email
+// address. It is gone; three narrower functions replace it, and none of them
+// puts an email on the device.
 
-  // Primary: SECURITY DEFINER RPC — bypasses RLS without exposing the table.
-  try {
-    const { data, error } = await supabase.rpc('get_user_by_username', { p_username: uname });
-    if (!error && Array.isArray(data) && data.length > 0) {
-      return {
-        email: data[0].email,
-        device_fingerprint: data[0].device_fingerprint ?? null,
-      };
-    }
-    if (error) console.warn('get_user_by_username RPC error, falling back:', error.message);
-  } catch (err) {
-    console.warn('get_user_by_username RPC threw, falling back:', err);
+/**
+ * Is this handle free to claim?
+ *
+ * A boolean and nothing else. Signup inherently reveals whether a username is
+ * taken — that is what the field is for — but it must not also reveal what is
+ * attached to it. Anon-callable, because signup has no session.
+ */
+export async function isUsernameAvailable(username: string): Promise<boolean> {
+  const uname = username.trim().toLowerCase().replace(/^@/, "");
+  if (!uname) return false;
+  const { data, error } = await supabase.rpc("username_available", { p_username: uname });
+  if (error) {
+    // Fail CLOSED. Reporting "available" on a network blip lets a second
+    // account be created on a handle that is already taken, and the unique
+    // index then rejects the signup after the user has filled in everything.
+    console.warn("[auth] username_available:", error.message);
+    throw new Error("Couldn't check that username. Check your connection and try again.");
   }
+  return data === true;
+}
 
-  // Fallback: case-insensitive direct lookup. Covers a not-yet-applied migration
-  // or usernames stored with different casing. (Needs anon SELECT on users.)
-  // Escape LIKE wildcards so an underscore in a username matches literally.
-  try {
-    const escaped = uname.replace(/[%_\\]/g, "\\$&");
-    const { data, error } = await supabase
-      .from('users')
-      .select('email, device_fingerprint')
-      .ilike('username', escaped)
-      .limit(1);
-    if (!error && data && data.length > 0) {
-      return {
-        email: data[0].email as string,
-        device_fingerprint: (data[0].device_fingerprint as string) ?? null,
-      };
-    }
-    if (error) console.warn('users fallback lookup error:', error.message);
-  } catch (err) {
-    console.error('checkUsernameExists fallback failed:', err);
-  }
-
-  return null;
+/** Kept only so a stale import fails loudly rather than silently type-checking. */
+export async function checkUsernameExists(username: string): Promise<never> {
+  throw new Error(
+    `checkUsernameExists is removed — it leaked the email behind "${username}". ` +
+      "Use isUsernameAvailable() for signup, or signInWithUsername() to log in.",
+  );
 }
 
 // ─── Sync a User object into public.users ─────────────────────────────────────
@@ -561,6 +553,148 @@ export async function signInOfflineAware(
     );
   }
 }
+
+// ─── Sign in by username ──────────────────────────────────────────────────────
+
+/**
+ * The login screen's entry point.
+ *
+ * The username → email step happens inside the `username-login` edge function
+ * with the service-role key; what comes back is a session, which we install
+ * locally. The device is never told which email address the account uses, so a
+ * stolen anon key (it ships in the bundle — assume it is stolen) buys nothing.
+ *
+ * Offline still works: after one successful online login the email is in the
+ * local credential cache, so a later sign-in with no network can be checked
+ * against it exactly as the email path does.
+ */
+export async function signInWithUsername(
+  username: string,
+  password: string,
+): Promise<SignInResult> {
+  const uname = username.trim().toLowerCase().replace(/^@/, "");
+  if (!uname) throw new Error("Enter your username to sign in.");
+
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const anon = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anon) throw new Error("App is not configured for sign in.");
+
+  let payload: any;
+  try {
+    const res = await fetch(`${url}/functions/v1/username-login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: anon },
+      body: JSON.stringify({ username: uname, password }),
+    });
+    payload = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(payload?.error ?? "Wrong username or password.");
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message.toLowerCase() : "";
+    const isNetworkError =
+      message.includes("network") ||
+      message.includes("fetch") ||
+      message.includes("connect") ||
+      message.includes("offline") ||
+      message.includes("timeout") ||
+      message.includes("unable to resolve");
+    if (!isNetworkError) throw err;
+
+    const cached = await tryOfflineLoginByUsername(uname, password);
+    if (cached) return { user: cached, offlineMode: true };
+    throw new Error(
+      "You appear to be offline and no cached login was found for that username. " +
+        "Please connect to the internet and try again.",
+    );
+  }
+
+  // Install the session the function minted for us. Everything downstream —
+  // RLS, realtime, the sync layer — reads the client's session, not this call.
+  const { error: sessErr } = await supabase.auth.setSession({
+    access_token: payload.access_token,
+    refresh_token: payload.refresh_token,
+  });
+  if (sessErr) throw sessErr;
+
+  const supaUser = payload.user;
+  const meta = supaUser?.user_metadata ?? {};
+  const user: User = {
+    id:                 supaUser.id,
+    username:           meta.username ?? uname,
+    first_name:         meta.first_name ?? null,
+    last_name:          meta.last_name ?? null,
+    full_name:          meta.full_name ?? null,
+    phone:              meta.phone ?? "",
+    email:              supaUser.email ?? "",
+    age:                meta.age ?? 18,
+    role:               meta.role ?? "passenger",
+    driver_id:          meta.driver_id,
+    profile_photo:      meta.profile_photo,
+    vehicle_details:    meta.vehicle_details,
+    park_location:      meta.park_location,
+    park_name:          meta.park_name,
+    points_balance:     meta.points_balance ?? 0,
+    credits_balance:    meta.credits_balance ?? 0,
+    device_fingerprint: meta.device_fingerprint,
+    avg_rating:         meta.avg_rating,
+    profile_complete:   meta.profile_complete ?? false,
+    created_at:         supaUser.created_at,
+  };
+
+  // The email is the cache key for offline login and for biometrics, and it is
+  // the user's own address on their own device — which is a different thing
+  // from handing it to a stranger who typed their handle.
+  if (user.email) await cacheCredentials(user, user.email, password);
+  syncUserToPublicTable(user).catch(() => {});
+
+  return { user, offlineMode: false };
+}
+
+/**
+ * Offline variant: match against the cached profile by username, then verify
+ * the password against the cached hash (which is salted with the email, so the
+ * cached email is what has to be used to recompute it).
+ */
+async function tryOfflineLoginByUsername(
+  username: string,
+  password: string,
+): Promise<User | null> {
+  try {
+    const [[, cachedEmail], [, cachedUserRaw]] = await AsyncStorage.multiGet([
+      CACHED_EMAIL_KEY,
+      CACHED_USER_KEY,
+    ]);
+    if (!cachedEmail || !cachedUserRaw) return null;
+    const cachedUser = JSON.parse(cachedUserRaw) as User;
+    if ((cachedUser.username ?? "").toLowerCase() !== username) return null;
+    return await tryOfflineLogin(cachedEmail, password);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Ask for a reset link by username.
+ *
+ * Resolves nothing locally and always resolves successfully — the edge function
+ * returns the same answer for a real handle and an invented one, so this cannot
+ * be used to find out who has an account.
+ */
+export async function sendPasswordResetForUsername(username: string): Promise<void> {
+  const uname = username.trim().toLowerCase().replace(/^@/, "");
+  if (!uname) throw new Error("Enter your username to reset your password.");
+
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const anon = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anon) throw new Error("App is not configured for password reset.");
+
+  const res = await fetch(`${url}/functions/v1/username-reset`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: anon },
+    body: JSON.stringify({ username: uname, redirectTo: "teqil://reset-password" }),
+  });
+  if (!res.ok) throw new Error("Couldn't send the reset link. Please try again.");
+}
+
 
 // ─── Sign up ──────────────────────────────────────────────────────────────────
 

@@ -1,6 +1,10 @@
 // app/find-driver.tsx
-// Standalone screen: passenger types a driver badge ID, searches, previews
-// the driver card, then navigates to direct-chat/[conversationId].
+// Standalone screen: passenger types a USERNAME, searches, previews the
+// person's card, then navigates to direct-chat/[conversationId].
+//
+// Badge IDs are no longer a typed search path anywhere in the app — see
+// migration_user_privacy.sql for why. Scanning a driver's QR still resolves an
+// ID, because a scan means you are standing in front of them.
 
 import React, { useState, useRef, useEffect } from 'react';
 import {
@@ -51,6 +55,7 @@ interface DriverPreview {
   id:               string;
   full_name:        string | null;
   driver_id:        string | null;
+  username?:        string | null;
   vehicle_details?: string | null;
   park_name?:       string | null;
   profile_photo?:   string | null;
@@ -97,6 +102,7 @@ export default function FindDriverScreen() {
         id:             driverUser.id,
         full_name:      driverUser.full_name,
         driver_id:      driverUser.driver_id,
+        username:       (driverUser as any).username,
         vehicle_details:(driverUser as any).vehicle_details,
         park_name:      (driverUser as any).park_name,
         profile_photo:  (driverUser as any).profile_photo,
@@ -104,7 +110,7 @@ export default function FindDriverScreen() {
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      setHasError(err?.message ?? 'Driver not found. Check the ID and try again.');
+      setHasError(err?.message ?? 'No account with that username. Check the spelling and try again.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
@@ -127,7 +133,7 @@ export default function FindDriverScreen() {
   return (
     <IOSScreen
       title="Find Driver"
-      subtitle="Search by badge ID"
+      subtitle="Search by username"
       back
       scrollable={false}
       scroll={scroll}
@@ -149,7 +155,7 @@ export default function FindDriverScreen() {
           </View>
           <Text style={[styles.heroTitle, { color: textColor }]}>Chat with a Driver</Text>
           <Text style={[styles.heroSub, { color: subColor }]}>
-          {`  Enter the driver's badge ID (e.g. DRV-A1B2C3) to start a private conversation`}
+          {`  Enter their username (e.g. @danieloky) to start a private conversation`}
           </Text>
         </Animated.View>
 
@@ -164,7 +170,7 @@ export default function FindDriverScreen() {
               <HugeiconsIcon icon={Search01Icon} size={18} color={hasError ? Colors.error : subColor} />
               <TextInput
                 style={[styles.textInput, { color: textColor }]}
-                placeholder="DRV-A1B2C3"
+                placeholder="@danieloky"
                 placeholderTextColor={subColor}
                 value={query}
                 onChangeText={(v) => {
@@ -172,7 +178,7 @@ export default function FindDriverScreen() {
                   setHasError('');
                   setPreview(null);
                 }}
-                autoCapitalize="characters"
+                autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="search"
                 onSubmitEditing={handleSearch}
@@ -217,7 +223,9 @@ export default function FindDriverScreen() {
                 </Text>
                 <View style={styles.previewBadge}>
                   <HugeiconsIcon icon={IdentityCardIcon} size={11} color={Colors.primary} />
-                  <Text style={styles.previewBadgeText}>{preview.driver_id}</Text>
+                  <Text style={styles.previewBadgeText}>
+                    {preview.username ? `@${preview.username}` : preview.driver_id}
+                  </Text>
                 </View>
               </View>
               <View style={[styles.verifiedPill, { backgroundColor: Colors.primaryLight }]}>
@@ -254,7 +262,7 @@ export default function FindDriverScreen() {
         {!preview && !loading && !hasError && (
           <View style={styles.hint}>
             <Text style={[styles.hintText, { color: subColor }]}>
-              {`You can find the driver's badge ID on their profile or trip details card.`}
+              {`Usernames are matched from the start, so "dani" finds "danieloky".`}
             </Text>
           </View>
         )}

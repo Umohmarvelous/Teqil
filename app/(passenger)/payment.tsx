@@ -49,7 +49,6 @@ import { formatNaira } from "@/src/utils/helpers";
 import Animated from "react-native-reanimated";
 import { iosAlert, IOSScreen, useCollapsibleScroll } from "@/components/ios";
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export default function PaymentScreen() {
   const { driver_id, subaccount_code, driver_payload } = useLocalSearchParams<{
@@ -124,19 +123,12 @@ export default function PaymentScreen() {
       } catch {
         // RPC not deployed yet — fall through to a direct read.
       }
-      if (!data) {
-        try {
-          const isUUID = UUID_RE.test(driver_id);
-          const res = await supabase
-            .from("users")
-            .select("*")
-            .eq(isUUID ? "id" : "driver_id", driver_id)
-            .maybeSingle();
-          if (!res.error && res.data) data = res.data;
-        } catch (e) {
-          console.warn("fetchDriver (enrichment) failed", e);
-        }
-      }
+      // There is deliberately no direct-table fallback any more. `users` is not
+      // cross-readable (migration_user_privacy.sql) and a fallback that reads it
+      // would either fail silently or, worse, have to be re-opened to work —
+      // which is how the whole table became public in the first place. If the
+      // RPC cannot resolve the driver, the QR payload already on screen stands.
+
       if (!cancelled) {
         if (data) setDriver((prev: any) => ({ ...(prev ?? {}), ...data }));
         setLoading(false);

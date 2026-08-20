@@ -31,7 +31,7 @@ import * as Haptics from "expo-haptics";
 
 import { Colors } from "@/constants/colors";
 import { supabase } from "@/src/services/supabase";
-import { checkUsernameExists } from "@/src/services/auth";
+import { isUsernameAvailable } from "@/src/services/auth";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { iosAlert } from "@/components/ios";
 
@@ -137,7 +137,7 @@ export default function ResetPasswordScreen() {
     try {
       // If they want a new username, make sure it's free first.
       if (uname) {
-        const taken = await checkUsernameExists(uname);
+        const taken = !(await isUsernameAvailable(uname));
         if (taken) {
           setLoading(false);
           iosAlert("Username taken", `"${uname}" is already in use.`);

@@ -41,7 +41,8 @@ import Animated, {
 import { useAuthStore } from "@/src/store/useStore";
 import { Colors } from "@/constants/colors";
 import {
-  checkUsernameExists,
+  signInWithUsername,
+  sendPasswordResetForUsername,
   signInOfflineAware,
   saveBiometricCredentials,
   signInWithBiometrics,
@@ -149,21 +150,6 @@ export default function LoginScreen() {
     [setUser, setIsAuthenticated]
   );
 
-  // Resolve which email to authenticate: the device's account, or the typed username.
-  const resolveEmail = useCallback(async (): Promise<string | null> => {
-    if (knownEmail) return knownEmail;
-    const name = username.trim().toLowerCase();
-    if (!name) {
-      iosAlert("Username required", "Enter your username to sign in on this device.");
-      return null;
-    }
-    const meta = await checkUsernameExists(name);
-    if (!meta) {
-      iosAlert("No user found", "We couldn't find an account with that username.");
-      return null;
-    }
-    return meta.email;
-  }, [knownEmail, username]);
 
   // ── Password sign-in ───────────────────────────────────────────────────────
   const handleSignIn = useCallback(async () => {
@@ -175,12 +161,18 @@ export default function LoginScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoading(true);
     try {
-      const email = await resolveEmail();
-      if (!email) return;
+      // Two paths, and the difference is which identifier we already hold.
+      // `knownEmail` means this device has signed this account in before, so
+      // the email is already cached locally and there is nothing to resolve.
+      // Otherwise the username goes to the edge function, which resolves it
+      // server-side — the email never travels to the device.
+      const { user, offlineMode } = knownEmail
+        ? await signInOfflineAware(knownEmail, password)
+        : await signInWithUsername(username, password);
 
-      const { user, offlineMode } = await signInOfflineAware(email, password);
       // Enable instant biometric login next time on this device.
-      await saveBiometricCredentials(email, password);
+      const emailForBiometrics = knownEmail ?? user.email;
+      if (emailForBiometrics) await saveBiometricCredentials(emailForBiometrics, password);
       await finishLogin(user, offlineMode);
     } catch (err) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -191,7 +183,7 @@ export default function LoginScreen() {
     } finally {
       setLoading(false);
     }
-  }, [password, resolveEmail, finishLogin]);
+  }, [password, knownEmail, username, finishLogin]);
 
   // ── Biometric sign-in ──────────────────────────────────────────────────────
   const handleBiometric = useCallback(async () => {
@@ -236,20 +228,13 @@ export default function LoginScreen() {
     }
     setForgotLoading(true);
     try {
-      const meta = await checkUsernameExists(name);
-      if (!meta) {
-        iosAlert("No user found", "We couldn't find an account with that username.");
-        return;
-      }
-      const { error } = await supabase.auth.resetPasswordForEmail(meta.email, {
-        redirectTo:
-          Platform.OS === "web" ? window.location.origin : "teqil://reset-password",
-      });
-      if (error) throw error;
+      // Always the same answer, whether or not the handle exists — a reset
+      // form that says "no such user" is an account-existence checker.
+      await sendPasswordResetForUsername(name);
       setForgotVisible(false);
       iosAlert(
         "Reset Link Sent",
-        "Check the email on file for a link to reset your password."
+        "If that username has an account, a reset link is on its way to the email on file."
       );
     } catch (err) {
       iosAlert(

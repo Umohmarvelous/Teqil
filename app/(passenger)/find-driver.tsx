@@ -1,10 +1,20 @@
 // app/(passenger)/find-driver.tsx
 //
-// Global driver search — passengers search by driver badge ID (e.g. "chidio")
-// or partial name.  Results show photo, name, vehicle, city.
-// "Message" button opens a direct chat via the existing messages store.
+// Global people search — by USERNAME, and only by username.
+//
+// ── Why badge ID and full name were removed ─────────────────────────────────
+// A driver badge ID is printed on a QR sticker and issued in a guessable
+// pattern, so a searchable ID field is an index of every driver on the
+// platform. A legal name is worse: nobody chooses it, and nobody can change it
+// to stop being found. A username is picked by the person, is public by intent,
+// and can be changed if it attracts the wrong attention — which is the whole
+// reason social apps settled on handles. `search_users_for_chat` now matches a
+// username PREFIX and nothing else (see migration_user_privacy.sql).
+//
+// Suggestions appear as you type: 300ms after the last keystroke, minimum two
+// characters. One character would match too much of the table to be a search.
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -14,7 +24,6 @@ import {
   Pressable,
   Image,
   ActivityIndicator,
-  Keyboard,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -35,13 +44,18 @@ import { iosAlert } from "@/components/ios";
 interface DriverResult {
   id:              string;
   full_name:       string | null;
+  username:        string | null;
+  role?:           string | null;
   driver_id:       string | null;
   profile_photo:   string | null;
   vehicle_details: string | null;
-  park_name:       string | null;
-  park_location:   string | null;
+  park_name?:      string | null;
+  park_location?:  string | null;
   avg_rating:      number | null;
 }
+
+/** Matches the feel of a live handle search without a query per keystroke. */
+const DEBOUNCE_MS = 300;
 
 // ─── Avatar with initials fallback ───────────────────────────────────────────
 
@@ -129,10 +143,11 @@ function DriverCard({
           <Text style={[cardStyles.name, { color: textColor }]} numberOfLines={1}>
             {driver.full_name || "Driver"}
           </Text>
-          <View style={cardStyles.idBadge}>
-            {/* <Ionicons name="id-card-outline" size={11} color={Colors.primary} /> */}
-            <Text style={cardStyles.idText}>{driver.driver_id}</Text>
-          </View>
+          {driver.username ? (
+            <View style={cardStyles.idBadge}>
+              <Text style={cardStyles.idText}>@{driver.username}</Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={cardStyles.badgeRow}>
@@ -236,18 +251,20 @@ function EmptyState({ query, searched, isDark }: { query: string; searched: bool
         <View style={emptyStyles.iconWrap}>
           <Ionicons name="search" size={40} color={Colors.primary} />
         </View>
-        <Text style={[emptyStyles.title, { color: txt }]}>Find a Driver</Text>
+        <Text style={[emptyStyles.title, { color: txt }]}>Find someone</Text>
         <Text style={[emptyStyles.sub, { color: sub }]}>
-          {`Enter a driver badge ID (e.g. "chidio") or part of their name.`}
+          {`Type a username to see suggestions — "@danieloky" or just "daniel".`}
         </Text>
       </View>
     );
   }
   return (
     <View style={emptyStyles.wrap}>
-      <Text style={[emptyStyles.title, { color: txt }]}>No drivers found</Text>
+      <Text style={[emptyStyles.title, { color: txt }]}>No one found</Text>
       <Text style={[emptyStyles.sub, { color: sub }]}>
-        No results for <Text style={{fontWeight: 'heavy', color: '#000'}}>{query}.</Text> Check the ID or try a different name.
+        No username starts with{" "}
+        <Text style={{ fontWeight: "bold", color: txt }}>{query.replace(/^@/, "")}</Text>.
+        Usernames are matched from the start, so check the spelling.
       </Text>
     </View>
   );
@@ -291,31 +308,27 @@ export default function FindDriverScreen() {
 
   // const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
+  // No `Keyboard.dismiss()` and no direct-table fallback.
+  //
+  // The keyboard stays up because this runs while you type — dismissing it
+  // would make the field lose focus mid-word. The fallback is gone because
+  // `public.users` is not cross-readable any more; a fallback that reads it
+  // would have to re-open the table to work, which is exactly how every row's
+  // email and phone number ended up public in the first place.
   const doSearch = useCallback(async (q: string) => {
-    const trimmed = q.trim();
-    if (!trimmed) { setResults([]); setSearched(false); return; }
+    const handle = q.trim().replace(/^@/, "");
+    if (handle.length < 2) { setResults([]); setSearched(false); return; }
 
     setLoading(true);
-    Keyboard.dismiss();
-
     try {
-      // Try the RPC first (fast path with DB index)
-      const { data: rpcData, error: rpcErr } = await supabase
-        .rpc("search_drivers", { query: trimmed });
+      const { data, error } = await supabase
+        .rpc("search_users_for_chat", { p_query: handle, p_limit: 20 });
 
-      if (!rpcErr && rpcData) {
-        setResults(rpcData as DriverResult[]);
+      if (error) {
+        console.warn("[find-driver] search:", error.message);
+        setResults([]);
       } else {
-        // Fallback: direct table query (RPC may not exist yet on older migrations)
-        const { data, error } = await supabase
-          .from("users")
-          .select("id, full_name, driver_id, profile_photo, vehicle_details, park_name, park_location, avg_rating")
-          .eq("role", "driver")
-          .or(`driver_id.ilike.%${trimmed}%,full_name.ilike.%${trimmed}%`)
-          .limit(20);
-
-        if (!error && data) setResults(data as DriverResult[]);
-        else setResults([]);
+        setResults((data ?? []) as DriverResult[]);
       }
     } catch {
       setResults([]);
@@ -325,17 +338,26 @@ export default function FindDriverScreen() {
     }
   }, []);
 
+  // Live suggestions. The cleanup cancels the pending timer on every keystroke,
+  // so only the last pause in typing actually reaches the database.
+  useEffect(() => {
+    const handle = query.trim().replace(/^@/, "");
+    if (handle.length < 2) { setResults([]); setSearched(false); return; }
+    const t = setTimeout(() => { doSearch(query); }, DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [query, doSearch]);
+
   const handleMessage = useCallback(
     async (driver: DriverResult) => {
-      if (!user?.id || !driver.driver_id) return;
+      // Handle, not badge ID: `fetchConversationByHandle` resolves a username
+      // through `find_user_for_chat`, which no longer accepts an ID.
+      const handle = driver.username;
+      if (!user?.id || !handle) return;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setMessaging(driver.id);
 
       try {
-        const { conversation } = await fetchConversationByDriverId(
-          driver.driver_id,
-          user.id,
-        );
+        const { conversation } = await fetchConversationByDriverId(handle, user.id);
 
         router.push({
           pathname: "/direct-chat/[conversationId]",
@@ -361,7 +383,7 @@ export default function FindDriverScreen() {
         <View style={styles.headerCenter}>
           {/* <Text style={[styles.headerTitle, { color: textColor }]}>Find a Driver</Text>
           <Text style={[styles.headerSub, { color: subColor }]}>
-            Search by badge ID or name
+            Search by username
           </Text> */}
         </View>
         <View style={{ width: 36 }} />
@@ -390,7 +412,7 @@ export default function FindDriverScreen() {
           <TextInput
             ref={inputRef}
             style={[styles.searchInput, { color: textColor }]}
-            placeholder='Search for Drivers by ID'
+            placeholder="Search by username, e.g. @danieloky"
             placeholderTextColor={subColor}
             value={query}
             onChangeText={(v) => { setQuery(v); if (!v.trim()) { setResults([]); setSearched(false); } }}

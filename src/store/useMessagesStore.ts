@@ -517,15 +517,22 @@ export const useMessagesStore = create<MessagesState>()(
           return n;
         }
 
-        if (!driverData) {
-          const { data } = await supabase
-            .from('users').select('full_name, phone, driver_id, profile_photo').eq('id', driverId).single();
-          driverData = data;
-        }
-        if (!passengerData) {
-          const { data } = await supabase
-            .from('users').select('full_name, phone').eq('id', passengerId).single();
-          passengerData = data;
+        // `public.users` is no longer cross-readable — the blanket
+        // "publicly readable" policy is gone (migration_user_privacy.sql), and
+        // a direct select for someone else's row now returns nothing. Display
+        // fields come from an RPC whose select list is the access control.
+        if (!driverData || !passengerData) {
+          const need = [
+            !driverData ? driverId : null,
+            !passengerData ? passengerId : null,
+          ].filter(Boolean) as string[];
+
+          const { data: profiles } = await supabase.rpc('get_public_profiles', {
+            p_ids: need,
+          });
+          const byId = new Map<string, any>((profiles ?? []).map((r: any) => [r.id, r]));
+          if (!driverData) driverData = byId.get(driverId) ?? null;
+          if (!passengerData) passengerData = byId.get(passengerId) ?? null;
         }
 
         const newConv: Conversation = {

@@ -45,7 +45,7 @@ import Animated, {
 import { Colors } from "@/constants/colors";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
-import { signUpOfflineAware, saveBiometricCredentials, checkUsernameExists } from "@/src/services/auth";
+import { signUpOfflineAware, saveBiometricCredentials, isUsernameAvailable } from "@/src/services/auth";
 import {
   generateUsername,
   generateDriverIdFromUsername,
@@ -627,8 +627,8 @@ export default function RegisterScreen() {
       try {
         // Username is now chosen by the user — reject if it's already taken.
         const finalUsername = data.username.trim().toLowerCase();
-        const exists = await checkUsernameExists(finalUsername);
-        if (exists) {
+        const free = await isUsernameAvailable(finalUsername);
+        if (!free) {
           setLoading(false);
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           iosAlert(

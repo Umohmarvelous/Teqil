@@ -414,27 +414,78 @@ test units — see `isUsingTestUnits()` in `src/services/admob.ts`.
 
 #### What about Meta, and the others?
 
-Meta Audience Network is not usable unaided: it requires an approved Business
-account and has not accepted new publishers in many markets since 2022. The
-right way to add it — and AppLovin, Unity, and the rest — is **AdMob
-Mediation**, configured in the AdMob dashboard. It needs no second SDK and no
-code change here. Do that once AdMob itself is filling.
+**Correction to an earlier note in this file:** it previously said Meta Audience
+Network "has not accepted new publishers in many markets since 2022." That is
+wrong. Meta Audience Network is open and actively taking publishers — ~37,000
+of them. The real barriers are different ones, and they apply to you right now:
+
+- The app must be **live in the App Store or Google Play**. EMILGO is not
+  published yet, so Meta cannot be applied for today regardless of anything else.
+- App **ownership verification** through a Meta Business account.
+- Meta strongly prefers you arrive **through a mediation platform** rather than
+  as a direct standalone integration.
+
+That last point is the important one, and it changes the plan less than it
+sounds. See §4.9.
 
 ### 4.8 Reddit in the feed (optional, free)
 
-RSS needs nothing and is already live — four Nigerian newsrooms are seeded and
-verified. Reddit is the one extra source that can be switched on for free:
+#### First — what RSS is, since it powers the feed today
 
-  1. https://www.reddit.com/prefs/apps → "create another app…"
-  2. Type: **script**. Redirect URI: `http://localhost` (unused by this flow).
-  3. Copy the client ID (under the app name) and the secret into `.env`:
+RSS ("Really Simple Syndication") is a plain XML file that a publisher puts at a
+fixed URL and updates whenever they publish. It lists recent articles: title,
+link, summary, image, timestamp. Nothing more.
+
+It matters here for three reasons. It needs **no key, no account and no
+approval** — you fetch a URL like any web page. It is **explicitly meant to be
+consumed** by other software, so using it is not scraping and breaches nobody's
+terms. And essentially every news site still publishes one, usually at
+`/feed`, `/rss` or `/feed.xml`, because it is what Google News and podcast apps
+read.
+
+That is why the For You feed has real outside content today while Twitter,
+Instagram and Facebook remain impossible: the newsrooms *want* to be read this
+way, and the social platforms have closed their doors. Four Nigerian newsrooms
+are seeded and verified. To add another, find its feed URL and insert a row:
+
+```sql
+INSERT INTO public.feed_sources (kind, name, url, category, weight)
+VALUES ('rss', 'Punch', 'https://punchng.com/feed/', 'news', 2);
+```
+
+The trade-off is that RSS gives you articles, not conversation — headlines and
+summaries, no comments, no upvotes, no personalities. That is exactly the gap
+Reddit fills.
+
+#### Getting the Reddit client ID (about five minutes, free)
+
+  1. Sign in to Reddit, then go to **https://www.reddit.com/prefs/apps**
+     (or Reddit → Settings → Privacy & Security → "Manage third-party app
+     authorization" → the developer link at the bottom).
+  2. Scroll to the bottom and click **"are you a developer? create an app…"**
+     (it reads "create another app…" if you already have one).
+  3. Fill in the form:
+     - **name**: `EMILGO Feed` — internal only, users never see it.
+     - **type**: choose **script**. This is the important field. "script" is for
+       a backend calling on its own behalf; "web app" would demand a real OAuth
+       redirect flow you do not need.
+     - **description**: optional.
+     - **redirect uri**: `http://localhost` — required by the form, unused by
+       this flow.
+  4. Click **create app**.
+  5. Read the two values off the resulting box. The layout is confusing and this
+     is where people get it wrong:
+     - The **client ID** is the short string *directly underneath the app name*,
+       near the words "personal use script". It has no label. ~14 characters.
+     - The **secret** is the longer string on the line labelled `secret`.
+  6. Put both in `.env`:
 
      ```
      EXPO_PUBLIC_REDDIT_CLIENT_ID=…
      EXPO_PUBLIC_REDDIT_CLIENT_SECRET=…
      ```
 
-  4. Add subreddits as sources (admin, in SQL for now):
+  7. Add subreddits as sources (admin, in SQL for now):
 
      ```sql
      INSERT INTO public.feed_sources (kind, name, url, category, weight)
@@ -450,6 +501,129 @@ tier since 2023 (~$100/month minimum). Instagram and Facebook Graph return only
 media on accounts you own and have connected — there is no "posts from
 Instagram" endpoint for anyone. Scraping breaches their terms and gets the app's
 IP ranges blocked. This is a platform limitation, not missing work.
+
+### 4.9 Ad networks — the honest landscape
+
+You asked for 10–20 of the highest-paying networks, and for Meta rather than
+AdMob. Here is what is actually true, because the wrong answer here costs real
+money.
+
+#### The thing to understand first: you do not pick a network, you pick a mediation layer
+
+Running one network means one buyer bidding on each impression, and it takes
+whatever price it likes. **Mediation** runs an auction: ten networks bid on the
+same impression and the highest wins. That is where the revenue difference
+lives — typically **20–40% over a single network**, far more than the gap
+between any two networks on this list.
+
+So the target architecture is one SDK (a mediation layer) with many demand
+sources behind it, configured in a dashboard. Not ten SDKs. Ten SDKs means ten
+native dependencies, ten sets of ATT/consent plumbing, ten review risks and a
+much bigger app — for less money than one auction.
+
+Two credible mediation layers:
+
+| | AdMob Mediation | AppLovin MAX |
+| --- | --- | --- |
+| Sign-up | Google account | Business e-mail, quicker review |
+| App must be live in a store | Not to sign up | Not to sign up |
+| iOS strength | Good | Strongest in the market |
+| Nigerian payout | Wire, or Payoneer → naira | Wire / PayPal, $20 minimum, NET 30 |
+| Bidders it can call | Meta, AppLovin, Unity, Mintegral, Liftoff, Pangle, InMobi, Chartboost, Vungle, ironSource… | the same list, plus AdMob |
+
+**Recommendation, unchanged: start on AdMob, then turn on mediation.** Not
+because AdMob pays best — AppLovin usually beats it on iOS — but because it is
+the only one you can go live on unaided, from Nigeria, without a published app,
+and it is already integrated and tested in this codebase. Switching the
+mediation layer later is a dashboard change plus one SDK swap; it is not a
+rewrite, because `src/services/admob.ts` deliberately keeps the network behind a
+narrow interface.
+
+#### The demand sources worth enabling, roughly best-paying first
+
+Rewarded video, which is the format this app uses:
+
+1. **AppLovin** — usually the highest bidder on iOS.
+2. **Google AdMob / AdX** — deepest global fill, best in Tier-3 markets.
+3. **Meta Audience Network** — high CPMs when it bids; needs a published app.
+4. **Unity Ads** — strongest on gaming inventory.
+5. **ironSource / LevelPlay** — now part of Unity; excellent reporting.
+6. **Mintegral** — very competitive in Asia and increasingly in Africa.
+7. **Liftoff Monetize** (formerly Vungle) — strong rewarded video.
+8. **Pangle** (TikTok's network) — aggressive bidder, huge volume.
+9. **InMobi** — good in India/Africa, one of the few with real Lagos demand.
+10. **Chartboost**, **Fyber**, **Smaato**, **Tapjoy**, **Digital Turbine** —
+    worth enabling as extra bidders once the first five are filling.
+
+Enabling more bidders has diminishing returns after roughly the first six, and
+each one adds latency to the auction. Six to eight is the practical sweet spot.
+
+#### Where the money actually is: the country, not the network
+
+This is the part that matters most for EMILGO, and no choice of network changes
+it. Rewarded-video eCPM (revenue per 1,000 completed views), 2026:
+
+| Tier | Markets | Rewarded eCPM |
+| --- | --- | --- |
+| Tier 1 | US, UK, Canada, Australia, Japan, Germany, Norway, Denmark, Switzerland, Sweden | **$15–40** |
+| Tier 2 | UAE, Singapore, S. Korea, Italy, Spain, Poland | ~$5–12 |
+| Tier 3 | **Nigeria**, India, Pakistan, Indonesia, Brazil | **$1.50–4** published; realistically **$0.50–2** for a non-gaming utility app |
+
+Blog-published Tier-3 figures skew high because they average in gaming
+inventory, which bids far above a transport app. Plan against the lower number.
+
+**The consequence, stated plainly.** A Nigerian user watching one rewarded ad
+earns you roughly **₦0.75–3.00 gross**. §4.6 already records that the app pays
+**₦8.00** per ad. That gap is a deliberate growth subsidy, and it does not close
+by finding a better network — a 40% mediation uplift on ₦2 is ₦2.80, still well
+under ₦8. It closes by changing the payout, by earning on trips instead, or by
+having Tier-1 users. There is no ad network that fixes it.
+
+If you want Tier-1 ad revenue you need Tier-1 *users*. Ten highest-CPM markets
+to target if you ever localise: US, Norway, Denmark, Switzerland, Australia,
+Canada, UK, Germany, Sweden, Japan.
+
+#### One thing to never do
+
+Do not tap your own live ads, and do not ask friends to. Google and Meta both
+detect it easily and ban the account permanently, usually withholding the
+balance. This is why the code defaults to Google's **test** unit IDs
+(`isUsingTestUnits()`), and why that default is correct rather than unfinished.
+
+### 4.10 "Can users watch ads on their WhatsApp status and earn?"
+
+Asked directly, so answered directly. There are two different ideas hiding in
+this question. One is impossible; the other is not only possible, it is probably
+worth more to you than the ad network.
+
+**Impossible: earning ad revenue from ads shown inside WhatsApp.**
+Meta launched ads in WhatsApp's Status/Updates tab in 2025, but Meta sells that
+inventory and Meta keeps the money. There is no publisher programme, no SDK, and
+no API that lets a third-party app place an ad in someone's status feed or
+collect revenue from one. WhatsApp is also end-to-end encrypted and has no
+plug-in model — no third-party code runs inside it, by design. Nothing about
+this is a gap in our implementation.
+
+**Possible, and genuinely good: users share EMILGO content to their status, and
+you reward installs that come back.**
+This is referral marketing, and it fits Nigerian WhatsApp behaviour better than
+almost any other channel. It works like this:
+
+1. Generate a per-user referral link (`teqil://r/<code>`, plus an
+   `https://` fallback for people without the app).
+2. Give the user a ready-made status image or 15-second video, rendered with
+   their own referral code, and a "Share to WhatsApp Status" button —
+   `whatsapp://send` is already wired in `src/services/whatsapp.ts`.
+3. Attribute installs to the code and pay on a **real** event — a completed
+   first trip — not on the install. Paying per install is what invites fraud.
+
+Why this is worth more than the ad reward: a rewarded ad view in Nigeria is
+worth ₦0.75–3.00 to you. A referred user who completes a trip is worth a fare
+margin, and they arrived with a friend's endorsement. You can afford to pay far
+more for the second thing, and it does not depend on any ad network's fill rate.
+
+**Not built yet.** No referral table, no code generation, no attribution, no
+share-card renderer. Flagging it as a real option, not claiming it exists.
 
 ---
 

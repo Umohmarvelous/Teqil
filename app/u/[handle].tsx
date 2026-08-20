@@ -9,7 +9,8 @@
 // the join between the two, and it exists once so that every mention, deep link
 // and shared URL resolves the same way.
 //
-// `find_user_for_chat` already matches a username, a full name or a driver ID
+// `find_user_for_chat` matches a username (and only a username, since
+// migration_user_privacy.sql)
 // and is the same lookup the chat composer uses — reusing it means a handle that
 // works in one place works in the other.
 

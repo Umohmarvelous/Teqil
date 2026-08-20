@@ -46,9 +46,13 @@ export function AdMilestoneTrack({ milestones, watched }: AdMilestoneTrackProps)
   const t = useIOSTheme();
   const scroller = React.useRef<ScrollView>(null);
 
-  if (!milestones.length) return null;
-
-  const last = milestones[milestones.length - 1].at;
+  // Every hook runs before the early return, and that ordering is load-bearing.
+  // `milestones` arrives from `ad_reward_config` over the network, so this
+  // component's FIRST render is always with an empty array. Bailing out above
+  // the hooks meant the second render — the one with real data — called four
+  // more hooks than the first, which is the "rendered more hooks than during
+  // the previous render" crash, on the ads screen, every time it loaded.
+  const last = milestones.length ? milestones[milestones.length - 1].at : 0;
   // Fill is measured against the FINAL rung, so the rail is a picture of the
   // whole day rather than of the current gap.
   const fraction = Math.min(1, watched / Math.max(1, last));
@@ -69,6 +73,8 @@ export function AdMilestoneTrack({ milestones, watched }: AdMilestoneTrackProps)
     const h = setTimeout(() => scroller.current?.scrollTo({ x, animated: true }), 350);
     return () => clearTimeout(h);
   }, [nextIndex]);
+
+  if (!milestones.length) return null;
 
   return (
     <View>

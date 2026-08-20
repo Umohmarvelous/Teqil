@@ -35,9 +35,15 @@ BEGIN
    WHERE n.nspname = 'public'
      AND p.prosecdef
      AND has_function_privilege('anon', p.oid, 'EXECUTE')
-     -- Username login has to resolve a handle to an email before a session
-     -- exists, so this one is deliberately left reachable.
-     AND p.proname <> 'get_user_by_username';
+     -- The one deliberate exception. Signup has to know whether a handle is
+     -- free before a session exists, and `username_available` returns a
+     -- BOOLEAN and nothing else.
+     --
+     -- This used to say `get_user_by_username`, which was reachable for the
+     -- same reason and returned the account's EMAIL. It is now behind the
+     -- `username-login` edge function and unreachable by anon or authenticated
+     -- alike — see migration_user_privacy.sql and test_user_privacy.sql.
+     AND p.proname <> 'username_available';
 
   INSERT INTO t VALUES ('no anon-executable SECURITY DEFINER functions remain',
     v_n = 0, COALESCE(v_names, 'none'));
