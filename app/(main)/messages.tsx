@@ -711,7 +711,11 @@ function NewChatModal({
   const { user }                          = useAuthStore();
   const { fetchConversationByDriverId, searchUsersForChat } = useMessagesStore();
 
-  const [tab,     setTab]     = useState<SearchTab>('trip');
+  // Username is the only way in. The "Trip Code" tab is gone: a trip code
+  // resolved to a person through the same lookup a username does, so it was a
+  // second door to one room — and it was the door that still accepted a driver
+  // badge ID after IDs were removed from search everywhere else.
+  const [tab] = useState<SearchTab>('driver');
   const [query,   setQuery]   = useState('');
   const [status,  setStatus]  = useState<SearchStatus>('idle');
   const [result,  setResult]  = useState<DriverRecord | null>(null);
@@ -863,28 +867,8 @@ function NewChatModal({
           <View style={S.handle} />
           <Text style={[S.newTitle, { color: textColor }]}>New Message</Text>
 
-          {/* ── Tab switcher ── */}
-          <View style={[S.tabRow, { backgroundColor: border }]}>
-            <Pressable
-              style={[S.tabBtn, tab === 'trip' && { backgroundColor: cardBg }]}
-              onPress={() => { setTab('trip'); reset(); setQuery(''); }}
-            >
-              <HugeiconsIcon icon={Car01Icon} size={14} color={tab === 'trip' ? Colors.primary : subTextColor} />
-              <Text style={[S.tabBtnText, { color: tab === 'trip' ? Colors.primary : subTextColor }]}>Trip Code</Text>
-            </Pressable>
-            <Pressable
-              style={[S.tabBtn, tab === 'driver' && { backgroundColor: cardBg }]}
-              onPress={() => { setTab('driver'); reset(); setQuery(''); }}
-            >
-              <HugeiconsIcon icon={IdentityCardIcon} size={14} color={tab === 'driver' ? Colors.primary : subTextColor} />
-              <Text style={[S.tabBtnText, { color: tab === 'driver' ? Colors.primary : subTextColor }]}>Username</Text>
-            </Pressable>
-          </View>
-
           <Text style={[S.newSub, { color: subTextColor }]}>
-            {tab === 'trip'
-              ? 'Enter the trip code shown on the trip you shared'
-              : 'Type a username like @danieloky — suggestions appear as you type'}
+            Type a username like @danieloky — suggestions appear as you type
           </Text>
 
           {/* ── Input ── */}
@@ -892,7 +876,7 @@ function NewChatModal({
             <HugeiconsIcon icon={Search01Icon} size={18} color={subTextColor} />
             <TextInput
               style={[S.newInput, { color: textColor }]}
-              placeholder={tab === 'trip' ? 'Trip code' : '@username'}
+              placeholder="@username"
               placeholderTextColor={subTextColor}
               value={query}
               onChangeText={(v) => { setQuery(v); reset(); }}
@@ -900,7 +884,7 @@ function NewChatModal({
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="search"
-              onSubmitEditing={tab === 'trip' ? handleTripSearch : handleHandleSearch}
+              onSubmitEditing={handleHandleSearch}
             />
             {query.length > 0 && (
               <Pressable hitSlop={8} onPress={() => { setQuery(''); reset(); }}>

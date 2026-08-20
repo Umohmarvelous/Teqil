@@ -20,9 +20,9 @@ import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
 import { useIOSTheme, IOSAppFont } from "@/components/ios/theme";
 import type { PostPoll as Poll } from "@/src/services/feed";
 
-function remaining(endsAt: string) {
-  const ms = new Date(endsAt).getTime() - Date.now();
-  if (ms <= 0) return "Final results";
+function remaining(endsAt?: string | null) {
+  const ms = endsAt ? new Date(endsAt).getTime() - Date.now() : 0;
+  if (!endsAt || Number.isNaN(ms) || ms <= 0) return "Final results";
   const h = Math.floor(ms / 3_600_000);
   if (h >= 24) return `${Math.floor(h / 24)}d left`;
   if (h >= 1) return `${h}h left`;
@@ -38,9 +38,21 @@ function PostPollInner({ poll, onVote }: PostPollProps) {
   const t = useIOSTheme();
   const [busy, setBusy] = React.useState(false);
 
-  const voted = poll.my_choice != null;
-  const revealed = voted || poll.closed;
-  const total = poll.total || 0;
+  // Defensive, and deliberately so. `src/services/feed.ts` normalises polls, but
+  // a poll arrives inside a list of dozens of posts and one malformed row must
+  // not be able to unmount the feed. This component previously trusted
+  // `poll.votes` to exist, and `Math.max(...undefined)` threw "Cannot convert
+  // undefined value to object" — a whole-screen crash caused by one bad row.
+  const options = Array.isArray(poll?.options) ? poll.options : [];
+  const votes = React.useMemo(
+    () => options.map((_, i) => Number(poll?.votes?.[i] ?? 0)),
+    [options, poll?.votes],
+  );
+  const max = votes.length ? Math.max(...votes) : 0;
+
+  const voted = poll?.my_choice != null;
+  const revealed = voted || !!poll?.closed;
+  const total = poll?.total ?? votes.reduce((a, b) => a + b, 0);
 
   const vote = async (i: number) => {
     if (revealed || busy) return;
@@ -53,14 +65,16 @@ function PostPollInner({ poll, onVote }: PostPollProps) {
     }
   };
 
+  if (options.length < 2) return null;
+
   return (
     <View style={styles.wrap}>
-      {poll.options.map((label, i) => {
-        const n = poll.votes[i] ?? 0;
+      {options.map((label, i) => {
+        const n = votes[i] ?? 0;
         const pct = total > 0 ? Math.round((n / total) * 100) : 0;
-        const mine = poll.my_choice === i;
+        const mine = poll?.my_choice === i;
         // The winning option only reads as the winner once results are shown.
-        const leading = revealed && n > 0 && n === Math.max(...poll.votes);
+        const leading = revealed && n > 0 && n === max;
 
         if (!revealed) {
           return (
@@ -113,7 +127,7 @@ function PostPollInner({ poll, onVote }: PostPollProps) {
       })}
 
       <Text style={[styles.meta, { color: t.tertiaryLabel }]}>
-        {total.toLocaleString()} {total === 1 ? "vote" : "votes"} · {remaining(poll.ends_at)}
+        {total.toLocaleString()} {total === 1 ? "vote" : "votes"} · {remaining(poll?.ends_at)}
       </Text>
     </View>
   );

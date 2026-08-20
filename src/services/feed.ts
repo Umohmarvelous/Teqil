@@ -47,6 +47,22 @@ export interface PostPoll {
   closed: boolean;
 }
 
+/**
+ * What the database actually sends.
+ *
+ * `list_posts` builds `{options, ends_at, my_choice, tallies}` — there is no
+ * `votes`, no `total`, no `closed`. The interface above described a shape
+ * nothing ever produced, so `PostPoll.tsx` read `poll.votes[i]` on `undefined`
+ * and `Math.max(...undefined)` took the whole feed down with "Cannot convert
+ * undefined value to object". `normalisePoll` is the missing translation.
+ */
+interface RawPoll {
+  options?: string[] | null;
+  ends_at?: string | null;
+  my_choice?: number | null;
+  tallies?: number[] | null;
+}
+
 export interface QuotedPost {
   id: string;
   body: string;
@@ -169,13 +185,41 @@ export type ReportReason =
  * arrives as null. Normalising here means no component has to write
  * `post.media?.length ?? 0`.
  */
+/**
+ * DB poll → component poll. Returns null for anything malformed rather than a
+ * half-built object: a post with a broken poll should render as a post, not
+ * crash the list it is in.
+ */
+function normalisePoll(raw: RawPoll | null | undefined): PostPoll | null {
+  if (!raw) return null;
+  const options = Array.isArray(raw.options) ? raw.options : [];
+  if (options.length < 2) return null;
+
+  // `tallies` is one count per option, in option order. A poll nobody has voted
+  // on yet comes back as `[]`, so pad rather than trusting the length.
+  const tallies = Array.isArray(raw.tallies) ? raw.tallies : [];
+  const votes = options.map((_, i) => Number(tallies[i] ?? 0));
+
+  const ends_at = raw.ends_at ?? new Date().toISOString();
+  return {
+    options,
+    votes,
+    total: votes.reduce((a, b) => a + b, 0),
+    ends_at,
+    my_choice: typeof raw.my_choice === "number" ? raw.my_choice : null,
+    // Derived, not stored: the row has an end time, and whether that time has
+    // passed is a question about now, not about the row.
+    closed: new Date(ends_at).getTime() <= Date.now(),
+  };
+}
+
 function normalise(row: any): FeedPost {
   return {
     ...row,
     media: Array.isArray(row?.media) ? row.media : [],
     hashtags: Array.isArray(row?.hashtags) ? row.hashtags : [],
     quoted: row?.quoted ?? null,
-    poll: row?.poll ?? null,
+    poll: normalisePoll(row?.poll),
     like_count: row?.like_count ?? 0,
     reply_count: row?.reply_count ?? 0,
     repost_count: row?.repost_count ?? 0,
@@ -360,9 +404,24 @@ export function toggleRepost(id: string) {
   return toggle("toggle_repost", { p_post: id }, "reposted");
 }
 
-/** Returns the poll's new state, including the viewer's choice. */
-export function votePoll(id: string, choice: number): Promise<PostPoll> {
-  return write<PostPoll>("vote_poll", { p_post: id, p_choice: choice });
+/**
+ * Casts a vote and returns the recomputed tallies.
+ *
+ * `vote_poll` returns ONLY `{my_choice, tallies}` — it does not echo the
+ * options or the end time back, because the caller already has them. The store
+ * must therefore MERGE this into the poll it is holding; replacing the poll
+ * wholesale is what left `options` undefined and crashed the card on the very
+ * next render after a vote.
+ */
+export async function votePoll(
+  id: string,
+  choice: number,
+): Promise<{ my_choice: number | null; tallies: number[] }> {
+  const raw = await write<RawPoll>("vote_poll", { p_post: id, p_choice: choice });
+  return {
+    my_choice: typeof raw?.my_choice === "number" ? raw.my_choice : choice,
+    tallies: Array.isArray(raw?.tallies) ? raw.tallies : [],
+  };
 }
 
 /**

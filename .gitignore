@@ -41,3 +41,7 @@ yarn-error.*
 
 .env
 .dbq.mjs
+
+# vim swap files
+*.swp
+*.swo

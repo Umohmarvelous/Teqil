@@ -14,14 +14,28 @@
 // screen re-renders from it.
 //
 // ── What is persisted ───────────────────────────────────────────────────────
-// Only the composer draft. A half-written post is the user's own work and losing
-// it to a backgrounded app is inexcusable. Timelines are deliberately NOT
-// persisted: showing yesterday's feed on launch is worse than showing a spinner
-// for a second, and the counts would all be wrong anyway.
+// The composer draft, the post cache, and the two main timelines.
+//
+// This used to persist the draft alone, on the theory that a spinner beats a
+// stale feed. In practice it produced the opposite: the app cold-starts, the
+// feed screen calls `load()` before Supabase has finished restoring the session
+// from storage, `feed_for_you` sees `auth.uid() IS NULL` and returns ZERO ROWS
+// WITHOUT AN ERROR, and the timeline is marked loaded-and-empty. The user sees
+// every post vanish after logging in and stay vanished until a manual pull.
+//
+// Both halves are fixed here: `load()` now waits for a session instead of
+// racing it, and what was on screen last time is still on screen at launch
+// while the refresh runs behind it. Counts being a few minutes stale is a much
+// smaller problem than a feed that looks empty.
+//
+// The cache is bounded (`PERSIST_POST_LIMIT`) because AsyncStorage is a single
+// JSON blob — an unbounded post cache turns into a multi-megabyte parse on
+// every cold start.
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { supabase } from "../services/supabase";
 import * as feed from "../services/feed";
 import type { FeedPost, FeedAd, PostMedia, ProfileTab } from "../services/feed";
 import { useCreditsStore } from "./useCreditsStore";
@@ -70,6 +84,34 @@ export const PAGE_SIZE = 20;
  */
 export const AD_INTERVAL = 7;
 export const AD_FIRST_SLOT = 4;
+
+/**
+ * How many posts survive a restart. Enough that every persisted timeline is
+ * fully backed, small enough that the rehydrate parse stays imperceptible.
+ */
+const PERSIST_POST_LIMIT = 250;
+
+/** Timelines worth keeping across launches. A search or a thread is transient. */
+const PERSISTED_TIMELINES = ["for-you", "following"] as const;
+
+/**
+ * Every feed RPC returns an empty set — not an error — when `auth.uid()` is
+ * NULL, so a fetch that beats session restoration looks exactly like "there are
+ * no posts". Waiting for the session removes the ambiguity at the source.
+ *
+ * Supabase reads its stored session asynchronously on boot; `getSession()`
+ * resolves once that read is done, so this settles on the first tick in the
+ * normal case and only actually waits on a genuine cold start.
+ */
+async function waitForSession(timeoutMs = 8000): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.user?.id) return true;
+    if (Date.now() >= deadline) return false;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+}
 
 interface Timeline {
   ids: string[];
@@ -217,6 +259,27 @@ export const useFeedStore = create<FeedState>()(
         set((s) => ({
           timelines: { ...s.timelines, [key]: { ...current, [flag]: true, error: null } },
         }));
+
+        // Before anything else. Without this the feed silently resolves to []
+        // on every cold start that outruns session restoration, and the empty
+        // result gets cached as though it were the answer.
+        if (!(await waitForSession())) {
+          set((s) => ({
+            timelines: {
+              ...s.timelines,
+              [key]: {
+                ...(s.timelines[key] ?? EMPTY_TIMELINE),
+                loading: false,
+                refreshing: false,
+                loadingMore: false,
+                // Explicitly NOT `exhausted`, and the existing ids are left
+                // alone: this is "we could not ask", not "there is nothing".
+                error: "Signing you in…",
+              },
+            },
+          }));
+          return;
+        }
 
         const offset = mode === "more" ? current.ids.length : 0;
         const cursor = mode === "more" ? current.cursor : null;
@@ -379,10 +442,29 @@ export const useFeedStore = create<FeedState>()(
       // A poll is not optimistic: the server recomputes every bar, and guessing
       // the new percentages would visibly correct itself a moment later.
       vote: async (id, choice) => {
-        const poll = await feed.votePoll(id, choice);
+        const { my_choice, tallies } = await feed.votePoll(id, choice);
         set((s) => {
           const p = s.posts[id];
-          return p ? { posts: { ...s.posts, [id]: { ...p, poll } } } : {};
+          if (!p?.poll) return {};
+          // MERGE, never replace. `vote_poll` returns tallies and the viewer's
+          // choice and nothing else — assigning its result straight onto the
+          // post wiped `options` and `ends_at`, and the card crashed on the
+          // next render trying to map over an array that no longer existed.
+          const votes = p.poll.options.map((_, i) => Number(tallies[i] ?? 0));
+          return {
+            posts: {
+              ...s.posts,
+              [id]: {
+                ...p,
+                poll: {
+                  ...p.poll,
+                  my_choice,
+                  votes,
+                  total: votes.reduce((a, b) => a + b, 0),
+                },
+              },
+            },
+          };
         });
       },
 
@@ -545,8 +627,54 @@ export const useFeedStore = create<FeedState>()(
     {
       name: "emilgo-feed",
       storage: createJSONStorage(() => AsyncStorage),
-      // Only the draft survives a restart. See the header comment.
-      partialize: (s) => ({ draft: s.draft }),
+      version: 2,
+
+      partialize: (s) => {
+        // Persist only the timelines worth restoring, and only the ids — ads
+        // are bought impressions and must be re-served, never replayed from
+        // disk, or the advertiser is billed for a view that never happened.
+        const timelines: Record<string, Timeline> = {};
+        const keep = new Set<string>();
+        for (const key of PERSISTED_TIMELINES) {
+          const t = s.timelines[key];
+          if (!t?.ids.length) continue;
+          timelines[key] = {
+            ...t,
+            ads: [],
+            // Transient flags must never be written. A persisted `loading:true`
+            // rehydrates as a timeline that `load()` refuses to touch — a feed
+            // that is stuck forever and looks like a network bug.
+            loading: false,
+            refreshing: false,
+            loadingMore: false,
+            error: null,
+          };
+          for (const id of t.ids) keep.add(id);
+        }
+
+        // Only posts actually referenced by a persisted timeline, newest first.
+        const posts: Record<string, FeedPost> = {};
+        const referenced = Object.values(s.posts)
+          .filter((p) => keep.has(p.id))
+          .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+          .slice(0, PERSIST_POST_LIMIT);
+        for (const p of referenced) posts[p.id] = p;
+
+        return { draft: s.draft, posts, timelines };
+      },
+
+      // Belt and braces for anything written by an older build, which did not
+      // strip the flags above.
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        for (const t of Object.values(state.timelines)) {
+          t.loading = false;
+          t.refreshing = false;
+          t.loadingMore = false;
+          t.error = null;
+          t.ads = [];
+        }
+      },
     },
   ),
 );
