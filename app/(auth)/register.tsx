@@ -46,6 +46,7 @@ import { Colors } from "@/constants/colors";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
 import { signUpOfflineAware, saveBiometricCredentials, isUsernameAvailable } from "@/src/services/auth";
+import { applyPendingReferral } from "@/src/services/referrals";
 import {
   generateUsername,
   generateDriverIdFromUsername,
@@ -667,6 +668,17 @@ export default function RegisterScreen() {
         if (result?.user) {
           setUser(result.user);
           await saveBiometricCredentials(data.email.trim(), data.password);
+
+          // A code captured from a `teqil://r/…` link before this account
+          // existed. It has to be applied HERE, in the narrow window after the
+          // session exists and before the claim window closes — `claim_referral`
+          // refuses an account older than the configured hours, which is what
+          // stops two established users referring each other for cash.
+          //
+          // Never blocks signup: an invite that could not be applied is a
+          // missed reward, and telling someone their brand-new account failed
+          // over a referral code would be absurd.
+          applyPendingReferral().catch(() => {});
         }
 
         // Everything that used to happen inline here — the sign-up credits, the

@@ -2,7 +2,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { PaystackProvider } from "react-native-paystack-webview";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { View, useColorScheme } from "react-native";
+import { View, useColorScheme, Linking } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
@@ -25,6 +25,7 @@ import { syncAll, startConnectivityListener, SyncUser } from "@/src/services/syn
 import { flushPendingRoute } from "@/src/services/locationTracking";
 import { syncUserToPublicTable } from "@/src/services/auth";
 import { registerForPushNotifications } from "@/src/services/notifications";
+import { codeFromUrl, rememberPendingCode, tryQualify } from "@/src/services/referrals";
 import NetworkBanner from "@/components/NetworkBanner";
 import { AlertHost } from "@/components/ios";
 // import SessionTimeout from "@/src/components/SessionTimeout";
@@ -188,6 +189,41 @@ export default function RootLayout() {
       if (ready) loadRewarded().catch(() => {});
     })();
   }, []);
+
+  // ----- referral deep links -----
+  //
+  // `teqil://r/AB3D9K` / `https://teqil.app/r/AB3D9K`. The code is only STORED
+  // here, never claimed: a cold-start deep link arrives before Supabase has
+  // restored a session, and `claim_referral` needs `auth.uid()`. Registration
+  // picks it up afterwards with `applyPendingReferral()`.
+  //
+  // Both entry points are covered on purpose. `getInitialURL` is the app being
+  // launched BY the link (the fresh-install case, which is the one that
+  // matters for attribution); the listener is the app already running when the
+  // link is tapped.
+  useEffect(() => {
+    let alive = true;
+    const capture = (url: string | null) => {
+      const code = codeFromUrl(url);
+      if (alive && code) rememberPendingCode(code).catch(() => {});
+    };
+    Linking.getInitialURL().then(capture).catch(() => {});
+    const sub = Linking.addEventListener("url", (e) => capture(e.url));
+    return () => {
+      alive = false;
+      sub.remove();
+    };
+  }, []);
+
+  // A referral is paid when the invited user does something real — a completed
+  // trip or a handful of watched ads. Nothing tells the app the moment that
+  // threshold is crossed, so it is re-checked on launch. The RPC recomputes the
+  // condition server-side and pays at most once, so an extra call is a wasted
+  // round trip and nothing worse.
+  useEffect(() => {
+    if (!user?.id) return;
+    tryQualify().catch(() => {});
+  }, [user?.id]);
 
   // ----- auth state subscription -----
   useEffect(() => {
