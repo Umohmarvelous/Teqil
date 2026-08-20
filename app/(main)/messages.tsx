@@ -27,11 +27,9 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Modal,
-  Linking,
   RefreshControl,
+  ScrollView,
   ActivityIndicator,
-  Dimensions,
 } from 'react-native';
 import { router }               from 'expo-router';
 import { useSafeAreaInsets }    from 'react-native-safe-area-context';
@@ -42,51 +40,24 @@ import {
   useMessagesStore,
   type ChatCandidate,
   type Conversation,
-  type Message,
 } from '@/src/store/useMessagesStore';
 import { Colors }   from '@/constants/colors';
 import Avatar       from '@/components/Avatar';
-import { generateId } from '@/src/utils/helpers';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
-  ArrowLeft01Icon,
   Message02Icon,
   PlusSignIcon,
   TelegramIcon,
-  Delete01Icon,
-  MoreVerticalIcon,
-  Copy01Icon,
-  Reply,
-  TaskDone01Icon,
-  Checkmark,
-  CallIcon,
   Search01Icon,
-  Mic01Icon,
-  PlayIcon,
-  PauseIcon,
-  MicOff01Icon,
   UserIcon,        // ← new: used for direct-chat list items
-  Car01Icon,       // ← new: used for trip-based list items
-  IdentityCardIcon, // ← new: Driver ID tab icon
   Cancel01Icon,
   Chat, // ← new: Driver ID tab icon
   BellOff, // ← new: Driver ID tab icon
 } from '@hugeicons/core-free-icons';
 import { StatusBar }  from 'expo-status-bar';
+import { ChatScreen } from '@/components/chat/ChatScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { supabase }   from '@/src/services/supabase';
-import { Glass, iosAlert, IOSBadge, IOSSearchBar, NetworkStatus, SwipeableRow, useIOSTheme } from "@/components/ios";
-import * as Clipboard from "expo-clipboard";
-import ChatDoodle from "@/components/chat/ChatDoodle";
-import ContactCard from "@/components/chat/ContactCard";
-import {
-  ChatBubble,
-  DateSeparator,
-  shouldGroup,
-  sameDay,
-  type ChatBubbleMessage,
-} from "@/components/chat/ChatBubble";
-import { getContactPhone, formatNgPhone } from '@/src/services/contact';
+import { Glass, iosAlert, IOSBadge, IOSSearchBar, IOSSheet, NetworkStatus, SwipeableRow, useIOSTheme } from "@/components/ios";
 import { SymbolView } from 'expo-symbols';
 // Voice notes run on expo-audio.
 //
@@ -95,630 +66,51 @@ import { SymbolView } from 'expo-symbols';
 // did nothing. expo-audio is the supported replacement and is hook-based rather
 // than imperative, which is why the recorder is created at the top of
 // ChatScreen instead of inside the press handler.
-import {
-  useAudioRecorder,
-  useAudioRecorderState,
-  useAudioPlayer,
-  useAudioPlayerStatus,
-  requestRecordingPermissionsAsync,
-  setAudioModeAsync,
-  RecordingPresets,
-} from 'expo-audio';
-
-  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 
-// ─── Helpers ───────── ──────────── ──────────── ─────────── ─────────── ───────────
 
-/**
- * Dials a chat contact.
- *
- * The number is fetched at press time rather than carried on the conversation:
- * `get_contact_phone` re-checks that the two of you still share a conversation,
- * that they still allow sharing, and that neither has blocked the other. A
- * number cached at conversation-creation time would outlive all three.
- */
-async function placeCall(userId: string | undefined, name?: string) {
-  if (!userId || userId.startsWith('invalid_')) {
-    iosAlert('No phone number', 'This contact has no number on record.');
-    return;
-  }
-  const phone = await getContactPhone(userId);
-  if (!phone) {
-    iosAlert(
-      'Number not available',
-      `${name || 'This person'} has not shared a phone number. You can still message them here.`,
-    );
-    return;
-  }
-  const url = `tel:${phone}`;
-  const ok = await Linking.canOpenURL(url).catch(() => false);
-  // The simulator has no dialler, and a device with calling disabled will refuse
-  // too. Saying so beats a button that appears to do nothing.
-  if (!ok) {
-    iosAlert('Cannot place calls', `This device cannot dial ${formatNgPhone(phone)}.`);
-    return;
-  }
-  Linking.openURL(url);
-}
-
-// ─── Contact Info Modal (unchanged) ──────────────────────────────────────────
-
-function ContactInfoModal({
-  visible, onClose, conversation,
-}: { visible: boolean; onClose: () => void; conversation: Conversation | null }) {
-  const ios = useIOSTheme();
-  if (!conversation) return null;
-
-  // The card owns the layout AND the phone lookup; this is only the sheet that
-  // presents it. The old inline version duplicated an avatar, a name and a Call
-  // button that dialled a number the app was no longer allowed to cache.
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-        <Pressable style={S.backdrop} onPress={onClose} />
-        <View style={[S.infoSheet, { backgroundColor: ios.systemGroupedBackground }]}>
-          <View style={[S.handle, { backgroundColor: ios.tertiaryLabel }]} />
-          <ContactCard
-            person={{
-              id: conversation.participant_id,
-              full_name: conversation.participant_name,
-              username: conversation.participant_username,
-              profile_photo: conversation.participant_photo,
-              role: conversation.participant_role,
-              driver_id: conversation.participant_driver_id,
-              vehicle_details: conversation.participant_vehicle,
-              park_name: conversation.participant_park_name,
-            }}
-          />
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-/** mm:ss from milliseconds, for the live recording counter. */
-function formatRecDuration(ms: number): string {
-  const total = Math.max(0, Math.floor((ms ?? 0) / 1000));
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
-}
-
-// ─── Voice note ──────────────────────────────────────────────────────────────
+// ─── The chat screen ────────────────────────────────────────────────────────
 //
-// A received voice note used to render as the literal text "🎤 Voice message",
-// which was honest about the recording being stubbed but useless once it isn't.
+// It used to live inline here, all 577 lines of it, which is how the app ended
+// up with two chat screens: `app/direct-chat/[conversationId].tsx` is the route
+// nine screens actually push to, and it never imported any of this despite the
+// comment at the top of this file saying it did. Every improvement landed in
+// the copy almost nobody opened.
 //
-// The player is per-bubble because `useAudioPlayer` binds one native player to
-// one source. Sharing a single player across the list would mean starting a
-// second note silently stops the first with no way to show which is playing —
-// and the progress bar would jump between bubbles.
+// One implementation now, in `components/chat/ChatScreen.tsx`, rendered by both
+// entry points. Re-exported here because existing call sites import it from
+// this module.
+export { ChatScreen, MessageBubble } from '@/components/chat/ChatScreen';
 
-function VoiceNote({ uri, isMe, textColor }: { uri: string; isMe: boolean; textColor: string }) {
-  const player = useAudioPlayer({ uri });
-  const status = useAudioPlayerStatus(player);
-
-  const tint = isMe ? '#fff' : textColor;
-  const track = isMe ? 'rgba(255,255,255,0.28)' : 'rgba(120,120,128,0.28)';
-
-  const duration = status?.duration ?? 0;
-  const position = status?.currentTime ?? 0;
-  const progress = duration > 0 ? Math.min(1, position / duration) : 0;
-
-  const toggle = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (status?.playing) {
-      player.pause();
-      return;
-    }
-    // Replay from the start once it has finished, rather than sitting at the
-    // end doing nothing when tapped.
-    if (duration > 0 && position >= duration - 0.05) player.seekTo(0);
-    player.play();
-  }, [player, status?.playing, position, duration]);
-
-  const secs = Math.max(0, Math.round((duration || 0) - (position || 0)));
-  const label = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
-
-  return (
-    <View style={S.voiceRow}>
-      <Pressable
-        onPress={toggle}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel={status?.playing ? 'Pause voice message' : 'Play voice message'}
-      >
-        <HugeiconsIcon
-          icon={status?.playing ? PauseIcon : PlayIcon}
-          size={22}
-          color={tint}
-        />
-      </Pressable>
-
-      <View style={[S.voiceTrack, { backgroundColor: track }]}>
-        <View style={[S.voiceFill, { width: `${progress * 100}%`, backgroundColor: tint }]} />
-      </View>
-
-      <Text style={[S.voiceTime, { color: tint }]}>{label}</Text>
-    </View>
-  );
-}
-
-// ─── Message Bubble (named export for direct-chat route) ──────────────────────
-
-/**
- * Kept as a named export because `direct-chat/[conversationId].tsx` imports it.
- *
- * The bubble itself now lives in `components/chat/ChatBubble.tsx` — grouping,
- * tails, date separators and inline meta are all shape decisions that belong
- * with the other chat components, not buried in a 1,500-line screen. This is
- * the adapter that keeps the old call sites working.
- */
-export function MessageBubble({
-  message, isMe, onReply, onDelete, onCopy,
-}: {
-  message: Message; isMe: boolean;
-  onReply: () => void; onDelete: () => void; onCopy: () => void;
-  // Accepted and ignored: the bubble reads the iOS palette itself now.
-  isDark?: boolean; textColor?: string; subTextColor?: string;
-}) {
-  return (
-    <ChatBubble
-      message={message as ChatBubbleMessage}
-      isMe={isMe}
-      onReply={onReply}
-      onDelete={onDelete}
-      onCopy={onCopy}
-      renderAudio={(uri, mine, tint) => <VoiceNote uri={uri} isMe={mine} textColor={tint} />}
-    />
-  );
-}
-
-// ─── Chat Screen (named export so direct-chat/[conversationId].tsx can reuse) ─
-
-export function ChatScreen({
-  conversation, onBack, isDark, invalidId = false,
-}: {
-  conversation: Conversation; onBack: () => void; isDark: boolean; invalidId?: boolean;
-}) {
-  const { user } = useAuthStore();
-  const {
-    addMessage, markRead, messages: allMessages,
-    setTyping, typingUsers, deleteMessage, subscribeToRealtime,
-  } = useMessagesStore();
-
-  const [text,        setText]        = useState('');
-  const [sending,     setSending]     = useState(false);
-  const [infoVisible, setInfoVisible] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  // What the composer is replying to. Held as state rather than pasted into the
-  // text field: the old version prefixed the draft with "↩ Name: quoted text",
-  // which the recipient then received as literal characters and which the
-  // sender had to delete by hand to cancel.
-  const [replyTo,     setReplyTo]     = useState<Message | null>(null);
-
-  // expo-audio is hook-based, so the recorder is created here rather than
-  // inside the press handler the way the old imperative expo-av API allowed.
-  const recorder      = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const recorderState = useAudioRecorderState(recorder, 250);
-
-  const listRef      = useRef<FlatList>(null);
-  const inputRef     = useRef<TextInput>(null);
-  const typingTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const insets       = useSafeAreaInsets();
-
-  const subscribeRef = useRef(subscribeToRealtime);
-  const markReadRef  = useRef(markRead);
-  useEffect(() => { subscribeRef.current = subscribeToRealtime; });
-  useEffect(() => { markReadRef.current  = markRead; });
-
-
-  // One palette, from the theme. This screen used to derive six colours from an
-  // `isDark` boolean with hard-coded hexes, which is why it drifted away from
-  // the rest of the app every time the theme changed.
-  const ios       = useIOSTheme();
-  const textColor = ios.label;
-  const subTextColor = ios.secondaryLabel;
-  const cardBg    = ios.secondarySystemBackground;
-  const border    = ios.separator;
-  const inputBg   = ios.tertiarySystemFill;
-  const topPad    = Platform.OS === 'web' ? 67 : insets.top;
-  // Height of the floating header. The list runs under it and is pushed clear
-  // with a content inset, which is what lets the glass sample real content.
-  const chromeTop = topPad + 62;
-  // Banners float below the header rather than sitting in flow, so they do not
-  // shove the list out from under the glass. Their height is measured because
-  // it depends on how the warning text wraps.
-  const [bannerH, setBannerH] = useState(0);
-
-  const messages    = allMessages[conversation.id] || [];
-  const otherTyping = typingUsers[conversation.id] || false;
-
-  useEffect(() => {
-    if (!user?.id) return;
-    const unsub = subscribeRef.current(user.id);
-    return () => unsub?.();
-  }, [user?.id]);
-
-  useEffect(() => { markReadRef.current(conversation.id); }, [conversation.id]);
-
-  useEffect(() => {
-    if (messages.length > 0) {
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-    }
-  }, [messages.length]);
-
-  const handleTyping = (v: string) => {
-    setText(v);
-    setTyping(conversation.id, true);
-    if (typingTimer.current) clearTimeout(typingTimer.current);
-    typingTimer.current = setTimeout(() => setTyping(conversation.id, false), 1500);
-  };
-
-  const handleSend = async () => {
-    const trimmed = text.trim();
-    if (!trimmed || !user?.id || sending) return;
-    setSending(true);
-    setText('');
-    setTyping(conversation.id, false);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-    const quoted = replyTo;
-    setReplyTo(null);
-
-    await addMessage({
-      id:              generateId(),
-      conversation_id: conversation.id,
-      sender_id:       user.id,
-      sender_name:     user.full_name || 'Me',
-      sender_role:     user.role as any,
-      text:            trimmed,
-      created_at:      new Date().toISOString(),
-      read:            false,
-      status:          'sent',
-      reply_to:        quoted
-        ? {
-            id:      quoted.id,
-            author:  quoted.sender_id === user.id ? 'You' : quoted.sender_name || 'User',
-            preview: quoted.text || 'Voice message',
-          }
-        : null,
-    });
-    setSending(false);
-  };
-
-  const startRecording = async () => {
-    try {
-      const { granted } = await requestRecordingPermissionsAsync();
-      if (!granted) {
-        iosAlert('Permission required', 'Microphone access is needed for voice messages.');
-        return;
-      }
-      // `allowsRecording` opens the input; `playsInSilentMode` is what lets the
-      // note play back when the ringer switch is off, which on iOS is otherwise
-      // silent and reads as a broken recording.
-      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-      await recorder.prepareToRecordAsync();
-      recorder.record();
-      setIsRecording(true);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch { iosAlert('Error', 'Could not start recording.'); }
-  };
-
-  const stopRecording = async () => {
-    if (!user?.id) return;
-    setIsRecording(false);
-    try {
-      await recorder.stop();
-      const uri = recorder.uri;
-
-      // Release the input again so other audio isn't ducked for the rest of the
-      // session — iOS keeps the recording route active until told otherwise.
-      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
-
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      if (uri) {
-        await addMessage({
-          id:              generateId(),
-          conversation_id: conversation.id,
-          sender_id:       user.id,
-          sender_name:     user.full_name || 'Me',
-          sender_role:     user.role as any,
-          audio_uri:       uri,
-          created_at:      new Date().toISOString(),
-          read:            false,
-          status:          'sent',
-        });
-      }
-    } catch { iosAlert('Error', 'Could not save voice message.'); }
-  };
-
-  const cancelRecording = async () => {
-    setIsRecording(false);
-    try {
-      await recorder.stop();
-      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
-    } catch {}
-  };
-
-  const handleCall = () => placeCall(conversation.participant_id, conversation.participant_name);
-
-  const handleReply = (m: Message) => {
-    // Voice notes are repliable too — the quote just reads "Voice message".
-    setReplyTo(m);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    inputRef.current?.focus();
-  };
-
-  const handleCopy = async (m: Message) => {
-    if (!m.text) return;
-    // This used to be guarded by `Platform.OS === 'web'` and used
-    // navigator.clipboard, so Copy did nothing at all on a phone — which is
-    // every device this app actually ships to.
-    await Clipboard.setStringAsync(m.text);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  };
-
-  const InputRight = () =>
-    text.trim() ? (
-      <Pressable
-        style={[S.sendBtn, { backgroundColor: Colors.primary, opacity: sending ? 0.6 : 1 }]}
-        onPress={handleSend}
-        disabled={sending}
-      >
-        {sending
-          ? <ActivityIndicator size="small" color="#fff" />
-          : <HugeiconsIcon icon={TelegramIcon} size={20} color="#fff" />}
-      </Pressable>
-    ) : (
-      <Pressable
-        style={[S.sendBtn, { backgroundColor: isRecording ? Colors.error : Colors.primary }]}
-        onLongPress={startRecording}
-        onPressOut={isRecording ? stopRecording : undefined}
-        delayLongPress={200}
-      >
-        <HugeiconsIcon icon={isRecording ? MicOff01Icon : Mic01Icon} size={20} color="#fff" />
-      </Pressable>
-    );
-
-  return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <StatusBar style={ios.scheme === 'dark' ? 'light' : 'dark'} />
-
-      {/* The wallpaper is the bottom layer, sized to the WINDOW rather than to
-          this container, so the keyboard opening does not re-tile it. */}
-      <ChatDoodle />
-
-      {/* Header.
-          Glass, like every other bar in the app — this was a flat opaque strip,
-          which is why the chat screen read as belonging to a different app than
-          the one around it. The material is on an absolutely-positioned layer
-          behind the row so the row's own children keep their colours, and the
-          list scrolls UNDER it rather than being padded away from it (padding
-          the frame leaves the glass nothing to sample and it renders flat). */}
-      <View style={[S.chatHeader, { borderBottomColor: border, paddingTop: topPad + 12, height: topPad + 62 }]}>
-        <Glass
-          variant="regular"
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-          fallbackIntensity={60}
-          fallbackTint={cardBg}
-        />
-        <Pressable
-          onPress={() => { Haptics.selectionAsync(); onBack(); router.back(); }}
-          style={S.chatBack}
-          hitSlop={8}
-          accessibilityLabel="Back"
-        >
-          <HugeiconsIcon icon={ArrowLeft01Icon} size={25} color={textColor} />
-        </Pressable>
-
-        {/* The whole identity block opens the contact sheet, which is how every
-            messenger behaves and what a user tries first. */}
-        <Pressable
-          style={S.chatHeaderInfo}
-          onPress={() => { Haptics.selectionAsync(); setInfoVisible(true); }}
-          accessibilityLabel={`${conversation.participant_name}, open contact info`}
-        >
-          <Avatar
-            name={conversation.participant_name || 'Driver'}
-            photoUri={conversation.participant_photo}
-            size={38}
-          />
-          <View style={{ flex: 1 }}>
-            <Text style={[S.chatHeaderName, { color: textColor }]} numberOfLines={1}>
-              {conversation.participant_name}
-            </Text>
-            {otherTyping ? (
-              <Text style={[S.chatHeaderSub, { color: ios.tint, fontStyle: 'italic' }]}>
-                typing…
-              </Text>
-            ) : (
-              <Text style={[S.chatHeaderSub, { color: subTextColor }]} numberOfLines={1}>
-                {conversation.participant_username
-                  ? `@${conversation.participant_username}`
-                  : conversation.participant_driver_id || 'Tap for contact info'}
-              </Text>
-            )}
-          </View>
-        </Pressable>
-
-        <Pressable onPress={handleCall} style={S.chatCallBtn} hitSlop={8} accessibilityLabel="Call">
-          <HugeiconsIcon icon={CallIcon} size={21} color={ios.tint} />
-        </Pressable>
-        <Pressable
-          onPress={() => { Haptics.selectionAsync(); setInfoVisible(true); }}
-          hitSlop={8}
-          accessibilityLabel="More"
-        >
-          <HugeiconsIcon icon={MoreVerticalIcon} size={22} color={textColor} />
-        </Pressable>
-      </View>
-
-      <View
-        style={[S.bannerStack, { top: chromeTop }]}
-        onLayout={(e) => setBannerH(e.nativeEvent.layout.height)}
-        pointerEvents="box-none"
-      >
-      {invalidId && (
-        <View style={[S.warnBanner, { backgroundColor: Colors.gold + '22' }]}>
-          <Text style={[S.warnText, { color: Colors.gold }]}>
-            ⚠ Invalid driver_id — this driver could not be verified. Messages may not be delivered.
-          </Text>
-        </View>
-      )}
-
-      {isRecording && (
-        <View style={[S.recBanner, { backgroundColor: Colors.error + '22' }]}>
-          <View style={S.recDot} />
-          {/* A live counter, not just "Recording…": without it there is no way
-              to tell a recording that is running from one that silently failed
-              to start. */}
-          <Text style={[S.recText, { color: Colors.error }]}>
-            {formatRecDuration(recorderState.durationMillis)} · release to send
-          </Text>
-          <Pressable onPress={cancelRecording} hitSlop={8}>
-            <Text style={{ color: Colors.error, fontSize: 20, lineHeight: 22 }}>×</Text>
-          </Pressable>
-        </View>
-      )}
-      </View>
-
-      <FlatList
-        ref={listRef}
-        data={messages}
-        keyExtractor={(m) => m.id}
-        contentContainerStyle={[S.messageList, { paddingTop: chromeTop + bannerH + 8 }]}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item, index }) => {
-          const prev = messages[index - 1];
-          const next = messages[index + 1];
-          const newDay = !prev || !sameDay(prev.created_at, item.created_at);
-          return (
-            <>
-              {newDay ? <DateSeparator iso={item.created_at} /> : null}
-              <ChatBubble
-                message={item as ChatBubbleMessage}
-                isMe={item.sender_id === user?.id}
-                // A new day always starts a fresh block, whatever the clock gap.
-                grouped={!newDay && shouldGroup(prev as ChatBubbleMessage, item as ChatBubbleMessage)}
-                hasFollower={
-                  !!next &&
-                  sameDay(item.created_at, next.created_at) &&
-                  shouldGroup(item as ChatBubbleMessage, next as ChatBubbleMessage)
-                }
-                onReply={() => handleReply(item)}
-                onDelete={() => deleteMessage(conversation.id, item.id)}
-                onCopy={() => handleCopy(item)}
-                renderAudio={(uri, mine, tint) => (
-                  <VoiceNote uri={uri} isMe={mine} textColor={tint} />
-                )}
-              />
-            </>
-          );
-        }}
-        ListEmptyComponent={
-          <View style={S.emptyChat}>
-            <View style={[S.emptyChatCard, { backgroundColor: ios.secondarySystemGroupedBackground }]}>
-              <HugeiconsIcon icon={Message02Icon} size={30} color={ios.tint} />
-              <Text style={[S.emptyChatText, { color: subTextColor }]}>
-                No messages yet. Say hello to {conversation.participant_name || 'them'}.
-              </Text>
-            </View>
-          </View>
-        }
-      />
-
-      <View style={[S.inputBar, { borderTopColor: border, paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <Glass
-          variant="regular"
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-          fallbackIntensity={60}
-          fallbackTint={cardBg}
-        />
-
-        {/* What you are replying to, with an explicit way out. */}
-        {replyTo ? (
-          <View style={[S.replyPreview, { backgroundColor: ios.tertiarySystemFill, borderLeftColor: ios.tint }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={[S.replyPreviewAuthor, { color: ios.tint }]} numberOfLines={1}>
-                {replyTo.sender_id === user?.id ? 'You' : replyTo.sender_name || 'User'}
-              </Text>
-              <Text style={[S.replyPreviewText, { color: subTextColor }]} numberOfLines={1}>
-                {replyTo.text || 'Voice message'}
-              </Text>
-            </View>
-            <Pressable
-              onPress={() => { Haptics.selectionAsync(); setReplyTo(null); }}
-              hitSlop={10}
-              accessibilityLabel="Cancel reply"
-            >
-              <HugeiconsIcon icon={Cancel01Icon} size={17} color={subTextColor} />
-            </Pressable>
-          </View>
-        ) : null}
-
-        <View style={S.inputRow}>
-          <TextInput
-            ref={inputRef}
-            style={[S.textInput, { backgroundColor: inputBg, color: textColor }]}
-            placeholder="Type a message…"
-            placeholderTextColor={ios.tertiaryLabel}
-            value={text}
-            onChangeText={handleTyping}
-            multiline
-            maxLength={2000}
-          />
-          <InputRight />
-        </View>
-      </View>
-
-      <ContactInfoModal
-        visible={infoVisible}
-        onClose={() => setInfoVisible(false)}
-        conversation={conversation}
-      />
-    </KeyboardAvoidingView>
-  );
-}
-
-// ─── New Chat Modal — now with Trip Code / Driver ID tabs ─────────────────────
-
-type SearchTab    = 'trip' | 'driver';
-type SearchStatus = 'idle' | 'searching' | 'found' | 'invalid';
-
-interface DriverRecord {
-  id:               string;
-  full_name:        string | null;
-  phone:            string | null;
-  driver_id:        string | null;
-  vehicle_details:  string | null;
-  park_name:        string | null;
-  role?:            string | null;
-}
+// ─── New Message sheet — username only ───────────────────────────────────────
+//
+// Results at the top, the field docked at the bottom. That is not decoration:
+// the keyboard pins the field to the bottom of the sheet, so results rendered
+// beneath it are pushed off-screen the moment anyone types. Above the field
+// also puts the newest match closest to the thumb.
+//
+// It opens a chat by navigating, not by handing a half-built Conversation back
+// to the parent. `fetchConversationByDriverId` already creates the row
+// server-side and returns the real one, so the old `onStart` round trip was
+// constructing a second, client-invented conversation object for the same
+// thread.
 
 function NewChatModal({
-  visible, onClose, onStart, isDark,
+  visible, onClose, isDark,
 }: {
   visible:  boolean;
   onClose:  () => void;
-  onStart:  (conv: Conversation, invalidId: boolean) => void;
   isDark:   boolean;
 }) {
   const { user }                          = useAuthStore();
   const { fetchConversationByDriverId, searchUsersForChat } = useMessagesStore();
 
-  // Username is the only way in. The "Trip Code" tab is gone: a trip code
-  // resolved to a person through the same lookup a username does, so it was a
-  // second door to one room — and it was the door that still accepted a driver
-  // badge ID after IDs were removed from search everywhere else.
-  const [tab] = useState<SearchTab>('driver');
-  const [query,   setQuery]   = useState('');
-  const [status,  setStatus]  = useState<SearchStatus>('idle');
-  const [result,  setResult]  = useState<DriverRecord | null>(null);
+  // Username is the only way in. The "Trip Code" tab is gone, and so is the
+  // state that served it: a trip code resolved to a person through the same
+  // lookup a username does, so it was a second door to one room — and it was
+  // the door still accepting driver badge IDs after IDs were removed from
+  // search everywhere else.
+  const [query, setQuery] = useState('');
 
   // Handle tab — loading state for fetchConversationByHandle
   const [driverLoading, setDriverLoading] = useState(false);
@@ -729,7 +121,6 @@ function NewChatModal({
   // typing the handle they already know.
   const [suggestions, setSuggestions] = useState<ChatCandidate[]>([]);
   useEffect(() => {
-    if (tab !== 'driver') { setSuggestions([]); return; }
     const typed = query.trim();
     if (typed.replace(/^@/, '').length < 2) { setSuggestions([]); return; }
 
@@ -740,89 +131,23 @@ function NewChatModal({
     }, 280);
 
     return () => { cancelled = true; clearTimeout(t); };
-  }, [query, tab, searchUsersForChat]);
+  }, [query, searchUsersForChat]);
 
   const textColor = isDark ? Colors.textWhite     : Colors.text;
   const subTextColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const cardBg    = isDark ? Colors.primaryDarker : '#FFFFFF';
   const border    = isDark ? 'rgba(255,255,255,0.12)' : '#E8ECF0';
   const inputBg   = isDark ? Colors.background    : '#F4F6FA';
   // const tabBg     = isDark ? '#1A1A2E' : '#F0F2F5';
-  const bg        = isDark ? Colors.background : Colors.textWhite;
   const tabBg     = isDark ? Colors.textSecondary : Colors.border;
 
   useEffect(() => {
     if (!visible) {
-      setQuery(''); setResult(null); setStatus('idle');
+      setQuery('');
       setDriverError(''); setDriverLoading(false);
     }
   }, [visible]);
 
-  const reset = () => { setResult(null); setStatus('idle'); setDriverError(''); };
-
-  // ── Driver / passenger lookup ─────────────────────────────────────────────
-  //
-  // This used to run three `select(...)` queries against `public.users` — by
-  // driver_id, by id, then a wildcard `ilike` — each of them pulling `phone`.
-  // Two things were wrong with that. It reads a column the app has no business
-  // reading in bulk (see migration_contact_phone.sql), and it only worked at all
-  // because `users` was not yet locked down; the same code returns nothing once
-  // it is.
-  //
-  // `find_user_for_chat` is the RPC that already exists for exactly this. It
-  // resolves a USERNAME — and, since migration_user_privacy.sql, only a
-  // username — runs SECURITY DEFINER so it works under RLS, and returns only
-  // the fields a chat header needs: no phone number, no email.
-  const handleTripSearch = async () => {
-    const raw = query.trim();
-    if (!raw || !user?.id) return;
-    setStatus('searching');
-    setResult(null);
-
-    let found: DriverRecord | null = null;
-    try {
-      // Raw input, not `normaliseDriverId(raw)`: the RPC takes a bare handle and
-      // strips a leading "@" itself, so forcing a "DRV-" prefix here would turn
-      // every lookup into a guaranteed miss.
-      const { data, error } = await supabase.rpc('find_user_for_chat', { p_handle: raw });
-      if (error) throw error;
-      const row = Array.isArray(data) ? data[0] : data;
-      if (row?.id) found = row as DriverRecord;
-    } catch (err: any) {
-      console.warn('[Messages] chat lookup error:', err?.message ?? err);
-    }
-
-    if (found) { setResult(found); setStatus('found'); }
-    else {
-      setResult({ id: `invalid_${raw}`, full_name: raw, phone: null, driver_id: raw, vehicle_details: null, park_name: null });
-      setStatus('invalid');
-    }
-  };
-
-  const handleTripOpen = () => {
-    if (!result || !user?.id) return;
-    const isInvalid = status === 'invalid';
-    const convId    = isInvalid
-      ? `conv_invalid_${user.id}_${result.driver_id}`
-      : `conv_${[user.id, result.id].sort().join('_')}`;
-    const conv: Conversation = {
-      id:                    convId,
-      participant_id:        result.id,
-      participant_name:      result.full_name   || 'Unknown',
-      participant_role:      (result.role as any) || 'driver',
-      participant_driver_id: result.driver_id   ?? undefined,
-      participant_vehicle:   result.vehicle_details ?? undefined,
-      participant_park_name: result.park_name   ?? undefined,
-      // No phone here on purpose — the Call button resolves it on demand via
-      // `get_contact_phone`, so turning sharing off takes effect immediately
-      // rather than surviving in a cached conversation record.
-      last_message:          '',
-      last_message_at:       new Date().toISOString(),
-      unread_count:          0,
-    };
-    onStart(conv, isInvalid);
-    onClose();
-  };
+  const reset = () => setDriverError('');
 
   // ── Driver ID direct-chat (new) ───────────────────────────────────────────
   /** Open a chat with a handle — from the field, or from a tapped suggestion. */
@@ -844,7 +169,7 @@ function NewChatModal({
         },
       });
     } catch (err: any) {
-      setDriverError(err?.message ?? 'Nobody found. Check the username or ID and try again.');
+      setDriverError(err?.message ?? 'No account with that username. Check the spelling.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setDriverLoading(false);
@@ -854,24 +179,85 @@ function NewChatModal({
   /** Submit whatever is in the field. */
   const handleHandleSearch = () => openWith(query);
 
-  const isFound   = status === 'found';
-
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <IOSSheet
+      visible={visible}
+      onClose={onClose}
+      // Two detents so it can be dragged up when the results fill it, and
+      // flicked down to dismiss. That gesture is why this is an IOSSheet and no
+      // longer a bare Modal with a hand-drawn grabber that did nothing.
+      detents={[0.62, "large"]}
+      title="New Message"
+      showGrabber
+      dismissible
+      contentStyle={{ paddingHorizontal: 0 }}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1, justifyContent: 'flex-end',  }}
+        style={S.newBody}
       >
-        <Pressable style={S.backdrop} onPress={onClose} />
-        <View style={[S.newSheet, { backgroundColor: tabBg }]}>
-          <View style={S.handle} />
-          <Text style={[S.newTitle, { color: textColor }]}>New Message</Text>
+        {/* ── Results, at the TOP ──────────────────────────────────────────
+            The field is docked at the bottom by the keyboard, so results
+            rendered underneath it would be pushed off-screen the moment
+            anyone typed. Putting them above means the newest match sits
+            closest to the thumb, which is also how every messaging app that
+            has solved this lays it out. `inverted` keeps the list pinned to
+            the bottom of its own space, so one result appears right above the
+            field instead of stranded at the top of an empty sheet. */}
+        <ScrollView
+          style={S.newResults}
+          contentContainerStyle={S.newResultsInner}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="none"
+          showsVerticalScrollIndicator={false}
+        >
+          {suggestions.length > 0 ? (
+            suggestions.map((person) => (
+              <Pressable
+                key={person.id}
+                style={({ pressed }) => [
+                  S.suggestionRow,
+                  { borderBottomColor: border },
+                  pressed && { backgroundColor: inputBg },
+                ]}
+                onPress={() => openWith(person.username ? `@${person.username}` : '')}
+              >
+                <Avatar name={person.full_name || 'User'} photoUri={person.profile_photo ?? undefined} size={40} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[S.suggestionName, { color: textColor }]} numberOfLines={1}>
+                    {person.full_name || 'Emilgo user'}
+                  </Text>
+                  <Text style={[S.suggestionMeta, { color: subTextColor }]} numberOfLines={1}>
+                    @{person.username}
+                    {person.vehicle_details ? ` · ${person.vehicle_details}` : ''}
+                  </Text>
+                </View>
+                <Text style={[S.suggestionRole, { color: Colors.primary }]}>{person.role}</Text>
+              </Pressable>
+            ))
+          ) : (
+            <View style={S.newEmpty}>
+              <HugeiconsIcon icon={Message02Icon} size={40} color={subTextColor} />
+              <Text style={[S.newEmptyTitle, { color: textColor }]}>
+                {query.trim().length >= 2 && !driverLoading
+                  ? 'No one found'
+                  : 'Find someone by username'}
+              </Text>
+              <Text style={[S.newEmptyText, { color: subTextColor }]}>
+                {query.trim().length >= 2 && !driverLoading
+                  ? `No username starts with "${query.trim().replace(/^@/, '')}". Handles are matched from the start, so check the spelling.`
+                  : 'Start typing a username and suggestions appear here.'}
+              </Text>
+            </View>
+          )}
 
-          <Text style={[S.newSub, { color: subTextColor }]}>
-            Type a username like @danieloky — suggestions appear as you type
-          </Text>
+          {driverError ? (
+            <Text style={[S.driverError, { color: Colors.error }]}>{driverError}</Text>
+          ) : null}
+        </ScrollView>
 
-          {/* ── Input ── */}
+        {/* ── Search, docked at the BOTTOM ─────────────────────────────── */}
+        <View style={[S.newDock, { borderTopColor: border, backgroundColor: tabBg }]}>
           <View style={[S.newInputRow, { backgroundColor: inputBg, borderColor: border }]}>
             <HugeiconsIcon icon={Search01Icon} size={18} color={subTextColor} />
             <TextInput
@@ -888,115 +274,28 @@ function NewChatModal({
             />
             {query.length > 0 && (
               <Pressable hitSlop={8} onPress={() => { setQuery(''); reset(); }}>
-                <Text style={{ color: subTextColor, fontSize: 18 }}>×</Text>
+                <HugeiconsIcon icon={Cancel01Icon} size={16} color={subTextColor} />
               </Pressable>
             )}
           </View>
 
-          {/* Type-ahead results. Tapping one is unambiguous — you can see who
-              you are about to message before the chat opens. */}
-          {tab === 'driver' && suggestions.length > 0 ? (
-            <View style={S.suggestionList}>
-              {suggestions.map((person) => (
-                <Pressable
-                  key={person.id}
-                  style={({ pressed }) => [
-                    S.suggestionRow,
-                    { borderBottomColor: border },
-                    pressed && { backgroundColor: inputBg },
-                  ]}
-                  onPress={() => openWith(person.username ? `@${person.username}` : person.driver_id ?? '')}
-                >
-                  <Avatar name={person.full_name || 'User'} photoUri={person.profile_photo ?? undefined} size={36} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[S.suggestionName, { color: textColor }]} numberOfLines={1}>
-                      {person.full_name || 'Emilgo user'}
-                    </Text>
-                    <Text style={[S.suggestionMeta, { color: subTextColor }]} numberOfLines={1}>
-                      {person.username ? `@${person.username}` : person.driver_id}
-                      {person.vehicle_details ? ` · ${person.vehicle_details}` : ''}
-                    </Text>
-                  </View>
-                  <Text style={[S.suggestionRole, { color: Colors.primary }]}>{person.role}</Text>
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
-
-          {/* Handle lookup error */}
-          {tab === 'driver' && driverError ? (
-            <Text style={[S.driverError, { color: Colors.error }]}>{driverError}</Text>
-          ) : null}
-
-          {/* Search / Start button */}
-          {tab === 'driver' ? (
-            <Pressable
-              style={[S.newSearchBtn, {
-                backgroundColor: query.trim() ? Colors.primary : isDark ? '#2A2A2A' : '#E5E7EB',
-                opacity: driverLoading ? 0.7 : 1,
-              }]}
-              onPress={handleHandleSearch}
-              disabled={!query.trim() || driverLoading}
-            >
-              {driverLoading
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Text style={[S.newSearchBtnText, { color: query.trim() ? '#fff' : subTextColor }]}>Find & Open Chat</Text>
-              }
-            </Pressable>
-          ) : (
-            <>
-              <Pressable
-                style={[S.newSearchBtn, {
-                  backgroundColor: query.trim() ? Colors.primary : isDark ? '#2A2A2A' : '#E5E7EB',
-                  opacity: status === 'searching' ? 0.7 : 1,
-                }]}
-                onPress={handleTripSearch}
-                disabled={!query.trim() || status === 'searching'}
-              >
-                {status === 'searching'
-                  ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={[S.newSearchBtnText, { color: query.trim() ? '#fff' : subTextColor }]}>Search Driver</Text>
-                }
-              </Pressable>
-
-              {/* Trip search result card */}
-              {result && (
-                <View style={[S.resultCard, {
-                  backgroundColor: isFound ? (isDark ? '#1C2921' : '#F0FDF4') : (isDark ? '#221A1A' : '#FFF8F0'),
-                  borderColor:     isFound ? Colors.primary + '55' : Colors.gold + '99',
-                }]}>
-                  <Avatar name={isFound ? result.full_name || 'Driver' : '?'} size={50} />
-                  <View style={{ flex: 1, gap: 2 }}>
-                    {isFound ? (
-                      <>
-                        <Text style={[S.resultName, { color: textColor }]}>{result.full_name || 'Driver'}</Text>
-                        <Text style={[S.resultDriverId, { color: Colors.primary }]}>{result.driver_id}</Text>
-                        {result.vehicle_details
-                          ? <Text style={[S.resultSub, { color: subTextColor }]}> {result.vehicle_details}</Text>
-                          : null}
-                      </>
-                    ) : (
-                      <>
-                        <Text style={[S.resultName, { color: Colors.gold }]}>Invalid driver_id</Text>
-                        <Text style={[S.resultSub, { color: subTextColor }]}>
-                          {`"${query.trim()}" is not a registered driver. You can still open a chat but messages won't be delivered.`}
-                        </Text>
-                      </>
-                    )}
-                  </View>
-                  <Pressable
-                    style={[S.chatBtn, { backgroundColor: isFound ? Colors.primary : Colors.gold }]}
-                    onPress={handleTripOpen}
-                  >
-                    <Text style={S.chatBtnText}>{isFound ? 'Chat' : 'Open anyway'}</Text>
-                  </Pressable>
-                </View>
-              )}
-            </>
-          )}
+          <Pressable
+            style={[S.newDockBtn, {
+              backgroundColor: query.trim() ? Colors.primary : inputBg,
+              opacity: driverLoading ? 0.7 : 1,
+            }]}
+            onPress={handleHandleSearch}
+            disabled={!query.trim() || driverLoading}
+            accessibilityRole="button"
+            accessibilityLabel="Open chat"
+          >
+            {driverLoading
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <HugeiconsIcon icon={TelegramIcon} size={18} color={query.trim() ? '#fff' : subTextColor} />}
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
-    </Modal>
+    </IOSSheet>
   );
 }
 
@@ -1361,27 +660,6 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
     setRefreshing(false);
   }, []);
 
-  const handleStart = async (conv: Conversation, invalidId: boolean) => {
-    setActiveInvalidId(invalidId);
-    await addConversation(conv);
-    if (user && !invalidId) {
-      supabase.from('conversations').upsert([{
-        id:                    conv.id,
-        participant_id:        conv.participant_id,
-        participant_name:      conv.participant_name,
-        participant_role:      conv.participant_role,
-        participant_driver_id: conv.participant_driver_id ?? null,
-        participant_vehicle:   conv.participant_vehicle   ?? null,
-        passenger_id:          user.id,
-        passenger_name:        user.full_name || 'Passenger',
-        last_message:          '',
-        last_message_at:       new Date().toISOString(),
-        unread_count:          0,
-      }]).then(({ error }) => { if (error) console.warn('[Messages] upsert conv:', error.message); });
-    }
-    setActiveConv(conv);
-  };
-
   /**
    * Open (or create) a chat with someone found by the search bar.
    *
@@ -1586,7 +864,6 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
         visible={newChatVisible}
         onClose={() => setNewChatVisible(false)}
         isDark={isDark}
-        onStart={handleStart}
       />
     </>
   );
@@ -1595,6 +872,19 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
 // ─── Stylesheet ───────────────────────────────────────────────────────────────
 
 const S = StyleSheet.create({
+  // ── New-message sheet ──
+  newBody:         { flex: 1 },
+  newResults:      { flex: 1 },
+  // `justifyContent: flex-end` is what pins a short result list to the bottom
+  // of its space, right above the field, instead of leaving it stranded at the
+  // top of an otherwise empty sheet.
+  newResultsInner: { flexGrow: 1, justifyContent: 'flex-end', paddingHorizontal: 20 },
+  newEmpty:        { alignItems: 'center', gap: 8, paddingVertical: 36, paddingHorizontal: 16 },
+  newEmptyTitle:   { fontFamily: 'Poppins_600SemiBold', fontSize: 16, textAlign: 'center' },
+  newEmptyText:    { fontFamily: 'Poppins_400Regular', fontSize: 13, textAlign: 'center', lineHeight: 19 },
+  newDock:         { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 6, borderTopWidth: StyleSheet.hairlineWidth },
+  newDockBtn:      { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+
   root:    { flex: 1 },
   backdrop: { flex: 1 },
   handle:  { width: 38, height: 5, borderRadius: 3, alignSelf: 'center', marginBottom: 6, opacity: 0.35 },

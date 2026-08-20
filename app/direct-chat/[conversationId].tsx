@@ -1,299 +1,158 @@
 // app/direct-chat/[conversationId].tsx
 //
-// A one-to-one thread between a passenger and a driver.
+// The chat route. Nine screens push here: find-driver (×2), driver-search,
+// (driver)/messages, nearby (×2), the messages tab (×3) and a notification tap.
 //
-// The screen owns the message list rather than pushing it into a store: a chat
-// thread is read by exactly one screen at a time, and the realtime channel is
-// already scoped to this conversation. Anything the rest of the app needs about
-// unread state comes from useMessagesStore, which is a different concern.
+// ── What this file used to be, and why that mattered ───────────────────────
+// A second, standalone chat screen. It rendered `components/MessageBubble.tsx`
+// — last touched in May — on a flat background, and imported nothing from the
+// messages tab despite the comments over there claiming it did. So the doodle
+// wallpaper, grouped bubbles with tails, voice notes, reply quoting and the
+// contact card all went into `messages.tsx`, and the screen users actually
+// opened by tapping a conversation never received any of it.
 //
-// Sends are optimistic. The row is painted the instant it's typed, then
-// reconciled when the server confirms; a failed send stays visible as 'queued'
-// rather than vanishing, so nobody loses what they wrote.
+// It is now a ROUTE, not a screen: it resolves the conversation id in the URL
+// to a conversation and hands off to `components/chat/ChatScreen`, the single
+// implementation both entry points share. There is nothing here left to drift.
+//
+// ── Resolving the id ───────────────────────────────────────────────────────
+// The store is the fast path — arriving from the messages list means the
+// conversation is already loaded and the chat paints immediately. A cold start
+// from a push notification has an empty store, so `loadConversations` runs and
+// we look again. Only if BOTH miss do we fall back to the route params, which
+// carry enough to render a usable header while the rest catches up.
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  StyleSheet,
-} from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
-import { Ionicons } from "@expo/vector-icons";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-reanimated";
 
-import { Glass } from "@/components/ios";
+import { ChatScreen } from "@/components/chat/ChatScreen";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
-import {
-  useChatSubscription,
-  useMessageActions,
-  fetchMessages,
-  markThreadRead,
-} from "@/src/hooks/useChatManager";
-import { haptics } from "@/src/utils/haptics";
-import { Colors } from "@/constants/colors";
-import { Message } from "@/src/types/chat";
-import { MessageBubble } from "@/components/MessageBubble";
+import { useMessagesStore, type Conversation } from "@/src/store/useMessagesStore";
+import { useIOSTheme } from "@/components/ios";
 
-export default function DirectChatScreen() {
-  const { conversationId, driverName } = useLocalSearchParams<{
+/**
+ * How far in from the left edge counts as an edge swipe.
+ *
+ * 28pt, matching iOS's own interactive-pop region. Wider starts stealing
+ * horizontal drags from the message list; narrower is unhittable with a thumb.
+ */
+const EDGE_WIDTH = 28;
+/** Travel before the gesture commits. Short enough to feel light, long enough
+ *  that a stray thumb-graze while typing does not close the thread. */
+const CLOSE_DISTANCE = 70;
+
+export default function DirectChatRoute() {
+  const { conversationId, driverName, driverId } = useLocalSearchParams<{
     conversationId: string;
     driverName?: string;
+    driverId?: string;
   }>();
   const chatId = conversationId ?? "";
 
-  const insets = useSafeAreaInsets();
-  const { user } = useAuthStore();
-  const { theme } = useSettingsStore();
-  const isDark = theme === "dark";
+  const t = useIOSTheme();
+  const isDark = useSettingsStore((s) => s.theme) === "dark";
+  const user = useAuthStore((s) => s.user);
 
-  const bg = isDark ? Colors.background : Colors.border;
-  const barBg = isDark ? Colors.primaryDarker : Colors.textWhite;
-  const textColor = isDark ? Colors.textWhite : Colors.text;
-  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const inputBg = isDark ? "rgba(255,255,255,0.07)" : "#FFFFFF";
-  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E5E8EC";
+  const conversations = useMessagesStore((s) => s.conversations);
+  const loadConversations = useMessagesStore((s) => s.loadConversations);
 
-  const { sendMessage } = useMessageActions();
+  const [tried, setTried] = useState(false);
 
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [draft, setDraft] = useState("");
-  const listRef = useRef<FlatList<Message>>(null);
+  const conversation = useMemo(
+    () => conversations.find((c) => c.id === chatId) ?? null,
+    [conversations, chatId],
+  );
 
-  // ── Loading and realtime ──────────────────────────────────────────────────
-
+  // Only fetch when the store genuinely does not have it. Re-fetching on every
+  // open would put a network round trip in front of a screen that was ready.
   useEffect(() => {
-    if (!chatId) {
-      setLoading(false);
-      return;
-    }
+    if (conversation || tried || !user?.id) return;
     let alive = true;
-    fetchMessages(chatId).then((rows) => {
-      if (!alive) return;
-      setMessages(rows);
-      setLoading(false);
-    });
+    loadConversations(user.id, (user.role === "driver" ? "driver" : "passenger"))
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setTried(true);
+      });
     return () => {
       alive = false;
     };
-  }, [chatId]);
+  }, [conversation, tried, user?.id, user?.role, loadConversations]);
 
-  useEffect(() => {
-    if (chatId && user?.id) markThreadRead(chatId, user.id);
-  }, [chatId, user?.id]);
-
-  const upsert = useCallback((incoming: Message) => {
-    setMessages((prev) => {
-      const at = prev.findIndex((m) => m.id === incoming.id);
-      if (at === -1) return [...prev, incoming];
-      const next = [...prev];
-      next[at] = incoming;
-      return next;
-    });
+  const close = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/(main)/messages");
   }, []);
 
-  useChatSubscription(chatId, user?.id ?? "", { onInsert: upsert, onUpdate: upsert });
+  // Swipe in from the left edge to close, the way every messaging app on the
+  // platform behaves. `activeOffsetX` means the gesture only claims the touch
+  // once it is clearly horizontal, so vertical scrolling in the message list is
+  // untouched; `failOffsetY` releases it outright on a mostly-vertical drag.
+  const edgeSwipe = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX(12)
+        .failOffsetY([-14, 14])
+        .onBegin((e) => {
+          // Anything starting away from the edge is the list's, not ours.
+          if (e.x > EDGE_WIDTH) return;
+        })
+        .onEnd((e) => {
+          if (e.absoluteX - e.translationX <= EDGE_WIDTH && e.translationX > CLOSE_DISTANCE) {
+            runOnJS(close)();
+          }
+        }),
+    [close],
+  );
 
-  // ── Sending ───────────────────────────────────────────────────────────────
+  // Enough to render a correct header while the real row arrives. Built from
+  // the params the caller already passed rather than from placeholders, so the
+  // name in the header is right on the very first frame.
+  const fallback: Conversation | null = useMemo(() => {
+    if (!chatId) return null;
+    return {
+      id: chatId,
+      participant_id: "",
+      participant_name: driverName || "Chat",
+      participant_role: "driver",
+      participant_driver_id: driverId || undefined,
+      last_message: "",
+      last_message_at: new Date().toISOString(),
+      unread_count: 0,
+    };
+  }, [chatId, driverName, driverId]);
 
-  const handleSend = useCallback(() => {
-    const text = draft.trim();
-    if (!text || !user?.id || !chatId) return;
+  const active = conversation ?? (tried ? fallback : null);
 
-    haptics.tap();
-    setDraft("");
+  if (!active) {
+    return (
+      <View style={[styles.centre, { backgroundColor: t.systemGroupedBackground }]}>
+        <ActivityIndicator color={t.tint} size="large" />
+      </View>
+    );
+  }
 
-    const { optimistic, confirmed } = sendMessage(chatId, user.id, text);
-    setMessages((prev) => [...prev, optimistic]);
-
-    confirmed.then((row) => {
-      if (!row) return; // stays 'queued' and visible
-      // Swap the temp row for the server's, keeping its place in the list.
-      setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? row : m)));
-    });
-  }, [chatId, draft, sendMessage, user?.id]);
-
-  // The list is inverted so it opens at the newest message and grows upward,
-  // which means it wants the data newest-first.
-  const ordered = React.useMemo(() => [...messages].reverse(), [messages]);
-
-  const canSend = draft.trim().length > 0;
+  if (!chatId) {
+    return (
+      <View style={[styles.centre, { backgroundColor: t.systemGroupedBackground }]}>
+        <Text style={{ color: t.secondaryLabel }}>That conversation no longer exists.</Text>
+      </View>
+    );
+  }
 
   return (
-    <View style={[styles.root, { backgroundColor: bg }]}>
-      <StatusBar style={isDark ? "light" : "dark"} />
-
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 10, borderBottomColor: borderColor }]}>
-        <Glass
-          variant="regular"
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-          fallbackIntensity={90}
-          fallbackTint={barBg}
-        />
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={10}
-          style={styles.headerSide}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Ionicons name="chevron-back" size={26} color={textColor} />
-        </Pressable>
-
-        <View style={styles.headerCentre}>
-          <Text numberOfLines={1} style={[styles.headerTitle, { color: textColor }]}>
-            {driverName || "Chat"}
-          </Text>
-        </View>
-
-        <View style={styles.headerSide} />
+    <GestureDetector gesture={edgeSwipe}>
+      <View style={styles.flex}>
+        <ChatScreen conversation={active} onBack={close} isDark={isDark} />
       </View>
-
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={insets.top + 54}
-      >
-        {loading ? (
-          <View style={styles.centre}>
-            <ActivityIndicator color={Colors.primary} size="large" />
-          </View>
-        ) : (
-          <FlatList
-            ref={listRef}
-            data={ordered}
-            inverted
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <MessageBubble message={item} isMe={item.sender_id === user?.id} isDark={isDark} />
-            )}
-            contentContainerStyle={styles.listContent}
-            keyboardDismissMode="interactive"
-            keyboardShouldPersistTaps="handled"
-            removeClippedSubviews
-            initialNumToRender={15}
-            maxToRenderPerBatch={10}
-            windowSize={10}
-            ListEmptyComponent={
-              <View style={styles.empty}>
-                <Text style={[styles.emptyText, { color: subTextColor }]}>
-                  No messages yet. Say hello.
-                </Text>
-              </View>
-            }
-          />
-        )}
-
-        {/* Composer */}
-        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-          <Glass
-            variant="regular"
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-            fallbackIntensity={90}
-            fallbackTint={barBg}
-          />
-          <View style={styles.composerRow}>
-            <View style={styles.field}>
-              <Glass
-                variant="clear"
-                radius={22}
-                style={StyleSheet.absoluteFill}
-                pointerEvents="none"
-                fallbackIntensity={25}
-                fallbackTint={inputBg}
-              />
-              <TextInput
-                value={draft}
-                onChangeText={setDraft}
-                placeholder="Message"
-                placeholderTextColor={subTextColor}
-                style={[styles.input, { color: textColor }]}
-                multiline
-                maxLength={1000}
-              />
-            </View>
-
-            <Pressable
-              onPress={handleSend}
-              disabled={!canSend}
-              style={styles.sendBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Send message"
-              accessibilityState={{ disabled: !canSend }}
-            >
-              <Glass
-                variant="regular"
-                tint={Colors.primary}
-                interactive
-                radius={20}
-                style={StyleSheet.absoluteFill}
-                pointerEvents="none"
-                fallbackIntensity={40}
-                fallbackTint={Colors.primary}
-              />
-              {/* Dimming the icon rather than the button: opacity on a glass
-                  surface's ancestor renders the effect wrong. */}
-              <Ionicons name="arrow-up" size={20} color="#FFFFFF" style={!canSend && styles.dim} />
-            </Pressable>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </View>
+    </GestureDetector>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
   flex: { flex: 1 },
   centre: { flex: 1, alignItems: "center", justifyContent: "center" },
-
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    overflow: "hidden",
-  },
-  headerSide: { width: 44, alignItems: "center", justifyContent: "center" },
-  headerCentre: { flex: 1, alignItems: "center" },
-  headerTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 17 },
-
-  listContent: { paddingHorizontal: 12, paddingVertical: 12 },
-  empty: { alignItems: "center", paddingTop: 60, transform: [{ scaleY: -1 }] },
-  emptyText: { fontFamily: "Poppins_400Regular", fontSize: 14 },
-
-  composer: { paddingTop: 8, paddingHorizontal: 10, overflow: "hidden" },
-  composerRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
-  field: {
-    flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
-    borderRadius: 22,
-    overflow: "hidden",
-    justifyContent: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  input: { fontFamily: "Poppins_400Regular", fontSize: 15, maxHeight: 100, padding: 0 },
-  sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dim: { opacity: 0.45 },
 });
