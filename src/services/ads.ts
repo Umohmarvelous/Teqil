@@ -11,6 +11,7 @@
 // honest one.
 
 import { supabase } from "./supabase";
+import { formatCs } from "./coins";
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -392,14 +393,16 @@ export async function reportAd(adId: string, reason: string, note?: string) {
 // FORMATTING
 // ═════════════════════════════════════════════════════════════════════════════
 
-/** ₦1,250.50 → "₦1,250.50"; ₦30 → "₦30". Whole naira lose the ".00". */
-export function formatNaira(n: number): string {
-  const rounded = Math.round(n * 100) / 100;
-  const whole = Number.isInteger(rounded);
-  return `₦${rounded.toLocaleString("en-NG", {
-    minimumFractionDigits: whole ? 0 : 2,
-    maximumFractionDigits: 2,
-  })}`;
+/**
+ * An ad reward, as `40 cs`.
+ *
+ * This was `formatNaira` and rendered "₦40". Ad rewards were never naira — they
+ * were a number the app promised to convert at a fixed rate — and quoting them
+ * in a real currency is what turned a loyalty balance into something that looks
+ * like money you are owed. See COMPLIANCE.md §2.1 and §2.9.
+ */
+export function formatReward(n: number): string {
+  return formatCs(Math.round(n));
 }
 
 export function formatClock(seconds: number): string {

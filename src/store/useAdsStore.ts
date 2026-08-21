@@ -1,14 +1,26 @@
 // src/store/useAdsStore.ts
 //
 // Rewarded-ads state: the dashboard, the preferences, and the one place where a
-// completed watch turns into money in the fuel pool.
+// completed watch turns into `cs` in the user's pool.
 //
-// ── Why the pool credit lives here and not in the player screen ─────────────
-// `usePoolStore.addAdRevenue` was written months ago with the comment "used
-// from Step 4". This is Step 4. Routing every completion through one function
-// means the player, an autoplay chain and any future entry point all credit
-// identically, and the dedupe key is derived from the session id so a retried
-// call cannot pay twice.
+// ── The two-stage flow, as specified ───────────────────────────────────────
+// Stage 1, immediately: a watch moves cs OUT of the ONE general pool and INTO
+// this user's pool, in a single database transaction. The user is paid before
+// the ad network has paid anybody, which is the point — the wait is EMILGO's,
+// not the user's.
+//
+// Stage 2, later: the ad network settles into EMILGO's own corporate account and
+// an operator replenishes the general pool (`cs_replenish_general`, admin-only).
+// The app cannot do stage 2 and should not be able to.
+//
+// If the general pool is empty, stage 1 REFUSES rather than crediting cs that
+// was never funded. The user is told. A pool that can go negative is a promise
+// the company has not financed.
+//
+// ── Why the credit lives here and not in the player screen ─────────────────
+// Routing every completion through one function means the player, an autoplay
+// chain and any future entry point credit identically, and the dedupe key is
+// derived from the session id so a retried call cannot pay twice.
 //
 // ── Why the dashboard is not persisted ─────────────────────────────────────
 // A streak is a claim about what happened today, and today changes while the
@@ -19,8 +31,7 @@
 import { create } from "zustand";
 import * as ads from "../services/ads";
 import type { AdDashboard, AdPreferences, AdCompletion, AdFormat } from "../services/ads";
-import { usePoolStore } from "./usePoolStore";
-import { useAuthStore } from "./useStore";
+import { useCoinsStore } from "./useCoinsStore";
 
 interface AdsState {
   dashboard: AdDashboard;
@@ -87,17 +98,25 @@ export const useAdsStore = create<AdsState>()((set, get) => ({
       const result = await ads.completeAdSession(sessionId);
 
       if (result.rewarded && result.total_credited > 0) {
-        const uid = useAuthStore.getState().user?.id;
-        if (uid) {
-          // The session id is the dedupe key: `addPoolEntry` drops a second
-          // entry with the same key, so a retry after a dropped response
-          // cannot credit the same watch twice.
-          await usePoolStore
-            .getState()
-            .addPoolEntry(uid, result.total_credited, "ad_revenue", {
-              dedupeKey: `ad_session_${sessionId}`,
-            })
-            .catch((e: any) => console.warn("[ads] pool credit:", e?.message));
+        // The session id is the dedupe key, so a retry after a dropped response
+        // is paid once. This used to append to a client-writable ledger; it now
+        // goes through an RPC that debits the general pool in the same
+        // transaction, because a client that can add a positive entry to its own
+        // balance can mint the currency it is about to gift away.
+        const grant = await useCoinsStore
+          .getState()
+          .creditForAd(
+            Math.round(result.total_credited),
+            `ad_session_${sessionId}`,
+            "Rewarded ad",
+          );
+
+        if (!grant.ok) {
+          // Not an error the user caused. Surfaced so the player can say
+          // "rewards are paused" instead of silently showing +0.
+          set({ error: grant.reason === "general_pool_empty"
+            ? "Rewards are paused while the pool is topped up. Your watch still counted."
+            : "Could not credit that watch. It will not be lost — try again shortly." });
         }
       }
 

@@ -15,7 +15,7 @@
 //      segments and makes "how far along am I" genuinely hard to read. This
 //      scrolls horizontally instead, so the rail is one continuous line and
 //      auto-scrolls to keep the next unclaimed tile in view.
-//   2. The reward is ₦ into the fuel pool, not an abstract currency. A number
+//   2. The reward is cs into the user's pool. A number
 //      someone can spend on a real trip does not need a gold-coin metaphor,
 //      and inventing one would obscure what they are actually earning.
 
@@ -31,7 +31,7 @@ import { HugeiconsIcon } from "@hugeicons/react-native";
 import { Tick02Icon, FuelStationIcon } from "@hugeicons/core-free-icons";
 
 import { useIOSTheme, IOSAppFont } from "@/components/ios";
-import { formatNaira, type AdMilestone } from "@/src/services/ads";
+import { formatReward, type AdMilestone } from "@/src/services/ads";
 
 const TILE_W = 84;
 const TILE_GAP = 10;
@@ -144,7 +144,7 @@ function Tile({ milestone }: { milestone: AdMilestone }) {
         strokeWidth={2}
       />
       <Text style={[styles.amount, { color: on ? t.label : t.secondaryLabel }]} numberOfLines={1}>
-        {formatNaira(milestone.naira)}
+        {formatReward(milestone.naira)}
       </Text>
       <Text style={[styles.at, { color: t.tertiaryLabel }]} numberOfLines={1}>
         {milestone.at} {milestone.at === 1 ? "ad" : "ads"}

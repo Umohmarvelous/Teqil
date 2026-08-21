@@ -13,7 +13,6 @@ import { useSettingsStore } from "@/src/store/useSettingsStore";
 import {
   formatCoins,
   formatNaira,
-  coinsToNaira,
 } from "@/src/utils/helpers";
 // import { useTranslation } from "react-i18next";
 
@@ -50,8 +49,13 @@ export default function DriverDashboard() {
             {balanceHidden ? "* * * * *" : formatCoins(coins)}
           </Text>
         </View>
+        {/* This used to read "≈ ₦n", derived from a fixed 0.7 rate. A published
+            conversion rate from an in-app unit to a real currency is what makes
+            that unit stored value, and stored value needs a CBN licence — see
+            COMPLIANCE.md §2.1. Coins are compared to nothing now; what they are
+            WORTH is stated as what they buy. */}
         <Text style={styles.balanceEquiv}>
-          ≈ {formatNaira(coinsToNaira(coins))}
+          Spend on fuel vouchers and commission waivers
         </Text>
 
       </View>

@@ -68,7 +68,7 @@ import {
   abandonAdSession,
   suppressAd,
   reportAd,
-  formatNaira,
+  formatReward,
   type AdCreative,
   type AdCompletion,
   type NoAdReason,
@@ -289,7 +289,7 @@ export default function WatchAdScreen() {
     }
     iosAlert(
       "Close this ad?",
-      `You need ${remaining} more second${remaining === 1 ? "" : "s"} to earn ${formatNaira(
+      `You need ${remaining} more second${remaining === 1 ? "" : "s"} to earn ${formatReward(
         reward,
       )}. Closing now means you get nothing for this one.`,
       [
@@ -452,7 +452,7 @@ export default function WatchAdScreen() {
             <HugeiconsIcon icon={FuelStationIcon} size={15} color="#fff" strokeWidth={2} />
             <Text style={styles.rewardPillText}>
               {remaining > 0
-                ? `${formatNaira(reward)} in ${remaining}s`
+                ? `${formatReward(reward)} in ${remaining}s`
                 : "Confirming your reward…"}
             </Text>
           </View>
@@ -576,23 +576,23 @@ function RewardState({
         ) : (
           <>
             <Text style={[styles.rewardAmount, { color: t.tint }]}>
-              +{formatNaira(result.total_credited)}
+              +{formatReward(result.total_credited)}
             </Text>
             <Text style={[styles.rewardTitle, { color: t.label }]}>Added to your fuel pool</Text>
 
             <View style={styles.breakdown}>
-              <Line label="This ad" value={formatNaira(result.reward)} />
+              <Line label="This ad" value={formatReward(result.reward)} />
               {result.milestone_bonus > 0 ? (
                 <Line
                   label={result.milestone_label || "Goal reached"}
-                  value={formatNaira(result.milestone_bonus)}
+                  value={formatReward(result.milestone_bonus)}
                   highlight
                 />
               ) : null}
               {result.streak_bonus > 0 ? (
                 <Line
                   label={`${result.streak}-day streak bonus`}
-                  value={formatNaira(result.streak_bonus)}
+                  value={formatReward(result.streak_bonus)}
                   highlight
                 />
               ) : null}

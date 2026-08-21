@@ -1,3 +1,5 @@
+import { formatCs } from "@/src/services/coinFormat";
+
 // export function generateTripCode(): string {
 //   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 //   let code = "";
@@ -33,9 +35,6 @@
 //   return `${coins.toLocaleString()} `;
 // }
 
-// export function coinsToNaira(coins: number): number {
-//   return coins * 0.7;
-// }
 
 // export function formatDistance(km: number): string {
 //   if (km < 1) {
@@ -225,17 +224,43 @@ export function generateId(): string {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
 }
 
-export function formatNaira(amount: number): string {
-  return `₦${amount.toLocaleString("en-NG")}`;
+/**
+ * Real money, in the viewer's own currency.
+ *
+ * Kept under the old name so the ~89 existing call sites keep working, but it is
+ * no longer Nigeria-only: `src/services/currency.ts` reads the user's currency.
+ * New code should import `formatMoney` directly.
+ *
+ * @deprecated Use `formatMoney` from "@/src/services/currency".
+ */
+export function formatNaira(amount: number, currency?: string): string {
+  // Required lazily, for the same reason `formatDistance` does it below:
+  // helpers.ts is imported by the store layer, and `currency.ts` reads the auth
+  // store, so a top-level import would close a cycle.
+  const { formatMoney } = require("../services/currency") as typeof import("../services/currency");
+  return formatMoney(amount, currency);
 }
 
+/**
+ * `1,240 cs`.
+ *
+ * This used to render a bare number with a trailing space, so coins appeared
+ * beside real amounts with nothing to tell them apart.
+ *
+ * @deprecated Use `formatCs` from "@/src/services/coins".
+ */
 export function formatCoins(coins: number): string {
-  return `${coins.toLocaleString()} `;
+  return formatCs(coins);
 }
 
-export function coinsToNaira(coins: number): number {
-  return coins * 0.7;
-}
+// `coinsToNaira(c) => c * 0.7` used to live here, and was rendered to users as
+// "≈ ₦n" on four screens.
+//
+// It is deleted, and it must not come back. A published, fixed conversion rate
+// from an in-app unit to a real currency is the strongest single piece of
+// evidence that the unit IS stored value — which under CBN rules is e-money, and
+// e-money needs a licence this project cannot fund. See COMPLIANCE.md §0 and
+// §2.1. Coins are shown as `cs` and compared to nothing.
 
 /**
  * Render a distance in the user's chosen unit (Settings → Distance units).

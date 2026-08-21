@@ -90,7 +90,8 @@ import PassengerDashboard from "../(passenger)";
 import DriverDashboard from "../(driver)";
 import QuickReceiveModal from "@/components/quickrecieveModal";
 import StatPill from "@/components/StatPill";
-import { formatNaira, coinsToNaira } from "@/src/utils/helpers";
+import { formatNaira } from "@/src/utils/helpers";
+import { formatCs } from "@/src/services/coins";
 import BalanceCard from "@/components/BalanceCard";
 import FindDriverModal from "@/components/FindDriverModal";
 import { getBiometricCredentials } from "@/src/services/auth";
@@ -1228,7 +1229,7 @@ export default function ProfileTab() {
                         <StatPill
                           iconName={Wallet}
                           label="Earned"
-                          value={formatNaira(coinsToNaira(totalEarnedCoins))}
+                          value={formatCs(totalEarnedCoins)}
                           color={textColor}
                         />
                         <StatPill

@@ -26,9 +26,11 @@ import React from "react";
 import { View, Text, Pressable, StyleSheet, ActivityIndicator, Linking } from "react-native";
 import * as Haptics from "expo-haptics";
 import { HugeiconsIcon } from "@hugeicons/react-native";
+import { router } from "expo-router";
 import {
   Call02Icon,
   WhatsappIcon,
+  GiftIcon,
   UserBlock01Icon,
   Alert02Icon,
   Copy01Icon,
@@ -233,6 +235,43 @@ export function ContactCard({ person, onBlock, onReport }: ContactCardProps) {
             </Text>
           </Glass>
         </Pressable>
+
+        {/* Gifting coins is one of the few reasons a passenger opens a driver's
+            card at all, so it sits with Call and WhatsApp rather than behind a
+            menu. Passengers only: a driver gifting a passenger is not a thing
+            the product does, and offering it would look like a payout. */}
+        {isDriver ? (
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push({
+                pathname: "/coins/gift",
+                params: {
+                  userId: person.id,
+                  name: name,
+                  photo: person.profile_photo ?? "",
+                  role: person.role ?? "driver",
+                },
+              });
+            }}
+            style={styles.actionShadow}
+            accessibilityLabel={`Gift coins to ${name}`}
+          >
+            <Glass
+              variant="regular"
+              interactive
+              radius={12}
+              style={styles.actionGlass}
+              fallbackIntensity={40}
+              fallbackTint={t.tertiarySystemFill}
+            >
+              <HugeiconsIcon icon={GiftIcon} size={17} color={t.tint} strokeWidth={2} />
+              <Text style={[styles.actionLabel, { color: t.label }]} numberOfLines={1}>
+                Gift
+              </Text>
+            </Glass>
+          </Pressable>
+        ) : null}
 
         <Pressable onPress={whatsapp} style={styles.actionShadow} accessibilityLabel="WhatsApp">
           <Glass

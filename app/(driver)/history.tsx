@@ -13,7 +13,7 @@ import { Colors } from "@/constants/colors";
 import { Glass, IOSScreen, useCollapsibleScroll } from "@/components/ios";
 import { TripsStorage, PassengersStorage } from "@/src/services/storage";
 import { triggerSyncNow } from "@/src/services/sync";
-import { formatDate, formatDuration, formatCoins, formatNaira, coinsToNaira, } from "@/src/utils/helpers";
+import { formatDate, formatDuration, formatCoins } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react-native";
@@ -77,9 +77,9 @@ function StatSummary({
         fallbackTint={'transparent'}
       >
         <Text style={[styles.summaryValue, { color: textColor }]}>
-          {formatNaira(Math.round(coinsToNaira(totalCoins)))}
+          {formatCoins(totalCoins)}
         </Text>
-        <Text style={[styles.summaryLabel, {color: textColor}]}>Est. Earned</Text>
+        <Text style={[styles.summaryLabel, {color: textColor}]}>Coins earned</Text>
       </Glass>
     </View>
   );

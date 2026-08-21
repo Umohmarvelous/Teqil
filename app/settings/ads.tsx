@@ -27,7 +27,7 @@ import {
 import { haptics } from "@/src/utils/haptics";
 import { useHighlight } from "@/src/hooks/useHighlight";
 import { useAdsStore } from "@/src/store/useAdsStore";
-import { listAdCategories, formatNaira } from "@/src/services/ads";
+import { listAdCategories, formatReward } from "@/src/services/ads";
 import { amIAdmin } from "@/src/services/adAdmin";
 
 const HOURS = [7, 9, 12, 15, 18, 19, 21];
@@ -88,14 +88,14 @@ export default function AdSettings() {
       {/* ── What you're earning ───────────────────────────────────────────── */}
       <IOSListSection
         header="Your rewards"
-        footer={`Each finished ad pays ${formatNaira(
+        footer={`Each finished ad pays ${formatReward(
           dashboard.reward_rewarded,
         )} into your fuel pool. Your pool covers half of every fare you pay with the QR code.`}
       >
         <IOSListRow
           symbol="fuelpump.fill"
           label="Rewards centre"
-          detail={`${dashboard.current_streak}-day streak · ${formatNaira(
+          detail={`${dashboard.current_streak}-day streak · ${formatReward(
             dashboard.total_earned,
           )} earned`}
           accessory={{ type: "disclosure" }}

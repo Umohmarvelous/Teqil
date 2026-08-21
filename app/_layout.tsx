@@ -123,6 +123,22 @@ function RootLayoutNav() {
           name="tiers"
           options={{ headerShown: false, animation: "slide_from_right" }}
         />
+        {/* Coins. `cs` is a reward, not a balance of money — see COMPLIANCE.md.
+            The hub is a normal detail screen; gifting is a MODAL because it is a
+            self-contained task with a confirm step, and dismissing it must not
+            drop the user somewhere else in the stack. */}
+        <Stack.Screen
+          name="coins/index"
+          options={{ headerShown: false, animation: "slide_from_right" }}
+        />
+        <Stack.Screen
+          name="coins/vouchers"
+          options={{ headerShown: false, animation: "slide_from_right" }}
+        />
+        <Stack.Screen
+          name="coins/gift"
+          options={{ headerShown: false, presentation: "modal", animation: "slide_from_bottom" }}
+        />
         {/* Chat side-screens. They push from the right like every other detail
             screen; the chat itself is `direct-chat/[conversationId]`. */}
         <Stack.Screen

@@ -23,7 +23,7 @@ import * as Haptics from "expo-haptics";
 import { useAuthStore } from "@/src/store/useStore";
 import { TripsStorage, BroadcastsStorage, PassengersStorage } from "@/src/services/storage";
 import { syncAll } from "@/src/services/sync";
-import { generateId, formatNaira, coinsToNaira } from "@/src/utils/helpers";
+import { generateId, formatNaira } from "@/src/utils/helpers";
 import type { Trip } from "@/src/models/types";
 import { useTranslation } from "react-i18next";
 import Reanimated, {
@@ -222,7 +222,8 @@ export default function ParkOwnerDashboard() {
       activeTrips: activeTripsList.length,
       totalDrivers: driverIds.size,
       completionRate,
-      totalEstimatedEarnings: Math.round(coinsToNaira(totalCoins)),
+      // Coins, not an imputed cash value. See COMPLIANCE.md §2.1.
+      totalEstimatedEarnings: Math.round(totalCoins),
       totalTrips,
       completedTrips: completedTrips.length,
     });

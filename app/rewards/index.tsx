@@ -54,7 +54,7 @@ import { useAdsStore } from "@/src/store/useAdsStore";
 import { usePoolStore } from "@/src/store/usePoolStore";
 import {
   listAdHistory,
-  formatNaira,
+  formatReward,
   formatClock,
   noRewardLabel,
   type AdHistoryRow,
@@ -138,9 +138,9 @@ export default function RewardsScreen() {
             </Text>
           </View>
 
-          <Text style={[styles.heroValue, { color: t.label }]}>{formatNaira(poolBalance)}</Text>
+          <Text style={[styles.heroValue, { color: t.label }]}>{formatReward(poolBalance)}</Text>
           <Text style={[styles.heroLabel, { color: t.secondaryLabel }]}>
-            in your fuel pool · {formatNaira(d.earned_today)} earned today
+            in your fuel pool · {formatReward(d.earned_today)} earned today
           </Text>
         </View>
 
@@ -162,7 +162,7 @@ export default function RewardsScreen() {
             {blocked
               ? "You've watched every ad available today. Goals reset at midnight."
               : d.next_milestone
-                ? `${toGo} more ${toGo === 1 ? "ad" : "ads"} to earn ${formatNaira(
+                ? `${toGo} more ${toGo === 1 ? "ad" : "ads"} to earn ${formatReward(
                     d.next_milestone.naira,
                   )} — ${d.next_milestone.label}`
                 : "Every goal cleared today. Nicely done."}
@@ -202,7 +202,7 @@ export default function RewardsScreen() {
 
           <Text style={[styles.remaining, { color: t.tertiaryLabel }]}>
             {d.remaining_today} of {d.max_ads_per_day} watches left today ·{" "}
-            {formatNaira(d.reward_rewarded)} each
+            {formatReward(d.reward_rewarded)} each
           </Text>
         </View>
 
@@ -212,7 +212,7 @@ export default function RewardsScreen() {
           <WeekChart week={d.week} quota={d.daily_quota} />
           <View style={[styles.totals, { borderTopColor: t.separator }]}>
             <Total value={String(d.total_watched)} label="Ads watched" />
-            <Total value={formatNaira(d.total_earned)} label="Earned all time" />
+            <Total value={formatReward(d.total_earned)} label="Earned all time" />
             <Total value={String(d.longest_streak)} label="Best streak" />
           </View>
         </View>
@@ -381,7 +381,7 @@ function HistoryRow({ row }: { row: AdHistoryRow }) {
         <View style={styles.historyAmountWrap}>
           <HugeiconsIcon icon={FuelStationIcon} size={13} color={t.tint} strokeWidth={2} />
           <Text style={[styles.historyAmount, { color: t.tint }]}>
-            +{formatNaira(row.reward_amount)}
+            +{formatReward(row.reward_amount)}
           </Text>
         </View>
       ) : (

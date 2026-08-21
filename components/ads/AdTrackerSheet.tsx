@@ -28,7 +28,7 @@ import { HugeiconsIcon } from "@hugeicons/react-native";
 import { FuelStationIcon, Fire02Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 
 import { IOSSheet, IOSButton, useIOSTheme, IOSAppFont } from "@/components/ios";
-import { formatNaira, formatClock, type AdDashboard } from "@/src/services/ads";
+import { formatReward, formatClock, type AdDashboard } from "@/src/services/ads";
 
 export interface AdTrackerSheetProps {
   visible: boolean;
@@ -120,7 +120,7 @@ export function AdTrackerSheet({
 
         <View style={styles.notes}>
           <Note n={1}>
-            Each finished ad pays {formatNaira(d.reward_rewarded)} into your fuel pool. Hitting a
+            Each finished ad pays {formatReward(d.reward_rewarded)} into your fuel pool. Hitting a
             goal above pays its amount on top.
           </Note>
           <Note n={2}>
@@ -157,9 +157,9 @@ export function AdTrackerSheet({
         </View>
 
         <View style={[styles.totals, { borderTopColor: t.separator }]}>
-          <Total label="Earned today" value={formatNaira(d.earned_today)} />
+          <Total label="Earned today" value={formatReward(d.earned_today)} />
           <Total label="Ads watched" value={String(d.total_watched)} />
-          <Total label="Earned all time" value={formatNaira(d.total_earned)} />
+          <Total label="Earned all time" value={formatReward(d.total_earned)} />
         </View>
       </ScrollView>
     </IOSSheet>
@@ -210,7 +210,7 @@ function GoalRow({
           strokeWidth={2}
         />
         <Text style={[styles.goalNaira, { color: reached ? t.tint : t.label }]}>
-          {formatNaira(naira)}
+          {formatReward(naira)}
         </Text>
       </View>
     </View>
