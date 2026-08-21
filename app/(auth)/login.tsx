@@ -24,7 +24,7 @@ import {
   Modal,
   Keyboard,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -68,6 +68,7 @@ function routeByRole(role: string, profileComplete: boolean | undefined) {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function LoginScreen() {
+  const params = useLocalSearchParams<{ add?: string }>();
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.textWhite;
@@ -249,6 +250,12 @@ export default function LoginScreen() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const busy = loading || bioLoading;
 
+  // "Add an account" from the account menu lands here. The flag has to survive
+  // the hop to Sign Up, or a user trying to add a SECOND account (a driver
+  // login next to their passenger one) is silently sent through the first-time
+  // registration path and signed out of the account they already had.
+  const addingAccount = params.add === "1";
+
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
       <View style={[styles.header, { paddingTop: topPadding + 1 }]}>
@@ -258,7 +265,11 @@ export default function LoginScreen() {
         <View style={styles.pageHeaderContainer}>
           <Text style={[styles.pageTitle, { color: textColor }]}>Login</Text>
           <Text style={[styles.pageSubtitle, { color: subTextColor }]}>
-            {knownEmail ? "Welcome back — enter your password" : "Sign in to continue your journey"}
+            {addingAccount
+              ? "Sign in to the account you want to add"
+              : knownEmail
+                ? "Welcome back — enter your password"
+                : "Sign in to continue your journey"}
           </Text>
         </View>
         <View style={styles.backBtn} />
@@ -359,10 +370,17 @@ export default function LoginScreen() {
           )}
         </Pressable>
 
-        <Pressable style={styles.switchBtn} onPress={() => router.replace("/(auth)/register")}>
+        <Pressable
+          style={styles.switchBtn}
+          onPress={() =>
+            router.replace(addingAccount ? "/(auth)/register?add=1" : "/(auth)/register")
+          }
+        >
           <Text style={[styles.switchText, { color: subTextColor }]}>
-            {"Don't have an account? "}
-            <Text style={[styles.switchLink, { color: textColor }]}>Sign Up</Text>
+            {addingAccount ? "Need a new one? " : "Don't have an account? "}
+            <Text style={[styles.switchLink, { color: textColor }]}>
+              {addingAccount ? "Create an account" : "Sign Up"}
+            </Text>
           </Text>
         </Pressable>
       </Animated.View>

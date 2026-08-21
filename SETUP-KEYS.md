@@ -136,6 +136,44 @@ nothing to deliver to.
 
 ---
 
+### 1.4 🔴 Supabase email template — the OTP code must be IN it
+
+Registration now verifies the email **before** the account is usable
+(`src/services/emailVerification.ts`): Supabase mails a 6-digit code, the code
+is exchanged for a session, and only then are the password and profile set.
+
+**Supabase's default "Magic Link" template contains a link and no code.** If you
+do nothing, the mail still sends and the user stares at a screen asking for six
+digits that are not in it.
+
+**What you must do** — Supabase dashboard → Authentication → Emails → *Magic
+Link*, and put `{{ .Token }}` in the body. Something like:
+
+```html
+<h2>Your EMILGO code</h2>
+<p>Enter this code to finish setting up your account:</p>
+<p style="font-size:32px;letter-spacing:8px;font-weight:700">{{ .Token }}</p>
+<p>It expires in an hour. If you didn't ask for it, ignore this email.</p>
+```
+
+Also worth setting, in Authentication → Providers → Email:
+
+| Setting | Value | Why |
+| --- | --- | --- |
+| **Enable email provider** | on | the only sign-in method the app has |
+| **Confirm email** | on | an unconfirmed address is a permanent account-takeover route |
+| **Secure email change** | on | requires confirmation on BOTH addresses |
+| **Leaked password protection** | on | one toggle; checks against HaveIBeenPwned |
+| **OTP expiry** | 3600 or less | the client assumes an hour |
+
+> **On the free tier Supabase's own SMTP is rate-limited to a handful of mails
+> per hour.** That is fine for you testing and will not survive real signups —
+> the second the app has users, point Authentication → SMTP Settings at a real
+> sender (Resend, Postmark, SES). Until then, registration fails for the third
+> person who tries it that hour, and the error looks like the app is broken.
+
+---
+
 ## 2. 🟠 Degrades — feature runs, but on a fallback
 
 ### 2.1 Google Maps — route drawing

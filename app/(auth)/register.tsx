@@ -1,17 +1,38 @@
-
 /**
  * app/(auth)/register.tsx
  *
- * UI updated to match login.tsx design language:
- * - Same color composition (dynamic dark/light via useSettingsStore)
- * - Same typography (Poppins family), borderRadius, input styles
- * - Same header layout (back button + centered title/subtitle)
- * - Same FormField / OrDivider / OAuthButton pattern
- * - Dark/light mode reactive throughout
- * - All original logic, structure, and functionality preserved
+ * Registration, as a four-step wizard.
+ *
+ * ── What changed, and why ──────────────────────────────────────────────────
+ * This was one long scrolling form with eight fields, a Google button, an Apple
+ * button, and a modal that offered to GENERATE the user's password. Four things
+ * were wrong with it:
+ *
+ *  1. **The email was never verified.** `signUp()` created a working account and
+ *     mailed a confirmation nobody had to open. Since this app carries chat,
+ *     trip history and coins, an unverified address is a permanent account-theft
+ *     hole: whoever really owns that mailbox can reset the password whenever
+ *     they like. Verification now happens BEFORE the account is usable.
+ *
+ *  2. **The password was suggested, not chosen.** On focus, a modal offered a
+ *     generated password and iOS offered its own on top. Both are gone — the
+ *     user types their own, autofill is switched off on every password field
+ *     (`NO_AUTOFILL`), and the rules are stricter to compensate.
+ *
+ *  3. **Confirm-password sat there from the first frame**, so people typed into
+ *     it before they had settled on a password and then had to fix both. It is
+ *     revealed only once the password passes every rule.
+ *
+ *  4. **Three roles were offered** and only two exist as a signup path. Park
+ *     Owner is an operator account, not something you self-serve into.
+ *
+ * ── Why a wizard ───────────────────────────────────────────────────────────
+ * Eight required fields on one screen is eight chances to be wrong at once, and
+ * the error summary lands after the submit. Four short steps each fail on their
+ * own, immediately, next to the thing that is wrong.
  */
 
-import React, { useCallback, useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -19,17 +40,12 @@ import {
   StyleSheet,
   Platform,
   ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
 } from "react-native";
-import { useRouter } from "expo-router";
-import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import * as WebBrowser from "expo-web-browser";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -37,419 +53,83 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSpring,
-  withDelay,
+  FadeInDown,
   Easing,
 } from "react-native-reanimated";
 
 import { Colors } from "@/constants/colors";
 import { useAuthStore } from "@/src/store/useStore";
 import { useSettingsStore } from "@/src/store/useSettingsStore";
-import { signUpOfflineAware, saveBiometricCredentials, isUsernameAvailable } from "@/src/services/auth";
+import { isUsernameAvailable, saveBiometricCredentials } from "@/src/services/auth";
+import { rememberAccount } from "@/src/services/accounts";
 import { applyPendingReferral } from "@/src/services/referrals";
 import {
-  generateUsername,
   generateDriverIdFromUsername,
-  generateStrongPassword,
   generateInitialsAvatar,
 } from "@/src/utils/helpers";
 import { getDeviceFingerprint } from "@/src/utils/device";
 import { supabase } from "@/src/services/supabase";
+import { checkPassword, NO_AUTOFILL } from "@/src/services/password";
+import {
+  sendCode,
+  verifyCode,
+  finishSignUp,
+  abandon,
+  CODE_LENGTH,
+  RESEND_COOLDOWN_SECONDS,
+} from "@/src/services/emailVerification";
+import { currencyForCountry, COUNTRIES } from "@/src/services/currency";
 import type { UserRole } from "@/src/models/types";
 import { iosAlert } from "@/components/ios";
 
-WebBrowser.maybeCompleteAuthSession();
+// ─── The steps ───────────────────────────────────────────────────────────────
 
-// ─── Schema ───────────────────────────────────────────────────────────────────
+type Step = "role" | "you" | "email" | "password";
+const ORDER: Step[] = ["role", "you", "email", "password"];
 
-const registerSchema = z
-  .object({
-    firstName: z.string().min(1, "First name is required"),
-    lastName: z.string().min(1, "Last name is required"),
-    username: z
-      .string()
-      .min(3, "Username must be at least 3 characters")
-      .max(20, "Username must be 20 characters or less")
-      .regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers, and underscores"),
-    email: z
-      .string()
-      .min(1, "Email is required")
-      .email("Enter a valid email address"),
-    phone: z
-      .string()
-      .min(7, "Enter a valid phone number")
-      .regex(/^\+?[\d\s\-]{7,}$/, "Enter a valid phone number"),
-    age: z
-      .string()
-      .min(1, "Age is required")
-      .refine((val) => {
-        const n = parseInt(val, 10);
-        return !isNaN(n) && n >= 18;
-      }, "You must be at least 18"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
-    confirmPassword: z.string().min(1, "Please confirm your password"),
-  })
-  .refine((d) => d.password === d.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
-
-type RegisterFormData = z.infer<typeof registerSchema>;
-
-// ─── Animated pressable (matches login.tsx) ───────────────────────────────────
-
-function AnimatedPressable({
-  onPress,
-  disabled,
-  style,
-  children,
-}: {
-  onPress: () => void;
-  disabled?: boolean;
-  style: object | object[];
-  children: React.ReactNode;
-}) {
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-  return (
-    <Animated.View style={animStyle}>
-      <Pressable
-        onPress={onPress}
-        disabled={disabled}
-        onPressIn={() => { if (!disabled) scale.value = withSpring(0.95, { damping: 20 }); }}
-        onPressOut={() => { scale.value = withSpring(1, { damping: 15 }); }}
-        style={style}
-      >
-        {children}
-      </Pressable>
-    </Animated.View>
-  );
-}
-
-// ─── Role selector ────────────────────────────────────────────────────────────
-
-const ROLES: { value: UserRole; label: string; icon: keyof typeof Ionicons.glyphMap; }[] = [
-  { value: "driver",     label: "Driver",     icon: "car-sport"  },
-  { value: "passenger",  label: "Passenger",  icon: "person"     },
-  { value: "park_owner", label: "Park Owner", icon: "business"   },
+/**
+ * Only two.
+ *
+ * Park Owner used to be here. It is an operator account — a park is onboarded by
+ * agreement, its drivers are attached to it, and it can see other people's
+ * trips. That is not something anyone should be able to self-serve into by
+ * tapping a card, and the screens behind it assume a park exists.
+ */
+const ROLES: {
+  value: UserRole;
+  label: string;
+  blurb: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
+  {
+    value: "passenger",
+    label: "Passenger",
+    blurb: "Find trips, pay half the fare, and track the ride.",
+    icon: "person",
+  },
+  {
+    value: "driver",
+    label: "Driver",
+    blurb: "Carry passengers, earn coins, and get your fuel benefit.",
+    icon: "car-sport",
+  },
 ];
 
-function RoleSelector({
-  value,
-  onChange,
-}: {
-  value: UserRole | null;
-  onChange: (r: UserRole) => void;
-}) {
-  const { theme } = useSettingsStore();
-  const isDark = theme === "dark";
-  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
-  const cardBg = isDark ? "rgba(255,255,255,0.06)" : "#F5F7FA";
-
-  return (
-    <View style={roleStyles.container}>
-      <Text style={[roleStyles.label, { color: subTextColor }]}>Who Are You?</Text>
-      <View style={roleStyles.row}>
-        {ROLES.map((role) => {
-          const active = value === role.value;
-          return (
-            <Pressable
-              key={role.value}
-              style={[
-                roleStyles.card,
-                { backgroundColor: cardBg, borderColor },
-                active && { backgroundColor: isDark ? Colors.primaryDark : Colors.primary, borderColor: Colors.primary },
-              ]}
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onChange(role.value); }}
-            >
-              <Ionicons
-                name={role.icon}
-                size={22}
-                color={active ? "#fff" : isDark ? Colors.textSecondary : Colors.textTertiary}
-              />
-              <Text style={[roleStyles.cardLabel, { color: active ? "#fff" : subTextColor }]}>
-                {role.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
-const roleStyles = StyleSheet.create({
-  container: { marginBottom: 8 },
-  label: {
-    fontFamily: "Poppins_500Medium",
-    fontSize: 13,
-    marginTop: 16,
-    marginBottom: 10,
-    paddingLeft: 5,
-  },
-  row: { flexDirection: "row", gap: 10 },
-  card: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 9,
-    paddingVertical: 20,
-    paddingHorizontal: 10,
-    gap: 6,
-  },
-  cardLabel: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 12,
-    textAlign: "center",
-  },
-});
-
-// ─── Password suggestion modal ────────────────────────────────────────────────
-
-function PasswordSuggestionModal({
-  visible,
-  onAccept,
-  onDismiss,
-  suggestion,
-}: {
-  visible: boolean;
-  onAccept: (pw: string) => void;
-  onDismiss: () => void;
-  suggestion: string;
-}) {
-  const { theme } = useSettingsStore();
-  const isDark = theme === "dark";
-  const sheetBg = isDark ? Colors.primaryDarker : "#FFFFFF";
-  const textColor = isDark ? Colors.textWhite : Colors.text;
-  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
-  const pwBoxBg = isDark ? "rgba(255,255,255,0.05)" : "#F5F7FA";
-
-  return (
-    <Modal
-      transparent
-      visible={visible}
-      animationType="slide"
-      onRequestClose={onDismiss}
-    >
-      <Pressable style={pwStyles.backdrop} onPress={onDismiss}>
-        <View style={[pwStyles.sheet, { backgroundColor: sheetBg }]} onStartShouldSetResponder={() => true}>
-          <View style={[pwStyles.handle, { backgroundColor: borderColor }]} />
-          <View style={pwStyles.iconRow}>
-            <View style={[pwStyles.iconBg, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : Colors.border }]}>
-              <Ionicons name="key-outline" size={26} color={Colors.primary} />
-            </View>
-          </View>
-          <Text style={[pwStyles.title, { color: textColor }]}>Use a Strong Password?</Text>
-          <Text style={[pwStyles.sub, { color: subTextColor }]}>
-            We generated a strong password for you. Save it somewhere safe!
-          </Text>
-          <View style={[pwStyles.pwBox, { backgroundColor: pwBoxBg, borderColor }]}>
-            <Text style={[pwStyles.pwText, { color: Colors.primary }]} selectable>{suggestion}</Text>
-          </View>
-          <Pressable
-            style={pwStyles.acceptBtn}
-            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onAccept(suggestion); }}
-          >
-            <Text style={pwStyles.acceptBtnText}>Use this password</Text>
-          </Pressable>
-          <Pressable style={pwStyles.dismissBtn} onPress={onDismiss}>
-            <Text style={[pwStyles.dismissBtnText, { color: subTextColor }]}>Type my own</Text>
-          </Pressable>
-        </View>
-      </Pressable>
-    </Modal>
-  );
-}
-
-const pwStyles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.75)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 28,
-    paddingBottom: 44,
-    alignItems: "center",
-    gap: 14,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    marginBottom: 8,
-  },
-  iconRow: { marginBottom: 4 },
-  iconBg: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  title: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 20,
-    textAlign: "center",
-  },
-  sub: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    textAlign: "center",
-    lineHeight: 22,
-  },
-  pwBox: {
-    borderRadius: 14,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    width: "100%",
-    borderWidth: 1,
-  },
-  pwText: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 17,
-    letterSpacing: 1.5,
-    textAlign: "center",
-  },
-  acceptBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 26,
-    height: 52,
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  acceptBtnText: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 16,
-    color: "#fff",
-  },
-  dismissBtn: { paddingVertical: 8 },
-  dismissBtnText: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    textDecorationLine: "underline",
-  },
-});
-
-// ─── Divider ──────────────────────────────────────────────────────────────────
-
-function OrDivider() {
-  const { theme } = useSettingsStore();
-  const isDark = theme === "dark";
-  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
-
-  return (
-    <View style={divStyles.row}>
-      <View style={[divStyles.line, { backgroundColor: borderColor }]} />
-      <Text style={[divStyles.text, { color: subTextColor }]}>or continue with</Text>
-      <View style={[divStyles.line, { backgroundColor: borderColor }]} />
-    </View>
-  );
-}
-
-const divStyles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", marginVertical: 32 },
-  line: { flex: 1, height: 1 },
-  text: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 13,
-    marginHorizontal: 12,
-  },
-});
-
-// ─── OAuth button ─────────────────────────────────────────────────────────────
-
-function OAuthButton({
-  provider,
-  onPress,
-  loading,
-}: {
-  provider: "google" | "apple";
-  onPress: () => void;
-  loading: boolean;
-}) {
-  const isApple = provider === "apple";
-  const { theme } = useSettingsStore();
-  const isDark = theme === "dark";
-  const textColor = isDark ? Colors.textWhite : Colors.text;
-  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
-
-  return (
-    <Pressable
-      style={[oauthStyles.btn, { backgroundColor: borderColor, borderColor }]}
-      onPress={onPress}
-      disabled={loading}
-    >
-      <Ionicons
-        name={isApple ? "logo-apple" : "logo-google"}
-        size={20}
-        color={isDark ? "#fff" : "#000"}
-      />
-      <Text style={[oauthStyles.text, { color: textColor }]}>
-        {loading ? "Connecting..." : `${isApple ? "Apple" : "Google"}`}
-      </Text>
-    </Pressable>
-  );
-}
-
-const oauthStyles = StyleSheet.create({
-  btn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    borderRadius: 9,
-    height: 52,
-    borderWidth: 1,
-    flex: 1,
-  },
-  text: {
-    fontFamily: "Poppins_500Medium",
-    fontSize: 15,
-  },
-});
-
-// ─── Form field (matches login.tsx FormField exactly) ─────────────────────────
+// ─── Form field ──────────────────────────────────────────────────────────────
 
 function FormField({
-  label,
-  icon,
-  placeholder,
-  value,
-  onChangeText,
-  onBlur,
-  error,
-  secureTextEntry,
-  keyboardType = "default",
-  autoCapitalize = "none",
-  rightElement,
-  inputRef,
-  returnKeyType,
-  onSubmitEditing,
-  onFocus,
-  autoComplete,
-  maxLength,
+  label, icon, placeholder, value, onChangeText, error, hint,
+  secureTextEntry, keyboardType = "default", autoCapitalize = "none",
+  rightElement, inputRef, returnKeyType, onSubmitEditing, maxLength,
+  autoComplete, textContentType, noAutofill,
 }: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   placeholder: string;
   value: string;
   onChangeText: (v: string) => void;
-  onBlur: () => void;
-  error?: string;
+  error?: string | null;
+  hint?: string | null;
   secureTextEntry?: boolean;
   keyboardType?: "email-address" | "default" | "phone-pad" | "number-pad";
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
@@ -457,9 +137,11 @@ function FormField({
   inputRef?: React.RefObject<TextInput | null>;
   returnKeyType?: "next" | "done" | "go";
   onSubmitEditing?: () => void;
-  onFocus?: () => void;
-  autoComplete?: string;
   maxLength?: number;
+  autoComplete?: string;
+  textContentType?: any;
+  /** Switch off every password manager and suggestion path. */
+  noAutofill?: boolean;
 }) {
   const { theme } = useSettingsStore();
   const isDark = theme === "dark";
@@ -470,22 +152,26 @@ function FormField({
   return (
     <View style={fieldStyles.wrap}>
       <Text style={[fieldStyles.label, { color: textColor }]}>{label}</Text>
-      <View style={[
-        fieldStyles.inputRow,
-        error ? fieldStyles.inputRowError : null,
-        { backgroundColor: borderColor },
-        { borderColor: error ? Colors.error : borderColor },
-      ]}>
+      <View
+        style={[
+          fieldStyles.inputRow,
+          { backgroundColor: borderColor, borderColor: error ? Colors.error : borderColor },
+        ]}
+      >
         <Ionicons name={icon} size={20} color={subTextColor} style={fieldStyles.icon} />
         <TextInput
           ref={inputRef}
+          // Spread FIRST so the explicit props below win where they overlap.
+          // They set the same values NO_AUTOFILL does for a password field; what
+          // matters is the part that has no explicit prop — `textContentType`,
+          // `passwordRules` and `importantForAutofill`, which are what actually
+          // switch the suggestion and generator off.
+          {...(noAutofill ? NO_AUTOFILL : {})}
           style={[fieldStyles.input, { color: textColor }]}
           placeholder={placeholder}
           placeholderTextColor={subTextColor}
           value={value}
           onChangeText={onChangeText}
-          onBlur={onBlur}
-          onFocus={onFocus}
           secureTextEntry={secureTextEntry}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
@@ -494,18 +180,25 @@ function FormField({
           onSubmitEditing={onSubmitEditing}
           blurOnSubmit={returnKeyType === "done"}
           maxLength={maxLength}
-          {...(autoComplete ? { autoComplete: autoComplete as any } : {})}
-          {...Platform.select({ web: { style: [fieldStyles.input, { color: textColor, outlineStyle: "none" } as any] } })}
+          {...(!noAutofill && autoComplete ? { autoComplete: autoComplete as any } : {})}
+          {...(!noAutofill && textContentType ? { textContentType } : {})}
+          {...Platform.select({
+            web: { style: [fieldStyles.input, { color: textColor, outlineStyle: "none" } as any] },
+          })}
         />
         {rightElement}
       </View>
-      {error ? <Text style={[fieldStyles.errorText, { color: Colors.error }]}>{error}</Text> : null}
+      {error ? (
+        <Text style={[fieldStyles.errorText, { color: Colors.error }]}>{error}</Text>
+      ) : hint ? (
+        <Text style={[fieldStyles.hintText, { color: subTextColor }]}>{hint}</Text>
+      ) : null}
     </View>
   );
 }
 
 const fieldStyles = StyleSheet.create({
-  wrap: { marginBottom: 14 },
+  wrap: { marginBottom: 4 },
   label: {
     fontFamily: "Poppins_500Medium",
     fontSize: 13,
@@ -519,569 +212,800 @@ const fieldStyles = StyleSheet.create({
     borderRadius: 9,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderWidth: .2,
-    borderColor: "transparent",
+    borderWidth: 0.6,
   },
-  inputRowError: { borderColor: Colors.error },
   icon: { marginRight: 12 },
-  input: {
-    flex: 1,
-    fontFamily: "Poppins_400Regular",
-    fontSize: 15,
-  },
-  errorText: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12,
-    marginTop: 4,
-    paddingLeft: 5,
-  },
+  input: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 15 },
+  errorText: { fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 4, paddingLeft: 5 },
+  hintText: { fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 4, paddingLeft: 5 },
 });
 
-// ─── Main screen ──────────────────────────────────────────────────────────────
+// ─── Password strength ───────────────────────────────────────────────────────
+
+/**
+ * The meter, and the rules as a checklist.
+ *
+ * A bare coloured bar tells someone their password is "weak" and nothing about
+ * what to do, so the rules are listed and tick off as they are met. The bar is
+ * transform-only (`scaleX`), because animating width causes a layout pass on
+ * every keystroke.
+ */
+function PasswordMeter({
+  password, context,
+}: {
+  password: string;
+  context: { email?: string; username?: string; firstName?: string; lastName?: string };
+}) {
+  const { theme } = useSettingsStore();
+  const isDark = theme === "dark";
+  const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
+  const trackColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
+
+  const check = useMemo(() => checkPassword(password, context), [password, context]);
+  const fill = useSharedValue(0);
+
+  useEffect(() => {
+    fill.value = withTiming(check.score / 4, { duration: 220 });
+  }, [check.score, fill]);
+
+  const barStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleX: Math.max(0.02, fill.value) }],
+  }));
+
+  const colour =
+    check.score >= 4 ? Colors.primary
+    : check.score === 3 ? "#3FA34D"
+    : check.score === 2 ? Colors.gold
+    : Colors.error;
+
+  if (!password) return null;
+
+  return (
+    <View style={meterStyles.wrap}>
+      <View style={[meterStyles.track, { backgroundColor: trackColor }]}>
+        <Animated.View style={[meterStyles.fill, { backgroundColor: colour }, barStyle]} />
+      </View>
+
+      <View style={meterStyles.headRow}>
+        <Text style={[meterStyles.label, { color: colour }]}>{check.label}</Text>
+        {check.advice ? (
+          <Text style={[meterStyles.advice, { color: subTextColor }]} numberOfLines={2}>
+            {check.advice}
+          </Text>
+        ) : null}
+      </View>
+
+      <View style={meterStyles.rules}>
+        {check.rules.map((r) => (
+          <View key={r.key} style={meterStyles.ruleRow}>
+            <Ionicons
+              name={r.met ? "checkmark-circle" : "ellipse-outline"}
+              size={14}
+              color={r.met ? Colors.primary : subTextColor}
+            />
+            <Text
+              style={[
+                meterStyles.ruleText,
+                { color: r.met ? subTextColor : subTextColor },
+                r.met && { textDecorationLine: "line-through", opacity: 0.6 },
+              ]}
+            >
+              {r.label}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const meterStyles = StyleSheet.create({
+  wrap: { marginTop: 10, gap: 8 },
+  track: { height: 4, borderRadius: 2, overflow: "hidden" },
+  // `scaleX` from the left edge, so the bar grows rather than sliding.
+  fill: { height: "100%", width: "100%", borderRadius: 2, transformOrigin: "left" },
+  headRow: { flexDirection: "row", alignItems: "baseline", gap: 8, flexWrap: "wrap" },
+  label: { fontFamily: "Poppins_600SemiBold", fontSize: 12.5 },
+  advice: { fontFamily: "Poppins_400Regular", fontSize: 12, flex: 1 },
+  rules: { gap: 5, marginTop: 2 },
+  ruleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  ruleText: { fontFamily: "Poppins_400Regular", fontSize: 12 },
+});
+
+// ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function RegisterScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useSettingsStore();
+  const params = useLocalSearchParams<{ add?: string; role?: string }>();
 
   const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite : Colors.text;
   const subTextColor = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const borderColor = isDark ? "rgba(255,255,255,0.08)" : Colors.text;
+  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "#E8ECF0";
 
   const { selectedRole, setSelectedRole, setUser } = useAuthStore();
-  const [role, setRole] = useState<UserRole | null>(selectedRole || null);
 
+  /**
+   * "Add another account" — a second account with a different role.
+   *
+   * Registration is reachable while already signed in, and finishing here must
+   * not sign the first account out of the picker. `rememberAccount` keeps both,
+   * which is what makes one phone able to hold a passenger and a driver login.
+   */
+  const addingAccount = params.add === "1";
+
+  const [step, setStep] = useState<Step>("role");
+  const [busy, setBusy] = useState(false);
+
+  // ── Step 1: role ────────────────────────────────────────────────────────
+  const [role, setRole] = useState<UserRole | null>(
+    (params.role as UserRole) || (addingAccount ? null : selectedRole) || null,
+  );
+
+  // ── Step 2: you ─────────────────────────────────────────────────────────
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [username, setUsername] = useState("");
+  const [age, setAge] = useState("");
+  const [phone, setPhone] = useState("");
+  const [country, setCountry] = useState("NG");
+  const [usernameState, setUsernameState] = useState<"idle" | "checking" | "free" | "taken" | "invalid">("idle");
+
+  // ── Step 3: email ───────────────────────────────────────────────────────
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+  const [emailError, setEmailError] = useState<string | null>(null);
+
+  // ── Step 4: password ────────────────────────────────────────────────────
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(null);
-  const [pwSuggestion, setPwSuggestion] = useState("");
-  const [pwModalVisible, setPwModalVisible] = useState(false);
 
-  // Reanimated (matches login.tsx animation pattern)
-  const formOpacity = useSharedValue(0);
-  const formY = useSharedValue(20);
+  const confirmRef = useRef<TextInput>(null);
+
+  const pwContext = useMemo(
+    () => ({ email, username, firstName, lastName }),
+    [email, username, firstName, lastName],
+  );
+  const pwCheck = useMemo(() => checkPassword(password, pwContext), [password, pwContext]);
+
+  /**
+   * The confirm field only exists once the password is finished.
+   *
+   * "Finished" is every rule met — not a blur and not a debounce. Revealing it
+   * on blur means it appears while the user is mid-thought and tabbing back;
+   * revealing it on a timer means it appears while they are still typing.
+   * Passing the rules is the only signal that actually means "this is my
+   * password now".
+   */
+  const showConfirmField = pwCheck.acceptable;
 
   useEffect(() => {
-    formOpacity.value = withDelay(150, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
-    formY.value = withDelay(150, withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) }));
-  }, [formOpacity, formY]);
+    // Clearing the confirmation when the password stops being valid prevents the
+    // pair silently disagreeing after an edit.
+    if (!showConfirmField && confirm) setConfirm("");
+  }, [showConfirmField, confirm]);
 
-  const formAnimStyle = useAnimatedStyle(() => ({
-    opacity: formOpacity.value,
-    transform: [{ translateY: formY.value }],
+  const progress = (ORDER.indexOf(step) + 1) / ORDER.length;
+  const barFill = useSharedValue(progress);
+  useEffect(() => {
+    barFill.value = withTiming(progress, { duration: 260, easing: Easing.out(Easing.cubic) });
+  }, [progress, barFill]);
+  const barStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleX: Math.max(0.02, barFill.value) }],
   }));
 
-  const {
-    control,
-    handleSubmit,
-    setValue,
-    formState: { errors },
-  } = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      username: "",
-      email: "",
-      phone: "",
-      age: "",
-      password: "",
-      confirmPassword: "",
-    },
-  });
+  // Resend cooldown.
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const id = setTimeout(() => setResendIn((n) => n - 1), 1000);
+    return () => clearTimeout(id);
+  }, [resendIn]);
 
-  const handlePasswordFocus = useCallback(() => {
-    const suggestion = generateStrongPassword();
-    setPwSuggestion(suggestion);
-    setPwModalVisible(true);
-  }, []);
+  // ── Username availability, debounced ────────────────────────────────────
+  useEffect(() => {
+    const handle = username.trim().toLowerCase();
+    if (!handle) { setUsernameState("idle"); return; }
+    if (!/^[a-z0-9_]{3,20}$/.test(handle)) { setUsernameState("invalid"); return; }
 
-  const handleAcceptPassword = useCallback(
-    (pw: string) => {
-      setValue("password", pw);
-      setValue("confirmPassword", pw);
-      setPwModalVisible(false);
-    },
-    [setValue]
-  );
+    setUsernameState("checking");
+    let alive = true;
+    const id = setTimeout(async () => {
+      const free = await isUsernameAvailable(handle);
+      if (alive) setUsernameState(free ? "free" : "taken");
+    }, 400);
+    return () => { alive = false; clearTimeout(id); };
+  }, [username]);
 
-  const handleRoleChange = (r: UserRole) => {
-    setRole(r);
-    setSelectedRole(r);
-  };
+  // ── Navigation between steps ────────────────────────────────────────────
+  const goBack = useCallback(() => {
+    Haptics.selectionAsync();
+    const i = ORDER.indexOf(step);
+    if (i === 0) { router.back(); return; }
+    // Stepping back out of a verified email would let the address be changed
+    // after it was proven, so the verification is dropped with it.
+    if (step === "password") { setPassword(""); setConfirm(""); }
+    setStep(ORDER[i - 1]);
+  }, [step, router]);
 
-  // ── Submit ──────────────────────────────────────────────────────────────
+  const canLeaveYou =
+    firstName.trim().length >= 2 &&
+    lastName.trim().length >= 2 &&
+    usernameState === "free" &&
+    parseInt(age, 10) >= 18 &&
+    (role !== "driver" || phone.trim().length >= 7);
 
-  const onSubmit = useCallback(
-    async (data: RegisterFormData) => {
-      if (!role) {
-        iosAlert("Select a Role", "Please choose whether you are a driver, passenger, or park owner.");
-        return;
-      }
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      setLoading(true);
-
-      try {
-        // Username is now chosen by the user — reject if it's already taken.
-        const finalUsername = data.username.trim().toLowerCase();
-        const free = await isUsernameAvailable(finalUsername);
-        if (!free) {
-          setLoading(false);
-          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          iosAlert(
-            "Username taken",
-            `"${finalUsername}" is already in use. Please choose a different username.`
-          );
-          return;
-        }
-
-        const resolvedName = `${data.firstName.trim()} ${data.lastName.trim()}`;
-        const driverId = role === "driver"
-          ? generateDriverIdFromUsername(finalUsername)
-          : undefined;
-        const avatarUri = generateInitialsAvatar(resolvedName);
-        const deviceFingerprint = await getDeviceFingerprint();
-
-        const metadata: Record<string, unknown> = {
-          first_name: data.firstName.trim(),
-          last_name: data.lastName.trim(),
-          username: finalUsername,
-          full_name: resolvedName,
-          phone: data.phone.trim(),
-          age: parseInt(data.age, 10),
-          role,
-          points_balance: 0,
-          credits_balance: 10,
-          device_fingerprint: deviceFingerprint,
-          profile_complete: false,
-          profile_photo: avatarUri,
-          ...(driverId ? { driver_id: driverId } : {}),
-        };
-
-        const result = await signUpOfflineAware(data.email.trim(), data.password, metadata);
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-        if (result?.user) {
-          setUser(result.user);
-          await saveBiometricCredentials(data.email.trim(), data.password);
-
-          // A code captured from a `teqil://r/…` link before this account
-          // existed. It has to be applied HERE, in the narrow window after the
-          // session exists and before the claim window closes — `claim_referral`
-          // refuses an account older than the configured hours, which is what
-          // stops two established users referring each other for cash.
-          //
-          // Never blocks signup: an invite that could not be applied is a
-          // missed reward, and telling someone their brand-new account failed
-          // over a referral code would be absurd.
-          applyPendingReferral().catch(() => {});
-        }
-
-        // Everything that used to happen inline here — the sign-up credits, the
-        // pool, the first sync — now runs on the provisioning screen, which can
-        // actually SHOW it happening. Doing it here meant a new user watched a
-        // half-populated home screen fill in and assumed the app was broken.
-        // That screen forwards to driver-profile or the tab shell when it is
-        // done, so the routing below moved there with it.
-        router.replace("/(auth)/provisioning");
-      } catch (err) {
+  // ── Email verification ──────────────────────────────────────────────────
+  const doSendCode = useCallback(async () => {
+    if (busy || resendIn > 0) return;
+    setBusy(true);
+    setEmailError(null);
+    try {
+      const res = await sendCode(email);
+      if (!res.ok) {
+        setEmailError(res.message);
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        iosAlert(t("common.error"), err instanceof Error ? err.message : "Registration failed");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [role, setUser, router, t]
-  );
-
-  // ── OAuth ───────────────────────────────────────────────────────────────
-
-  const handleOAuth = useCallback(
-    async (provider: "google" | "apple") => {
-      if (!role) {
-        iosAlert("Select a Role", "Choose your role before continuing with OAuth.");
         return;
       }
-      setOauthLoading(provider);
-      try {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider,
-          options: {
-            redirectTo: Platform.OS === "web"
-              ? window.location.origin
-              : "teqil://oauth-callback",
-            skipBrowserRedirect: Platform.OS !== "web",
-          },
-        });
-        if (error) throw error;
-        if (Platform.OS !== "web" && data.url) {
-          const result = await WebBrowser.openAuthSessionAsync(data.url, "teqil://oauth-callback");
-          if (result.type === "success") {
-            const { data: sessionData } = await supabase.auth.getSession();
-            const supaUser = sessionData.session?.user;
-            if (supaUser) {
-              const resolvedName = supaUser.user_metadata?.full_name || generateUsername();
-              const driverId = role === "driver"
-                ? generateDriverIdFromUsername(resolvedName)
-                : undefined;
-              const avatarUri = supaUser.user_metadata?.avatar_url || generateInitialsAvatar(resolvedName);
+      setCodeSent(true);
+      setResendIn(RESEND_COOLDOWN_SECONDS);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } finally {
+      setBusy(false);
+    }
+  }, [email, busy, resendIn]);
 
-              await supabase.from("users").upsert({
-                id: supaUser.id,
-                full_name: resolvedName,
-                email: supaUser.email ?? "",
-                phone: "",
-                age: 18,
-                role,
-                points_balance: 0,
-                profile_complete: false,
-                profile_photo: avatarUri,
-                ...(driverId ? { driver_id: driverId } : {}),
-              });
-
-              if (role === "driver") {
-                router.replace("/(auth)/driver-profile");
-              } else if (role === "park_owner") {
-                router.replace("/(main)");
-              } else {
-                router.replace("/(main)");
-              }
-            }
-          }
-        }
-      } catch (err) {
-        iosAlert("OAuth Error", err instanceof Error ? err.message : "Could not sign in");
-      } finally {
-        setOauthLoading(null);
+  const doVerifyCode = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    setEmailError(null);
+    try {
+      const res = await verifyCode(email, code);
+      if (!res.ok) {
+        setEmailError(res.message);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        return;
       }
-    },
-    [role, router]
-  );
+      // The address already belongs to a finished account. Quietly setting a new
+      // password on it would be an account takeover with extra steps.
+      if (!res.isNew) {
+        await abandon();
+        setEmailError(null);
+        iosAlert(
+          "You already have an account",
+          `${email.trim()} is already registered. Sign in instead — you can add a second account with a different email once you are in.`,
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Sign in", onPress: () => router.replace("/(auth)/login") },
+          ],
+        );
+        return;
+      }
+      setEmailVerified(true);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setStep("password");
+    } finally {
+      setBusy(false);
+    }
+  }, [email, code, busy, router]);
 
-  const goToLogin = () => router.replace("/(auth)/login");
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
+  // ── Create the account ──────────────────────────────────────────────────
+  const submit = useCallback(async () => {
+    if (busy || !role) return;
+    if (!pwCheck.acceptable) return;
+    if (password !== confirm) {
+      iosAlert("Passwords don't match", "Type the same password in both fields.");
+      return;
+    }
+
+    setBusy(true);
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      const handle = username.trim().toLowerCase();
+
+      // Re-checked at the last moment: the debounced check ran minutes ago, and
+      // the window between "free" and submit is exactly when a race happens.
+      if (!(await isUsernameAvailable(handle))) {
+        setUsernameState("taken");
+        setStep("you");
+        iosAlert("Username taken", `"${handle}" was claimed while you were signing up. Pick another.`);
+        return;
+      }
+
+      const fullName = `${firstName.trim()} ${lastName.trim()}`;
+      const metadata: Record<string, unknown> = {
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        username: handle,
+        full_name: fullName,
+        age: parseInt(age, 10),
+        role,
+        country_code: country,
+        currency_code: currencyForCountry(country),
+        points_balance: 0,
+        credits_balance: 0,
+        device_fingerprint: await getDeviceFingerprint(),
+        profile_complete: false,
+        profile_photo: generateInitialsAvatar(fullName),
+        ...(role === "driver"
+          ? { phone: phone.trim(), driver_id: generateDriverIdFromUsername(handle) }
+          : {}),
+      };
+
+      const res = await finishSignUp(password, metadata);
+      if (!res.ok) {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        iosAlert(t("common.error"), res.message);
+        return;
+      }
+
+      // Read the profile the trigger just wrote, rather than assembling a local
+      // guess. What the app renders should be what the database holds.
+      const { data: profile } = await supabase
+        .from("users").select("*").eq("id", res.userId).maybeSingle();
+
+      const user = (profile ?? { id: res.userId, email: email.trim(), ...metadata }) as any;
+      setUser(user);
+      setSelectedRole(role);
+      await saveBiometricCredentials(email.trim(), password);
+      // Keeps BOTH logins in the picker, which is what makes one phone able to
+      // hold a passenger account and a driver account.
+      await rememberAccount(user).catch(() => {});
+
+      // A code captured from a `teqil://r/…` link before this account existed.
+      // Never blocks signup: an invite that could not be applied is a missed
+      // reward, not a failed registration.
+      applyPendingReferral().catch(() => {});
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace("/(auth)/provisioning");
+    } catch (err) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      iosAlert(t("common.error"), err instanceof Error ? err.message : "Registration failed");
+    } finally {
+      setBusy(false);
+    }
+  }, [
+    busy, role, pwCheck.acceptable, password, confirm, username, firstName, lastName,
+    age, phone, country, email, setUser, setSelectedRole, router, t,
+  ]);
+
+  const STEP_TITLES: Record<Step, { title: string; sub: string }> = {
+    role:     { title: addingAccount ? "Add an account" : "Create your account",
+                sub: addingAccount
+                  ? "Your other account stays signed in — switch between them any time."
+                  : "First, tell us how you'll use EMILGO." },
+    you:      { title: "About you", sub: "This is what other people see." },
+    email:    { title: "Your email", sub: "We'll send a code to make sure it's really yours." },
+    password: { title: "Set a password", sub: "Type your own — no suggestions, no autofill." },
+  };
 
   return (
     <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: bg }]}
-      // behavior={Platform.OS === "ios" ? "padding" : "height"}
-      // keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={0}
+      style={{ flex: 1, backgroundColor: bg }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      {/* Header — matches login.tsx header exactly */}
-      <View style={[styles.header, { paddingTop: topPadding + 2 }, {backgroundColor:'transparent'}]}>
-        <Pressable style={styles.backBtn} onPress={() => router.dismissTo("/(main)")}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <Pressable onPress={goBack} hitSlop={10} style={styles.back} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={22} color={textColor} />
         </Pressable>
-        <View style={styles.pageHeaderContainer}>
-          <Text style={[styles.pageTitle, { color: textColor }]}>{t("auth.register")}</Text>
-          <Text style={[styles.pageSubtitle, { color: subTextColor }]}>Join thousands of Nigerians on Teqil</Text>
+        <View style={styles.headerText}>
+          <Text style={[styles.title, { color: textColor }]}>{STEP_TITLES[step].title}</Text>
+          <Text style={[styles.sub, { color: subTextColor }]}>{STEP_TITLES[step].sub}</Text>
         </View>
-        <View style={styles.backBtn} />
+        <Text style={[styles.stepCount, { color: subTextColor }]}>
+          {ORDER.indexOf(step) + 1}/{ORDER.length}
+        </Text>
+      </View>
+
+      {/* Transform-only, so the progress bar does not force a layout pass on
+          every step change. */}
+      <View style={[styles.track, { backgroundColor: borderColor }]}>
+        <Animated.View style={[styles.trackFill, barStyle]} />
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 40 }]}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <Animated.View style={formAnimStyle}>
-          {/* Role selector */}
-          <RoleSelector value={role} onChange={handleRoleChange} />
+        {/* ── Role ─────────────────────────────────────────────────────── */}
+        {step === "role" && (
+          <Animated.View entering={FadeInDown.duration(260)} style={{ gap: 12 }}>
+            {ROLES.map((r) => {
+              const active = role === r.value;
+              return (
+                <Pressable
+                  key={r.value}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setRole(r.value);
+                  }}
+                  style={[
+                    styles.roleCard,
+                    { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F5F7FA", borderColor },
+                    active && { borderColor: Colors.primary, backgroundColor: Colors.primary + "12" },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.roleIcon,
+                      { backgroundColor: active ? Colors.primary : borderColor },
+                    ]}
+                  >
+                    <Ionicons name={r.icon} size={22} color={active ? "#fff" : subTextColor} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.roleLabel, { color: textColor }]}>{r.label}</Text>
+                    <Text style={[styles.roleBlurb, { color: subTextColor }]}>{r.blurb}</Text>
+                  </View>
+                  <Ionicons
+                    name={active ? "checkmark-circle" : "ellipse-outline"}
+                    size={22}
+                    color={active ? Colors.primary : subTextColor}
+                  />
+                </Pressable>
+              );
+            })}
 
-          {/* First Name */}
-          <Controller
-            control={control}
-            name="firstName"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <FormField
-                label="First Name"
-                icon="person-outline"
-                placeholder="e.g. Emeka"
-                value={value ?? ""}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                error={errors.firstName?.message}
-                autoCapitalize="words"
-                returnKeyType="next"
-              />
-            )}
-          />
+            {/* Park Owner is not offered. Saying so beats leaving an operator
+                wondering whether the app supports them at all. */}
+            <Text style={[styles.footnote, { color: subTextColor }]}>
+              Running a park? Park accounts are set up with us directly — sign up
+              as a driver or passenger for now and contact support.
+            </Text>
+          </Animated.View>
+        )}
 
-          {/* Last Name */}
-          <Controller
-            control={control}
-            name="lastName"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <FormField
-                label="Last Name"
-                icon="person-outline"
-                placeholder="e.g. Okonkwo"
-                value={value ?? ""}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                error={errors.lastName?.message}
-                autoCapitalize="words"
-                returnKeyType="next"
-              />
-            )}
-          />
+        {/* ── You ──────────────────────────────────────────────────────── */}
+        {step === "you" && (
+          <Animated.View entering={FadeInDown.duration(260)}>
+            <View style={styles.nameRow}>
+              <View style={{ flex: 1 }}>
+                <FormField
+                  label="First name"
+                  icon="person-outline"
+                  placeholder="Ada"
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  autoCapitalize="words"
+                  autoComplete="given-name"
+                  textContentType="givenName"
+                  maxLength={40}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <FormField
+                  label="Last name"
+                  icon="person-outline"
+                  placeholder="Obi"
+                  value={lastName}
+                  onChangeText={setLastName}
+                  autoCapitalize="words"
+                  autoComplete="family-name"
+                  textContentType="familyName"
+                  maxLength={40}
+                />
+              </View>
+            </View>
 
-          {/* Username */}
-          <Controller
-            control={control}
-            name="username"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <FormField
-                label="Username"
-                icon="at-outline"
-                placeholder="Choose a unique username"
-                value={value ?? ""}
-                onChangeText={(v) => onChange(v.replace(/\s/g, "").toLowerCase())}
-                onBlur={onBlur}
-                error={errors.username?.message}
-                autoCapitalize="none"
-                maxLength={20}
-                returnKeyType="next"
-              />
-            )}
-          />
+            <FormField
+              label="Username"
+              icon="at-outline"
+              placeholder="adaobi"
+              value={username}
+              onChangeText={(v) => setUsername(v.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase())}
+              maxLength={20}
+              error={
+                usernameState === "taken" ? "That username is taken."
+                : usernameState === "invalid" ? "3–20 characters: letters, numbers and underscores."
+                : null
+              }
+              hint={
+                usernameState === "free" ? "Available."
+                : "People find you by this. You can't change it later."
+              }
+              rightElement={
+                usernameState === "checking" ? (
+                  <ActivityIndicator size="small" color={subTextColor} />
+                ) : usernameState === "free" ? (
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
+                ) : usernameState === "taken" || usernameState === "invalid" ? (
+                  <Ionicons name="close-circle" size={20} color={Colors.error} />
+                ) : null
+              }
+            />
 
-          {/* Email */}
-          <Controller
-            control={control}
-            name="email"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <FormField
-                label={t("auth.email")}
-                icon="mail-outline"
-                placeholder={t("auth.emailPlaceholder")}
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                error={errors.email?.message}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-                returnKeyType="next"
-              />
-            )}
-          />
+            <FormField
+              label="Age"
+              icon="calendar-outline"
+              placeholder="18"
+              value={age}
+              onChangeText={(v) => setAge(v.replace(/\D/g, "").slice(0, 2))}
+              keyboardType="number-pad"
+              maxLength={2}
+              error={age && parseInt(age, 10) < 18 ? "You must be 18 or older to use EMILGO." : null}
+              hint="You have to be 18 to enter into a ride agreement."
+            />
 
-          {/* Phone */}
-          <Controller
-            control={control}
-            name="phone"
-            render={({ field: { onChange, onBlur, value } }) => (
+            {/* Drivers only.
+                A passenger does not need to hand over a phone number to search
+                for a trip, and collecting one before there is a reason is data
+                you then have to protect — see COMPLIANCE.md §2.7. Passengers
+                add a number later, with consent, when a driver needs to call.
+                A driver has to be reachable to be dispatched at all. */}
+            {role === "driver" && (
               <FormField
-                label={t("auth.phone")}
+                label="Phone"
                 icon="call-outline"
-                placeholder={t("auth.phonePlaceholder")}
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                error={errors.phone?.message}
+                placeholder="080 1234 5678"
+                value={phone}
+                onChangeText={setPhone}
                 keyboardType="phone-pad"
                 autoComplete="tel"
-                returnKeyType="next"
+                textContentType="telephoneNumber"
+                maxLength={20}
+                hint="Passengers see this only after you accept their trip."
               />
             )}
-          />
 
-          {/* Age */}
-          <Controller
-            control={control}
-            name="age"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <FormField
-                label={t("auth.age")}
-                icon="calendar-outline"
-                placeholder={t("auth.agePlaceholder")}
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                error={errors.age?.message}
-                keyboardType="number-pad"
-                maxLength={3}
-                returnKeyType="next"
-              />
-            )}
-          />
-
-          {/* Password */}
-          <Controller
-            control={control}
-            name="password"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <FormField
-                label={t("auth.password")}
-                icon="lock-closed-outline"
-                placeholder={t("auth.passwordPlaceholder")}
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                error={errors.password?.message}
-                secureTextEntry={!showPassword}
-                onFocus={handlePasswordFocus}
-                returnKeyType="next"
-                rightElement={
-                  <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
-                    <Ionicons
-                      name={showPassword ? "eye-off-outline" : "eye-outline"}
-                      size={20}
-                      color={isDark ? Colors.textSecondary : Colors.textTertiary}
-                    />
+            <Text style={[fieldStyles.label, { color: textColor }]}>Country</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.countryRow}>
+              {COUNTRIES.map((c) => {
+                const on = country === c.code;
+                return (
+                  <Pressable
+                    key={c.code}
+                    onPress={() => { Haptics.selectionAsync(); setCountry(c.code); }}
+                    style={[
+                      styles.countryChip,
+                      { backgroundColor: on ? Colors.primary : borderColor },
+                    ]}
+                  >
+                    <Text style={[styles.countryText, { color: on ? "#fff" : textColor }]}>
+                      {c.name}
+                    </Text>
                   </Pressable>
-                }
-              />
-            )}
-          />
-
-          {/* Confirm Password */}
-          <Controller
-            control={control}
-            name="confirmPassword"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <FormField
-                label={t("auth.confirmPassword")}
-                icon="shield-checkmark-outline"
-                placeholder="Repeat your password"
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                error={errors.confirmPassword?.message}
-                secureTextEntry={!showConfirm}
-                returnKeyType="done"
-                onSubmitEditing={handleSubmit(onSubmit)}
-                rightElement={
-                  <Pressable onPress={() => setShowConfirm((v) => !v)} hitSlop={8}>
-                    <Ionicons
-                      name={showConfirm ? "eye-off-outline" : "eye-outline"}
-                      size={20}
-                      color={isDark ? Colors.textSecondary : Colors.textTertiary}
-                    />
-                  </Pressable>
-                }
-              />
-            )}
-          />
-
-          {/* Submit — matches login.tsx submitBtn style */}
-          <AnimatedPressable
-            onPress={handleSubmit(onSubmit)}
-            disabled={loading}
-            style={[
-              styles.submitBtn,
-              loading && styles.submitBtnLoading,
-              { backgroundColor: borderColor, borderColor },
-            ]}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color={isDark ? Colors.textSecondary : "#fff"} />
-            ) : (
-              <Text style={[styles.submitBtnText, { color: "#fff" }]}>Create Account</Text>
-            )}
-          </AnimatedPressable>
-
-          <OrDivider />
-
-          {/* OAuth */}
-          <View style={styles.oauthContent}>
-            {Platform.OS === "ios" && (
-              <OAuthButton
-                provider="apple"
-                onPress={() => handleOAuth("apple")}
-                loading={oauthLoading === "apple"}
-              />
-            )}
-            <OAuthButton
-              provider="google"
-              onPress={() => handleOAuth("google")}
-              loading={oauthLoading === "google"}
-            />
-          </View>
-
-          {/* Sign in link */}
-          <Pressable style={styles.switchBtn} onPress={goToLogin}>
-            <Text style={[styles.switchText, { color: subTextColor }]}>
-              Already have an account?{" "}
-              <Text style={[styles.switchLink, { color: textColor }]}>Sign In</Text>
+                );
+              })}
+            </ScrollView>
+            <Text style={[fieldStyles.hintText, { color: subTextColor }]}>
+              Sets the currency fares are shown in.
             </Text>
-          </Pressable>
-        </Animated.View>
+          </Animated.View>
+        )}
+
+        {/* ── Email ────────────────────────────────────────────────────── */}
+        {step === "email" && (
+          <Animated.View entering={FadeInDown.duration(260)}>
+            <FormField
+              label="Email"
+              icon="mail-outline"
+              placeholder="you@example.com"
+              value={email}
+              onChangeText={(v) => { setEmail(v.trim()); setEmailError(null); }}
+              keyboardType="email-address"
+              autoComplete="email"
+              textContentType="emailAddress"
+              error={emailError}
+              hint={codeSent ? `Code sent to ${email}` : "We'll send a code here before your account is created."}
+              rightElement={
+                emailVerified ? (
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
+                ) : null
+              }
+            />
+
+            {codeSent && (
+              <Animated.View entering={FadeInDown.duration(240)}>
+                <FormField
+                  label={`${CODE_LENGTH}-digit code`}
+                  icon="keypad-outline"
+                  placeholder="123456"
+                  value={code}
+                  onChangeText={(v) => setCode(v.replace(/\D/g, "").slice(0, CODE_LENGTH))}
+                  keyboardType="number-pad"
+                  maxLength={CODE_LENGTH}
+                  // The ONE place a one-time code SHOULD be autofilled: iOS can
+                  // read it out of the mail notification.
+                  textContentType="oneTimeCode"
+                  autoComplete="one-time-code"
+                />
+
+                <Pressable
+                  onPress={doSendCode}
+                  disabled={resendIn > 0 || busy}
+                  style={styles.resend}
+                >
+                  <Text style={[styles.resendText, { color: resendIn > 0 ? subTextColor : Colors.primary }]}>
+                    {resendIn > 0 ? `Resend in ${resendIn}s` : "Send a new code"}
+                  </Text>
+                </Pressable>
+              </Animated.View>
+            )}
+          </Animated.View>
+        )}
+
+        {/* ── Password ─────────────────────────────────────────────────── */}
+        {step === "password" && (
+          <Animated.View entering={FadeInDown.duration(260)}>
+            <FormField
+              label="Password"
+              icon="lock-closed-outline"
+              placeholder="Type your password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              noAutofill
+              maxLength={72}
+              rightElement={
+                <Pressable onPress={() => setShowPassword((s) => !s)} hitSlop={10}>
+                  <Ionicons
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={20}
+                    color={subTextColor}
+                  />
+                </Pressable>
+              }
+            />
+
+            <PasswordMeter password={password} context={pwContext} />
+
+            {/* Revealed only once the password passes every rule — see the note
+                on `showConfirmField`. */}
+            {showConfirmField && (
+              <Animated.View entering={FadeInDown.duration(260)}>
+                <FormField
+                  label="Confirm password"
+                  icon="lock-closed-outline"
+                  placeholder="Type it again"
+                  value={confirm}
+                  onChangeText={setConfirm}
+                  secureTextEntry={!showConfirm}
+                  noAutofill
+                  inputRef={confirmRef}
+                  maxLength={72}
+                  returnKeyType="done"
+                  onSubmitEditing={submit}
+                  error={confirm && confirm !== password ? "These don't match." : null}
+                  hint={confirm && confirm === password ? "Matches." : null}
+                  rightElement={
+                    <Pressable onPress={() => setShowConfirm((s) => !s)} hitSlop={10}>
+                      <Ionicons
+                        name={showConfirm ? "eye-off-outline" : "eye-outline"}
+                        size={20}
+                        color={subTextColor}
+                      />
+                    </Pressable>
+                  }
+                />
+              </Animated.View>
+            )}
+
+            <Text style={[styles.footnote, { color: subTextColor }]}>
+              Password suggestions and autofill are switched off on this screen —
+              your password has to be one you chose and can remember.
+            </Text>
+          </Animated.View>
+        )}
       </ScrollView>
 
-      {/* Password suggestion modal */}
-      <PasswordSuggestionModal
-        visible={pwModalVisible}
-        suggestion={pwSuggestion}
-        onAccept={handleAcceptPassword}
-        onDismiss={() => setPwModalVisible(false)}
-      />
+      {/* ── The one action ─────────────────────────────────────────────── */}
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 12, borderTopColor: borderColor }]}>
+        {step === "role" && (
+          <PrimaryButton
+            label="Continue"
+            disabled={!role}
+            onPress={() => { setSelectedRole(role!); setStep("you"); }}
+          />
+        )}
+
+        {step === "you" && (
+          <PrimaryButton
+            label="Continue"
+            disabled={!canLeaveYou}
+            onPress={() => setStep("email")}
+          />
+        )}
+
+        {step === "email" && (
+          <PrimaryButton
+            label={busy ? "Please wait…" : codeSent ? "Verify code" : "Send code"}
+            busy={busy}
+            disabled={busy || (codeSent ? code.length !== CODE_LENGTH : email.trim().length < 5)}
+            onPress={codeSent ? doVerifyCode : doSendCode}
+          />
+        )}
+
+        {step === "password" && (
+          <PrimaryButton
+            label={busy ? "Creating your account…" : "Create account"}
+            busy={busy}
+            disabled={busy || !pwCheck.acceptable || confirm !== password || !confirm}
+            onPress={submit}
+          />
+        )}
+
+        {step === "role" && !addingAccount ? (
+          <Pressable onPress={() => router.replace("/(auth)/login")} style={styles.signInRow}>
+            <Text style={[styles.signInText, { color: subTextColor }]}>
+              Already have an account? <Text style={{ color: Colors.primary }}>Sign in</Text>
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
+function PrimaryButton({
+  label, onPress, disabled, busy,
+}: { label: string; onPress: () => void; disabled?: boolean; busy?: boolean }) {
+  return (
+    <Pressable
+      onPress={() => { if (!disabled) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onPress(); } }}
+      disabled={disabled}
+      style={[styles.primary, disabled && styles.primaryDisabled]}
+      accessibilityRole="button"
+    >
+      {busy ? <ActivityIndicator size="small" color="#fff" /> : null}
+      <Text style={styles.primaryText}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    // paddingBottom: 8,
+  header: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingHorizontal: 20, paddingBottom: 14 },
+  back: { width: 34, height: 34, alignItems: "center", justifyContent: "center", marginTop: 2 },
+  headerText: { flex: 1 },
+  title: { fontFamily: "Poppins_700Bold", fontSize: 22 },
+  sub: { fontFamily: "Poppins_400Regular", fontSize: 13.5, lineHeight: 19, marginTop: 2 },
+  stepCount: { fontFamily: "Poppins_500Medium", fontSize: 13, marginTop: 6 },
+
+  track: { height: 3, marginHorizontal: 20, borderRadius: 2, overflow: "hidden" },
+  trackFill: {
+    height: "100%", width: "100%", borderRadius: 2,
+    backgroundColor: Colors.primary, transformOrigin: "left",
   },
-  pageHeaderContainer: { alignItems: "center", marginBottom: 0 },
-  pageTitle: {
-    fontFamily: "Poppins_700Bold",
-    fontSize: 20,
-    marginBottom: 3,
+
+  body: { paddingHorizontal: 20, paddingTop: 8 },
+
+  roleCard: {
+    flexDirection: "row", alignItems: "center", gap: 14,
+    borderRadius: 16, padding: 16, borderWidth: 1.2,
   },
-  pageSubtitle: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 12,
+  roleIcon: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  roleLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 16 },
+  roleBlurb: { fontFamily: "Poppins_400Regular", fontSize: 12.5, lineHeight: 18, marginTop: 2 },
+
+  nameRow: { flexDirection: "row", gap: 12 },
+
+  countryRow: { gap: 8, paddingVertical: 2, paddingRight: 20 },
+  countryChip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20 },
+  countryText: { fontFamily: "Poppins_500Medium", fontSize: 13 },
+
+  resend: { alignSelf: "flex-start", paddingVertical: 10, paddingHorizontal: 5 },
+  resendText: { fontFamily: "Poppins_500Medium", fontSize: 13.5 },
+
+  footnote: { fontFamily: "Poppins_400Regular", fontSize: 12, lineHeight: 18, marginTop: 18, paddingHorizontal: 4 },
+
+  footer: { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, gap: 6 },
+  primary: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
+    backgroundColor: Colors.primary, borderRadius: 26, height: 52,
   },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: 5,
-  },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 24 },
-  submitBtn: {
-    borderWidth: 1,
-    borderRadius: 9,
-    height: 56,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 28,
-  },
-  submitBtnLoading: { opacity: 0.7 },
-  submitBtnText: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 16,
-  },
-  oauthContent: {
-    gap: 10,
-    flexDirection: "row",
-    justifyContent: "center",
-    marginBottom: 10,
-  },
-  switchBtn: { alignItems: "center", marginTop: 24, paddingVertical: 8 },
-  switchText: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-  },
-  switchLink: {
-    fontFamily: "Poppins_600SemiBold",
-  },
+  primaryDisabled: { opacity: 0.4 },
+  primaryText: { fontFamily: "Poppins_600SemiBold", fontSize: 16, color: "#fff" },
+
+  signInRow: { alignItems: "center", paddingVertical: 8 },
+  signInText: { fontFamily: "Poppins_400Regular", fontSize: 13.5 },
 });
