@@ -80,7 +80,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   {
     id: "privacy",
     title: "Privacy & Security",
-    summary: "Location, Face ID, emergency contact",
+    summary: "Location, Face ID, emergency contacts",
     symbol: "lock.shield",
     tint: "systemGreen",
     route: "/settings/privacy",
@@ -158,7 +158,7 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: "share-location", label: "Share Location During Trips", detail: "Free rides always track regardless", symbol: "location", section: "privacy", keywords: ["gps", "tracking", "location"] },
   { id: "biometric-lock", label: "Biometric App Lock", detail: "Face ID or passcode to open the app", symbol: "faceid", section: "privacy", keywords: ["face id", "touch id", "fingerprint", "lock", "passcode"] },
   { id: "biometric-payout", label: "Confirm Payout Changes", detail: "Require Face ID to change payout details", symbol: "lock.shield", section: "privacy", keywords: ["face id", "bank", "security", "payout"] },
-  { id: "emergency-contact", label: "Emergency Contact", detail: "One-tap call from a live trip", symbol: "phone.arrow.up.right", section: "privacy", keywords: ["sos", "safety", "help", "emergency"] },
+  { id: "emergency-contact", label: "Emergency contacts", detail: "Who is told when your trips start, end, or go wrong", symbol: "phone.arrow.up.right", section: "privacy", keywords: ["sos", "safety", "help", "emergency", "contact", "next of kin", "family", "trusted"] },
 
   // Rides & Tracking
   { id: "auto-tracking", label: "Start Tracking Automatically", detail: "Begin GPS as soon as a ride opens", symbol: "location.fill.viewfinder", section: "rides", keywords: ["gps", "auto", "tracking"] },

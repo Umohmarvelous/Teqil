@@ -66,8 +66,15 @@ import { syncAll } from "@/src/services/sync";
 import {
   scheduleTripEndNotification,
   scheduleSOSNotification,
+  notifyTripStarted,
   registerForPushNotifications,
 } from "@/src/services/notifications";
+import {
+  openComposer,
+  messageFor,
+  mapLink,
+  type UnreachableContact,
+} from "@/src/services/emergencyContacts";
 import {
   askAI,
   QUICK_ACTIONS,
@@ -1176,6 +1183,73 @@ export default function LiveTripScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]); // intentionally omit isDriver/user.id — read from stable refs
 
+  /**
+   * Open the device's own SMS/WhatsApp composer for contacts the server could
+   * not reach.
+   *
+   * Sequential and awaited: firing four `Linking.openURL` calls at once means
+   * the OS shows one composer and silently discards the rest.
+   */
+  const offerComposer = useCallback(
+    (unreachable: UnreachableContact[], message: string, what: string, urgent = false) => {
+      iosAlert(
+        urgent ? "Send from your phone now" : "Some contacts need a text",
+        `${unreachable.length} of your contacts aren't on EMILGO, so the app can't reach them. ` +
+          `Open your messaging app to tell them you ${what}?`,
+        [
+          { text: urgent ? "Skip" : "Not now", style: "cancel" },
+          {
+            text: "Open",
+            onPress: async () => {
+              for (const c of unreachable) {
+                await openComposer(c, message);
+              }
+            },
+          },
+        ],
+      );
+    },
+    [],
+  );
+
+  /**
+   * Tell the emergency contacts the trip has started — once.
+   *
+   * Fired here rather than at the scan, because this is the first moment the
+   * app knows BOTH that this user is on the trip and which trip it is. The ref
+   * guard matters: this effect re-runs on every passenger-list refresh, and
+   * without it a contact would be pinged every few seconds for the whole ride.
+   */
+  const announcedStartRef = useRef<string | null>(null);
+  useEffect(() => {
+    const t = displayTrip;
+    const me = userRef.current;
+    if (!t || isDriverRef.current || !myPassenger || !me) return;
+    if (announcedStartRef.current === t.id) return;
+    announcedStartRef.current = t.id;
+
+    notifyTripStarted(
+      t,
+      me.full_name ?? "Your contact",
+      driverLocation
+        ? { lat: driverLocation.latitude, lng: driverLocation.longitude }
+        : undefined,
+    )
+      .then((unreachable) => {
+        if (!unreachable.length) return;
+        const { body } = messageFor("trip_start", {
+          name: me.full_name ?? "Your contact",
+          tripCode: t.trip_code,
+          place: t.origin,
+        });
+        offerComposer(unreachable, body, "started a trip");
+      })
+      .catch(() => {});
+    // `driverLocation` is deliberately not a dependency — it changes constantly
+    // and the announcement is a one-shot keyed on the trip.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayTrip?.id, myPassenger?.id, offerComposer]);
+
   // Geocode + fetch route
   useEffect(() => {
     if (!displayTrip) return;
@@ -1451,7 +1525,13 @@ export default function LiveTripScreen() {
             await scheduleTripEndNotification({
               trip: { ...currentTrip, end_time: endTime },
               role: "passenger",
-              emergencyContacts: myPassenger?.emergency_contacts,
+              notifyEmergencyContacts: true,
+              userName: currentUser?.full_name ?? undefined,
+              // Contacts with no EMILGO account cannot be reached by the server.
+              // Rather than dropping them, offer the device's own composer.
+              onUnreachable: (unreachable, message) => {
+                if (unreachable.length) offerComposer(unreachable, message, "arrived safely");
+              },
             }).catch(() => {});
           }
 
@@ -1483,17 +1563,32 @@ export default function LiveTripScreen() {
   const handleSOSConfirm = async () => {
     setSosVisible(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    const contacts = myPassenger?.emergency_contacts ?? [];
-    const locationStr = driverLocation
-      ? `${driverLocation.latitude.toFixed(5)}, ${driverLocation.longitude.toFixed(5)}`
-      : "Location unavailable";
+
+    let unreachable: UnreachableContact[] = [];
     if (displayTrip) {
-      await scheduleSOSNotification(
+      unreachable = await scheduleSOSNotification(
         displayTrip,
-        contacts,
-        locationStr
-      ).catch(() => {});
+        userRef.current?.full_name ?? "Your contact",
+        driverLocation
+          ? { lat: driverLocation.latitude, lng: driverLocation.longitude }
+          : undefined,
+      ).catch(() => [] as UnreachableContact[]);
     }
+
+    // Never claim more than happened. The alert reached the contacts with an
+    // EMILGO account; the rest need a message from this phone, and saying
+    // "everyone has been notified" when nine of ten have not is the exact lie
+    // this feature must not tell.
+    if (unreachable.length && displayTrip) {
+      const { body } = messageFor("sos", {
+        name: userRef.current?.full_name ?? "Your contact",
+        tripCode: displayTrip.trip_code,
+        mapUrl: mapLink(driverLocation?.latitude, driverLocation?.longitude),
+      });
+      offerComposer(unreachable, body, "needs help", true);
+      return;
+    }
+
     iosAlert(
       "SOS Sent",
       "Emergency contacts and park owner have been notified."
