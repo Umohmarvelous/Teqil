@@ -38,6 +38,7 @@ import {
   Modal,
   KeyboardAvoidingView,
   RefreshControl,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -91,6 +92,7 @@ import DriverDashboard from "../(driver)";
 import QuickReceiveModal from "@/components/quickrecieveModal";
 import StatPill from "@/components/StatPill";
 import { formatNaira } from "@/src/utils/helpers";
+import { pickFromLibrary, uploadAvatar } from "@/src/services/avatar";
 import { formatCs } from "@/src/services/coins";
 import BalanceCard from "@/components/BalanceCard";
 import FindDriverModal from "@/components/FindDriverModal";
@@ -522,6 +524,7 @@ export default function ProfileTab() {
 
   const [tab, setTab] = useState<ProfilePane>("profile");
   const [refreshing, setRefreshing] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
   // Shared with SwipeableTabs so the travelling avatar and the bar's collapse
   // are driven by the same offset and can never disagree by a frame.
   const scrollY = useSharedValue(0);
@@ -671,22 +674,29 @@ export default function ProfileTab() {
     }
   }, [user?.id, loadFollowStats]);
 
+  /**
+   * Change the profile photo.
+   *
+   * This used to save `result.assets[0].uri` — a `file://` path inside the
+   * picker's sandbox. It rendered on this phone and NOWHERE else, so everyone
+   * looking at this profile saw a broken image, and so did the owner after a
+   * reinstall. The picture is uploaded first now, and only the resulting public
+   * URL is stored.
+   */
   const pickPhoto = useCallback(async () => {
     haptics.tap();
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) {
-      const uri = result.assets[0].uri;
-      try {
-        await supabase.auth.updateUser({ data: { profile_photo: uri } });
-        updateUser({ profile_photo: uri });
-      } catch {
-        iosAlert("Error", "Could not update photo.");
-      }
+    try {
+      const picked = await pickFromLibrary();
+      if (!picked) return;
+
+      setPhotoUploading(true);
+      const url = await uploadAvatar(picked.uri);
+      await supabase.auth.updateUser({ data: { profile_photo: url } });
+      updateUser({ profile_photo: url });
+    } catch (e: any) {
+      iosAlert("Could not update photo", e?.message ?? "Please try again.");
+    } finally {
+      setPhotoUploading(false);
     }
   }, [updateUser]);
 
@@ -1532,10 +1542,19 @@ export default function ProfileTab() {
           barHeight={barHeight}
           name={displayName}
           photoUri={user?.profile_photo}
-          onPress={pickPhoto}
+          // Guarded, not just disabled-looking: tapping again mid-upload starts
+          // a second picker and a second upload of the same face.
+          onPress={photoUploading ? () => {} : pickPhoto}
           badgeBg={bg}
           badgeColor={textColor}
         />
+
+        {photoUploading ? (
+          <View style={[styles.photoUploading, { top: insets.top + 6 }]} pointerEvents="none">
+            <ActivityIndicator size="small" color="#fff" />
+            <Text style={styles.photoUploadingText}>Uploading photo…</Text>
+          </View>
+        ) : null}
 
         {/* Search: one field, the whole screen's contents behind it. */}
         <IOSSearchOverlay
@@ -1619,6 +1638,15 @@ export default function ProfileTab() {
 }
 
 const styles = StyleSheet.create({
+  photoUploading: {
+    position: "absolute", alignSelf: "center",
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: "rgba(0,0,0,0.72)",
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+    zIndex: 50,
+  },
+  photoUploadingText: { fontFamily: "Poppins_500Medium", fontSize: 12.5, color: "#fff" },
+
   // ── Pinned bar ─────────────────────────────────────────────────────────────
   barRoot: { flex: 1, overflow: "hidden" },
   barRow: {
