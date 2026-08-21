@@ -38,6 +38,7 @@ export type DistanceUnit = "km" | "mi";
  *  - showTierBadge     → publish your credit tier on your public profile
  *  - historyRetentionDays → local trip/route records older than this are pruned
  *  - emergencyContact  → surfaced on the live-trip screen for a one-tap call
+ *  - chatWallpaper     → the default background behind every chat
  *
  * (Language lives in useAuthStore, which drives i18n.)
  */
@@ -83,6 +84,12 @@ interface SettingsStore {
   showTierBadge: boolean;
   historyRetentionDays: RetentionDays;
   emergencyContact: EmergencyContact | null;
+  /**
+   * App-wide chat wallpaper: a preset key, or a `chat-media` path for a picked
+   * photo. A per-conversation setting overrides it; null means the built-in
+   * default. See components/chat/wallpapers.ts.
+   */
+  chatWallpaper: string | null;
 
   /** Record the user's choice. Pass "system" to hand control back to the OS. */
   setTheme: (t: ThemeMode) => void;
@@ -110,6 +117,7 @@ interface SettingsStore {
   setShowTierBadge: (v: boolean) => void;
   setHistoryRetentionDays: (v: RetentionDays) => void;
   setEmergencyContact: (v: EmergencyContact | null) => void;
+  setChatWallpaper: (v: string | null) => void;
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -141,6 +149,7 @@ export const useSettingsStore = create<SettingsStore>()(
       showTierBadge: true,
       historyRetentionDays: 365,
       emergencyContact: null,
+      chatWallpaper: null,
 
       // Choosing a concrete scheme applies it immediately as well as recording
       // the preference, so the UI flips on the same frame as the tap rather
@@ -174,6 +183,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setShowTierBadge: (showTierBadge) => set({ showTierBadge }),
       setHistoryRetentionDays: (historyRetentionDays) => set({ historyRetentionDays }),
       setEmergencyContact: (emergencyContact) => set({ emergencyContact }),
+      setChatWallpaper: (chatWallpaper) => set({ chatWallpaper }),
     }),
     {
       name: "teqil-settings",

@@ -1,15 +1,24 @@
 // app/(main)/messages.tsx
 //
-// CHANGES vs original:
-//   1. ChatScreen and MessageBubble are now named exports so direct-chat/[conversationId].tsx
-//      can import ChatScreen without duplicating it.
-//   2. NewChatModal: replaced the single search flow with two tabs —
-//      "Trip Code" (existing) and "Username" (new).  The Username tab calls
-//      fetchConversationByDriverId then navigates to direct-chat/[conversationId].
-//   3. ConvItem: direct conversations show a UserIcon instead of a car.
-//   4. ConvList filter: includes direct conversations for the current user.
-//   5. Everything else (ChatScreen, MessageBubble, realtime, sidebar, bottom tabs)
-//      is identical to the original.
+// The inbox. Conversation list, search, and the new-message sheet — nothing
+// else.
+//
+// ── What this file stopped doing ───────────────────────────────────────────
+// It used to render the chat SCREEN inline when a trip conversation was tapped,
+// while direct conversations navigated to `/direct-chat/[conversationId]`. Two
+// ways into a chat that behaved differently: the inline one needed the layout
+// told to hide the tab bar, and its back button called `onBack()` AND
+// `router.back()`, which popped the Messages tab off the stack — so closing a
+// chat navigated out of Messages entirely.
+//
+// Every conversation opens the same route now. The tab bar is covered because
+// the route sits above this whole group, not because anything was asked to hide.
+//
+// ── Where the list comes from ──────────────────────────────────────────────
+// `chat_list_conversations()`, pulled on mount and on pull-to-refresh. It used
+// to come only from the persisted cache plus whatever realtime happened to
+// deliver, and "refresh" was `await new Promise(r => setTimeout(r, 700))` — a
+// spinner that fetched nothing.
 
 import React, {
   useState,
@@ -51,14 +60,19 @@ import {
   Search01Icon,
   UserIcon,        // ← new: used for direct-chat list items
   Cancel01Icon,
-  Chat, // ← new: Driver ID tab icon
-  BellOff, // ← new: Driver ID tab icon
+  Chat,
+  StarIcon,
+  PaintBoardIcon,
+  PinIcon,
+  NotificationOff01Icon,
 } from '@hugeicons/core-free-icons';
 import { StatusBar }  from 'expo-status-bar';
-import { ChatScreen } from '@/components/chat/ChatScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Glass, iosAlert, IOSBadge, IOSSearchBar, IOSSheet, NetworkStatus, SwipeableRow, useIOSTheme } from "@/components/ios";
-import { SymbolView } from 'expo-symbols';
+import {
+  Glass, iosAlert, iosActionSheet, IOSBadge, IOSSearchBar, IOSSheet,
+  NetworkStatus, SwipeableRow, useIOSTheme,
+} from "@/components/ios";
+import { isMuted, MUTE_OPTIONS, muteUntilISO } from "@/src/services/chat";
 // Voice notes run on expo-audio.
 //
 // This used to be a stub whose permission request always returned "denied",
@@ -66,8 +80,6 @@ import { SymbolView } from 'expo-symbols';
 // did nothing. expo-audio is the supported replacement and is hook-based rather
 // than imperative, which is why the recorder is created at the top of
 // ChatScreen instead of inside the press handler.
-
-
 
 // ─── The chat screen ────────────────────────────────────────────────────────
 //
@@ -80,7 +92,9 @@ import { SymbolView } from 'expo-symbols';
 // One implementation now, in `components/chat/ChatScreen.tsx`, rendered by both
 // entry points. Re-exported here because existing call sites import it from
 // this module.
-export { ChatScreen, MessageBubble } from '@/components/chat/ChatScreen';
+// `ChatScreen` used to be re-exported from here, which is exactly the fiction
+// that let two chat screens exist: this file looked like the owner. It lives in
+// components/chat/ChatScreen.tsx and the ROUTE renders it.
 
 // ─── New Message sheet — username only ───────────────────────────────────────
 //
@@ -400,11 +414,15 @@ function Highlight({
 }
 
 function ConvItem({
-  item, onPress, onDelete, query = '',
+  item, onPress, onDelete, onPin, onMute, onArchive, onToggleRead, query = '',
 }: {
   item:     Conversation;
   onPress:  () => void;
   onDelete: () => void;
+  onPin:    () => void;
+  onMute:   () => void;
+  onArchive:() => void;
+  onToggleRead: () => void;
   /** Current search term, so the matched span can be highlighted. */
   query?:   string;
 }) {
@@ -427,6 +445,7 @@ function ConvItem({
   // Direct chats get a person icon; trip-based chats keep the default
   const isDirectChat = item.id.startsWith('direct_');
   const unread = item.unread_count ?? 0;
+  const muted  = isMuted(item.muted_until);
   const textColor = ios.label;
   const subTextColor = ios.secondaryLabel;
   const border = ios.separator;
@@ -434,6 +453,34 @@ function ConvItem({
   return (
     <SwipeableRow
       actions={[
+        {
+          key: 'pin',
+          label: item.pinned ? 'Unpin' : 'Pin',
+          symbol: item.pinned ? 'pin.slash.fill' : 'pin.fill',
+          color: ios.systemOrange,
+          onPress: onPin,
+        },
+        {
+          key: 'mute',
+          label: muted ? 'Unmute' : 'Mute',
+          symbol: muted ? 'bell.fill' : 'bell.slash.fill',
+          color: ios.systemGray,
+          onPress: onMute,
+        },
+        {
+          key: 'read',
+          label: unread > 0 ? 'Read' : 'Unread',
+          symbol: unread > 0 ? 'envelope.open.fill' : 'envelope.badge.fill',
+          color: ios.tint,
+          onPress: onToggleRead,
+        },
+        {
+          key: 'archive',
+          label: item.archived ? 'Unarchive' : 'Archive',
+          symbol: 'archivebox.fill',
+          color: ios.systemBlue,
+          onPress: onArchive,
+        },
         {
           key: 'delete',
           label: 'Delete',
@@ -480,6 +527,9 @@ function ConvItem({
         </View>
         <View style={S.convText}>
           <View style={S.convTopRow}>
+            {item.pinned ? (
+              <HugeiconsIcon icon={PinIcon} size={12} color={ios.tertiaryLabel} />
+            ) : null}
             <Highlight
               text={item.participant_name || 'Driver'}
               query={query}
@@ -487,7 +537,7 @@ function ConvItem({
               style={[S.convName, { color: textColor }, unread > 0 && S.convNameUnread]}
               numberOfLines={1}
             />
-            <Text style={[S.convTime, { color: unread > 0 ? ios.tint : subTextColor }]}>
+            <Text style={[S.convTime, { color: unread > 0 && !muted ? ios.tint : subTextColor }]}>
               {timeStr}
             </Text>
           </View>
@@ -502,8 +552,11 @@ function ConvItem({
             >
               {item.last_message || (isDirectChat ? 'Direct message' : 'Tap to start chatting')}
             </Text>
-            {/* The kit's badge, which caps at 99+. The hand-rolled one capped at
-                "9+", so a busy chat looked identical at 10 messages and at 400. */}
+            {/* Muted still counts — muting silences the alert, not the fact
+                that something is waiting. It just stops being tinted. */}
+            {muted ? (
+              <HugeiconsIcon icon={NotificationOff01Icon} size={13} color={ios.tertiaryLabel} />
+            ) : null}
             <IOSBadge count={unread} />
           </View>
           {item.participant_username || item.participant_driver_id ? (
@@ -527,28 +580,19 @@ function ConvItem({
 
 // ─── Main Tab ─────────────────────────────────────────────────────────────────
 
-export interface MessagesTabProps {
-  /**
-   * Fires when a chat opens or closes.
-   *
-   * The tab shell owns the floating tab bar, so this screen cannot hide it by
-   * itself — it reports, and the layout decides.
-   */
-  onChatOpenChange?: (open: boolean) => void;
-}
+type Filter = 'all' | 'unread' | 'archived';
 
-export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {}) {
+export default function MessagesTab() {
   const insets = useSafeAreaInsets();
-  const { theme }  = useSettingsStore() ;
+  const { theme }  = useSettingsStore();
   const { user }   = useAuthStore();
   const {
-    conversations, addConversation, deleteConversation, subscribeToRealtime,
-    searchUsersForChat, startDirectChat,
+    conversations, deleteConversation, subscribeToRealtime,
+    searchUsersForChat, startDirectChat, loadConversations,
+    setPrefs, markRead, markUnread,
   } = useMessagesStore();
-  
-  
-  const ios = useIOSTheme();
 
+  const ios = useIOSTheme();
 
   // Live contact search. The bar used to be `asButton` and opened an overlay
   // that was commented out, so tapping Search did nothing at all.
@@ -558,35 +602,21 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
   const [remoteQuery, setRemoteQuery] = useState("");
   const [remoteHits, setRemoteHits] = useState<ChatCandidate[]>([]);
   const [remoteSearching, setRemoteSearching] = useState(false);
+  const [filter, setFilter] = useState<Filter>('all');
 
   useEffect(() => {
     const h = setTimeout(() => setRemoteQuery(query.trim()), 300);
     return () => clearTimeout(h);
   }, [query]);
 
-
-  const [activeConv,      setActiveConv]      = useState<Conversation | null>(null);
-  const [activeInvalidId, setActiveInvalidId] = useState(false);
-
-  // Report chat open/closed to the tab shell so it can hide the floating tab
-  // bar. Also fires `false` on unmount, so switching tabs while a chat is open
-  // can never strand the bar hidden.
-  useEffect(() => {
-    onChatOpenChange?.(!!activeConv);
-    return () => onChatOpenChange?.(false);
-  }, [activeConv, onChatOpenChange]);
-
   const [newChatVisible,  setNewChatVisible]  = useState(false);
   const [refreshing,      setRefreshing]      = useState(false);
 
   const isDark    = theme === 'dark';
-  // const bg        = isDark ? Colors.background : Colors.textWhite;
   const textColor = isDark ? Colors.textWhite     : Colors.text;
   const subTextColor  = isDark ? Colors.textSecondary : Colors.textTertiary;
-  const border    = isDark ? 'rgba(255,255,255,0.08)' : '#E8ECF0';
   const topPad    = Platform.OS === 'web' ? 67 : insets.top;
 
-  
   const subscribeRef = useRef(subscribeToRealtime);
   useEffect(() => { subscribeRef.current = subscribeToRealtime; });
 
@@ -596,28 +626,41 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
     return () => unsub?.();
   }, [user?.id]);
 
-  // Show all conversations the current user participates in (trip + direct)
-  const visible = useMemo(() => {
-    if (!user) return [];
-    return conversations.filter((c) => {
-      if (user.role === 'driver') {
-        return (
-          c.participant_id === user.id ||
-          (user.driver_id && c.participant_driver_id === user.driver_id) ||
-          c.participant_role === 'passenger'
-        );
-      }
-      // Passengers see everything they started
-      return true;
-    });
-  }, [conversations, user]);
+  // The list is a server query now. Without this the tab showed whatever was
+  // in the persisted cache — which on a fresh install is nothing at all, and
+  // after a reinstall is nothing forever, because realtime only ever delivers
+  // what arrives AFTER you are listening.
+  useEffect(() => {
+    if (!user?.id) return;
+    loadConversations(user.id, user.role === 'driver' ? 'driver' : 'passenger');
+  }, [user?.id, user?.role, loadConversations]);
+
+  /**
+   * The rows to show.
+   *
+   * `chat_list_conversations` already returns only conversations this user is
+   * in, resolved to the other person and ordered pinned-first. The old
+   * client-side role filter here let a passenger through unconditionally
+   * (`return true`) and guessed for a driver — so it was either redundant or
+   * wrong depending on who was looking.
+   */
+  const visible = useMemo(
+    () => conversations.filter((c) => (filter === 'archived' ? c.archived : !c.archived)),
+    [conversations, filter],
+  );
+
+  const archivedCount = useMemo(
+    () => conversations.filter((c) => c.archived).length,
+    [conversations],
+  );
 
   // Local filter: instant, over what is already on screen.
   const filtered = useMemo(() => {
+    const base = filter === 'unread' ? visible.filter((c) => (c.unread_count ?? 0) > 0) : visible;
     const q = query.trim().toLowerCase();
-    if (!q) return visible;
+    if (!q) return base;
     const needle = q.replace(/^@/, '');
-    return visible.filter((c) =>
+    return base.filter((c) =>
       [
         c.participant_name,
         c.participant_username,
@@ -628,7 +671,7 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
         .filter(Boolean)
         .some((f) => String(f).toLowerCase().includes(needle)),
     );
-  }, [visible, query]);
+  }, [visible, query, filter]);
 
   // Remote lookup: people you have NOT chatted with yet. This is what makes the
   // search bar answer "who can I message?" rather than only "which of my
@@ -656,8 +699,21 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await new Promise((r) => setTimeout(r, 700));
+    await loadConversations(user?.id, user?.role === 'driver' ? 'driver' : 'passenger');
     setRefreshing(false);
+  }, [loadConversations, user?.id, user?.role]);
+
+  /** One route in. See the note at the top of this file for why. */
+  const open = useCallback((c: Conversation) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push({
+      pathname: '/direct-chat/[conversationId]',
+      params: {
+        conversationId: c.id,
+        driverName:     c.participant_name,
+        driverId:       c.participant_driver_id ?? '',
+      },
+    });
   }, []);
 
   /**
@@ -695,27 +751,30 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
     ]);
   };
 
-  // Inline chat view.
-  //
-  // Filling the screen is NOT enough to hide the bottom tabs: the tab bar is
-  // absolutely positioned at zIndex 100 in app/(main)/_layout.tsx, so it floats
-  // over whatever this renders. The layout has to be told, which is what
-  // `onChatOpenChange` above is for.
-  if (activeConv) {
-    return (
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <ChatScreen
-          conversation={activeConv}
-          onBack={() => { setActiveConv(null); setActiveInvalidId(false); }}
-          isDark={isDark}
-          invalidId={activeInvalidId}
-        />
-      </GestureHandlerRootView>
+  /** Mute asks for how long, exactly as the in-chat menu does. */
+  const askMute = (c: Conversation) => {
+    if (isMuted(c.muted_until)) {
+      setPrefs(c.id, { clearMute: true });
+      return;
+    }
+    iosActionSheet(
+      'Mute notifications',
+      `You will stop getting alerts from ${c.participant_name || 'this chat'}. It stays in your list and still counts as unread.`,
+      [
+        ...MUTE_OPTIONS.map((o) => ({
+          text: o.label,
+          onPress: () => setPrefs(c.id, { mutedUntil: muteUntilISO(o.hours) }),
+        })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ],
     );
-  }
+  };
 
-
-
+  const filters: { key: Filter; label: string; badge?: number }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'unread', label: 'Unread' },
+    ...(archivedCount ? [{ key: 'archived' as Filter, label: 'Archived', badge: archivedCount }] : []),
+  ];
 
   return (
     <>
@@ -725,7 +784,11 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
         <View style={S.header}>
           <View style={S.headerInner}>
             <View style={S.menuList}>
-              <Pressable style={S.newBtn} onPress={() => setNewChatVisible(true)}>
+              <Pressable
+                style={S.newBtn}
+                onPress={() => setNewChatVisible(true)}
+                accessibilityLabel="New message"
+              >
                 <Glass
                   variant="regular"
                   interactive
@@ -740,58 +803,43 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
 
               <NetworkStatus />
 
-              <View style={[S.menuListContent, {backgroundColor: Colors.overlay,  alignItems:'center', justifyContent:'center'}]}>
+              {/* Two real controls, not decoration. The right-hand pill used to
+                  hold a bell glyph and an SF Symbol with no press handler at
+                  all, on `Colors.overlay` — a 30%-black wash that reads as a
+                  dark red smear over the app's green. */}
+              <View style={S.menuListContent}>
+                <Glass
+                  variant="regular"
+                  interactive
+                  radius={30}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
+                  fallbackIntensity={40}
+                  fallbackTint={isDark ? Colors.overlayLight : Colors.border}
+                />
 
-                  {/* Glass, not a coloured pill. */}
-                  <Glass
-                    variant="regular"
-                    interactive
-                    radius={30}
-                    style={StyleSheet.absoluteFill}
-                    pointerEvents="none"
-                    fallbackIntensity={40}
-                    fallbackTint={isDark ? Colors.overlayLight : Colors.border}
-                  />
+                <Pressable
+                  onPress={() => router.push('/chat/starred')}
+                  hitSlop={8}
+                  accessibilityLabel="Starred messages"
+                >
+                  <HugeiconsIcon icon={StarIcon} size={22} color={textColor} />
+                </Pressable>
 
-                  {/* <Pressable
-                    onPress={toggleSearch}
-                    accessibilityRole="button"
-                    accessibilityLabel="Find a driver"
-                  >
-                    <HugeiconsIcon
-                      icon={Search02Icon}
-                      size={24}
-                      color={textColor}
-                    />
-                  </Pressable> */}
-
-                  <HugeiconsIcon
-                    icon={BellOff}
-                    size={24}
-                    color={textColor}
-                    fill={textColor}
-                  />
-                  
-                  <View style={{ backgroundColor: isDark ? Colors.borderLight : Colors.background,  padding: 5, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
-                    <Glass
-                      variant="regular"
-                      interactive
-                      radius={30}
-                      style={StyleSheet.absoluteFill}
-                      pointerEvents="none"
-                      fallbackIntensity={40}
-                      fallbackTint={isDark ? Colors.overlayLight : Colors.border}
-                    />
-                    <SymbolView name="person.fill" size={24} tintColor={ios.label}  fallback={ios.label} />
-                  </View>
-                </View>
+                <Pressable
+                  onPress={() => router.push('/chat/wallpaper')}
+                  hitSlop={8}
+                  accessibilityLabel="Chat wallpaper"
+                >
+                  <HugeiconsIcon icon={PaintBoardIcon} size={22} color={textColor} />
+                </Pressable>
+              </View>
             </View>
 
             <View style={{ alignSelf:'flex-start' }}>
-              <Text style={[S.headerTitle, { color: textColor }]}>Messages</Text>              
-            </View>            
+              <Text style={[S.headerTitle, { color: textColor }]}>Messages</Text>
+            </View>
           </View>
-
 
           <View style={[S.headerSearch]}>
             <IOSSearchBar
@@ -800,6 +848,26 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
               onCancel={() => setQuery('')}
               placeholder="Search chats, names or @username"
             />
+          </View>
+
+          <View style={S.filterRow}>
+            {filters.map((f) => {
+              const on = filter === f.key;
+              return (
+                <Pressable
+                  key={f.key}
+                  onPress={() => { Haptics.selectionAsync(); setFilter(f.key); }}
+                  style={[
+                    S.filterChip,
+                    { backgroundColor: on ? ios.tint : ios.tertiarySystemFill },
+                  ]}
+                >
+                  <Text style={[S.filterText, { color: on ? '#fff' : ios.secondaryLabel }]}>
+                    {f.label}{f.badge ? ` ${f.badge}` : ''}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
@@ -827,23 +895,14 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
             <ConvItem
               item={item}
               query={query.trim()}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                // Direct chats navigate to the dedicated route so bottom tabs stay hidden
-                if (item.id.startsWith('direct_')) {
-                  router.push({
-                    pathname: '/direct-chat/[conversationId]',
-                    params: {
-                      conversationId: item.id,
-                      driverName:     item.participant_name,
-                      driverId:       item.participant_driver_id ?? '',
-                    },
-                  });
-                } else {
-                  setActiveConv(item);
-                }
-              }}
+              onPress={() => open(item)}
               onDelete={() => confirmDelete(item.id)}
+              onPin={() => setPrefs(item.id, { pinned: !item.pinned })}
+              onMute={() => askMute(item)}
+              onArchive={() => setPrefs(item.id, { archived: !item.archived })}
+              onToggleRead={() =>
+                (item.unread_count ?? 0) > 0 ? markRead(item.id) : markUnread(item.id)
+              }
             />
           )}
 
@@ -852,13 +911,24 @@ export default function MessagesTab({ onChatOpenChange }: MessagesTabProps = {})
               <View style={S.emptyIconBg}>
                 <HugeiconsIcon icon={Chat} size={45}  color={subTextColor}/>
               </View>
-              <Text style={[S.emptyTitle,{color: subTextColor}]}>No messages yet!</Text>
-              
+              <Text style={[S.emptyTitle,{color: subTextColor}]}>
+                {filter === 'unread'
+                  ? 'Nothing unread'
+                  : filter === 'archived'
+                    ? 'No archived chats'
+                    : query.trim()
+                      ? 'No chat matches that'
+                      : 'No messages yet!'}
+              </Text>
+              {filter === 'all' && !query.trim() ? (
+                <Text style={[S.emptySubtitle, { color: subTextColor }]}>
+                  Tap + to find someone by username and start a conversation.
+                </Text>
+              ) : null}
             </View>
           }
         />
       </GestureHandlerRootView>
-
 
       <NewChatModal
         visible={newChatVisible}
@@ -886,8 +956,6 @@ const S = StyleSheet.create({
   newDockBtn:      { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
 
   root:    { flex: 1 },
-  backdrop: { flex: 1 },
-  handle:  { width: 38, height: 5, borderRadius: 3, alignSelf: 'center', marginBottom: 6, opacity: 0.35 },
 
   header:      { flexDirection: 'column', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 14 },
   headerInner: { justifyContent: 'space-between', gap: 10 },
@@ -902,36 +970,30 @@ const S = StyleSheet.create({
     gap:15,
   },
 
+  // No `backgroundColor` here. It used to be `Colors.overlay` — 30% black —
+  // stacked under a Glass layer, which over the app's green header read as a
+  // dark red wash. Glass supplies the material; a solid tint underneath it is
+  // what makes glass look like a stain.
   menuListContent: {
     borderRadius: 30,
-    padding: 5,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
-    gap: 20,
-    paddingLeft: 12,
+    justifyContent: "center",
+    gap: 18,
+    overflow: "hidden",
   },
 
-  // menuListContent: {
-  //   borderRadius: 30,
-  //   padding: 3,
-  //   flexDirection: "row",
-  //   alignItems: "center",
-  //   gap: 15,
-  // },
-  menuBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: "flex-start",
-    justifyContent: "center",
-  },
+  filterRow: { flexDirection: "row", gap: 8, marginTop: 12 },
+  filterChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16 },
+  filterText: { fontFamily: "Poppins_500Medium", fontSize: 12.5 },
 
   headerSearch: { marginTop: 16, marginHorizontal: -16 },
 
-
   convItem:     { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth },
   convText:     { flex: 1, gap: 2 },
-  convTopRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  convTopRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 5 },
   convName:       { fontFamily: 'Poppins_600SemiBold', fontSize: 15, flex: 1 },
   convNameUnread: { fontFamily: 'Poppins_700Bold' },
 
@@ -951,45 +1013,14 @@ const S = StyleSheet.create({
   newContactMeta:   { fontFamily: 'Poppins_400Regular', fontSize: 12 },
   newContactRating: { fontFamily: 'Poppins_500Medium', fontSize: 12 },
 
-  inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-  replyPreview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderLeftWidth: 3,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    marginBottom: 8,
-  },
-  replyPreviewAuthor: { fontFamily: 'Poppins_600SemiBold', fontSize: 12 },
-  replyPreviewText:   { fontFamily: 'Poppins_400Regular', fontSize: 12 },
-  emptyChatCard: {
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 22,
-    paddingVertical: 20,
-    borderRadius: 16,
-    maxWidth: 300,
-  },
   convLastUnread: { fontFamily: 'Poppins_500Medium' },
   convTime:     { fontFamily: 'Poppins_400Regular', fontSize: 11 },
-  convBottomRow:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  convBottomRow:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
   convLast:     { fontFamily: 'Poppins_400Regular', fontSize: 13, flex: 1 },
   convDriverId: { fontFamily: 'Poppins_400Regular', fontSize: 11, marginTop: 1 },
 
   // Small badge overlaid on avatar for direct conversations
   directBadge: { position: 'absolute', bottom: 0, right: 0, width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
-
-  deleteSwipe: { width: 70, alignItems: 'center', justifyContent: 'center' },
-
-  // empty:        { alignItems: 'center', paddingHorizontal: 40, gap: 12, margin: 'auto' },
-  // emptyTitle:   { fontFamily: 'Poppins_500Medium', fontSize: 18, textAlign: 'center' },
-  // emptySub:     { fontFamily: 'Poppins_400Regular', fontSize: 14, textAlign: 'center', lineHeight: 22 },
-  // emptyBtn:     { borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12, marginTop: 8 },
-  // emptyBtnText: { fontFamily: 'Poppins_600SemiBold', fontSize: 14, color: '#fff' },
-
-
 
   // Empty state
   emptyState: {
@@ -1022,23 +1053,10 @@ const S = StyleSheet.create({
     paddingVertical: 15
   },
 
-
-  // New Chat Modal
-  newSheet:      { position: 'absolute', bottom: 0, left: 0, right: 0, borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 24, paddingBottom: 344, gap: 14 },
-  newTitle:      { fontFamily: 'Poppins_700Bold', fontSize: 20 },
-  newSub:        { fontFamily: 'Poppins_400Regular', fontSize: 13, lineHeight: 20 },
-
-  // Tab row inside modal
-  tabRow:        { flexDirection: 'row', borderRadius: 50, padding: 4, gap: 4 },
-  tabBtn:        { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 50 },
-  tabBtnText:    { fontFamily: 'Poppins_600SemiBold', fontSize: 13 },
-
+  // New-chat sheet
   newInputRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 50, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1 },
   newInput:      { flex: 1, fontFamily: 'Poppins_400Regular', fontSize: 15, padding: 0, letterSpacing: 1 },
-  newSearchBtn:  { borderRadius: 14, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', minHeight: 50 },
-  newSearchBtnText: { fontFamily: 'Poppins_600SemiBold', fontSize: 15 },
 
-  suggestionList: { marginTop: 10, borderRadius: 14, overflow: 'hidden' },
   suggestionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1052,71 +1070,4 @@ const S = StyleSheet.create({
   suggestionRole: { fontFamily: 'Poppins_500Medium', fontSize: 11, textTransform: 'capitalize' },
   driverError:   { fontFamily: 'Poppins_400Regular', fontSize: 12, lineHeight: 18, marginTop: -6 },
 
-  resultCard:    { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 14, borderWidth: 1 },
-  resultName:    { fontFamily: 'Poppins_600SemiBold', fontSize: 15 },
-  resultDriverId:{ fontFamily: 'Poppins_600SemiBold', fontSize: 13, marginTop: 1 },
-  resultSub:     { fontFamily: 'Poppins_400Regular', fontSize: 12, marginTop: 2 },
-  chatBtn:       { borderRadius: 12, paddingHorizontal: 18, paddingVertical: 10 },
-  chatBtnText:   { fontFamily: 'Poppins_600SemiBold', fontSize: 14, color: '#fff' },
-
-  warnBanner: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 16, paddingVertical: 10 },
-  warnText:   { fontFamily: 'Poppins_400Regular', fontSize: 12, lineHeight: 18, flex: 1 },
-
-  // Absolute, so messages scroll UNDERNEATH the glass. In flow it had nothing
-  // behind it to sample and the material rendered flat — the exact trap in
-  // CLAUDE.md §4 rule 3. The list is pushed clear with a content inset instead.
-  chatHeader:     { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, gap: 10, borderBottomWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
-  bannerStack:    { position: 'absolute', left: 0, right: 0, zIndex: 15 },
-  chatBack:       { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  chatHeaderInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  chatHeaderName: { fontFamily: 'Poppins_600SemiBold', fontSize: 15 },
-  chatHeaderSub:  { fontFamily: 'Poppins_500Medium', fontSize: 12, marginTop: 1 },
-  chatCallBtn:    { width: 36, height: 36, borderRadius: 18, backgroundColor: `${Colors.primary}20`, alignItems: 'center', justifyContent: 'center' },
-
-  recBanner: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
-  recDot:    { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.error },
-  recText:   { flex: 1, fontFamily: 'Poppins_400Regular', fontSize: 12 },
-
-  messageList:   { paddingVertical: 12, paddingBottom: 20, flexGrow: 1 },
-  emptyChat:     { alignItems: 'center', justifyContent: 'center', gap: 12, paddingTop: 100 },
-  emptyChatText: { fontFamily: 'Poppins_400Regular', fontSize: 14 },
-
-  inputBar:  { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 12, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
-  textInput: { flex: 1, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 10, fontFamily: 'Poppins_400Regular', fontSize: 14, maxHeight: 120, minHeight: 42 },
-  sendBtn:   { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
-
-  bubbleWrap:     { marginVertical: 2, paddingHorizontal: 12 },
-  bubbleWrapMe:   { alignItems: 'flex-end' },
-  bubbleWrapThem: { alignItems: 'flex-start' },
-  bubble:         { maxWidth: '78%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, gap: 4 },
-  bubbleMe:       { backgroundColor: Colors.primary, borderBottomRightRadius: 4 },
-  bubbleThem:     { borderBottomLeftRadius: 4 },
-  bubbleText:     { fontFamily: 'Poppins_400Regular', fontSize: 14, lineHeight: 21 },
-  // Voice note: play control, progress track, remaining time.
-  voiceRow:       { flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 168, paddingVertical: 2 },
-  voiceTrack:     { flex: 1, height: 3, borderRadius: 2, overflow: 'hidden' },
-  voiceFill:      { height: '100%', borderRadius: 2 },
-  voiceTime:      { fontFamily: 'Poppins_500Medium', fontSize: 11, minWidth: 32, textAlign: 'right' },
-  bubbleMeta:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
-  bubbleTime:     { fontFamily: 'Poppins_400Regular', fontSize: 10 },
-  swipeActions:   { flexDirection: 'row', alignItems: 'center' },
-  swipeAction:    { width: 50, height: '100%' as any, alignItems: 'center', justifyContent: 'center' },
-
-  // No horizontal padding: ContactCard owns its own gutters, and adding a
-  // second 30pt here squeezed the stat row and the action buttons into a
-  // narrow column. The sheet is a container, not a layout.
-  infoSheet: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingTop: 10, paddingBottom: 34,
-    maxHeight: '86%',
-  },
-  infoHeader:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  infoTitle:     { fontFamily: 'Poppins_700Bold', fontSize: 18, marginTop: 20 },
-  infoAvatarRow: { alignItems: 'center', marginVertical: 16, gap: 6 },
-  infoName:      { fontFamily: 'Poppins_700Bold', fontSize: 20 },
-  infoSub:       { fontFamily: 'Poppins_400Regular', fontSize: 14 },
-  infoActions:   { flexDirection: 'row', gap: 12, marginTop: 8 },
-  infoActionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 14 },
-  infoActionText:{ fontFamily: 'Poppins_600SemiBold', fontSize: 14, color: '#fff' },
 });

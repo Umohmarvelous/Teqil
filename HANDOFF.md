@@ -9,9 +9,15 @@
 > degrade to a mock rather than failing, so they look finished and are not —
 > payments and KYC especially.
 >
-> Updated 2026-08-19. Branch **`sdk-54-temp`**, HEAD **`47071ec`**, tree clean.
-> Typecheck: **0 errors**. Metro serves the real bundle: **HTTP 200, 30.4 MB dev**.
-> App **boots on simulator and device**.
+> Updated 2026-08-21. Branch **`sdk-54-temp`**, HEAD **`a407a55`**, working tree
+> holds the chat work (uncommitted). Typecheck: **0 errors**. Metro serves the
+> real bundle: **HTTP 200, 31.2 MB dev**. App **boots on simulator and device**.
+>
+> ⚠️ Metro: port 8081/8099 are taken by other projects on this machine, and
+> `npx expo start` then silently prints "Skipping dev server" in non-interactive
+> mode. Use an explicit free port. The bundle URL that actually builds the app is
+> `/.expo/.virtual-metro-entry.bundle?platform=ios&dev=true` — `/index.bundle`
+> 404s, because the entry is `expo-router/entry`.
 >
 > **Every migration is applied.** The two-session "database outage" was never the
 > database: `.dbq.mjs` was resolving Supabase's pooler to its AAAA record, and on
@@ -100,36 +106,54 @@ actions in priority order.
 | 53 | Animated floating ad button | `AdFloatingButton` on Home. Idle float + periodic attention beat; goes quiet at the daily cap. Transform-only (glass) |
 | 54 | Ads settings | `app/settings/ads.tsx` + a new `ads` section in the settings index and search |
 | 55 | Chat screen on the glass kit | Header floats so messages scroll under it; composer glassed; unread rows read as unread; misleading "online" dot removed |
+| 56 | **One chat screen, one route** | `components/chat/ChatScreen.tsx`; the tab no longer renders a chat inline, so `onChatOpenChange` is gone from `(main)/_layout.tsx` |
+| 57 | **`migration_chat_features.sql`** — replies, media, stars, hides, per-user prefs, receipts, 16 RPCs, private `chat-media` bucket | Applied. `supabase/tests/test_chat_features.sql` **40/40** under RLS as two real users |
+| 58 | Per-viewer unread | Derived from `conversation_prefs.last_read_at`. It was one integer on a row both people shared |
+| 59 | Read + delivery receipts that mean something | `chat_mark_read` / `chat_mark_delivered`. `markRead` used to mark your OWN messages read |
+| 60 | The message-UPDATE hole closed | Any participant could rewrite any message in the conversation. Sender-only now |
+| 61 | Starred messages | `app/chat/starred.tsx` |
+| 62 | Media, links and docs | `app/chat/media.tsx`, matched in SQL — the links tab does not download the history to find three URLs |
+| 63 | Mute, pin, archive, mark-unread, clear chat | All one-sided, all in `conversation_prefs`. The realtime handler checks mute before it notifies |
+| 64 | Wallpaper picker, per chat or app-wide | `components/chat/wallpapers.ts`; swatches render the real wallpaper with sample bubbles on it |
+| 65 | Forward, delete-for-everyone, delete-for-me, edit | Server-enforced windows: 2 days to delete, 15 minutes to edit, sender only |
+| 66 | Photos, videos, documents, working voice notes | Private bucket + signed URLs. Voice notes used to store the SENDER's `file://` path |
+| 67 | Selection mode, in-chat search, reply-jump, unread divider, scroll-to-latest, real typing + presence | `ChatScreen` |
 
 ### Not started
 
 | # | Task | Blocked by |
 | --- | --- | --- |
-| 56 | **Apply BOTH outstanding migrations** (`contact_phone`, `ad_rewards`) | The database has been unreachable for two sessions. Highest priority — see §7 |
-| 57 | **Verify chat on device between two real accounts** | Nothing. DB is proven, the React layer is not |
-| 58 | **Verify the feed on device with two real accounts** | Nothing. Same gap: 28/29 DB checks pass, the UI is untested against real traffic |
-| 59 | Per-contact conversation records in Activity | Depends on the chat list settling |
-| 60 | Messages — WhatsApp linking + two-way sync | **Meta Business API + hosted webhook.** Not possible in app code alone — SETUP-KEYS §4.2 |
-| 61 | Same header controls in `messages.tsx` and `profile.tsx` | Nothing; `AccountMenu` is ready to drop in |
-| 62 | Auth gating — no feature usable unless authenticated | Nothing |
-| 63 | Offline-first audit across every feature | Nothing |
-| 64 | Error-control components (boundaries, retry, failure states) | Nothing |
-| 65 | **Phase 8** — watermark overlay + shareable profile deep link | Rating modal already ships |
-| 66 | Verify account switching against two real accounts | Needs two test accounts on one device |
-| 67 | Ad creatives — there are none | An advertiser and a creative. `serve_feed_ads` returns nothing until `ad_creatives` has rows; the feed simply shows no promoted units, which is correct |
-| 68 | **Verify the rewards flow end to end on device** | Needs the migration applied AND at least one `format='rewarded'` creative in `ad_creatives` |
-| 69 | Streak reminder notifications are a preference with no sender | `reminder_enabled`/`reminder_hour` are stored and honoured by nothing yet — needs a scheduled job or a local notification on app open |
-| 70 | `wifi_only_video` is stored but not enforced in the player | The player does not yet check connection type before starting a video ad |
-| 71 | `autoplay_next` is stored but not wired | The player's "Watch another" is manual only |
-| 72 | Ad mediation (AdMob / AppLovin / Meta) instead of a hand-filled table | An account and app review per network — SETUP-KEYS §4.4 |
-| 73 | Number masking instead of raw phone disclosure | A telco account + per-minute billing. SETUP-KEYS |
+| 80 | **Apply BOTH outstanding migrations** (`contact_phone`, `ad_rewards`) | The database has been unreachable for two sessions. Highest priority — see §7 |
+| 81 | **Verify chat on device between two real accounts** | Nothing. DB is proven (40/40), the React layer is not. This is the only thing left on chat |
+| 82 | **Verify the feed on device with two real accounts** | Nothing. Same gap: 28/29 DB checks pass, the UI is untested against real traffic |
+| 83 | Per-contact conversation records in Activity | Depends on the chat list settling |
+| 84 | Messages — WhatsApp linking + two-way sync | **Meta Business API + hosted webhook.** Not possible in app code alone — SETUP-KEYS §4.2 |
+| 85 | Same header controls in `messages.tsx` and `profile.tsx` | Nothing; `AccountMenu` is ready to drop in |
+| 86 | Auth gating — no feature usable unless authenticated | Nothing |
+| 87 | Offline-first audit across every feature | Nothing |
+| 88 | Error-control components (boundaries, retry, failure states) | Nothing |
+| 89 | **Phase 8** — watermark overlay + shareable profile deep link | Rating modal already ships |
+| 90 | Verify account switching against two real accounts | Needs two test accounts on one device |
+| 91 | Ad creatives — there are none | An advertiser and a creative. `serve_feed_ads` returns nothing until `ad_creatives` has rows; the feed simply shows no promoted units, which is correct |
+| 92 | **Verify the rewards flow end to end on device** | Needs the migration applied AND at least one `format='rewarded'` creative in `ad_creatives` |
+| 93 | Streak reminder notifications are a preference with no sender | `reminder_enabled`/`reminder_hour` are stored and honoured by nothing yet — needs a scheduled job or a local notification on app open |
+| 94 | `wifi_only_video` is stored but not enforced in the player | The player does not yet check connection type before starting a video ad |
+| 95 | `autoplay_next` is stored but not wired | The player's "Watch another" is manual only |
+| 96 | Ad mediation (AdMob / AppLovin / Meta) instead of a hand-filled table | An account and app review per network — SETUP-KEYS §4.4 |
+| 97 | Number masking instead of raw phone disclosure | A telco account + per-minute billing. SETUP-KEYS |
 
 ### Carrying debt
 
-- **`app/(main)/messages.tsx` is 1,400+ lines** and holds the chat list, the chat
-  screen, the new-chat modal and the contact sheet. `ChatScreen` and
-  `MessageBubble` are exported from it because `direct-chat/[conversationId].tsx`
-  reuses them. Splitting it is worthwhile but touches both routes.
+- ~~`app/(main)/messages.tsx` is 1,400+ lines~~ — it is ~1,070 now and holds the
+  conversation list and the new-chat sheet only. The chat screen lives in
+  `components/chat/ChatScreen.tsx` and BOTH entry points render it.
+- **`message.media_url` is a storage PATH, not a URL.** `chat-media` is private,
+  so anything that renders it has to go through `resolveMediaUrl` /
+  `useSignedMedia` first. Handing the raw value to `<Image>` fails silently.
+- **A chat wallpaper picked as a photo is stored in that conversation's folder**,
+  which means the other participant could read the object if they knew its path.
+  It is their conversation's folder, and the filename is random, but it is not
+  the same as private. Worth a per-user bucket if wallpapers ever matter more.
 - **Three legacy messaging tables remain**, renamed not dropped:
   `messages_legacy_chats`, `chats`, and `message` (singular, its blocking FK
   dropped). All empty. Drop them once the new schema has run in production for a

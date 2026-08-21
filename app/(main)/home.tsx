@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -61,17 +61,16 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
 
 
 
-  const { conversations } = useMessagesStore();
-  const userUnreadCount = conversations
-    .filter(c => {
-      if (user?.role === "driver") {
-        return c.participant_id === user.id || c.participant_driver_id === user.driver_id;
-      } else if (user?.role === "passenger") {
-        return c.participant_role === "driver" || c.participant_id === user.id;
-      }
-      return false;
-    })
-    .reduce((sum, c) => sum + c.unread_count, 0);
+  // One unread number for the whole app. This used to re-derive it here by
+  // guessing which conversations "belong" to the current role — a driver's own
+  // chats matched two branches and were counted twice, and a park owner matched
+  // none and always saw zero. The list is already per-viewer, so the only
+  // correct filter is "not archived", which is what the store does.
+  const conversations = useMessagesStore((s) => s.conversations);
+  const userUnreadCount = useMemo(
+    () => conversations.filter((c) => !c.archived).reduce((sum, c) => sum + (c.unread_count || 0), 0),
+    [conversations],
+  );
 
   const isDark = theme === "dark";
   const bg = isDark ? Colors.background : Colors.textWhite;
@@ -234,13 +233,13 @@ export default function HomeTab({ insetTop = 0, insetBottom = 0 }: HomeTabProps)
           />
         }
       >
-        <TripListener />
-        <ActiveTripBanner />
+      <TripListener />
+      <ActiveTripBanner />
 
         {/* Role-specific shortcuts */}
         <View style={[styles.shortcutRow, isDark ? { backgroundColor: 'transparent', borderColor} : {
           backgroundColor: 'transparent' } ]}>
-        <Text style={[styles.sectionTitle, { color: textColor }]}>{!user ? 'Quick Transfer' : 'Quick Actions'}</Text>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>{!user ? 'Quick Transfer' : 'Quick Actions'}</Text>
 
           {(!user || user?.role === "passenger") && (
             <View style={[styles.shortcut]}>
@@ -478,7 +477,7 @@ const styles = StyleSheet.create({
   shortcutRow: {
     justifyContent: 'space-between',
     borderRadius: 30, 
-    paddingVertical: 15,
+    paddingTop: 95,
     gap: 15,
     flexDirection: "column",
     flex: 1,

@@ -1,19 +1,37 @@
 // src/store/useMessagesStore.ts
 //
-// Conversations and messages, offline-first: AsyncStorage is the source of
-// truth for reads and Supabase is the sync target, matching the rest of the app
-// (see src/services/sync.ts).
+// Conversations and messages. Offline-first: the persisted cache is what the
+// screen renders, the server is what it reconciles against.
 //
-// Conversation carries both snake_case and camelCase spellings of the same
-// fields. That is not an accident to tidy away — screens written at different
-// times read different spellings, and `addConversation` normalises whatever it
-// is handed into the snake_case canon.
+// ── What changed, and why it had to ────────────────────────────────────────
+// This store used to talk to Supabase table-by-table from inside every action,
+// and three of those queries were wrong in ways that only show up with two real
+// accounts:
+//
+//   • `markRead` ran `update messages set read = true` over the WHOLE
+//     conversation with no sender filter, so opening your own chat marked your
+//     own outgoing messages as read and turned your ticks blue.
+//   • `addMessageLocal` incremented `unread_count` for every message including
+//     your own, so sending a message made the chat unread — for you.
+//   • `unread_count` was one integer on a row BOTH people share. Whoever read
+//     it cleared it for both.
+//
+// Unread is per-viewer by definition, so it now comes from the server computed
+// against this user's `last_read_at` (see migration_chat_features.sql), and the
+// wire calls live in `src/services/chat.ts`. This file is the state machine.
+//
+// ── Optimistic sends ───────────────────────────────────────────────────────
+// A message appears the instant you hit send, marked `pending`. The insert then
+// either confirms it or marks it `failed`, and a failed message keeps a retry.
+// The old code awaited the network before rendering anything, which on a Lagos
+// 3G connection is two seconds of a chat that looks broken.
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/src/services/supabase';
 import { useAuthStore } from '@/src/store/useStore';
+import * as chat from '@/src/services/chat';
 
 export interface Message {
   id: string;
@@ -22,7 +40,16 @@ export interface Message {
   sender_name?: string;
   sender_role?: 'driver' | 'passenger' | 'park_owner';
   text?: string;
+  /** Voice note. A storage path since the upload landed; a `file://` on old rows. */
   audio_uri?: string;
+  /** Storage path in `chat-media`, NOT a URL — resolve with `resolveMediaUrl`. */
+  media_url?: string;
+  media_type?: chat.ChatMediaKind;
+  media_name?: string;
+  media_size?: number;
+  media_width?: number;
+  media_height?: number;
+  duration_ms?: number;
   created_at: string;
   read: boolean;
   status?: 'sent' | 'delivered' | 'read';
@@ -34,6 +61,13 @@ export interface Message {
    * render without a second lookup while scrolling.
    */
   reply_to?: { id: string; author: string; preview: string } | null;
+  starred?: boolean;
+  forwarded?: boolean;
+  edited_at?: string | null;
+  deleted_for_everyone?: boolean;
+  /** Client-only, never sent: an optimistic message still in flight. */
+  pending?: boolean;
+  failed?: boolean;
 }
 
 export interface Conversation {
@@ -51,7 +85,13 @@ export interface Conversation {
   unread_count: number;
   type?: 'trip' | 'direct';
   trip_code?: string;
-  // legacy aliases
+  /** One-sided, per this user. Never a property of the shared row. */
+  muted_until?: string | null;
+  pinned?: boolean;
+  archived?: boolean;
+  wallpaper?: string | null;
+  // legacy aliases — screens written at different times read different
+  // spellings, and `addConversation` normalises whatever it is handed.
   participantId?: string;
   participantName?: string;
   participantRole?: string;
@@ -83,58 +123,99 @@ export interface ChatCandidate {
   avg_rating: number | null;
 }
 
+/** What to send. Everything except the ids, which the store fills in. */
+export interface OutgoingMessage {
+  text?: string;
+  /** A local file:// URI. It is uploaded before the insert. */
+  localMediaUri?: string;
+  mediaKind?: chat.ChatMediaKind;
+  mediaName?: string;
+  mediaWidth?: number;
+  mediaHeight?: number;
+  durationMs?: number;
+  replyTo?: Message | null;
+}
+
 interface MessagesState {
   conversations: Conversation[];
   messages: Record<string, Message[]>;
   typingUsers: Record<string, boolean>;
   realtimeSubscription: any;
-  onlineUsers: Set<string>;
-  /**
-   * Which side the signed-in user is on. Recorded by `loadConversations` so
-   * that a realtime handler can reload the list without having to guess —
-   * guessing wrong shows a driver their inbox as if they were a passenger.
-   */
+  /** Per-conversation presence + typing channels, keyed by conversation id. */
+  liveChannels: Record<string, any>;
+  onlineUsers: Record<string, boolean>;
   viewerRole: 'driver' | 'passenger' | null;
+  loadingConversations: boolean;
 
   addConversation:     (conv: Conversation) => Promise<void>;
   updateConversation:  (id: string, updates: Partial<Conversation>) => void;
   deleteConversation:  (id: string) => Promise<void>;
   addMessage:          (msg: Message) => Promise<void>;
   addMessageLocal:     (msg: Message) => void;
+  /** The send path: optimistic insert, upload if needed, confirm or fail. */
+  sendMessage2:        (convId: string, out: OutgoingMessage) => Promise<void>;
+  retryMessage:        (convId: string, msgId: string) => Promise<void>;
   updateMessage:       (convId: string, msgId: string, updates: Partial<Message>) => Promise<void>;
+  updateMessageLocal:  (convId: string, msgId: string, updates: Partial<Message>) => void;
   deleteMessage:       (convId: string, msgId: string) => Promise<void>;
+  deleteForMe:         (convId: string, msgIds: string[]) => Promise<void>;
+  deleteForEveryone:   (convId: string, msgIds: string[]) => Promise<void>;
+  toggleStar:          (convId: string, msgId: string) => Promise<void>;
+  editMessage:         (convId: string, msgId: string, text: string) => Promise<string | null>;
+  forwardMessages:     (msgIds: string[], convIds: string[]) => Promise<number>;
   markRead:            (convId: string) => Promise<void>;
+  markUnread:          (convId: string) => Promise<void>;
+  clearHistory:        (convId: string) => Promise<void>;
+  setPrefs:            (convId: string, patch: chat.PrefPatch) => Promise<void>;
   setTyping:           (convId: string, isTyping: boolean) => void;
   getMessages:         (convId: string) => Message[];
-  getUnreadCount:      (userId: string, role: string, driverId?: string) => number;
+  getUnreadCount:      (userId?: string, role?: string, driverId?: string) => number;
   subscribeToRealtime: (userId: string) => () => void;
   unsubscribeRealtime: () => void;
-  loadConversations:   (userId: string, role: 'driver' | 'passenger') => Promise<void>;
+  /** Typing + presence for ONE open chat. Returns its own teardown. */
+  joinConversation:    (convId: string, userId: string) => () => void;
+  loadConversations:   (userId?: string, role?: 'driver' | 'passenger') => Promise<void>;
+  loadMessages:        (convId: string) => Promise<void>;
   startConversation:   (driverId: string, passengerId: string, driverData?: any, passengerData?: any) => Promise<Conversation | null>;
   subscribeToMessages: (userId: string) => () => void;
   sendMessage:         (convId: string, senderId: string, text: string, senderName: string, senderRole: 'driver' | 'passenger') => Promise<void>;
   markConversationRead:(convId: string, userId: string, role: 'driver' | 'passenger') => Promise<void>;
 
-  // ── NEW ─────────────────────────────────────────────────────────────────────
-  /** Creates (or returns existing) direct conversation between passenger and driver. */
+  /** Creates (or returns existing) direct conversation between two users. */
   startDirectChat: (passengerId: string, driverUserId: string) => Promise<Conversation>;
-  /**
-   * Resolves a driver by their public badge ID (e.g. "DRV-A1B2C3"),
-   * then calls startDirectChat. Throws a user-facing error if not found.
-   */
   fetchConversationByDriverId: (
     driverDisplayId: string,
     passengerId: string,
   ) => Promise<{ driverUser: ChatCandidate; conversation: Conversation }>;
-
-  /** Resolve "@username" or "DRV-XXXXXX" to a person and open the chat. */
   fetchConversationByHandle: (
     handle: string,
     currentUserId: string,
   ) => Promise<{ driverUser: ChatCandidate; conversation: Conversation }>;
-
-  /** Ranked partial matches for a type-ahead field. */
   searchUsersForChat: (query: string) => Promise<ChatCandidate[]>;
+}
+
+/** Server row → the one-sided shape the UI reads. */
+function fromServerConversation(r: chat.ChatConversationRow): Conversation {
+  return {
+    id: r.id,
+    type: (r.type as any) || 'direct',
+    participant_id: r.other_id ?? '',
+    participant_name: r.other_name || (r.other_role === 'passenger' ? 'Passenger' : 'Driver'),
+    participant_role: (r.other_role || 'driver') as any,
+    participant_photo: r.other_photo ?? undefined,
+    participant_username: r.other_username ?? undefined,
+    participant_driver_id: r.other_driver_id ?? undefined,
+    participant_vehicle: r.other_vehicle ?? undefined,
+    participant_park_name: r.other_park_name ?? undefined,
+    last_message: r.last_message || '',
+    last_message_at: r.last_message_at,
+    unread_count: r.unread_count ?? 0,
+    muted_until: r.muted_until,
+    pinned: !!r.pinned,
+    archived: !!r.archived,
+    wallpaper: r.wallpaper,
+    trip_code: r.trip_code ?? undefined,
+  };
 }
 
 /**
@@ -147,9 +228,7 @@ interface MessagesState {
  * getting it wrong is what made a driver's inbox show a chat with themselves.
  */
 function conversationForViewer(row: any, viewerId: string): Conversation {
-  // If the viewer IS the stored participant, the other side is the passenger.
   const viewerIsParticipant = row.participant_id === viewerId;
-
   return {
     id:   row.id,
     type: row.type,
@@ -160,8 +239,6 @@ function conversationForViewer(row: any, viewerId: string): Conversation {
     participant_role: (viewerIsParticipant ? 'passenger' : row.participant_role || 'driver') as any,
     participant_photo: viewerIsParticipant ? row.passenger_photo : row.participant_photo,
     participant_username: viewerIsParticipant ? row.passenger_username : row.participant_username,
-    // These describe a driver specifically, so they only apply when the other
-    // side IS the driver.
     participant_driver_id: viewerIsParticipant ? undefined : row.participant_driver_id,
     participant_vehicle:   viewerIsParticipant ? undefined : row.participant_vehicle,
     participant_park_name: viewerIsParticipant ? undefined : row.participant_park_name,
@@ -177,19 +254,50 @@ function conversationForViewer(row: any, viewerId: string): Conversation {
 
 function normalizeMessage(msg: any): Message {
   return {
-    reply_to:        msg.reply_to ?? null,
     id:              msg.id,
     conversation_id: msg.conversation_id || msg.conversationId,
     sender_id:       msg.sender_id       || msg.senderId,
     sender_name:     msg.sender_name     || msg.senderName || 'Unknown',
-    sender_role:     msg.sender_role,
-    text:            msg.text,
-    audio_uri:       msg.audio_uri       || msg.audioUri,
+    sender_role:     msg.sender_role ?? undefined,
+    text:            msg.text ?? undefined,
+    audio_uri:       msg.audio_uri       || msg.audioUri || undefined,
+    media_url:       msg.media_url ?? undefined,
+    media_type:      msg.media_type ?? undefined,
+    media_name:      msg.media_name ?? undefined,
+    media_size:      msg.media_size ?? undefined,
+    media_width:     msg.media_width ?? undefined,
+    media_height:    msg.media_height ?? undefined,
+    duration_ms:     msg.duration_ms ?? undefined,
+    reply_to:        msg.reply_to ?? null,
+    starred:         !!msg.starred,
+    forwarded:       !!msg.forwarded,
+    edited_at:       msg.edited_at ?? null,
+    deleted_for_everyone: !!msg.deleted_for_everyone,
     created_at:      msg.created_at      || msg.createdAt || new Date().toISOString(),
     read:            msg.read            || false,
     status:          msg.status          || 'sent',
+    pending:         msg.pending ?? undefined,
+    failed:          msg.failed ?? undefined,
   };
 }
+
+/** What the inbox row should say for a message with no text. */
+function previewOf(m: Message): string {
+  if (m.text) return m.text;
+  switch (m.media_type) {
+    case 'image': return '📷 Photo';
+    case 'video': return '🎥 Video';
+    case 'audio': return '🎤 Voice message';
+    case 'file':  return `📄 ${m.media_name || 'Document'}`;
+  }
+  return m.audio_uri ? '🎤 Voice message' : '';
+}
+
+const newId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+
+/** Chronological, so a confirmed message never jumps past a pending one. */
+const byTime = (a: Message, b: Message) =>
+  new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
 
 export const useMessagesStore = create<MessagesState>()(
   persist(
@@ -198,10 +306,10 @@ export const useMessagesStore = create<MessagesState>()(
       messages:             {},
       typingUsers:          {},
       realtimeSubscription: null,
-      onlineUsers:          new Set(),
+      liveChannels:         {},
+      onlineUsers:          {},
       viewerRole:           null,
-
-      // ── All original actions — UNCHANGED ────────────────────────────────────
+      loadingConversations: false,
 
       addConversation: async (conv) => {
         const normalized: Conversation = {
@@ -245,12 +353,125 @@ export const useMessagesStore = create<MessagesState>()(
 
       deleteConversation: async (id) => {
         set((state) => {
-          const { [id]: _, ...rest } = state.messages;
+          const { [id]: _removed, ...rest } = state.messages;
           return { conversations: state.conversations.filter((c) => c.id !== id), messages: rest };
         });
         try { await supabase.from('conversations').delete().eq('id', id); } catch (e) {
           console.warn('[Messages] deleteConversation error:', e);
         }
+      },
+
+      // ── Sending ───────────────────────────────────────────────────────────
+
+      sendMessage2: async (convId, out) => {
+        const user = useAuthStore.getState().user;
+        if (!user?.id) return;
+
+        const id = newId();
+        const optimistic: Message = normalizeMessage({
+          id,
+          conversation_id: convId,
+          sender_id:   user.id,
+          sender_name: user.full_name || 'Me',
+          sender_role: user.role,
+          text: out.text?.trim() || undefined,
+          // Render the LOCAL uri while the upload runs, so a photo appears
+          // immediately instead of after the round trip.
+          media_url:   out.localMediaUri,
+          media_type:  out.mediaKind,
+          media_name:  out.mediaName,
+          media_width: out.mediaWidth,
+          media_height: out.mediaHeight,
+          duration_ms: out.durationMs,
+          audio_uri:   out.mediaKind === 'audio' ? out.localMediaUri : undefined,
+          created_at:  new Date().toISOString(),
+          read: false,
+          status: 'sent',
+          pending: true,
+          reply_to: out.replyTo
+            ? {
+                id:      out.replyTo.id,
+                author:  out.replyTo.sender_id === user.id ? 'You' : out.replyTo.sender_name || 'User',
+                preview: previewOf(out.replyTo) || 'Message',
+              }
+            : null,
+        });
+
+        get().addMessageLocal(optimistic);
+
+        try {
+          let storedPath = out.localMediaUri;
+          if (out.localMediaUri && out.mediaKind) {
+            const up = await chat.uploadChatMedia(convId, out.localMediaUri, out.mediaKind);
+            storedPath = up.path;
+            get().updateMessageLocal(convId, id, { media_size: up.size });
+          }
+
+          const row: Record<string, any> = {
+            id,
+            conversation_id: convId,
+            sender_id:   user.id,
+            sender_name: user.full_name || 'Me',
+            sender_role: user.role,
+            text:        optimistic.text ?? null,
+            reply_to:    optimistic.reply_to,
+            created_at:  optimistic.created_at,
+            read:        false,
+            status:      'sent',
+          };
+          if (out.mediaKind === 'audio') {
+            row.audio_uri  = storedPath;
+            row.media_url  = storedPath;
+            row.media_type = 'audio';
+            row.duration_ms = out.durationMs ?? null;
+          } else if (out.mediaKind) {
+            row.media_url    = storedPath;
+            row.media_type   = out.mediaKind;
+            row.media_name   = out.mediaName ?? null;
+            row.media_width  = out.mediaWidth ?? null;
+            row.media_height = out.mediaHeight ?? null;
+          }
+
+          const { error } = await supabase.from('messages').insert([row]);
+          if (error) throw new Error(error.message);
+
+          // The path replaces the local uri only once the object is on the
+          // server; swapping earlier would break the preview if the upload
+          // failed halfway.
+          get().updateMessageLocal(convId, id, {
+            pending: false,
+            failed: false,
+            status: 'sent',
+            media_url: out.mediaKind ? storedPath : undefined,
+            audio_uri: out.mediaKind === 'audio' ? storedPath : undefined,
+          });
+        } catch (e: any) {
+          console.warn('[Messages] send failed:', e?.message ?? e);
+          get().updateMessageLocal(convId, id, { pending: false, failed: true });
+        }
+      },
+
+      retryMessage: async (convId, msgId) => {
+        const msg = (get().messages[convId] || []).find((m) => m.id === msgId);
+        if (!msg) return;
+        // Drop the failed copy and send it again: reusing the id would collide
+        // if the original insert actually landed and only the reply was lost.
+        set((s) => ({
+          messages: {
+            ...s.messages,
+            [convId]: (s.messages[convId] || []).filter((m) => m.id !== msgId),
+          },
+        }));
+        await get().sendMessage2(convId, {
+          text: msg.text,
+          localMediaUri: msg.media_url,
+          mediaKind: msg.media_type,
+          mediaName: msg.media_name,
+          mediaWidth: msg.media_width,
+          mediaHeight: msg.media_height,
+          durationMs: msg.duration_ms,
+          replyTo: null,
+        });
       },
 
       addMessage: async (msg) => {
@@ -263,38 +484,22 @@ export const useMessagesStore = create<MessagesState>()(
             sender_id:       normalized.sender_id,
             sender_name:     normalized.sender_name,
             sender_role:     normalized.sender_role,
-            text:            normalized.text,
-            audio_uri:       normalized.audio_uri,
+            text:            normalized.text ?? null,
+            audio_uri:       normalized.audio_uri ?? null,
+            media_url:       normalized.media_url ?? null,
+            media_type:      normalized.media_type ?? null,
+            reply_to:        normalized.reply_to,
             created_at:      normalized.created_at,
-            read:            normalized.read,
-            status:          'delivered',
+            read:            false,
+            status:          'sent',
           }]);
-          // Bump the conversation so the RECIPIENT's inbox shows the preview and
-          // an unread count. Without this a message arrives but the chat list
-          // still reads "Tap to start chatting", which looks like it failed.
-          await supabase
-            .from('conversations')
-            .update({
-              last_message:    normalized.audio_uri ? '🎤 Voice message' : normalized.text ?? '',
-              last_message_at: normalized.created_at,
-            })
-            .eq('id', normalized.conversation_id);
-
           if (error) {
             console.warn('[Messages] insert error:', error.message);
-          } else {
-            set((state) => {
-              const msgs = state.messages[normalized.conversation_id] || [];
-              return {
-                messages: {
-                  ...state.messages,
-                  [normalized.conversation_id]: msgs.map((m) =>
-                    m.id === normalized.id ? { ...m, status: 'delivered' as const } : m,
-                  ),
-                },
-              };
-            });
+            get().updateMessageLocal(normalized.conversation_id, normalized.id, { failed: true });
           }
+          // The conversation preview is bumped by a trigger now, so there is no
+          // second round trip here. A client-side update could only ever cover
+          // its own sends anyway — forwards and other devices bypassed it.
         } catch (e) {
           console.warn('[Messages] addMessage network error:', e);
         }
@@ -302,19 +507,24 @@ export const useMessagesStore = create<MessagesState>()(
 
       addMessageLocal: (msg) => {
         const normalized = normalizeMessage(msg);
+        const me = useAuthStore.getState().user?.id;
         set((state) => {
           const convId   = normalized.conversation_id;
           const existing = state.messages[convId] || [];
           if (existing.find((m) => m.id === normalized.id)) return state;
+          const mine = normalized.sender_id === me;
           return {
-            messages: { ...state.messages, [convId]: [...existing, normalized] },
+            messages: { ...state.messages, [convId]: [...existing, normalized].sort(byTime) },
             conversations: state.conversations.map((c) =>
               c.id === convId
                 ? {
                     ...c,
-                    last_message:    normalized.audio_uri ? '🎤 Voice message' : normalized.text || '',
+                    last_message:    previewOf(normalized),
                     last_message_at: normalized.created_at,
-                    unread_count:    c.unread_count + 1,
+                    // Your own message is not unread FOR YOU. The old code
+                    // incremented unconditionally, so sending marked the chat
+                    // unread and the tab badge counted your own words.
+                    unread_count: mine ? c.unread_count : (c.unread_count || 0) + 1,
                   }
                 : c,
             ),
@@ -322,7 +532,7 @@ export const useMessagesStore = create<MessagesState>()(
         });
       },
 
-      updateMessage: async (convId, msgId, updates) => {
+      updateMessageLocal: (convId, msgId, updates) =>
         set((state) => ({
           messages: {
             ...state.messages,
@@ -330,15 +540,29 @@ export const useMessagesStore = create<MessagesState>()(
               m.id === msgId ? { ...m, ...updates } : m,
             ),
           },
-        }));
-        try { await supabase.from('messages').update(updates).eq('id', msgId); } catch (e) {
+        })),
+
+      updateMessage: async (convId, msgId, updates) => {
+        get().updateMessageLocal(convId, msgId, updates);
+        // Only the sender may UPDATE a message row now, and receipts go through
+        // `chat_mark_read`. Anything else here would be rejected by RLS.
+        const me = useAuthStore.getState().user?.id;
+        const msg = (get().messages[convId] || []).find((m) => m.id === msgId);
+        if (!msg || msg.sender_id !== me) return;
+        const { pending, failed, starred, ...wire } = updates as any;
+        if (Object.keys(wire).length === 0) return;
+        try { await supabase.from('messages').update(wire).eq('id', msgId); } catch (e) {
           console.warn('[Messages] updateMessage error:', e);
         }
       },
 
-      deleteMessage: async (convId, msgId) => {
+      /** The old blanket delete. Kept because call sites use it; delete-for-me. */
+      deleteMessage: async (convId, msgId) => get().deleteForMe(convId, [msgId]),
+
+      deleteForMe: async (convId, msgIds) => {
+        const ids = new Set(msgIds);
         set((state) => {
-          const filtered = (state.messages[convId] || []).filter((m) => m.id !== msgId);
+          const filtered = (state.messages[convId] || []).filter((m) => !ids.has(m.id));
           const last     = filtered[filtered.length - 1];
           return {
             messages: { ...state.messages, [convId]: filtered },
@@ -346,54 +570,188 @@ export const useMessagesStore = create<MessagesState>()(
               c.id === convId
                 ? {
                     ...c,
-                    last_message:    last ? (last.audio_uri ? '🎤 Voice message' : last.text || '') : '',
+                    last_message:    last ? previewOf(last) : '',
                     last_message_at: last?.created_at || c.last_message_at,
                   }
                 : c,
             ),
           };
         });
-        try { await supabase.from('messages').delete().eq('id', msgId); } catch (e) {
-          console.warn('[Messages] deleteMessage error:', e);
+        await chat.deleteForMe(msgIds);
+      },
+
+      deleteForEveryone: async (convId, msgIds) => {
+        const ids = new Set(msgIds);
+        set((state) => ({
+          messages: {
+            ...state.messages,
+            [convId]: (state.messages[convId] || []).map((m) =>
+              ids.has(m.id)
+                ? { ...m, deleted_for_everyone: true, text: undefined, media_url: undefined,
+                    media_type: undefined, audio_uri: undefined, reply_to: null }
+                : m,
+            ),
+          },
+        }));
+        await chat.deleteForEveryone(msgIds);
+      },
+
+      toggleStar: async (convId, msgId) => {
+        const cur = (get().messages[convId] || []).find((m) => m.id === msgId)?.starred ?? false;
+        get().updateMessageLocal(convId, msgId, { starred: !cur });
+        const now = await chat.toggleStar(msgId);
+        if (now !== null && now !== !cur) get().updateMessageLocal(convId, msgId, { starred: now });
+      },
+
+      editMessage: async (convId, msgId, text) => {
+        const err = await chat.editMessage(msgId, text);
+        if (!err) {
+          get().updateMessageLocal(convId, msgId, { text, edited_at: new Date().toISOString() });
         }
+        return err;
+      },
+
+      forwardMessages: async (msgIds, convIds) => {
+        const n = await chat.forwardMessages(msgIds, convIds);
+        // Pull the copies back rather than inventing them client-side: the ids
+        // are minted server-side, and guessing them would break dedupe.
+        await Promise.all(convIds.map((id) => get().loadMessages(id)));
+        await get().loadConversations();
+        return n ?? 0;
       },
 
       markRead: async (convId) => {
+        const me = useAuthStore.getState().user?.id;
         set((state) => ({
           conversations: state.conversations.map((c) =>
             c.id === convId ? { ...c, unread_count: 0 } : c,
           ),
           messages: {
             ...state.messages,
-            [convId]: (state.messages[convId] || []).map((m) => ({
-              ...m,
-              read:   true,
-              status: 'read' as const,
-            })),
+            // Only the OTHER side's messages become read. Marking your own
+            // read is what turned your ticks blue by opening your own chat.
+            [convId]: (state.messages[convId] || []).map((m) =>
+              m.sender_id === me ? m : { ...m, read: true, status: 'read' as const },
+            ),
           },
         }));
-        try {
-          await supabase
-            .from('messages')
-            .update({ read: true, status: 'read' })
-            .eq('conversation_id', convId);
-        } catch (e) {
-          console.warn('[Messages] markRead error:', e);
-        }
+        await chat.markRead(convId);
       },
 
-      setTyping: (convId, isTyping) =>
-        set((state) => ({ typingUsers: { ...state.typingUsers, [convId]: isTyping } })),
+      markUnread: async (convId) => {
+        set((state) => ({
+          conversations: state.conversations.map((c) =>
+            c.id === convId ? { ...c, unread_count: Math.max(1, c.unread_count || 0) } : c,
+          ),
+        }));
+        await chat.markUnread(convId);
+      },
 
-      getMessages:    (convId) => get().messages[convId] || [],
+      clearHistory: async (convId) => {
+        set((state) => ({
+          messages: { ...state.messages, [convId]: [] },
+          conversations: state.conversations.map((c) =>
+            c.id === convId ? { ...c, last_message: '', unread_count: 0 } : c,
+          ),
+        }));
+        await chat.clearHistory(convId);
+      },
 
-      getUnreadCount: (userId, role, driverId) =>
-        get()
-          .conversations.filter((c) => {
-            if (role === 'driver')    return c.participant_driver_id === driverId || c.participant_id === userId;
-            if (role === 'passenger') return c.participant_role === 'driver';
-            return true;
+      setPrefs: async (convId, patch) => {
+        set((state) => ({
+          conversations: state.conversations.map((c) =>
+            c.id === convId
+              ? {
+                  ...c,
+                  muted_until: patch.clearMute ? null : (patch.mutedUntil ?? c.muted_until),
+                  pinned:      patch.pinned   ?? c.pinned,
+                  archived:    patch.archived ?? c.archived,
+                  wallpaper:   patch.clearWallpaper ? null : (patch.wallpaper ?? c.wallpaper),
+                }
+              : c,
+          ),
+        }));
+        await chat.setPrefs(convId, patch);
+      },
+
+      // ── Typing + presence ────────────────────────────────────────────────
+      //
+      // Typing used to be written into `typingUsers[conversationId]` by the
+      // person doing the typing, and read back by the same screen — so the
+      // header said "typing…" whenever YOU typed. It is a broadcast now, and
+      // only the other side's events reach this state.
+
+      setTyping: (convId, isTyping) => {
+        const me = useAuthStore.getState().user?.id;
+        const ch = get().liveChannels[convId];
+        if (!ch || !me) return;
+        ch.send({
+          type: 'broadcast',
+          event: 'typing',
+          payload: { user_id: me, typing: isTyping },
+        }).catch?.(() => {});
+      },
+
+      joinConversation: (convId, userId) => {
+        const existing = get().liveChannels[convId];
+        if (existing) { try { supabase.removeChannel(existing); } catch {} }
+
+        let idle: ReturnType<typeof setTimeout> | null = null;
+
+        const ch = supabase
+          .channel(`chat:${convId}`, { config: { presence: { key: userId } } })
+          .on('broadcast', { event: 'typing' }, ({ payload }) => {
+            if (!payload || payload.user_id === userId) return;
+            set((s) => ({ typingUsers: { ...s.typingUsers, [convId]: !!payload.typing } }));
+            // A "stopped typing" event can be lost. Without this timeout the
+            // header would say "typing…" forever after one dropped packet.
+            if (idle) clearTimeout(idle);
+            if (payload.typing) {
+              idle = setTimeout(
+                () => set((s) => ({ typingUsers: { ...s.typingUsers, [convId]: false } })),
+                6000,
+              );
+            }
           })
+          .on('presence', { event: 'sync' }, () => {
+            const state = ch.presenceState() as Record<string, unknown[]>;
+            const online: Record<string, boolean> = {};
+            Object.keys(state).forEach((k) => { online[k] = true; });
+            set({ onlineUsers: online });
+          })
+          .subscribe(async (status: string) => {
+            if (status === 'SUBSCRIBED') {
+              await ch.track({ at: new Date().toISOString() });
+            }
+          });
+
+        set((s) => ({ liveChannels: { ...s.liveChannels, [convId]: ch } }));
+
+        return () => {
+          if (idle) clearTimeout(idle);
+          try { supabase.removeChannel(ch); } catch {}
+          set((s) => {
+            const { [convId]: _gone, ...rest } = s.liveChannels;
+            return {
+              liveChannels: rest,
+              typingUsers: { ...s.typingUsers, [convId]: false },
+            };
+          });
+        };
+      },
+
+      getMessages: (convId) => get().messages[convId] || [],
+
+      /**
+       * Total unread across the inbox.
+       *
+       * The server already answers this per viewer, so the old role/driverId
+       * filtering — which counted a driver's own conversations twice — is gone.
+       * Muted chats still count: muting silences the alert, not the badge.
+       */
+      getUnreadCount: () =>
+        get().conversations
+          .filter((c) => !c.archived)
           .reduce((s, c) => s + (c.unread_count || 0), 0),
 
       subscribeToRealtime: (userId) => {
@@ -410,23 +768,25 @@ export const useMessagesStore = create<MessagesState>()(
               // The FIRST message of a new conversation arrives before that
               // conversation exists locally, and the old code returned here —
               // which is why a chat someone else started only ever appeared
-              // after a manual refresh. Pull the conversation list, then carry
-              // on and deliver the message.
+              // after a manual refresh. Pull the list, then deliver.
               let conv = get().conversations.find((c) => c.id === msg.conversation_id);
               if (!conv) {
-                await get().loadConversations(userId, get().viewerRole ?? 'passenger');
+                await get().loadConversations();
                 conv = get().conversations.find((c) => c.id === msg.conversation_id);
-                // Still nothing means the row genuinely is not ours to see.
-                if (!conv) return;
+                if (!conv) return; // genuinely not ours to see
               }
 
               get().addMessageLocal(msg);
+              chat.markDelivered(msg.conversation_id);
+
+              // Muting is the whole point of muting.
+              if (chat.isMuted(conv.muted_until)) return;
               try {
                 const N = await import('expo-notifications');
                 await N.default.scheduleNotificationAsync({
                   content: {
                     title: `New message from ${msg.sender_name || 'User'}`,
-                    body:  msg.text || '🎤 Voice message',
+                    body:  previewOf(msg) || 'New message',
                     data:  { conversationId: msg.conversation_id, type: 'message' },
                     sound: 'default',
                   },
@@ -438,7 +798,18 @@ export const useMessagesStore = create<MessagesState>()(
           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' },
             (payload) => {
               const u = normalizeMessage(payload.new);
-              get().updateMessage(u.conversation_id, u.id, u);
+              // LOCAL only. Writing back here would echo the change straight
+              // into the same subscription that delivered it.
+              get().updateMessageLocal(u.conversation_id, u.id, {
+                text: u.text,
+                read: u.read,
+                status: u.status,
+                edited_at: u.edited_at,
+                deleted_for_everyone: u.deleted_for_everyone,
+                ...(u.deleted_for_everyone
+                  ? { media_url: undefined, media_type: undefined, audio_uri: undefined, reply_to: null }
+                  : {}),
+              });
             },
           )
           .subscribe((status) => {
@@ -460,34 +831,50 @@ export const useMessagesStore = create<MessagesState>()(
         }
       },
 
-      loadConversations: async (userId, role) => {
-        set({ viewerRole: role });
+      /**
+       * The inbox.
+       *
+       * One RPC now, which returns the rows already resolved to "the other
+       * person" with this viewer's unread, mute, pin and wallpaper attached.
+       * The old version selected the whole table, filtered on the client and
+       * then fired one message query PER CONVERSATION — 30 chats meant 31 round
+       * trips before the list could paint.
+       */
+      loadConversations: async (userId?: string, role?: 'driver' | 'passenger') => {
+        if (role) set({ viewerRole: role });
+        set({ loadingConversations: true });
         try {
-          // RLS now restricts this to conversations the caller is in, so the
-          // client-side filter is belt and braces rather than the access rule.
-          const { data, error } = await supabase
-            .from('conversations')
-            .select('*')
-            .order('last_message_at', { ascending: false });
-          if (error || !data) return;
-          const filtered = data.filter((c: any) =>
-            c.participant_id === userId || c.passenger_id === userId
-          );
-          const normalized: Conversation[] = filtered.map((c: any) =>
-            conversationForViewer(c, userId),
-          );
-          set({ conversations: normalized });
-          for (const conv of normalized) {
-            const { data: msgs } = await supabase
-              .from('messages')
-              .select('*')
-              .eq('conversation_id', conv.id)
-              .order('created_at', { ascending: true });
-            if (msgs) {
-              set((s) => ({ messages: { ...s.messages, [conv.id]: msgs.map(normalizeMessage) } }));
-            }
-          }
-        } catch (e) { console.warn('[Messages] loadConversations error:', e); }
+          const rows = await chat.listConversations();
+          const uid = userId ?? useAuthStore.getState().user?.id;
+          if (!rows.length && !uid) return;
+          set({ conversations: rows.map(fromServerConversation) });
+          chat.markDelivered();
+        } catch (e) {
+          console.warn('[Messages] loadConversations error:', e);
+        } finally {
+          set({ loadingConversations: false });
+        }
+      },
+
+      /** One thread. Server rows win over the cache — hides and clears live there. */
+      loadMessages: async (convId) => {
+        try {
+          const rows = await chat.listMessages(convId);
+          set((s) => {
+            // Keep anything still in flight; the server has never heard of it.
+            const inflight = (s.messages[convId] || []).filter((m) => m.pending || m.failed);
+            const seen = new Set(rows.map((r) => r.id));
+            return {
+              messages: {
+                ...s.messages,
+                [convId]: [...rows.map(normalizeMessage), ...inflight.filter((m) => !seen.has(m.id))]
+                  .sort(byTime),
+              },
+            };
+          });
+        } catch (e) {
+          console.warn('[Messages] loadMessages error:', e);
+        }
       },
 
       startConversation: async (driverId, passengerId, driverData, passengerData) => {
@@ -496,19 +883,9 @@ export const useMessagesStore = create<MessagesState>()(
         if (existing) return existing;
 
         const { data: remote } = await supabase
-          .from('conversations').select('*').eq('id', convId).single();
+          .from('conversations').select('*').eq('id', convId).maybeSingle();
         if (remote) {
-          const n: Conversation = {
-            id:               remote.id,
-            participant_id:   remote.participant_id,
-            participant_name: remote.participant_name || 'Driver',
-            participant_role: remote.participant_role || 'driver',
-            participant_photo:     remote.participant_photo,
-            participant_driver_id: remote.participant_driver_id,
-            last_message:     remote.last_message   || '',
-            last_message_at:  remote.last_message_at || new Date().toISOString(),
-            unread_count:     remote.unread_count    || 0,
-          };
+          const n = conversationForViewer(remote, passengerId);
           set((s) => ({
             conversations: s.conversations.find((c) => c.id === convId)
               ? s.conversations
@@ -527,9 +904,7 @@ export const useMessagesStore = create<MessagesState>()(
             !passengerData ? passengerId : null,
           ].filter(Boolean) as string[];
 
-          const { data: profiles } = await supabase.rpc('get_public_profiles', {
-            p_ids: need,
-          });
+          const { data: profiles } = await supabase.rpc('get_public_profiles', { p_ids: need });
           const byId = new Map<string, any>((profiles ?? []).map((r: any) => [r.id, r]));
           if (!driverData) driverData = byId.get(driverId) ?? null;
           if (!passengerData) passengerData = byId.get(passengerId) ?? null;
@@ -549,6 +924,7 @@ export const useMessagesStore = create<MessagesState>()(
         try {
           await supabase.from('conversations').insert([{
             id:                    convId,
+            type:                  'trip',
             participant_id:        driverId,
             participant_name:      newConv.participant_name,
             participant_role:      'driver',
@@ -556,6 +932,7 @@ export const useMessagesStore = create<MessagesState>()(
             participant_photo:     newConv.participant_photo,
             passenger_id:          passengerId,
             passenger_name:        passengerData?.full_name || 'Passenger',
+            passenger_photo:       passengerData?.profile_photo ?? null,
             last_message:          '',
             last_message_at:       newConv.last_message_at,
             unread_count:          0,
@@ -567,23 +944,9 @@ export const useMessagesStore = create<MessagesState>()(
 
       subscribeToMessages: (userId) => get().subscribeToRealtime(userId),
 
-      sendMessage: async (convId, senderId, text, senderName, senderRole) => {
-        const msgId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        await get().addMessage({
-          id: msgId, conversation_id: convId, sender_id: senderId,
-          sender_name: senderName, sender_role: senderRole,
-          text, created_at: new Date().toISOString(), read: false, status: 'sent',
-        });
-        try {
-          await supabase.from('conversations')
-            .update({ last_message: text, last_message_at: new Date().toISOString() })
-            .eq('id', convId);
-        } catch (e) { console.warn('[Messages] sendMessage update error:', e); }
-      },
+      sendMessage: async (convId, _senderId, text) => get().sendMessage2(convId, { text }),
 
-      markConversationRead: async (convId, _userId, _role) => get().markRead(convId),
-
-      // ── NEW ACTIONS ──────────────────────────────────────────────────────────
+      markConversationRead: async (convId) => get().markRead(convId),
 
       startDirectChat: async (passengerId, driverUserId) => {
         // Sorted so both sides produce the same deterministic key
@@ -591,14 +954,11 @@ export const useMessagesStore = create<MessagesState>()(
         const existing = get().conversations.find((c) => c.id === convId);
         if (existing) return existing;
 
-        // Check Supabase — the other device may have already created it
         const { data: remote } = await supabase
           .from('conversations').select('*').eq('id', convId).maybeSingle();
 
         if (remote) {
           // Same rule as loadConversations: render the side that ISN'T me.
-          // Reading `participant_*` unconditionally here would show the
-          // recipient a chat with themselves.
           const normalized = conversationForViewer(remote, passengerId);
           set((s) => ({
             conversations: s.conversations.find((c) => c.id === convId)
@@ -608,8 +968,6 @@ export const useMessagesStore = create<MessagesState>()(
           return normalized;
         }
 
-        // Resolve the other person's display fields.
-        //
         // This used to be `from('users').select().eq('id', …)`, which cannot
         // work: RLS on `users` is own-row only, so looking up ANYONE else
         // returned nothing and this threw "Driver profile not found." every
@@ -619,15 +977,15 @@ export const useMessagesStore = create<MessagesState>()(
           p_driver_id: driverUserId,
         });
         const driver = Array.isArray(rpcRows) ? rpcRows[0] : rpcRows;
-
         if (error || !driver) throw new Error('Could not load that profile.');
 
         const newConv: Conversation = {
           id:                    convId,
           participant_id:        driver.id,
           participant_name:      driver.full_name       || 'Driver',
-          participant_role:      'driver',
+          participant_role:      (driver.role || 'driver') as any,
           participant_photo:     driver.profile_photo   ?? undefined,
+          participant_username:  driver.username        ?? undefined,
           participant_driver_id: driver.driver_id       ?? undefined,
           participant_vehicle:   driver.vehicle_details ?? undefined,
           participant_park_name: driver.park_name       ?? undefined,
@@ -640,14 +998,10 @@ export const useMessagesStore = create<MessagesState>()(
           unread_count:          0,
         };
 
-        // Persist BOTH sides.
-        //
-        // The row used to describe only `participant_*` (the person being
-        // messaged) plus a bare `passenger_id`. Since the client always renders
+        // Persist BOTH sides. The row used to describe only `participant_*`
+        // plus a bare `passenger_id`, and since the client always renders
         // `participant_*` as "the other person", the recipient opening their
-        // inbox saw a conversation with THEMSELVES — their own name and photo.
-        // Writing the initiator's display fields too is what lets each side
-        // pick the one that isn't them (see loadConversations).
+        // inbox saw a conversation with THEMSELVES.
         const me = useAuthStore.getState().user;
 
         await supabase.from('conversations').insert([{
@@ -663,7 +1017,7 @@ export const useMessagesStore = create<MessagesState>()(
           participant_username:  driver.username               ?? null,
           passenger_id:          passengerId,
           passenger_name:        me?.full_name                 ?? null,
-          passenger_username:    me?.username                  ?? null,
+          passenger_username:    (me as any)?.username         ?? null,
           passenger_photo:       me?.profile_photo             ?? null,
           last_message:          '',
           last_message_at:       newConv.last_message_at,
@@ -677,12 +1031,6 @@ export const useMessagesStore = create<MessagesState>()(
       /**
        * Resolve a username or an ID to a person, and open a chat with them.
        *
-       * This used to query `users` directly. That could never have worked for
-       * anyone else's account: RLS on `users` is own-row only, so the select
-       * came back empty regardless of how the handle was spelled. Resolution now
-       * goes through `find_user_for_chat`, a SECURITY DEFINER RPC that returns
-       * only display-safe columns (see migration_chat_handles.sql).
-       *
        * Accepts "@ada", "ada", "DRV-A1B2C3", "a1b2c3" — and works in both
        * directions, so a driver can reach a passenger the same way.
        */
@@ -691,7 +1039,6 @@ export const useMessagesStore = create<MessagesState>()(
         if (!typed) throw new Error('Enter a username or ID to start a chat.');
 
         const { data, error } = await supabase.rpc('find_user_for_chat', { p_handle: typed });
-
         if (error) {
           console.warn('[Messages] find_user_for_chat error:', error.message);
           throw new Error('Could not search right now. Check your connection and try again.');
@@ -715,7 +1062,6 @@ export const useMessagesStore = create<MessagesState>()(
           p_query: typed,
           p_limit: 10,
         });
-
         if (error) {
           console.warn('[Messages] search_users_for_chat error:', error.message);
           return [];
@@ -723,8 +1069,6 @@ export const useMessagesStore = create<MessagesState>()(
         return (data ?? []) as ChatCandidate[];
       },
 
-      // Kept so the four existing call sites keep working; they gain username
-      // support for free by delegating.
       fetchConversationByDriverId: async (driverDisplayId, passengerId) =>
         get().fetchConversationByHandle(driverDisplayId, passengerId),
     }),

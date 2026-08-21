@@ -117,23 +117,26 @@ export interface ChatDoodleProps {
   style?: StyleProp<ViewStyle>;
   /**
    * Override the wallpaper base. Defaults to the theme's grouped background,
-   * which is what a chat should sit on.
+   * which is what a chat should sit on. Pass "transparent" to draw the marks
+   * over something else — that is how the wallpaper presets reuse this.
    */
   backgroundColor?: string;
+  /** Override the mark colour, so a preset can tint the doodle to match. */
+  tint?: string;
 }
 
 /**
  * Fills its parent. Drop it as the first child of the chat container and let
  * everything else stack on top.
  */
-export function ChatDoodle({ style, backgroundColor }: ChatDoodleProps) {
+export function ChatDoodle({ style, backgroundColor, tint }: ChatDoodleProps) {
   const t = useIOSTheme();
   const { width, height } = useWindowDimensions();
   const dark = t.scheme === "dark";
 
   // A tinted mark rather than plain grey: the doodle picks up the Nigerian
   // green so the wallpaper belongs to this app and not to a template.
-  const colour = dark ? "#FFFFFF" : t.tint;
+  const colour = tint ?? (dark ? "#FFFFFF" : t.tint);
   const opacity = dark ? 0.07 : 0.055;
 
   const base = backgroundColor ?? (dark ? t.systemBackground : t.systemGroupedBackground);

@@ -1,7 +1,8 @@
-# EMILGO — session status, 20 August 2026
+# EMILGO — session status, 21 August 2026
 
-Branch `sdk-54-temp`. Everything below is committed. Nothing is pushed —
-see "Blocked on you" first.
+Branch `sdk-54-temp`. **This session's work is NOT committed** — the working
+tree holds it. Earlier sessions' work is committed but unpushed; see
+"Blocked on you" first.
 
 ---
 
@@ -125,45 +126,79 @@ Daily cap per referrer.
 
 ## ❌ Not done — build these first, in this order
 
-### 1. ~~The chat tab~~ — DONE, commit `24acca1`
+### 1. ~~The chat tab~~ — DONE
 
-**What was actually wrong:** the app had two chat screens and nobody knew.
+Two sessions ago the app had two chat screens and nobody knew. That was
+fixed (commit `24acca1`). This session finished the job: the extra chat
+features are built, and the three faults underneath them are closed.
 
-`app/direct-chat/[conversationId].tsx` is the route nine screens push to —
-it opens every time you tap a conversation. It imported nothing from
-`messages.tsx`, and had its own standalone copy built on a MessageBubble
-last touched **28 May**. Meanwhile `messages.tsx` exported `ChatScreen`
-and `MessageBubble` with a comment at the top of the file saying
-direct-chat imports them to avoid duplication. It never did.
+**The faults, which only show up with two real accounts:**
 
-So every improvement went into the screen almost nobody opened. That is the
-whole explanation for the missing wallpaper and the apparent second chat
-screen — the wrong one was being edited.
+- **`markRead` marked YOUR OWN messages read.** It ran
+  `update messages set read = true` across the whole conversation with no
+  sender filter, so opening your own chat turned your own ticks blue. It is
+  `chat_mark_read()` now, and the test proves it touches exactly the other
+  side's rows.
+- **Unread was one integer on a row BOTH people share.** Whoever read the
+  chat cleared it for both. Unread is derived per viewer from
+  `conversation_prefs.last_read_at`.
+- **`addMessageLocal` incremented unread for your own sends**, so sending a
+  message made the chat unread and put your own words on the tab badge.
+- **Any participant could `UPDATE` any message in the conversation** —
+  an edit button on the other person's words. Update is sender-only;
+  receipts go through an RPC.
+- **Voice notes stored the SENDER's `file://` path.** The recipient got a
+  path to a file that does not exist on their phone, so every received voice
+  note was silent. They upload now.
+- **`reply_to` had no column.** The client model carried it and the INSERT
+  dropped it, so a reply quote existed only on the device that sent it.
+- **`messages_has_content` was `text OR audio_uri`** — it predates media, so
+  a photo with no caption was rejected outright.
+- **The chat screen's back button called `onBack()` AND `router.back()`.**
+  Rendered inline inside the Messages tab that popped the tab off the stack,
+  so closing a chat navigated out of Messages entirely.
+- **The tab never fetched anything.** The list came from the persisted cache
+  plus whatever realtime happened to deliver, and pull-to-refresh was
+  `await new Promise(r => setTimeout(r, 700))` — a spinner that fetched
+  nothing. On a fresh install the inbox was empty forever.
+- **"typing…" fired for your OWN typing.** `setTyping` wrote into
+  `typingUsers[conversationId]` and the same screen read it back.
 
-Fixed:
-- `components/chat/ChatScreen.tsx` holds the single implementation.
-- `messages.tsx` renders it and is **577 lines lighter** — conversation
-  list and new-message sheet only.
-- `direct-chat/[conversationId].tsx` is a route: store first, fetch if
-  cold, params as a last resort so the header name is right on frame one.
-- Swipe in from the left edge to close, with `activeOffsetX` /
-  `failOffsetY` so it never steals a vertical scroll from the list.
-- New-message sheet is an `IOSSheet` — drags between detents, flicks away.
-  Search docked at the **bottom**, results at the **top**.
-- Deleted `components/MessageBubble.tsx`, `src/hooks/useChatManager.ts`
-  and `src/types/chat.ts` — a second chat data layer, provably
-  unreferenced. Leaving a spare one is how this happens twice.
+**Built this session:**
 
-**Still to verify on device:** the "all red" contact card. It is almost
-certainly the banner stack at `app/(main)/messages.tsx` — `Colors.error`
-is literally `firebrick` on the recording banner, and the gold "⚠ Invalid
-driver_id" banner fires whenever a lookup fails. `ContactCard.tsx`'s only
-red is `t.systemRed` on the Block row, which is correct iOS convention.
-Open a chat and look before changing anything.
+| Feature | Where |
+|---|---|
+| Starred messages | `chat_toggle_star` / `chat_list_starred`, `app/chat/starred.tsx` |
+| Media, links and docs gallery | `chat_conversation_media`, `app/chat/media.tsx` |
+| Mute (8h / 1 week / always) | `conversation_prefs.muted_until`; the realtime handler checks it before it notifies |
+| Wallpaper picker | `components/chat/wallpapers.ts`, `ChatWallpaper`, `app/chat/wallpaper.tsx` — per chat or app-wide |
+| Forward | `chat_forward` fans out server-side and stamps `forwarded` |
+| Delete for everyone | sender-only, 2-day window, leaves a tombstone |
+| Delete for me | `message_hides`, one-sided |
+| Edit | sender-only, 15 minutes, text only |
+| Photos, videos, documents | `expo-image-picker` + `expo-document-picker` → private `chat-media` bucket |
+| Voice notes that the other side can hear | uploaded, played through a signed URL |
+| Pin / archive / mark unread / clear chat | swipe actions on the row, and the in-chat menu |
+| Selection mode | multi-select → copy, forward, delete |
+| In-chat search | find bar with `3/12` and up/down |
+| Reply-quote jump | tap a quote, it scrolls and flashes |
+| Unread divider, scroll-to-latest, delivery receipts, presence, real typing | `ChatScreen` |
 
-**Still not done:** the extra chat features (starred messages, media
-gallery, mute, wallpaper picker, forward, edit/delete-for-everyone, etc).
-The foundation is now one screen, so they land once instead of twice.
+**The database:** `migration_chat_features.sql`, applied.
+`supabase/tests/test_chat_features.sql` — **40/40**, run as two real users
+under RLS inside a rolled-back transaction. It proves unread is per viewer,
+mute/pin/wallpaper/star are one-sided, delete-for-me hides for one person
+only, delete-for-everyone is sender-only and time-boxed, and that a raw
+`UPDATE` on the other side's message is refused.
+
+**`chat-media` is a PRIVATE bucket**, unlike `post-media`. A post is
+published; a chat is not. Every object is reached through a signed URL, so
+**`message.media_url` holds a storage PATH, not a URL** — anything rendering
+it must go through `resolveMediaUrl` / `useSignedMedia`.
+
+**Still to verify on device:** two real accounts, on real hardware. The
+database is proven and the bundle builds (31.2 MB dev, HTTP 200); the React
+layer has not been driven by a human.
 
 ### 2. Referral UI
 The data layer is done and tested. Still needed: the invite screen (code,
@@ -186,14 +221,18 @@ with zero new dependencies.
 - `v_active_park_trips` is still a SECURITY DEFINER view (advisor ERROR).
 - `auth_leaked_password_protection` is off — one toggle in the dashboard.
 - Chat and feed have never been tested between two real accounts on real
-  hardware. The databases are proven; the React layer is not.
+  hardware. The databases are proven; the React layer is not. For chat this is
+  now the ONLY thing left on it.
 
 ---
 
 ## How to start the next session
 
-> Read `STATUS.md`, then `HANDOFF.md`. Rebuild the chat screen at
-> `app/direct-chat/[conversationId].tsx` in place — it is the live route,
-> nine screens push to it, and it never received the ChatDoodle / ChatBubble
-> / ContactCard work that went into `messages.tsx` by mistake. Do not delete
-> it and do not replace it with the messages.tsx screen.
+> Read `STATUS.md`, then `HANDOFF.md`. The chat is done and tested against
+> the database — what it has never had is two people on two phones. Sign in
+> on two devices and check, in this order: does a message arrive without a
+> refresh; do the ticks go grey → double → blue on the SENDER's side only
+> when the other person opens it; does muting actually silence the push; does
+> a photo sent by one side render on the other (that is the signed-URL path,
+> the most likely thing to be wrong); does a voice note play on the receiving
+> phone. Then move to the referral UI (§2).

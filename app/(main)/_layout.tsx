@@ -113,9 +113,6 @@ export default function MainLayout() {
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [activeTopTab, setActiveTopTab] = useState<TopTab>("home");
   const [finderVisible, setFinderVisible] = useState(false);
-  // A chat fills the screen, so the floating tab bar must get out of the way.
-  // MessagesTab reports this up because the bar lives here, not there.
-  const [chatOpen, setChatOpen] = useState(false);
 
   const sidebarOpen = useRef(false);
   const sidebarAnim = useRef(new Animated.Value(0)).current;
@@ -344,10 +341,11 @@ export default function MainLayout() {
   const sideBorderColor = isDark ? Colors.overlayLight : Colors.overlayLight;
 
 
-  const totalUnread = conversations.reduce(
-    (s, c) => s + (c.unread_count ?? c.unreadCount ?? 0),
-    0,
-  );
+  // Archived chats are deliberately out of sight; counting them keeps a badge
+  // on the tab that nothing in the tab can clear.
+  const totalUnread = conversations
+    .filter((c) => !c.archived)
+    .reduce((s, c) => s + (c.unread_count ?? c.unreadCount ?? 0), 0);
 
   const handleTabPress = (tab: Tab) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -376,7 +374,7 @@ export default function MainLayout() {
         case "profile":
           return <ProfileTab />;
         case "messages":
-          return <MessagesTab onChatOpenChange={setChatOpen} />;
+          return <MessagesTab />;
         case "notifications":
           return <NotificationsTab />;
         default:
@@ -547,7 +545,7 @@ export default function MainLayout() {
                     onBellPress={() => handleTabPress("notifications")}
                     onSearchPress={toggleSearch}
                     tint={textColor}
-                    style={{ marginRight: 8 }}
+                    // style={{ marginRight: 8 }}
                   />
 
                   {/* Avatar → the account menu: other signed-in accounts, add
@@ -596,10 +594,13 @@ export default function MainLayout() {
 
           {/* Floating Liquid Glass tab bar. Content scrolls under it, and it
               minimises rather than sliding away — the iOS 26 behaviour.
-              Hidden entirely inside a chat: a conversation is a full-screen
-              context with its own back affordance, and the bar would sit on top
-              of the composer. */}
-          {!chatOpen && (
+
+              It no longer has to hide for a chat. A conversation is its own
+              route (`/direct-chat/[conversationId]`) pushed over this whole
+              group, so it covers the bar by construction — the tab used to
+              render a chat INLINE and then ask the layout to hide the bar,
+              which is why there were two ways into a chat that behaved
+              differently. */}
           <View
             style={{
               position: "absolute",
@@ -635,7 +636,6 @@ export default function MainLayout() {
               minimized={activeTab === "home" && tabBarMinimized}
             />
           </View>
-          )}
 
         </View>
       </Animated.View>

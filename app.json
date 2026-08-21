@@ -20,11 +20,12 @@
         "NSFaceIDUsageDescription": "Teqil uses Face ID to sign you in quickly and securely.",
         "NSLocationWhenInUseUsageDescription": "Teqil needs your location to track trips and show your position on the map.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Teqil needs your location to track trips in the background.",
-        "NSCameraUsageDescription": "Teqil needs camera access to take your profile photo.",
-        "NSPhotoLibraryUsageDescription": "Teqil needs photo library access to select your profile photo.",
+        "NSCameraUsageDescription": "Teqil needs camera access to take your profile photo and to send photos in a chat.",
+        "NSPhotoLibraryUsageDescription": "Teqil needs photo library access to set your profile photo, send photos in a chat and choose a chat wallpaper.",
         "LSApplicationQueriesSchemes": [
           "whatsapp"
-        ]
+        ],
+        "NSMicrophoneUsageDescription": "Teqil needs microphone access to record voice messages in a chat."
       }
     },
     "android": {

@@ -123,6 +123,20 @@ function RootLayoutNav() {
           name="tiers"
           options={{ headerShown: false, animation: "slide_from_right" }}
         />
+        {/* Chat side-screens. They push from the right like every other detail
+            screen; the chat itself is `direct-chat/[conversationId]`. */}
+        <Stack.Screen
+          name="chat/starred"
+          options={{ headerShown: false, animation: "slide_from_right" }}
+        />
+        <Stack.Screen
+          name="chat/media"
+          options={{ headerShown: false, animation: "slide_from_right" }}
+        />
+        <Stack.Screen
+          name="chat/wallpaper"
+          options={{ headerShown: false, animation: "slide_from_right" }}
+        />
       </Stack>
     </>
   );
